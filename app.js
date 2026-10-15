@@ -40,6 +40,7 @@ const PROJECT_TEMPLATES = {
     status: "in-progress",
     priority: "normal",
     tags: ["workshop", "craft", "handmade"],
+    skillNames: ["Woodworking"],
     tasks: [
       "Gather measurements & create dimension sketch",
       "Source lumber / materials & hardware",
@@ -56,6 +57,7 @@ const PROJECT_TEMPLATES = {
     status: "in-progress",
     priority: "high",
     tags: ["electronics", "hardware", "diy", "iot"],
+    skillNames: ["Electronics"],
     tasks: [
       "Draft schematic & pinout diagram",
       "Order components & microcontroller",
@@ -71,6 +73,7 @@ const PROJECT_TEMPLATES = {
     status: "in-progress",
     priority: "normal",
     tags: ["code", "software", "mvp"],
+    skillNames: ["Programming"],
     tasks: [
       "Define user stories & essential scope",
       "Setup repo & boilerplate architecture",
@@ -86,6 +89,7 @@ const PROJECT_TEMPLATES = {
     status: "in-progress",
     priority: "normal",
     tags: ["learning", "practice", "study"],
+    skillNames: [],
     tasks: [
       "Pick top learning resource / curriculum",
       "Complete fundamentals module",
@@ -100,6 +104,7 @@ const PROJECT_TEMPLATES = {
     status: "in-progress",
     priority: "normal",
     tags: ["3dprinting", "cad", "fabrication"],
+    skillNames: ["3D modeling"],
     tasks: [
       "Take caliper measurements of interface points",
       "Model CAD geometry in Fusion/FreeCAD",
@@ -1285,6 +1290,11 @@ function openProjectForm(project = null) {
     templateWrap.style.display = project ? "none" : "";
     const templateSelect = $("#project-template-select");
     if (templateSelect) templateSelect.value = "";
+    const templateHint = $("#project-template-hint");
+    if (templateHint) {
+      templateHint.textContent = "";
+      templateHint.style.display = "none";
+    }
   }
   addProjectSkillOptions(project?.skillIds || []);
   $("#project-dialog").showModal();
@@ -2508,6 +2518,9 @@ async function initialize() {
 }
 
 document.addEventListener("click", event => {
+  if (event.target.closest("input, textarea, select, option") && !event.target.closest("[data-action]")) {
+    return;
+  }
   const tagTarget = event.target.closest(".mini-tag.clickable");
   if (tagTarget) {
     if (tagTarget.dataset.tag) {
@@ -2529,7 +2542,7 @@ document.addEventListener("click", event => {
       return;
     }
   }
-  const target = event.target.closest("[data-action], [data-view], [data-project]");
+  const target = event.target.closest("[data-action], [data-view], .project-card[data-project], .project-row[data-project], .planner-row[data-project]");
   if (!target) return;
   if (target.dataset.view) {
     event.preventDefault();
@@ -2540,13 +2553,20 @@ document.addEventListener("click", event => {
     void handleAction(target.dataset.action, target);
     return;
   }
-  if (target.dataset.project) {
+  if (target.dataset.project && target.matches(".project-card, .project-row, .planner-row, [role='button']")) {
     openProjectDetail(target.dataset.project);
     return;
   }
 });
 
 document.addEventListener("keydown", event => {
+  if (event.target.closest("input, textarea, select")) {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && event.target.matches("textarea#journal-entry")) {
+      event.preventDefault();
+      event.target.form?.requestSubmit();
+    }
+    return;
+  }
   if (event.key === "Enter" || event.key === " ") {
     const photoTarget = event.target.closest("[data-action='open-lightbox']");
     if (photoTarget) {
@@ -2582,14 +2602,40 @@ $("#project-form").addEventListener("submit", event => void handleProjectSubmit(
 $("#project-template-select")?.addEventListener("change", event => {
   const key = event.target.value;
   const tpl = PROJECT_TEMPLATES[key];
-  if (!tpl) return;
   const form = $("#project-form");
-  if (!form.elements.title.value.trim()) form.elements.title.value = tpl.title;
-  if (!form.elements.description.value.trim()) form.elements.description.value = tpl.description;
-  if (tpl.status) form.elements.status.value = tpl.status;
-  if (tpl.priority) form.elements.priority.value = tpl.priority;
-  if (tpl.tags?.length && !form.elements.tags.value.trim()) form.elements.tags.value = tpl.tags.join(", ");
+  const templateHint = $("#project-template-hint");
+  if (!tpl) {
+    form.elements.title.value = "";
+    form.elements.description.value = "";
+    form.elements.status.value = "planned";
+    form.elements.priority.value = "normal";
+    form.elements.tags.value = "";
+    delete form.dataset.templateTasks;
+    $$('input[name="skillIds"]', form).forEach(cb => { cb.checked = false; });
+    if (templateHint) {
+      templateHint.textContent = "";
+      templateHint.style.display = "none";
+    }
+    return;
+  }
+  form.elements.title.value = tpl.title;
+  form.elements.description.value = tpl.description;
+  form.elements.status.value = tpl.status || "in-progress";
+  form.elements.priority.value = tpl.priority || "normal";
+  form.elements.tags.value = (tpl.tags || []).join(", ");
   form.dataset.templateTasks = JSON.stringify(tpl.tasks || []);
+
+  const matchedSkillIds = tpl.skillNames?.length
+    ? state.skills.filter(s => tpl.skillNames.some(name => s.name.toLowerCase() === name.toLowerCase())).map(s => s.id)
+    : [];
+  $$('input[name="skillIds"]', form).forEach(cb => {
+    cb.checked = matchedSkillIds.includes(cb.value);
+  });
+
+  if (templateHint) {
+    templateHint.textContent = `Includes ${tpl.tasks?.length || 0} starter checklist steps (e.g. “${tpl.tasks[0]}”)`;
+    templateHint.style.display = "block";
+  }
 });
 $("#skill-form").addEventListener("submit", event => void handleSkillSubmit(event));
 $("#xp-form").addEventListener("submit", event => void handleXpSubmit(event));
