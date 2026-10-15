@@ -32,9 +32,11 @@ Workbench is a static HTML/CSS/JavaScript app, so it can be hosted on GitHub Pag
 
 GitHub Pages serves static files only; it does not provide a database or hide source code. Keep Supabase row-level security and private Storage policies enabled. Never publish a Supabase secret or `service_role` key. The publishable/anon key is intended for browser apps when access is protected by those policies.
 
-GitHub Pages is free for public repositories but has published usage limits and is intended for static sites, not sensitive transactions or high-traffic commercial hosting. Supabase has its own separate free-plan quotas; the current plan includes 500 MB database, 1 GB file storage, and free projects may pause after a week without activity. Check the providers' current limits before relying on the free tiers:
+**Authentication caution:** GitHub Pages' terms say sites should not be used for sensitive transactions such as sending passwords. Workbench currently offers email/password sign-in as well as GitHub OAuth. If you host it on Pages, use GitHub OAuth rather than entering an email password on the hosted site; if you need password sign-in, use a host suitable for that authentication flow or remove that option from the hosted version.
 
-- [GitHub Pages usage limits](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages#usage-limits)
+GitHub Pages is free for public repositories. Published sites must be no larger than 1 GB, with a soft bandwidth limit of 100 GB/month and a soft limit of 10 builds/hour. It is intended for static sites, not high-traffic commercial hosting. Supabase has separate free-plan quotas: currently 500 MB database, 1 GB file storage, and free projects may pause after a week without activity. Project photos use Supabase Storage, so keep an eye on that quota. Check the providers' current limits before relying on the free tiers:
+
+- [GitHub Pages usage limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)
 - [Supabase pricing and quotas](https://supabase.com/pricing)
 
 ## Private cloud sync setup
