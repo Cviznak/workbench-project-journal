@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#f5f3ed">
     <title>Workbench — your project journal</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -41,6 +42,9 @@
         <header class="topbar">
           <div class="breadcrumbs"><span>My workshop</span><span class="crumb-divider">/</span><strong id="page-crumb">Overview</strong></div>
           <div class="topbar-actions">
+            <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle dark/light theme" title="Toggle theme">
+              <span class="theme-icon">◐</span>
+            </button>
             <span class="local-indicator"><span></span> Saved on this device</span>
             <button class="button button-primary button-small" data-action="new-project"><span>＋</span> New project</button>
           </div>
@@ -88,6 +92,7 @@
             <div class="toolbar">
               <label class="search-box"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="Find a project..." aria-label="Search projects"></label>
               <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
+              <label class="select-wrap"><span class="sr-only">Filter by skill</span><select id="project-skill-filter"><option value="all">All skills</option></select></label>
               <label class="select-wrap"><span class="sr-only">Sort projects</span><select id="project-sort"><option value="updated">Recently updated</option><option value="due-soon">Due date</option><option value="priority">Priority</option><option value="name">Name</option></select></label>
               <span class="result-count" id="project-result-count"></span>
             </div>
@@ -192,7 +197,11 @@
         <input type="hidden" name="id">
         <label class="field-label">Skill name<input name="name" required maxlength="60" placeholder="e.g. Crocheting"></label>
         <label class="field-label">Category <span class="optional">(optional)</span><input name="category" maxlength="40" placeholder="e.g. Textiles, Digital, Workshop"></label>
-        <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Save skill <span>→</span></button></div>
+        <div class="dialog-actions">
+          <button type="button" class="danger-button hidden" id="delete-skill-btn" data-action="delete-skill">Delete skill</button>
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button class="button button-primary" type="submit">Save skill <span>→</span></button>
+        </div>
       </form>
     </dialog>
 
@@ -218,6 +227,14 @@
         <label class="field-label">Folder name<input name="name" required maxlength="50" placeholder="e.g. First prototypes"></label>
         <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Create folder <span>→</span></button></div>
       </form>
+    </dialog>
+
+    <dialog class="app-dialog lightbox-dialog" id="lightbox-dialog" aria-label="Photo viewer">
+      <div class="lightbox-wrap">
+        <button type="button" class="lightbox-close" data-action="close-dialog" aria-label="Close photo">×</button>
+        <img id="lightbox-img" src="" alt="Enlarged project photo">
+        <div id="lightbox-caption" class="lightbox-caption"></div>
+      </div>
     </dialog>
 
     <input type="file" id="photo-input" accept="image/*" multiple hidden>

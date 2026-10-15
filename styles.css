@@ -353,3 +353,377 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
   .form-row { grid-template-columns: 1fr; }
   .app-dialog { padding: 19px; }.detail-dialog { padding: 0; }.detail-content { padding: 19px; }
 }
+
+/* --- Theme Toggle & Custom Controls --- */
+.theme-toggle-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dcdad2;
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 15px;
+  cursor: pointer;
+  transition: .18s ease;
+}
+.theme-toggle-btn:hover {
+  background: var(--green-pale);
+  color: var(--green);
+}
+
+/* Lightbox Dialog */
+.lightbox-dialog {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  max-width: 92vw;
+  max-height: 92vh;
+  box-shadow: none;
+  overflow: visible;
+}
+.lightbox-dialog::backdrop {
+  background: rgba(18, 20, 16, .88);
+  backdrop-filter: blur(8px);
+}
+.lightbox-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-close {
+  position: absolute;
+  top: -38px;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  transition: .15s ease;
+}
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, .4);
+}
+#lightbox-img {
+  max-width: 88vw;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .6);
+}
+.lightbox-caption {
+  margin-top: 10px;
+  color: #e5e4dc;
+  font-size: 12px;
+  text-align: center;
+  max-width: 85vw;
+}
+
+/* Task & Journal item buttons */
+.task-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  opacity: .5;
+  transition: opacity .15s ease;
+}
+.task-item:hover .task-item-actions {
+  opacity: 1;
+}
+.task-action-btn, .journal-action-btn {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.task-action-btn:hover, .journal-action-btn:hover {
+  background: var(--green-pale);
+  color: var(--green);
+}
+.journal-actions {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.journal-entry .task-remove {
+  position: static;
+}
+
+/* Folder Header actions */
+.folder-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.icon-link-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.icon-link-btn:hover {
+  color: var(--green);
+  background: var(--green-pale);
+}
+.icon-link-btn.danger-hover:hover {
+  color: #a36054;
+  background: #f4ebe7;
+}
+
+/* Clickable tags */
+.mini-tag.clickable {
+  cursor: pointer;
+  transition: .15s ease;
+}
+.mini-tag.clickable:hover {
+  background: var(--green-pale);
+  color: var(--green-dark);
+}
+
+/* Photo tile pointer cursor */
+.photo-tile, .detail-photo {
+  cursor: pointer;
+}
+
+/* --- Dark Theme Support --- */
+[data-theme="dark"] {
+  --paper: #161814;
+  --white: #20231d;
+  --ink: #e5e4dc;
+  --muted: #95968b;
+  --line: #2e3228;
+  --green: #6ca577;
+  --green-dark: #82ba8d;
+  --green-pale: #283627;
+  --orange: #e09467;
+  --purple: #aa98c2;
+  --shadow: 0 16px 40px rgba(0, 0, 0, .45);
+}
+
+[data-theme="dark"] .sidebar {
+  background: #1a1d17;
+  border-right-color: var(--line);
+}
+[data-theme="dark"] .topbar {
+  background: rgba(22, 24, 20, .93);
+  border-bottom-color: var(--line);
+}
+[data-theme="dark"] .breadcrumbs strong {
+  color: #c8c9be;
+}
+[data-theme="dark"] .nav-link {
+  color: #9ea094;
+}
+[data-theme="dark"] .nav-link:hover {
+  background: #252920;
+  color: var(--ink);
+}
+[data-theme="dark"] .nav-link.active {
+  background: #273626;
+  color: var(--green-dark);
+}
+[data-theme="dark"] .sidebar-note {
+  background: #23271f;
+}
+[data-theme="dark"] .sidebar-note p {
+  color: #a3a499;
+}
+[data-theme="dark"] .panel,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .project-card,
+[data-theme="dark"] .skill-card,
+[data-theme="dark"] .app-dialog {
+  background: var(--white);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .stat-card::after {
+  border-color: #2c3125;
+  box-shadow: 0 0 0 8px #20231d, 0 0 0 9px #2c3125;
+}
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #282c23;
+  border-color: #383e32;
+  color: var(--ink);
+}
+[data-theme="dark"] .search-box {
+  background: #282c23;
+  border-color: #383e32;
+}
+[data-theme="dark"] .search-box input {
+  color: var(--ink);
+}
+[data-theme="dark"] .button-outline {
+  color: #c9cbc0;
+  border-color: #3e4437;
+}
+[data-theme="dark"] .button-outline:hover {
+  background: #2a2f25;
+  border-color: #555e4b;
+}
+[data-theme="dark"] .button-quiet {
+  color: #9fa195;
+}
+[data-theme="dark"] .button-quiet:hover {
+  background: #272b22;
+}
+[data-theme="dark"] .theme-toggle-btn {
+  background: #282c23;
+  border-color: #383e32;
+  color: var(--ink);
+}
+[data-theme="dark"] .activity-item,
+[data-theme="dark"] .practice-entry,
+[data-theme="dark"] .journal-entry {
+  background: #272b22;
+}
+[data-theme="dark"] .activity-item p,
+[data-theme="dark"] .practice-entry-copy p,
+[data-theme="dark"] .journal-entry p {
+  color: #b5b7ab;
+}
+[data-theme="dark"] .task-item:hover {
+  background: #262b21;
+}
+[data-theme="dark"] .task-item label {
+  color: #c4c6b9;
+}
+[data-theme="dark"] .mini-tag {
+  background: #2b3026;
+  color: #b5b7ab;
+}
+[data-theme="dark"] .status-pill {
+  background: #292d24;
+  color: #a4a79a;
+}
+[data-theme="dark"] .status-in-progress {
+  background: #263625;
+  color: #8bb785;
+}
+[data-theme="dark"] .status-planned {
+  background: #392f23;
+  color: #d6a176;
+}
+[data-theme="dark"] .status-completed {
+  background: #23362a;
+  color: #80b58e;
+}
+[data-theme="dark"] .status-postponed {
+  background: #322b3a;
+  color: #b7a1cb;
+}
+[data-theme="dark"] .status-on-hold {
+  background: #2b2c28;
+  color: #abaea0;
+}
+[data-theme="dark"] .priority-pill {
+  background: #292d24;
+  color: #a4a79a;
+}
+[data-theme="dark"] .priority-high {
+  background: #3c2a26;
+  color: #de8878;
+}
+[data-theme="dark"] .priority-low {
+  background: #263526;
+  color: #8bb785;
+}
+[data-theme="dark"] .skills-intro {
+  background: #253324;
+  border-color: #354933;
+  color: #9cb897;
+}
+[data-theme="dark"] .skills-intro strong {
+  color: #c3e0bd;
+}
+[data-theme="dark"] .skill-level-badge {
+  background: #283926;
+  color: #8bbe84;
+}
+[data-theme="dark"] .progress-track {
+  background: #2c3127;
+}
+[data-theme="dark"] .project-card-description {
+  color: #9ea094;
+}
+[data-theme="dark"] .empty-state,
+[data-theme="dark"] .gallery-empty,
+[data-theme="dark"] .folder-empty {
+  border-color: #383d31;
+  color: #989a8e;
+}
+[data-theme="dark"] .sync-message {
+  background: #272b22;
+  color: #b0b2a5;
+}
+[data-theme="dark"] .cloud-conflict {
+  background: #352b22;
+  border-color: #4d3d2e;
+  color: #dec8b6;
+}
+[data-theme="dark"] .project-row,
+[data-theme="dark"] .planner-row {
+  border-top-color: #2c3026;
+}
+[data-theme="dark"] .planner-row-info strong {
+  color: #c8c9be;
+}
+[data-theme="dark"] .detail-section-heading,
+[data-theme="dark"] .detail-footer {
+  border-top-color: var(--line);
+}
+[data-theme="dark"] .dialog-close {
+  border-color: #373c30;
+  color: #9ea094;
+}
+[data-theme="dark"] .dialog-close:hover {
+  background: #2a2f25;
+}
+[data-theme="dark"] .field-label {
+  color: #b5b7ab;
+}
+[data-theme="dark"] .skill-option span {
+  border-color: #3a4033;
+  color: #9ea094;
+}
+[data-theme="dark"] .skill-option input:checked + span {
+  border-color: #55794d;
+  background: #273825;
+  color: #9bc894;
+}
+[data-theme="dark"] .small-action {
+  background: #272b22;
+  border-color: #393f32;
+  color: #abada0;
+}
+[data-theme="dark"] .small-action:hover {
+  background: #2f3629;
+}
+[data-theme="dark"] .photo-tile,
+[data-theme="dark"] .detail-photo {
+  background: #272b22;
+}
+

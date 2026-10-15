@@ -173,6 +173,99 @@ function releaseImageUrl(imageId) {
   imageUrls.delete(imageId);
 }
 
+function openLightbox(imageId, caption = "") {
+  let imageBlob = null;
+  for (const project of state.projects) {
+    for (const folder of project.folders || []) {
+      const found = (folder.images || []).find(img => img.id === imageId);
+      if (found) {
+        imageBlob = found;
+        break;
+      }
+    }
+    if (imageBlob) break;
+  }
+  if (!imageBlob) return;
+  const dialog = $("#lightbox-dialog");
+  const imgEl = $("#lightbox-img");
+  const capEl = $("#lightbox-caption");
+  if (!dialog || !imgEl) return;
+  imgEl.src = imageUrl(imageBlob);
+  imgEl.alt = caption || imageBlob.name || "Enlarged photo";
+  if (capEl) capEl.textContent = caption || imageBlob.name || "";
+  dialog.showModal();
+}
+
+async function optimizeImage(file, maxDimension = 1600, quality = 0.85) {
+  if (!file.type.startsWith("image/") || file.type === "image/svg+xml" || file.type === "image/gif") {
+    return file;
+  }
+  return new Promise(resolve => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const { width, height } = img;
+      if (width <= maxDimension && height <= maxDimension && file.size < 400 * 1024) {
+        resolve(file);
+        return;
+      }
+      const scale = Math.min(1, maxDimension / Math.max(width, height));
+      const targetWidth = Math.round(width * scale);
+      const targetHeight = Math.round(height * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+      canvas.toBlob(blob => {
+        if (!blob || blob.size >= file.size) {
+          resolve(file);
+        } else {
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+        }
+      }, "image/jpeg", quality);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file);
+    };
+    img.src = objectUrl;
+  });
+}
+
+const THEME_KEY = "workbench-theme";
+function getSavedTheme() {
+  return localStorage.getItem(THEME_KEY) || "auto";
+}
+
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.documentElement.dataset.theme = "dark";
+  } else if (theme === "light") {
+    document.documentElement.dataset.theme = "light";
+  } else {
+    delete document.documentElement.dataset.theme;
+  }
+  const btn = $("#theme-toggle-btn");
+  if (btn) {
+    const isDark = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const icon = btn.querySelector(".theme-icon");
+    if (icon) icon.textContent = isDark ? "☼" : "☾";
+    btn.title = `Switch to ${isDark ? "light" : "dark"} mode`;
+  }
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const nextTheme = isDark ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, nextTheme);
+  applyTheme(nextTheme);
+  showToast(`Switched to ${nextTheme} theme.`);
+}
+
 function projectSkillNames(project) {
   return (project.skillIds || []).map(id => state.skills.find(skill => skill.id === id)).filter(Boolean);
 }
@@ -690,9 +783,18 @@ function emptyState(title, description, action, buttonText = "Get started") {
 function renderProjects() {
   const query = ($("#project-search")?.value || "").trim().toLowerCase();
   const filter = $("#project-status-filter")?.value || "all";
+  const skillSelect = $("#project-skill-filter");
+  const prevSkill = skillSelect?.value || "all";
+  if (skillSelect) {
+    skillSelect.innerHTML = `<option value="all">All skills</option>${state.skills.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`).join("")}`;
+    if (state.skills.some(s => s.id === prevSkill)) skillSelect.value = prevSkill;
+    else skillSelect.value = "all";
+  }
+  const effectiveSkill = skillSelect?.value || "all";
   const sort = $("#project-sort")?.value || "updated";
   const filtered = [...state.projects]
     .filter(project => (filter === "all" || safeStatus(project.status) === filter))
+    .filter(project => (effectiveSkill === "all" || (project.skillIds || []).includes(effectiveSkill)))
     .filter(project => `${project.title} ${project.description} ${(project.tags || []).join(" ")} ${projectSkillNames(project).map(skill => skill.name).join(" ")}`.toLowerCase().includes(query))
     .sort((a, b) => {
       if (sort === "due-soon") return (a.targetDate || "9999").localeCompare(b.targetDate || "9999");
@@ -708,12 +810,12 @@ function renderProjects() {
     return `<article class="project-card" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
       <div class="project-card-head"><div class="project-card-mark">${["✳", "⌘", "◈", "✿"][index % 4]}</div><span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span></div>
       <h3>${escapeHTML(project.title)}</h3><p class="project-card-description">${escapeHTML(project.description || "No description yet. Open this project to add one.")}</p>
-      <div class="project-card-labels"><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>${(project.tags || []).slice(0, 3).map(tag => `<span class="mini-tag">${escapeHTML(tag)}</span>`).join("")}${(project.tags || []).length > 3 ? `<span class="mini-tag">+${project.tags.length - 3}</span>` : ""}</div>
-      <div class="project-card-skills">${skills.slice(0, 3).map(skill => `<span class="mini-tag">${escapeHTML(skill.name)}</span>`).join("")}${skills.length > 3 ? `<span class="mini-tag">+${skills.length - 3}</span>` : ""}</div>
+      <div class="project-card-labels"><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>${(project.tags || []).slice(0, 3).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}${(project.tags || []).length > 3 ? `<span class="mini-tag">+${project.tags.length - 3}</span>` : ""}</div>
+      <div class="project-card-skills">${skills.slice(0, 3).map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)}</span>`).join("")}${skills.length > 3 ? `<span class="mini-tag">+${skills.length - 3}</span>` : ""}</div>
       ${progress.total ? `<div class="card-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.completed}/${progress.total} steps</span></div>` : ""}
       <div class="project-card-bottom"><span class="project-card-meta">${images ? `▧ ${images} ${images === 1 ? "photo" : "photos"} · ` : ""}Updated ${relativeTime(project.updatedAt)}</span>${project.targetDate ? `<span class="project-card-meta">Due ${formatDate(project.targetDate)}</span>` : ""}</div>
     </article>`;
-  }).join("") : emptyState(query || filter !== "all" ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" ? "Try another search or status filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
+  }).join("") : emptyState(query || filter !== "all" || effectiveSkill !== "all" ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" || effectiveSkill !== "all" ? "Try another search or status/skill filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
 }
 
 function renderPlanner() {
@@ -794,7 +896,7 @@ function renderGallery() {
       <div class="gallery-project-heading"><h2>${escapeHTML(project.title)}</h2><span>${projectImageCount(project)} ${projectImageCount(project) === 1 ? "photo" : "photos"}</span></div>
       ${(project.folders || []).filter(folder => folder.images.length).map(folder => `
         <div class="gallery-folder"><div class="gallery-folder-title">${escapeHTML(folder.name)}</div><div class="photo-grid">${folder.images.map(image => `
-          <div class="photo-tile"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}" loading="lazy"><span class="photo-caption">${escapeHTML(image.name)}</span></div>`).join("")}</div></div>`).join("")}
+          <div class="photo-tile" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}" loading="lazy"><span class="photo-caption">${escapeHTML(image.name)}</span></div>`).join("")}</div></div>`).join("")}
     </section>`).join("") : `<div class="gallery-empty"><div class="empty-state-mark">▧</div><h3>Your making, in the making</h3><p>Add photos to any project to build a visual journal of the process. Create folders for prototypes, materials, finished pieces, and everything in between.</p><button class="button button-primary" data-view="projects">Explore projects <span>→</span></button></div>`;
 }
 
@@ -813,17 +915,17 @@ function renderProjectDetail(projectId) {
   $("#project-detail").innerHTML = `<div class="detail-content">
     <div class="detail-top"><div class="detail-title"><div class="project-swatch">✳</div><div><h2>${escapeHTML(project.title)}</h2><div class="detail-subtitle">Updated ${relativeTime(project.updatedAt)}${project.targetDate ? ` · Target ${formatDate(project.targetDate)}` : ""}</div></div></div><button class="dialog-close" data-action="close-dialog" aria-label="Close">×</button></div>
     <p class="detail-description">${escapeHTML(project.description || "No description yet.")}</p>
-    <div class="detail-top"><div class="project-card-labels"><span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)} priority</span>${(project.tags || []).map(tag => `<span class="mini-tag">${escapeHTML(tag)}</span>`).join("")}</div><button class="small-action" data-action="edit-project" data-id="${project.id}">Edit project</button></div>
-    ${skills.length ? `<div class="detail-skills">${skills.map(skill => `<span class="mini-tag">${escapeHTML(skill.name)} · Level ${skillLevel(skill.xp)}</span>`).join("")}</div>` : ""}
+    <div class="detail-top"><div class="project-card-labels"><span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)} priority</span>${(project.tags || []).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}</div><button class="small-action" data-action="edit-project" data-id="${project.id}">Edit project</button></div>
+    ${skills.length ? `<div class="detail-skills">${skills.map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)} · Level ${skillLevel(skill.xp)}</span>`).join("")}</div>` : ""}
     <div class="detail-section-heading"><h3>Project checklist <span class="subtle-count">${progress.total ? `${progress.completed}/${progress.total} complete` : "Break it into steps"}</span></h3></div>
     ${progress.total ? `<div class="detail-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.percent}%</span></div>` : ""}
     <form class="inline-add-form task-add-form" data-project="${project.id}"><input name="taskText" required maxlength="140" placeholder="Add a next step..." aria-label="New checklist step"><button class="button button-outline" type="submit">＋ Add step</button></form>
-    ${tasks.length ? `<ul class="task-list">${tasks.map(task => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span></label><button class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
+    ${tasks.length ? `<ul class="task-list">${tasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span></label><div class="task-item-actions">${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < tasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
     <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div><span class="form-hint">A dated note, just for this project.</span><button class="button button-outline" type="submit">＋ Add note</button></div></form>
-    ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatDate(note.at.slice(0, 10))}</div><p>${escapeHTML(note.text)}</p><button class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></article>`).join("")}</div>` : ""}
+    ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatDate(note.at.slice(0, 10))}</div><p>${escapeHTML(note.text)}</p><div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
     <div class="detail-section-heading"><h3>Project photos</h3><div><button class="small-action" data-action="new-folder" data-id="${project.id}">＋ Folder</button> <button class="small-action" data-action="add-photos" data-id="${project.id}">＋ Add photos</button></div></div>
-    ${folders.map(folder => `<div class="folder-block"><div class="folder-heading">${escapeHTML(folder.name)} <span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
+    ${folders.map(folder => `<div class="folder-block"><div class="folder-heading"><div class="folder-title-wrap"><span class="folder-name-text">${escapeHTML(folder.name)}</span><button type="button" class="icon-link-btn" data-action="rename-folder" data-project="${project.id}" data-folder="${folder.id}" title="Rename folder" aria-label="Rename folder">✎</button>${folders.length > 1 ? `<button type="button" class="icon-link-btn danger-hover" data-action="delete-folder" data-project="${project.id}" data-folder="${folder.id}" title="Delete folder" aria-label="Delete folder">×</button>` : ""}</div><span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
     <div class="detail-footer"><button class="danger-button" data-action="delete-project" data-id="${project.id}">Delete project</button><span class="project-card-meta">${projectImageCount(project)} photos · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}</span></div>
   </div>`;
 }
@@ -874,6 +976,11 @@ function openSkillForm(skill = null) {
   form.elements.id.value = skill?.id || "";
   form.elements.name.value = skill?.name || "";
   form.elements.category.value = skill?.category || "";
+  const deleteBtn = $("#delete-skill-btn");
+  if (deleteBtn) {
+    deleteBtn.classList.toggle("hidden", !skill);
+    deleteBtn.dataset.id = skill?.id || "";
+  }
   $("#skill-dialog").showModal();
 }
 
@@ -908,7 +1015,8 @@ async function handlePhotoUpload(files) {
   if (!validFiles.length) return;
   try {
     for (const file of validFiles) {
-      folder.images.push({ id: uid(), name: file.name, type: file.type, blob: file, addedAt: new Date().toISOString() });
+      const optimized = await optimizeImage(file);
+      folder.images.push({ id: uid(), name: file.name, type: optimized.type, blob: optimized, addedAt: new Date().toISOString() });
     }
     project.updatedAt = new Date().toISOString();
     makeActivity("photo", `Added ${validFiles.length} ${validFiles.length === 1 ? "photo" : "photos"} to ${project.title}`);
@@ -1178,8 +1286,143 @@ async function handleAction(action, target) {
     $("#xp-dialog").querySelector(".eyebrow").textContent = `PRACTICE MAKES PROGRESS · ${skill.name.toUpperCase()}`;
     $("#xp-dialog").showModal();
   }
+  if (action === "delete-skill") {
+    const skill = state.skills.find(item => item.id === id);
+    if (!skill) return;
+    const linkedCount = state.projects.filter(p => (p.skillIds || []).includes(skill.id)).length;
+    const confirmMsg = linkedCount > 0
+      ? `Delete “${skill.name}”? It is currently linked to ${linkedCount} project${linkedCount === 1 ? "" : "s"}. Those projects will remain, but the skill link will be removed.`
+      : `Delete “${skill.name}”? This will remove the skill and its XP progress.`;
+    if (!window.confirm(confirmMsg)) return;
+    state.skills = state.skills.filter(item => item.id !== id);
+    state.projects.forEach(p => {
+      p.skillIds = (p.skillIds || []).filter(sid => sid !== id);
+    });
+    makeActivity("skill", `Removed skill ${skill.name}`);
+    try {
+      await persistState();
+      $("#skill-dialog").close();
+      render();
+      showToast(`Skill “${skill.name}” deleted.`);
+    } catch (error) {
+      console.error("Unable to delete skill.", error);
+      showToast("Could not delete skill. Please try again.");
+    }
+    return;
+  }
   if (action === "new-folder") openFolderForm(id);
+  if (action === "rename-folder") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    const folder = project?.folders.find(item => item.id === target.dataset.folder);
+    if (!folder) return;
+    const newName = window.prompt("New folder name:", folder.name)?.trim();
+    if (!newName || newName === folder.name) return;
+    if (project.folders.some(f => f.id !== folder.id && f.name.toLowerCase() === newName.toLowerCase())) {
+      showToast("A folder with that name already exists in this project.");
+      return;
+    }
+    folder.name = newName;
+    project.updatedAt = new Date().toISOString();
+    try {
+      await persistState();
+      render();
+      renderProjectDetail(project.id);
+      showToast(`Folder renamed to “${newName}”.`);
+    } catch (error) {
+      console.error("Unable to rename folder.", error);
+      showToast("Could not rename folder.");
+    }
+    return;
+  }
+  if (action === "delete-folder") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    const folderIndex = project?.folders.findIndex(item => item.id === target.dataset.folder);
+    if (!project || folderIndex === undefined || folderIndex < 0) return;
+    const folder = project.folders[folderIndex];
+    if (project.folders.length <= 1) {
+      showToast("A project must have at least one folder.");
+      return;
+    }
+    const targetFolder = project.folders.find(f => f.id !== folder.id) || project.folders[0];
+    if (!window.confirm(`Delete folder “${folder.name}”? ${folder.images.length ? `Its ${folder.images.length} photo(s) will be moved to “${targetFolder.name}”.` : ""}`)) return;
+    if (folder.images.length) {
+      targetFolder.images.push(...folder.images);
+    }
+    project.folders.splice(folderIndex, 1);
+    project.updatedAt = new Date().toISOString();
+    try {
+      await persistState();
+      render();
+      renderProjectDetail(project.id);
+      showToast(`Folder “${folder.name}” deleted.`);
+    } catch (error) {
+      console.error("Unable to delete folder.", error);
+      showToast("Could not delete folder.");
+    }
+    return;
+  }
   if (action === "add-photos") beginPhotoUpload(id, target.dataset.folder || null);
+  if (action === "edit-task") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    const task = project?.tasks.find(item => item.id === id);
+    if (!project || !task) return;
+    const newText = window.prompt("Edit step:", task.text)?.trim();
+    if (!newText || newText === task.text) return;
+    task.text = newText;
+    project.updatedAt = new Date().toISOString();
+    try {
+      await persistState();
+      render();
+      renderProjectDetail(project.id);
+      showToast("Step updated.");
+    } catch (error) {
+      console.error("Unable to update step.", error);
+      showToast("Could not update step.");
+    }
+    return;
+  }
+  if (action === "move-task-up" || action === "move-task-down") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    if (!project) return;
+    const index = project.tasks.findIndex(item => item.id === id);
+    if (index < 0) return;
+    const targetIndex = action === "move-task-up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= project.tasks.length) return;
+    const [moved] = project.tasks.splice(index, 1);
+    project.tasks.splice(targetIndex, 0, moved);
+    project.updatedAt = new Date().toISOString();
+    try {
+      await persistState();
+      render();
+      renderProjectDetail(project.id);
+    } catch (error) {
+      console.error("Unable to reorder task.", error);
+    }
+    return;
+  }
+  if (action === "edit-note") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    const note = project?.notes.find(item => item.id === id);
+    if (!project || !note) return;
+    const newText = window.prompt("Edit progress note:", note.text)?.trim();
+    if (!newText || newText === note.text) return;
+    note.text = newText;
+    project.updatedAt = new Date().toISOString();
+    try {
+      await persistState();
+      render();
+      renderProjectDetail(project.id);
+      showToast("Progress note updated.");
+    } catch (error) {
+      console.error("Unable to update progress note.", error);
+      showToast("Could not update progress note.");
+    }
+    return;
+  }
+  if (action === "open-lightbox") {
+    openLightbox(target.dataset.imageId, target.dataset.caption);
+    return;
+  }
   if (action === "delete-task" || action === "delete-note") {
     const project = state.projects.find(item => item.id === target.dataset.project);
     if (!project) return;
@@ -1275,6 +1518,19 @@ async function initialize() {
       state.starterSkillsAdded = true;
     }
     await persistState({ syncCloud: false, preserveTimestamp: Boolean(state.updatedAt) });
+    applyTheme(getSavedTheme());
+    $("#theme-toggle-btn")?.addEventListener("click", toggleTheme);
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+      if (getSavedTheme() === "auto") applyTheme("auto");
+    });
+    if ("serviceWorker" in navigator && (window.location.protocol === "http:" || window.location.protocol === "https:")) {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && getCloudConfig() && getCloudSession()) {
+        void syncCloudWorkspace();
+      }
+    });
     render();
     renderCloudConnection();
     try {
@@ -1296,6 +1552,29 @@ async function initialize() {
 }
 
 document.addEventListener("click", event => {
+  const tagTarget = event.target.closest(".mini-tag.clickable");
+  if (tagTarget) {
+    if (tagTarget.dataset.tag) {
+      event.preventDefault();
+      switchView("projects");
+      const search = $("#project-search");
+      if (search) {
+        search.value = tagTarget.dataset.tag;
+        renderProjects();
+      }
+      return;
+    }
+    if (tagTarget.dataset.skillId) {
+      event.preventDefault();
+      switchView("projects");
+      const skillFilter = $("#project-skill-filter");
+      if (skillFilter) {
+        skillFilter.value = tagTarget.dataset.skillId;
+        renderProjects();
+      }
+      return;
+    }
+  }
   const target = event.target.closest("[data-action], [data-view], [data-project]");
   if (!target) return;
   if (target.dataset.view) {
@@ -1303,22 +1582,39 @@ document.addEventListener("click", event => {
     switchView(target.dataset.view);
     return;
   }
-  if (target.dataset.project && !target.dataset.action) {
+  if (target.dataset.action) {
+    void handleAction(target.dataset.action, target);
+    return;
+  }
+  if (target.dataset.project) {
     openProjectDetail(target.dataset.project);
     return;
   }
-  if (target.dataset.action) void handleAction(target.dataset.action, target);
 });
 
 document.addEventListener("keydown", event => {
-  if ((event.key === "Enter" || event.key === " ") && event.target.matches("[data-project][role='button']")) {
-    event.preventDefault();
-    openProjectDetail(event.target.dataset.project);
+  if (event.key === "Enter" || event.key === " ") {
+    const photoTarget = event.target.closest("[data-action='open-lightbox']");
+    if (photoTarget) {
+      event.preventDefault();
+      openLightbox(photoTarget.dataset.imageId, photoTarget.dataset.caption);
+      return;
+    }
+    if (event.target.matches("[data-project][role='button']")) {
+      event.preventDefault();
+      openProjectDetail(event.target.dataset.project);
+      return;
+    }
+  }
+  if (event.key === "Escape") {
+    const lightbox = $("#lightbox-dialog");
+    if (lightbox && lightbox.open) lightbox.close();
   }
 });
 
 $("#project-search").addEventListener("input", renderProjects);
 $("#project-status-filter").addEventListener("change", renderProjects);
+$("#project-skill-filter")?.addEventListener("change", renderProjects);
 $("#project-sort").addEventListener("change", renderProjects);
 $("#project-form").addEventListener("submit", event => void handleProjectSubmit(event));
 $("#skill-form").addEventListener("submit", event => void handleSkillSubmit(event));

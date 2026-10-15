@@ -12,12 +12,14 @@ For cloud sync with GitHub sign-in, serve this folder over localhost (for exampl
 - Track projects as planned, in progress, completed, postponed, or on hold.
 - Describe projects, set a target date, and connect any number of skills.
 - Set project priority, add searchable tags, and sort the project list by due date, priority, name, or most recent update.
+- Filter projects by status, specific skill, or click any tag chip to instantly filter.
 - Use the Planner to review overdue and upcoming active projects, plus active projects without a target date.
-- Add project checklists and dated progress-journal entries, and track checklist completion at a glance.
-- Organize project photos into named folders and browse them in the gallery.
-- Track skills with XP; every 100 XP advances a skill by one level. See when each skill was last practiced and browse a dated, skill-filterable practice log.
-- Search and filter projects, and see recent updates and activity on the overview.
-- Start with a starter collection of skills, including knitting, crocheting, electronics, programming, gongfu cha, cello, guqin, singing, and 3D modeling. Add, edit, or extend the list any time.
+- Add project checklists (with reordering and in-place editing) and dated progress-journal entries, tracking checklist completion at a glance.
+- Organize project photos into named folders (with rename and delete support), automatically optimize image uploads, and view photos in a full-screen lightbox.
+- Track skills with XP; every 100 XP advances a skill by one level. Edit, delete, or extend skills at any time, see when each skill was last practiced, and browse a dated, skill-filterable practice log.
+- Light and dark theme toggle with automatic system preference detection.
+- Installable Progressive Web App (PWA) with offline caching via Service Worker.
+- Start with a starter collection of skills, including knitting, crocheting, electronics, programming, gongfu cha, cello, guqin, singing, and 3D modeling. Edit, delete, or extend the list any time.
 
 Project data and photos are stored in IndexedDB in the current browser on this device. Clearing the browser's site data will remove this local copy. Use **Sync & backup** to connect your own Supabase project for cross-browser sync and to export/import a portable JSON backup.
 
