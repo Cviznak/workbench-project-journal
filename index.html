@@ -62,6 +62,7 @@
               <button class="button button-outline" data-action="new-project">＋ <span>Start a project</span></button>
             </div>
             <div class="stats-grid" id="overview-stats"></div>
+            <div id="overview-streak-container"></div>
             <div class="dashboard-grid">
               <section class="panel projects-panel">
                 <div class="panel-heading">
@@ -94,7 +95,7 @@
             </div>
             <div class="toolbar">
               <label class="search-box"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="Find a project..." aria-label="Search projects"></label>
-              <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
+              <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="pinned">★ Pinned only</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
               <label class="select-wrap"><span class="sr-only">Sort projects</span><select id="project-sort"><option value="updated">Recently updated</option><option value="due-soon">Due date</option><option value="priority">Priority</option><option value="name">Name</option></select></label>
               <span class="result-count" id="project-result-count"></span>
             </div>
@@ -108,6 +109,7 @@
               <button class="button button-primary" data-action="new-skill">＋ Add a skill</button>
             </div>
             <div class="skills-intro" id="skills-summary"></div>
+            <div id="skills-streak-container"></div>
             <div class="skill-grid" id="skill-grid"></div>
             <section class="panel practice-panel">
               <div class="panel-heading">
@@ -224,6 +226,16 @@
       <form id="project-form" method="dialog">
         <div class="dialog-heading"><div><div class="eyebrow">NEW IDEA, NEW CHAPTER</div><h2 id="project-dialog-title">Create a project</h2></div><button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button></div>
         <input type="hidden" name="id">
+        <label class="field-label" id="project-template-wrap">Starter template <span class="optional">(optional)</span>
+          <select id="project-template-select">
+            <option value="">Start from scratch (blank)</option>
+            <option value="craft">Woodworking &amp; Craft Build</option>
+            <option value="electronics">Electronics &amp; Hardware Prototype</option>
+            <option value="software">Software / Web App MVP</option>
+            <option value="study">Learning &amp; Study Sprint</option>
+            <option value="3dprint">3D Printing &amp; Fabrication</option>
+          </select>
+        </label>
         <label class="field-label">Project name<input name="title" required maxlength="100" placeholder="What are you making?"></label>
         <label class="field-label">A little about it<textarea name="description" rows="3" maxlength="2000" placeholder="The idea, the plan, the why..."></textarea></label>
         <div class="form-row">

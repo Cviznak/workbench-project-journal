@@ -901,4 +901,290 @@ body.theme-dark {
   color: #e5e4dc !important;
 }
 
+/* Pinned Project Highlights & Pin Buttons */
+.project-card.is-pinned {
+  border-color: #d1b87a;
+  box-shadow: 0 3px 12px rgba(184, 150, 68, 0.12);
+}
+[data-theme="dark"] .project-card.is-pinned,
+body.theme-dark .project-card.is-pinned {
+  border-color: #6d5b32;
+  box-shadow: 0 3px 12px rgba(220, 180, 80, 0.08);
+}
+.pin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #fdf6e2;
+  color: #946f1e;
+  border: 1px solid #ebd9a2;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+[data-theme="dark"] .pin-badge,
+body.theme-dark .pin-badge {
+  background: #362e1c;
+  color: #f1cb68;
+  border-color: #574828;
+}
+.pin-toggle-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #b5b6ad;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: .15s ease;
+  line-height: 1;
+}
+.pin-toggle-btn:hover {
+  color: #d19a2e;
+  background: rgba(209, 154, 46, 0.1);
+}
+.pin-toggle-btn.active {
+  color: #d19a2e;
+}
+
+/* Materials & Supplies Tracker */
+.materials-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--green-pale);
+  border: 1px solid #dbe5d7;
+  border-radius: 6px;
+  margin: 12px 0;
+  font-size: 11px;
+}
+[data-theme="dark"] .materials-summary-bar,
+body.theme-dark .materials-summary-bar {
+  background: #232d21;
+  border-color: #354732;
+  color: #d4e2d1;
+}
+.materials-cost-total {
+  font-weight: 700;
+  color: var(--green-dark);
+}
+[data-theme="dark"] .materials-cost-total,
+body.theme-dark .materials-cost-total {
+  color: #a0d49b;
+}
+.materials-add-form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.2fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+@media (max-width: 680px) {
+  .materials-add-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.materials-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+.materials-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.materials-table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  color: #8c8d83;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.materials-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-subtle);
+  vertical-align: middle;
+}
+.materials-status-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity .15s ease;
+}
+.materials-status-tag:hover {
+  opacity: 0.85;
+}
+.materials-status-tag.status-need {
+  background: #fdf0ea;
+  color: #b3592c;
+  border: 1px solid #f2ceba;
+}
+.materials-status-tag.status-ordered {
+  background: #edf3fb;
+  color: #3b6ea6;
+  border: 1px solid #c9dcf4;
+}
+.materials-status-tag.status-have {
+  background: #eef5ec;
+  color: #3a7536;
+  border: 1px solid #c8e4c3;
+}
+[data-theme="dark"] .materials-status-tag.status-need,
+body.theme-dark .materials-status-tag.status-need {
+  background: #3c261e;
+  color: #e8956c;
+  border-color: #5a382c;
+}
+[data-theme="dark"] .materials-status-tag.status-ordered,
+body.theme-dark .materials-status-tag.status-ordered {
+  background: #1c2b3d;
+  color: #89bbf3;
+  border-color: #2e4562;
+}
+[data-theme="dark"] .materials-status-tag.status-have,
+body.theme-dark .materials-status-tag.status-have {
+  background: #1e331b;
+  color: #92d48c;
+  border-color: #30542c;
+}
+
+/* Practice Consistency & Streak Widget */
+.streak-widget {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--white);
+  border: 1px solid #eeece5;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+[data-theme="dark"] .streak-widget,
+body.theme-dark .streak-widget {
+  background: #1c2018;
+  border-color: #2e3427;
+}
+.streak-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.streak-flame {
+  font-size: 26px;
+  line-height: 1;
+}
+.streak-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.streak-caption {
+  font-size: 10px;
+  color: #8c8d83;
+}
+.streak-week-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.streak-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.streak-day-label {
+  font-size: 8px;
+  color: #8c8d83;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.streak-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e8e6dd;
+  border: 1px solid #d4d1c4;
+  transition: all .2s ease;
+}
+.streak-dot.active {
+  background: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 6px rgba(47, 79, 55, 0.35);
+}
+.streak-dot.today {
+  outline: 2px solid #5a8a54;
+  outline-offset: 1px;
+}
+[data-theme="dark"] .streak-dot,
+body.theme-dark .streak-dot {
+  background: #2b3026;
+  border-color: #3e4737;
+}
+[data-theme="dark"] .streak-dot.active,
+body.theme-dark .streak-dot.active {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+/* Print Styles for Workshop Sheets */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .app-sidebar,
+  .topbar,
+  .dialog-close,
+  .dialog-actions,
+  .task-add-form,
+  .journal-add-form,
+  .materials-add-form,
+  .task-item-actions,
+  .journal-actions,
+  .task-remove,
+  .toast,
+  .sync-actions,
+  .detail-photo-grid,
+  .detail-footer,
+  button:not(.print-keep),
+  .view-section {
+    display: none !important;
+  }
+  #detail-dialog {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .detail-content {
+    padding: 0 !important;
+  }
+  .task-item input[type="checkbox"] {
+    -webkit-appearance: checkbox !important;
+    appearance: checkbox !important;
+  }
+  .materials-table th, .materials-table td {
+    border-color: #cccccc !important;
+  }
+}
+
 

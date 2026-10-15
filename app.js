@@ -33,6 +33,84 @@ const STATUS_LABELS = {
   "on-hold": "On hold"
 };
 
+const PROJECT_TEMPLATES = {
+  craft: {
+    title: "Woodworking / Craft Build",
+    description: "Handcrafted physical piece. Focused on precision, joinery, and clean finish.",
+    status: "in-progress",
+    priority: "normal",
+    tags: ["workshop", "craft", "handmade"],
+    tasks: [
+      "Gather measurements & create dimension sketch",
+      "Source lumber / materials & hardware",
+      "Rough cut parts to length",
+      "Cut joinery & test dry fit",
+      "Glue-up and clamping",
+      "Sand progression (80 -> 120 -> 220 grit)",
+      "Apply protective finish coat"
+    ]
+  },
+  electronics: {
+    title: "Electronics / Hardware Prototype",
+    description: "Custom embedded device / circuit build. Breadboard to final enclosure.",
+    status: "in-progress",
+    priority: "high",
+    tags: ["electronics", "hardware", "diy", "iot"],
+    tasks: [
+      "Draft schematic & pinout diagram",
+      "Order components & microcontroller",
+      "Breadboard test circuit & flash initial firmware",
+      "Verify sensor readings & logic",
+      "Solder protoboard or design PCB",
+      "Design 3D printed enclosure"
+    ]
+  },
+  software: {
+    title: "Software / Web App MVP",
+    description: "Lean minimum viable product focused on solving one problem elegantly.",
+    status: "in-progress",
+    priority: "normal",
+    tags: ["code", "software", "mvp"],
+    tasks: [
+      "Define user stories & essential scope",
+      "Setup repo & boilerplate architecture",
+      "Implement core data model & persistence",
+      "Build primary UI flow",
+      "Test edge cases & error handling",
+      "Deploy & gather initial user feedback"
+    ]
+  },
+  study: {
+    title: "Learning & Skill Sprint",
+    description: "Focused study sprint to level up a specific craft or discipline.",
+    status: "in-progress",
+    priority: "normal",
+    tags: ["learning", "practice", "study"],
+    tasks: [
+      "Pick top learning resource / curriculum",
+      "Complete fundamentals module",
+      "Build first hands-on exercise project",
+      "Log daily practice sessions",
+      "Document key takeaways & build portfolio piece"
+    ]
+  },
+  "3dprint": {
+    title: "3D Printing & Design",
+    description: "CAD modeling, slicing, and 3D printing a custom functional part or enclosure.",
+    status: "in-progress",
+    priority: "normal",
+    tags: ["3dprinting", "cad", "fabrication"],
+    tasks: [
+      "Take caliper measurements of interface points",
+      "Model CAD geometry in Fusion/FreeCAD",
+      "Export STL/STEP & slice test print",
+      "Inspect test fit and adjust tolerances",
+      "Print final model in desired filament",
+      "Post-process (deburr, insert heat-set inserts)"
+    ]
+  }
+};
+
 const state = { projects: [], skills: [], activity: [], practiceLog: [], starterSkillsAdded: false, hasUserChanges: false };
 let database;
 let activeProjectId = null;
@@ -164,6 +242,81 @@ function skillLevel(xp) {
 
 function skillProgress(xp) {
   return xp % XP_PER_LEVEL;
+}
+
+function getPracticeStats() {
+  const dates = new Set();
+  for (const item of (state.practiceLog || [])) {
+    if (item.at) {
+      const d = new Date(item.at);
+      if (Number.isFinite(d.getTime())) {
+        dates.add(localDateString(d));
+      }
+    }
+  }
+
+  const today = new Date();
+  const todayStr = localDateString(today);
+  const yesterday = new Date(Date.now() - 86400000);
+  const yesterdayStr = localDateString(yesterday);
+
+  let streak = 0;
+  let checkDate = dates.has(todayStr) ? today : (dates.has(yesterdayStr) ? yesterday : null);
+
+  if (checkDate) {
+    while (true) {
+      const dStr = localDateString(checkDate);
+      if (dates.has(dStr)) {
+        streak++;
+        checkDate = new Date(checkDate.getTime() - 86400000);
+      } else {
+        break;
+      }
+    }
+  }
+
+  const dayOfWeek = today.getDay();
+  const distanceToMonday = (dayOfWeek + 6) % 7;
+  const monday = new Date(today.getTime() - distanceToMonday * 86400000);
+
+  const weekDays = [];
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday.getTime() + i * 86400000);
+    const dStr = localDateString(d);
+    weekDays.push({
+      name: dayNames[i],
+      dateStr: dStr,
+      active: dates.has(dStr),
+      isToday: dStr === todayStr
+    });
+  }
+
+  const thisWeekCount = weekDays.filter(w => w.active).length;
+  return { streak, weekDays, thisWeekCount, totalSessions: (state.practiceLog || []).length };
+}
+
+function renderStreakWidget() {
+  const stats = getPracticeStats();
+  return `
+    <section class="streak-widget">
+      <div class="streak-left">
+        <div class="streak-flame">${stats.streak > 0 ? "🔥" : "🌱"}</div>
+        <div>
+          <div class="streak-heading">${stats.streak > 0 ? `${stats.streak}-day practice streak!` : "Start your practice streak"}</div>
+          <div class="streak-caption">${stats.thisWeekCount} of 7 days practiced this week · ${stats.totalSessions} total session${stats.totalSessions === 1 ? "" : "s"} logged</div>
+        </div>
+      </div>
+      <div class="streak-week-dots" title="Weekly consistency (Mon-Sun)">
+        ${stats.weekDays.map(d => `
+          <div class="streak-day">
+            <span class="streak-day-label">${d.name}</span>
+            <div class="streak-dot ${d.active ? "active" : ""} ${d.isToday ? "today" : ""}" title="${d.name} (${d.dateStr}): ${d.active ? "Practiced" : "No practice logged"}"></div>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
 }
 
 function projectImageCount(project) {
@@ -766,6 +919,8 @@ async function importBackup(file) {
     }
     project.tasks = Array.isArray(project.tasks) ? project.tasks : [];
     project.notes = Array.isArray(project.notes) ? project.notes : [];
+    project.materials = Array.isArray(project.materials) ? project.materials : [];
+    project.pinned = Boolean(project.pinned);
   }
   if (!window.confirm("Importing replaces all projects and skills in this browser. Continue?")) return;
   state.projects = restored.projects;
@@ -843,6 +998,9 @@ function renderOverview() {
     <div class="activity-item"><div class="activity-icon">${activity.kind === "xp" ? "✳" : activity.kind === "photo" ? "▧" : "↗"}</div>
     <div><p>${escapeHTML(activity.text)}</p><time>${relativeTime(activity.at)}</time></div></div>`).join("")}</div>`
     : `<div class="empty-inline">Your little wins will show up here as you go.</div>`;
+
+  const overviewStreak = $("#overview-streak-container");
+  if (overviewStreak) overviewStreak.innerHTML = renderStreakWidget();
 }
 
 function emptyState(title, description, action, buttonText = "Get started") {
@@ -855,13 +1013,18 @@ function renderProjects() {
   const filter = $("#project-status-filter")?.value || "all";
   const sort = $("#project-sort")?.value || "updated";
   const filtered = [...state.projects]
-    .filter(project => (filter === "all" || safeStatus(project.status) === filter))
+    .filter(project => {
+      if (filter === "all") return true;
+      if (filter === "pinned") return project.pinned === true;
+      return safeStatus(project.status) === filter;
+    })
     .filter(project => {
       if (selectedSkillFilters.size === 0) return true;
       return (project.skillIds || []).some(id => selectedSkillFilters.has(id));
     })
     .filter(project => `${project.title} ${project.description} ${(project.tags || []).join(" ")} ${projectSkillNames(project).map(skill => skill.name).join(" ")}`.toLowerCase().includes(query))
     .sort((a, b) => {
+      if (Boolean(b.pinned) !== Boolean(a.pinned)) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
       if (sort === "due-soon") return (a.targetDate || "9999").localeCompare(b.targetDate || "9999");
       if (sort === "priority") return ({ high: 0, normal: 1, low: 2 }[a.priority] ?? 1) - ({ high: 0, normal: 1, low: 2 }[b.priority] ?? 1);
       if (sort === "name") return a.title.localeCompare(b.title);
@@ -872,13 +1035,20 @@ function renderProjects() {
     const skills = projectSkillNames(project);
     const images = projectImageCount(project);
     const progress = projectTaskProgress(project);
-    return `<article class="project-card" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
-      <div class="project-card-head"><div class="project-card-mark">${["✳", "⌘", "◈", "✿"][index % 4]}</div><span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span></div>
+    return `<article class="project-card ${project.pinned ? "is-pinned" : ""}" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
+      <div class="project-card-head">
+        <div class="project-card-mark">${["✳", "⌘", "◈", "✿"][index % 4]}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${project.pinned ? `<span class="pin-badge">★ Pinned</span>` : ""}
+          <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
+          <span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span>
+        </div>
+      </div>
       <h3>${escapeHTML(project.title)}</h3><p class="project-card-description">${escapeHTML(project.description || "No description yet. Open this project to add one.")}</p>
       <div class="project-card-labels"><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>${(project.tags || []).slice(0, 3).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}${(project.tags || []).length > 3 ? `<span class="mini-tag">+${project.tags.length - 3}</span>` : ""}</div>
       <div class="project-card-skills">${skills.slice(0, 3).map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)}</span>`).join("")}${skills.length > 3 ? `<span class="mini-tag">+${skills.length - 3}</span>` : ""}</div>
       ${progress.total ? `<div class="card-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.completed}/${progress.total} steps</span></div>` : ""}
-      <div class="project-card-bottom"><span class="project-card-meta">${images ? `▧ ${images} ${images === 1 ? "photo" : "photos"} · ` : ""}Updated ${relativeTime(project.updatedAt)}</span>${project.targetDate ? `<span class="project-card-meta">Due ${formatDate(project.targetDate)}</span>` : ""}</div>
+      <div class="project-card-bottom"><span class="project-card-meta">${images ? `▧ ${images} ${images === 1 ? "photo" : "photos"} · ` : ""}${project.materials?.length ? `⚙ ${project.materials.length} parts · ` : ""}Updated ${relativeTime(project.updatedAt)}</span>${project.targetDate ? `<span class="project-card-meta">Due ${formatDate(project.targetDate)}</span>` : ""}</div>
     </article>`;
   }).join("") : emptyState(query || filter !== "all" || selectedSkillFilters.size > 0 ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" || selectedSkillFilters.size > 0 ? "Try another search or status/skill filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
 }
@@ -919,6 +1089,8 @@ function renderSkills() {
   $("#skills-summary").innerHTML = state.skills.length
     ? `<span>✳</span><span>You’ve earned <strong>${totalXp.toLocaleString()} XP</strong> across <strong>${levels} level${levels === 1 ? "" : "s"}</strong> so far. Keep showing up; it adds up.</span>`
     : `<span>✳</span><span>Add a skill and start your own progress trail. Every <strong>100 XP</strong> earns a new level.</span>`;
+  const streakContainer = $("#skills-streak-container");
+  if (streakContainer) streakContainer.innerHTML = renderStreakWidget();
   const sorted = [...state.skills].sort((a, b) => b.xp - a.xp);
   const practiceFilter = $("#practice-filter").value;
   $("#practice-filter").innerHTML = `<option value="all">All skills</option>${state.skills.map(skill => `<option value="${escapeHTML(skill.id)}">${escapeHTML(skill.name)}</option>`).join("")}`;
@@ -977,9 +1149,26 @@ function renderProjectDetail(projectId) {
   const skills = projectSkillNames(project);
   const tasks = project.tasks || [];
   const notes = project.notes || [];
+  const materials = project.materials || [];
+  const totalCost = materials.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+  const spentCost = materials.filter(m => m.status === "have" || m.status === "ordered").reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+  const haveCount = materials.filter(m => m.status === "have").length;
   const progress = projectTaskProgress(project);
   $("#project-detail").innerHTML = `<div class="detail-content">
-    <div class="detail-top"><div class="detail-title"><div class="project-swatch">✳</div><div><h2>${escapeHTML(project.title)}</h2><div class="detail-subtitle">Updated ${relativeTime(project.updatedAt)}${project.targetDate ? ` · Target ${formatDate(project.targetDate)}` : ""}</div></div></div><button class="dialog-close" data-action="close-dialog" aria-label="Close">×</button></div>
+    <div class="detail-top">
+      <div class="detail-title">
+        <div class="project-swatch">✳</div>
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h2>${escapeHTML(project.title)}</h2>
+            <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
+            <button type="button" class="small-action print-keep" data-action="print-project" data-id="${project.id}" title="Print workshop sheet">🖶 Print sheet</button>
+          </div>
+          <div class="detail-subtitle">Updated ${relativeTime(project.updatedAt)}${project.targetDate ? ` · Target ${formatDate(project.targetDate)}` : ""}</div>
+        </div>
+      </div>
+      <button class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+    </div>
     <p class="detail-description">${escapeHTML(project.description || "No description yet.")}</p>
     <div class="detail-top"><div class="project-card-labels"><span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)} priority</span>${(project.tags || []).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}</div><button class="small-action" data-action="edit-project" data-id="${project.id}">Edit project</button></div>
     ${skills.length ? `<div class="detail-skills">${skills.map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)} · Level ${skillLevel(skill.xp)}</span>`).join("")}</div>` : ""}
@@ -987,6 +1176,56 @@ function renderProjectDetail(projectId) {
     ${progress.total ? `<div class="detail-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.percent}%</span></div>` : ""}
     <form class="inline-add-form task-add-form" data-project="${project.id}"><input name="taskText" required maxlength="140" placeholder="Add a next step..." aria-label="New checklist step"><button class="button button-outline" type="submit">＋ Add step</button></form>
     ${tasks.length ? `<ul class="task-list">${tasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span></label><div class="task-item-actions">${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < tasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
+    <div class="detail-section-heading"><h3>Materials &amp; Supplies <span class="subtle-count">${materials.length ? `${materials.length} items · $${totalCost.toFixed(2)} total` : "Track parts & budget"}</span></h3></div>
+    ${materials.length ? `
+      <div class="materials-summary-bar">
+        <div><strong>Budget:</strong> $${totalCost.toFixed(2)} total · <span class="materials-cost-total">$${spentCost.toFixed(2)} acquired</span></div>
+        <div><span>${haveCount}/${materials.length} items in hand</span></div>
+      </div>
+    ` : ""}
+    <form class="materials-add-form" data-project="${project.id}">
+      <input name="materialName" required maxlength="80" placeholder="Part or material name (e.g. 1/4&quot; Walnut ply)..." aria-label="Material name">
+      <input name="materialQty" maxlength="30" placeholder="Qty (e.g. 2 pcs)" aria-label="Quantity">
+      <input name="materialCost" type="number" step="0.01" min="0" placeholder="$ Price" aria-label="Price">
+      <select name="materialStatus" aria-label="Status">
+        <option value="need">Need to buy</option>
+        <option value="ordered">Ordered</option>
+        <option value="have">Have / In stock</option>
+      </select>
+      <button class="button button-outline" type="submit">＋ Add</button>
+    </form>
+    ${materials.length ? `
+      <div class="materials-table-wrap">
+        <table class="materials-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Est. Cost</th>
+              <th>Status</th>
+              <th style="text-align:right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${materials.map(mat => `
+              <tr>
+                <td><strong>${escapeHTML(mat.name)}</strong></td>
+                <td>${escapeHTML(mat.qty || "-")}</td>
+                <td>${Number(mat.cost) > 0 ? `$${Number(mat.cost).toFixed(2)}` : "-"}</td>
+                <td>
+                  <span class="materials-status-tag status-${mat.status || "need"}" data-action="cycle-material-status" data-project="${project.id}" data-id="${mat.id}" title="Click to cycle status">
+                    ${mat.status === "have" ? "✓ Have / In stock" : mat.status === "ordered" ? "↗ Ordered" : "○ Need to buy"}
+                  </span>
+                </td>
+                <td style="text-align:right">
+                  <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    ` : `<div class="folder-empty">No materials tracked yet. Add items and parts to keep track of your build budget.</div>`}
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
     <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div><span class="form-hint">A dated note, just for this project.</span><button class="button button-outline" type="submit">＋ Add note</button></div></form>
     ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p><div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
@@ -1032,6 +1271,7 @@ function addProjectSkillOptions(selectedIds = []) {
 function openProjectForm(project = null) {
   const form = $("#project-form");
   form.reset();
+  delete form.dataset.templateTasks;
   $("#project-dialog-title").textContent = project ? "Edit project" : "Create a project";
   form.elements.id.value = project?.id || "";
   form.elements.title.value = project?.title || "";
@@ -1040,6 +1280,12 @@ function openProjectForm(project = null) {
   form.elements.targetDate.value = project?.targetDate || "";
   form.elements.priority.value = project?.priority || "normal";
   form.elements.tags.value = (project?.tags || []).join(", ");
+  const templateWrap = $("#project-template-wrap");
+  if (templateWrap) {
+    templateWrap.style.display = project ? "none" : "";
+    const templateSelect = $("#project-template-select");
+    if (templateSelect) templateSelect.value = "";
+  }
   addProjectSkillOptions(project?.skillIds || []);
   $("#project-dialog").showModal();
 }
@@ -1126,6 +1372,7 @@ async function handleProjectSubmit(event) {
   const id = form.elements.id.value;
   const existing = state.projects.find(project => project.id === id);
   const skillIds = $$('input[name="skillIds"]:checked', form).map(input => input.value);
+  const templateTasks = form.dataset.templateTasks ? JSON.parse(form.dataset.templateTasks) : [];
   const project = {
     id: existing?.id || uid(),
     title: form.elements.title.value.trim(),
@@ -1136,11 +1383,14 @@ async function handleProjectSubmit(event) {
     tags: [...new Set(form.elements.tags.value.split(",").map(tag => tag.trim()).filter(Boolean))],
     skillIds,
     folders: existing?.folders || [{ id: uid(), name: "General", images: [] }],
-    tasks: existing?.tasks || [],
+    tasks: existing?.tasks || (templateTasks.length > 0 ? templateTasks.map(t => ({ id: uid(), text: t, done: false, createdAt: new Date().toISOString() })) : []),
     notes: existing?.notes || [],
+    materials: existing?.materials || [],
+    pinned: Boolean(existing?.pinned),
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
+  delete form.dataset.templateTasks;
   if (!project.title) return;
   if (existing) Object.assign(existing, project);
   else state.projects.unshift(project);
@@ -1235,10 +1485,39 @@ async function handleFolderSubmit(event) {
 
 async function handleProjectEntrySubmit(event) {
   const form = event.target;
-  if (!form.matches(".task-add-form, .journal-add-form")) return;
+  if (!form.matches(".task-add-form, .journal-add-form, .materials-add-form")) return;
   event.preventDefault();
   const project = state.projects.find(item => item.id === form.dataset.project);
   if (!project) return;
+  if (form.matches(".materials-add-form")) {
+    const name = form.elements.materialName.value.trim();
+    if (!name) return;
+    const qty = form.elements.materialQty?.value.trim() || "";
+    const cost = parseFloat(form.elements.materialCost?.value) || 0;
+    const status = form.elements.materialStatus?.value || "need";
+    project.materials = Array.isArray(project.materials) ? project.materials : [];
+    project.materials.push({
+      id: uid(),
+      name,
+      qty,
+      cost,
+      status,
+      createdAt: new Date().toISOString()
+    });
+    project.updatedAt = new Date().toISOString();
+    makeActivity("project", `Added ${name} to materials for ${project.title}`);
+    try {
+      await persistState();
+      form.reset();
+      render();
+      renderProjectDetail(project.id);
+      showToast(`Added “${name}” to supplies.`);
+    } catch (error) {
+      console.error(error);
+      showToast("Could not save material item.");
+    }
+    return;
+  }
   const isTask = form.matches(".task-add-form");
   const text = form.elements[isTask ? "taskText" : "journalText"].value.trim();
   if (!text) return;
@@ -1483,6 +1762,23 @@ function getTimelineEvents() {
       });
     }
 
+    for (const mat of (project.materials || [])) {
+      events.push({
+        id: `mat-${mat.id}`,
+        rawId: mat.id,
+        type: "project",
+        badgeLabel: "Material",
+        badgeClass: "badge-project",
+        title: project.title,
+        text: `Part: ${mat.name}${mat.qty ? ` (${mat.qty})` : ""}${Number(mat.cost) > 0 ? ` · $${Number(mat.cost).toFixed(2)}` : ""} [${mat.status === "have" ? "In stock" : mat.status === "ordered" ? "Ordered" : "Need to buy"}]`,
+        at: mat.createdAt || project.updatedAt || project.createdAt,
+        projectId: project.id,
+        projectTitle: project.title,
+        skillIds,
+        skillNames
+      });
+    }
+
     for (const folder of (project.folders || [])) {
       for (const image of (folder.images || [])) {
         events.push({
@@ -1667,6 +1963,17 @@ function exportMarkdownJournal() {
         });
       }
 
+      if (project.materials?.length) {
+        const totalMatCost = project.materials.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+        md += `\n#### Materials & Supplies (BOM) — Total: $${totalMatCost.toFixed(2)}\n`;
+        project.materials.forEach(mat => {
+          const costStr = Number(mat.cost) > 0 ? `, Cost: $${Number(mat.cost).toFixed(2)}` : "";
+          const qtyStr = mat.qty ? `, Qty: ${mat.qty}` : "";
+          const statusStr = mat.status === "have" ? "In hand" : mat.status === "ordered" ? "Ordered" : "Need to buy";
+          md += `- **${mat.name}** (${statusStr}${qtyStr}${costStr})\n`;
+        });
+      }
+
       const imgCount = projectImageCount(project);
       if (imgCount > 0) {
         md += `\n*Photos: ${imgCount} project photo${imgCount === 1 ? "" : "s"} logged in workbench.*\n`;
@@ -1703,6 +2010,62 @@ function exportMarkdownJournal() {
 
 async function handleAction(action, target) {
   const id = target.dataset.id;
+  if (action === "toggle-pin") {
+    const project = state.projects.find(item => item.id === (target.dataset.project || id));
+    if (!project) return;
+    project.pinned = !project.pinned;
+    project.updatedAt = new Date().toISOString();
+    try {
+      await persistState();
+      render();
+      if ($("#detail-dialog").open) renderProjectDetail(project.id);
+      showToast(project.pinned ? `Pinned “${project.title}” to top.` : `Unpinned “${project.title}”.`);
+    } catch (e) {
+      console.error(e);
+    }
+    return;
+  }
+  if (action === "print-project") {
+    window.print();
+    return;
+  }
+  if (action === "cycle-material-status") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    const material = project?.materials?.find(item => item.id === id);
+    if (!project || !material) return;
+    const nextStatus = { need: "ordered", ordered: "have", have: "need" };
+    material.status = nextStatus[material.status] || "need";
+    project.updatedAt = new Date().toISOString();
+    try {
+      await persistState();
+      render();
+      renderProjectDetail(project.id);
+      const statusLabel = { need: "Need to buy", ordered: "Ordered", have: "Have / In stock" }[material.status];
+      showToast(`Marked ${material.name} as “${statusLabel}”.`);
+    } catch (error) {
+      console.error(error);
+    }
+    return;
+  }
+  if (action === "delete-material") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    if (!project || !project.materials) return;
+    const index = project.materials.findIndex(item => item.id === id);
+    if (index < 0) return;
+    const [removed] = project.materials.splice(index, 1);
+    project.updatedAt = new Date().toISOString();
+    try {
+      await persistState();
+      render();
+      renderProjectDetail(project.id);
+      showToast(`Removed “${removed.name}” from supplies.`);
+    } catch (error) {
+      project.materials.splice(index, 0, removed);
+      console.error(error);
+      showToast("Could not remove material.");
+    }
+    return;
+  }
   if (action === "toggle-theme") {
     toggleTheme();
     return;
@@ -2098,6 +2461,8 @@ async function initialize() {
     state.projects.forEach(project => {
       project.tasks = Array.isArray(project.tasks) ? project.tasks : [];
       project.notes = Array.isArray(project.notes) ? project.notes : [];
+      project.materials = Array.isArray(project.materials) ? project.materials : [];
+      project.pinned = Boolean(project.pinned);
     });
     if (!saved?.starterSkillsAdded) {
       const existingNames = new Set(state.skills.map(skill => skill.name.trim().toLocaleLowerCase()));
@@ -2214,6 +2579,18 @@ $("#timeline-skill-filter")?.addEventListener("change", () => {
   renderTimeline();
 });
 $("#project-form").addEventListener("submit", event => void handleProjectSubmit(event));
+$("#project-template-select")?.addEventListener("change", event => {
+  const key = event.target.value;
+  const tpl = PROJECT_TEMPLATES[key];
+  if (!tpl) return;
+  const form = $("#project-form");
+  if (!form.elements.title.value.trim()) form.elements.title.value = tpl.title;
+  if (!form.elements.description.value.trim()) form.elements.description.value = tpl.description;
+  if (tpl.status) form.elements.status.value = tpl.status;
+  if (tpl.priority) form.elements.priority.value = tpl.priority;
+  if (tpl.tags?.length && !form.elements.tags.value.trim()) form.elements.tags.value = tpl.tags.join(", ");
+  form.dataset.templateTasks = JSON.stringify(tpl.tasks || []);
+});
 $("#skill-form").addEventListener("submit", event => void handleSkillSubmit(event));
 $("#xp-form").addEventListener("submit", event => void handleXpSubmit(event));
 $("#folder-form").addEventListener("submit", event => void handleFolderSubmit(event));
