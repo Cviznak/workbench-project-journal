@@ -5,7 +5,7 @@ Workbench is a local-first project journal for tracking ideas, ongoing work, com
 ## Run it
 
 Open `index.html` in a modern browser. No server or account is required.
-For cloud account email confirmation, serve this folder over localhost (for example, run `python -m http.server 8000` from this folder and open `http://localhost:8000`). Set that URL as the Supabase Auth **Site URL** and allowed redirect URL.
+For cloud sync with GitHub sign-in, serve this folder over localhost (for example, run `python -m http.server 8000` from this folder and open `http://localhost:8000`). Add that URL to the Supabase Auth allowed redirect URLs.
 
 ## What it does
 
@@ -15,7 +15,7 @@ For cloud account email confirmation, serve this folder over localhost (for exam
 - Use the Planner to review overdue and upcoming active projects, plus active projects without a target date.
 - Add project checklists and dated progress-journal entries, and track checklist completion at a glance.
 - Organize project photos into named folders and browse them in the gallery.
-- Track skills with XP; every 100 XP advances a skill by one level.
+- Track skills with XP; every 100 XP advances a skill by one level. See when each skill was last practiced and browse a dated, skill-filterable practice log.
 - Search and filter projects, and see recent updates and activity on the overview.
 - Start with a starter collection of skills, including knitting, crocheting, electronics, programming, gongfu cha, cello, guqin, singing, and 3D modeling. Add, edit, or extend the list any time.
 
@@ -32,7 +32,7 @@ Workbench is a static HTML/CSS/JavaScript app, so it can be hosted on GitHub Pag
 
 GitHub Pages serves static files only; it does not provide a database or hide source code. Keep Supabase row-level security and private Storage policies enabled. Never publish a Supabase secret or `service_role` key. The publishable/anon key is intended for browser apps when access is protected by those policies.
 
-**Authentication caution:** GitHub Pages' terms say sites should not be used for sensitive transactions such as sending passwords. Workbench currently offers email/password sign-in as well as GitHub OAuth. If you host it on Pages, use GitHub OAuth rather than entering an email password on the hosted site; if you need password sign-in, use a host suitable for that authentication flow or remove that option from the hosted version.
+Workbench uses GitHub OAuth for cloud sign-in; it does not ask for or store a GitHub password. GitHub Pages is suitable for this static app, but never put private credentials or Supabase secret/service-role keys in its source.
 
 GitHub Pages is free for public repositories. Published sites must be no larger than 1 GB, with a soft bandwidth limit of 100 GB/month and a soft limit of 10 builds/hour. It is intended for static sites, not high-traffic commercial hosting. Supabase has separate free-plan quotas: currently 500 MB database, 1 GB file storage, and free projects may pause after a week without activity. Project photos use Supabase Storage, so keep an eye on that quota. Check the providers' current limits before relying on the free tiers:
 
@@ -41,14 +41,14 @@ GitHub Pages is free for public repositories. Published sites must be no larger 
 
 ## Private cloud sync setup
 
-Cloud sync is optional and uses a Supabase project that you own. Repeat the connection and sign-in steps in every browser you want to sync. Use the same Supabase project and account in each browser.
+Cloud sync is optional and uses a Supabase project that you own. Repeat the connection and sign-in steps in every browser you want to sync. Use the same Supabase project and GitHub account in each browser.
 
 1. Create a Supabase project.
 2. Open the project's **SQL Editor** and run the SQL below. It creates a per-user workspace table, a private photo bucket, and row-level/storage policies. Every row and photo is restricted to its signed-in owner.
 3. In **Project Settings → API**, copy the Project URL and the **publishable** key (or legacy **anon** key). Never enter a `service_role` or secret key in this app.
 4. If you use GitHub to sign in, open **Authentication → Sign In / Providers → GitHub** in Supabase and configure the GitHub OAuth app there. Add the local/hosted Workbench URL to Supabase's allowed redirect URLs.
-5. In Workbench, open **Sync & backup**, save the URL and publishable/anon key, then choose **Continue with GitHub** or sign in using Supabase email/password. If email confirmation is enabled, confirm your address before signing in.
-6. To sync another browser, open the same app there, enter the same URL and key, and sign in with the same account.
+5. In Workbench, open **Sync & backup**, save the URL and publishable/anon key, then choose **Continue with GitHub**.
+6. To sync another browser, open the same app there, enter the same URL and key, and sign in with the same GitHub account.
 
 ```sql
 create table public.workbench_workspace (
@@ -132,4 +132,4 @@ On the first sign-in from another browser, Workbench downloads the cloud copy if
 
 Account credentials and the Supabase session are stored in that browser and sent only to the project URL you configured. The publishable/anon key is designed to be used by a client app; the database and storage policies above are what restrict access. Do not disable those policies.
 
-The Supabase publishable/anon key is a project identifier for client apps, not a substitute for signing in. Workbench uses GitHub OAuth with a one-time PKCE verifier, or Supabase email/password authentication, to identify your private user account. Do not use a GitHub personal access token, Supabase `service_role` key, or secret key in this app.
+The Supabase publishable/anon key is a project identifier for client apps, not a substitute for signing in. Workbench uses GitHub OAuth with a one-time PKCE verifier to identify your private user account. Do not use a GitHub personal access token, Supabase `service_role` key, or secret key in this app.

@@ -33,10 +33,11 @@ const STATUS_LABELS = {
   "on-hold": "On hold"
 };
 
-const state = { projects: [], skills: [], activity: [], starterSkillsAdded: false, hasUserChanges: false };
+const state = { projects: [], skills: [], activity: [], practiceLog: [], starterSkillsAdded: false, hasUserChanges: false };
 let database;
 let activeProjectId = null;
 let activePhotoTarget = null;
+let practiceLogLimit = 12;
 let toastTimer;
 let syncTimer;
 let cloudWorking = false;
@@ -82,9 +83,20 @@ function persistState({ syncCloud = true, preserveTimestamp = false } = {}) {
   });
 }
 
-function makeActivity(kind, text) {
-  state.activity.unshift({ id: uid(), kind, text, at: new Date().toISOString() });
+function makeActivity(kind, text, details = {}) {
+  const activity = { id: uid(), kind, text, at: new Date().toISOString(), ...details };
+  state.activity.unshift(activity);
   state.activity = state.activity.slice(0, 30);
+  return activity;
+}
+
+function migratePracticeLog(activity, skills) {
+  return activity
+    .filter(item => item?.kind === "xp" && typeof item.text === "string")
+    .map(item => ({
+      ...item,
+      skillId: item.skillId || skills.find(skill => item.text.startsWith(`${skill.name} +`))?.id || ""
+    }));
 }
 
 function escapeHTML(value = "") {
@@ -238,29 +250,6 @@ async function ensureCloudSession() {
   return nextSession;
 }
 
-async function signInCloud(email, password, createAccount = false) {
-  const path = createAccount ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
-  const payload = await cloudRequest(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
-  }, false);
-  const session = payload.access_token ? payload : payload.session;
-  if (!session?.access_token) {
-    if (createAccount) {
-      cloudMessage("Account created. Check your email to confirm it, then sign in here.", "info");
-      return false;
-    }
-    throw new Error("Sign-in did not return a session. Check your account and email confirmation settings.");
-  }
-  setCloudSession({ ...session, user: payload.user || session.user, expires_at: session.expires_at || Math.floor(Date.now() / 1000) + session.expires_in });
-  cloudConflict = null;
-  await syncCloudWorkspace();
-  if ($("#sync-message").dataset.status === "error") throw new Error($("#sync-message").textContent);
-  renderCloudConnection();
-  return true;
-}
-
 function encodeBase64Url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -411,6 +400,9 @@ async function loadRemoteWorkspace(remote) {
   remoteState.projects = Array.isArray(remoteState.projects) ? remoteState.projects : [];
   remoteState.skills = Array.isArray(remoteState.skills) ? remoteState.skills : [];
   remoteState.activity = Array.isArray(remoteState.activity) ? remoteState.activity : [];
+  remoteState.practiceLog = Array.isArray(remoteState.practiceLog)
+    ? remoteState.practiceLog.filter(item => item?.kind === "xp" && typeof item.text === "string")
+    : migratePracticeLog(remoteState.activity, remoteState.skills);
   for (const project of remoteState.projects) {
     project.createdAt = project.createdAt || remote.updated_at;
     project.updatedAt = project.updatedAt || remote.updated_at;
@@ -537,7 +529,6 @@ function renderCloudConnection() {
   $("#cloud-account-email").textContent = session?.user?.email || "Signed in";
   const marker = session?.user?.id ? readSyncMarker(session.user.id) : null;
   $("#cloud-last-synced").textContent = marker?.remoteUpdatedAt ? `Last synced ${relativeTime(marker.remoteUpdatedAt)}` : "";
-  $("#cloud-auth-form [data-action='sign-out']").classList.toggle("hidden", !session?.access_token);
   if (config && !session?.access_token && $("#sync-message").dataset.status === "info") {
     cloudMessage("Connection saved. Sign in to sync this workspace.", "info");
   }
@@ -596,6 +587,10 @@ async function importBackup(file) {
     throw new Error("That file is not a supported Workbench backup.");
   }
   const restored = structuredClone(parsed.workspace);
+  restored.activity = Array.isArray(restored.activity) ? restored.activity : [];
+  restored.practiceLog = Array.isArray(restored.practiceLog)
+    ? restored.practiceLog.filter(item => item?.kind === "xp" && typeof item.text === "string")
+    : migratePracticeLog(restored.activity, restored.skills);
   for (const project of restored.projects) {
     project.priority = safePriority(project.priority);
     project.tags = Array.isArray(project.tags) ? project.tags.filter(tag => typeof tag === "string") : [];
@@ -615,6 +610,7 @@ async function importBackup(file) {
   state.projects = restored.projects;
   state.skills = restored.skills;
   state.activity = Array.isArray(restored.activity) ? restored.activity : [];
+  state.practiceLog = restored.practiceLog;
   state.starterSkillsAdded = true;
   try {
     await persistState();
@@ -757,14 +753,38 @@ function renderSkills() {
     ? `<span>✳</span><span>You’ve earned <strong>${totalXp.toLocaleString()} XP</strong> across <strong>${levels} level${levels === 1 ? "" : "s"}</strong> so far. Keep showing up; it adds up.</span>`
     : `<span>✳</span><span>Add a skill and start your own progress trail. Every <strong>100 XP</strong> earns a new level.</span>`;
   const sorted = [...state.skills].sort((a, b) => b.xp - a.xp);
+  const practiceFilter = $("#practice-filter").value;
+  $("#practice-filter").innerHTML = `<option value="all">All skills</option>${state.skills.map(skill => `<option value="${escapeHTML(skill.id)}">${escapeHTML(skill.name)}</option>`).join("")}`;
+  $("#practice-filter").value = state.skills.some(skill => skill.id === practiceFilter) ? practiceFilter : "all";
   $("#skill-grid").innerHTML = sorted.length ? sorted.map((skill, index) => {
     const relatedCount = state.projects.filter(project => (project.skillIds || []).includes(skill.id)).length;
+    const practiceSessions = state.activity.filter(activity => activity.kind === "xp" && (activity.skillId === skill.id || (!activity.skillId && activity.text.startsWith(`${skill.name} +`))));
+    const lastPracticed = practiceSessions.sort((a, b) => new Date(b.at) - new Date(a.at))[0];
     return `<article class="skill-card">
       <div class="skill-card-header"><div class="skill-icon">${["✳", "⌘", "◈", "✿"][index % 4]}</div><div class="skill-card-heading"><h3>${escapeHTML(skill.name)}</h3><span>${escapeHTML(skill.category || "Personal skill")}</span></div><span class="skill-level-badge">Level ${skillLevel(skill.xp)}</span></div>
       <div class="skill-card-progress"><div class="progress-track"><div class="progress-bar" style="width:${skillProgress(skill.xp)}%"></div></div><div class="skill-xp-line"><span>${skillProgress(skill.xp)} / ${XP_PER_LEVEL} XP to next level</span><span>${skill.xp} total XP</span></div></div>
-      <div class="skill-card-bottom"><span>${relatedCount} ${relatedCount === 1 ? "project" : "projects"}</span><div class="skill-card-actions"><button class="small-action" data-action="edit-skill" data-id="${skill.id}">Edit</button><button class="small-action" data-action="log-xp" data-id="${skill.id}">＋ Log XP</button></div></div>
+      <div class="skill-practice-meta"><span>${lastPracticed ? `Last practiced ${relativeTime(lastPracticed.at)}` : "No practice logged yet"}</span><span>${relatedCount} ${relatedCount === 1 ? "project" : "projects"}</span></div>
+      <div class="skill-card-bottom"><span>Level ${skillLevel(skill.xp)} progress</span><div class="skill-card-actions"><button class="small-action" data-action="edit-skill" data-id="${skill.id}">Edit</button><button class="small-action" data-action="log-xp" data-id="${skill.id}">＋ Log XP</button></div></div>
     </article>`;
   }).join("") : emptyState("Your skills deserve a spot here", "Track a skill, practice over time, and watch your level grow.", "new-skill", "Add a skill");
+  renderPracticeLog();
+}
+
+function renderPracticeLog() {
+  const filter = $("#practice-filter").value;
+  const filtered = state.practiceLog
+    .filter(activity => activity?.kind === "xp" && typeof activity.text === "string")
+    .filter(activity => filter === "all" || activity.skillId === filter || (!activity.skillId && activity.text.startsWith(`${state.skills.find(skill => skill.id === filter)?.name || "\u0000"} +`)))
+    .sort((a, b) => new Date(b.at) - new Date(a.at));
+  const entries = filtered.slice(0, practiceLogLimit);
+  $("#practice-log").innerHTML = entries.length ? `<div class="practice-list">${entries.map(activity => `
+    <article class="practice-entry">
+      <span class="activity-icon">✳</span>
+      <div class="practice-entry-copy"><p>${escapeHTML(activity.text)}</p><time>${formatDate(typeof activity.at === "string" ? activity.at.slice(0, 10) : "")} · ${relativeTime(activity.at)}</time></div>
+    </article>`).join("")}</div>` : `<div class="empty-inline">${filter === "all" ? "Log XP for a skill and your practice history will appear here." : "No practice logged for this skill yet."}</div>`;
+  if (filtered.length > entries.length) {
+    $("#practice-log").insertAdjacentHTML("beforeend", `<button class="panel-footer-link practice-more" data-action="show-more-practice">Show older practice <span>↓</span></button>`);
+  }
 }
 
 function renderGallery() {
@@ -978,7 +998,8 @@ async function handleXpSubmit(event) {
   skill.xp += earned;
   const newLevel = skillLevel(skill.xp);
   const note = form.elements.note.value.trim();
-  makeActivity("xp", `${skill.name} +${earned} XP${note ? ` · ${note}` : ""}${newLevel > oldLevel ? ` — Level ${newLevel}!` : ""}`);
+  const activity = makeActivity("xp", `${skill.name} +${earned} XP${note ? ` · ${note}` : ""}${newLevel > oldLevel ? ` — Level ${newLevel}!` : ""}`, { skillId: skill.id, xp: earned });
+  state.practiceLog.push(activity);
   try {
     await persistState();
     $("#xp-dialog").close();
@@ -986,6 +1007,8 @@ async function handleXpSubmit(event) {
     showToast(newLevel > oldLevel ? `${skill.name} reached Level ${newLevel}!` : `+${earned} XP added to ${skill.name}.`);
   } catch (error) {
     skill.xp -= earned;
+    state.activity = state.activity.filter(item => item.id !== activity.id);
+    state.practiceLog = state.practiceLog.filter(item => item.id !== activity.id);
     console.error("Unable to save skill progress.", error);
     showToast("Could not save that progress. Please try again.");
   }
@@ -1070,6 +1093,11 @@ async function handleAction(action, target) {
   const id = target.dataset.id;
   if (action === "new-project") openProjectForm();
   if (action === "new-skill") openSkillForm();
+  if (action === "show-more-practice") {
+    practiceLogLimit += 12;
+    renderPracticeLog();
+    return;
+  }
   if (action === "close-dialog") target.closest("dialog")?.close();
   if (action === "save-cloud-config") {
     const urlInput = $("#cloud-url");
@@ -1090,20 +1118,6 @@ async function handleAction(action, target) {
     } catch (error) {
       console.error("Unable to save cloud connection.", error);
       cloudMessage("Could not save this connection in browser storage.", "error");
-    }
-    return;
-  }
-  if (action === "create-cloud-account" || action === "cloud-sign-in") {
-    const form = $("#cloud-auth-form");
-    if (!form.reportValidity()) return;
-    const email = form.elements.email.value.trim();
-    const password = form.elements.password.value;
-    try {
-      const connected = await signInCloud(email, password, action === "create-cloud-account");
-      if (connected) showToast("Cloud sync connected.");
-    } catch (error) {
-      console.error("Unable to authenticate with cloud storage.", error);
-      cloudMessage(error.message, "error");
     }
     return;
   }
@@ -1230,6 +1244,9 @@ async function initialize() {
       state.projects = Array.isArray(saved.projects) ? saved.projects : [];
       state.skills = Array.isArray(saved.skills) ? saved.skills : [];
       state.activity = Array.isArray(saved.activity) ? saved.activity : [];
+      state.practiceLog = Array.isArray(saved.practiceLog)
+        ? saved.practiceLog.filter(item => item?.kind === "xp" && typeof item.text === "string")
+        : migratePracticeLog(state.activity, state.skills);
       state.starterSkillsAdded = saved.starterSkillsAdded === true;
       state.updatedAt = saved.updatedAt || "";
       state.projects.forEach(project => {
@@ -1307,9 +1324,9 @@ $("#project-form").addEventListener("submit", event => void handleProjectSubmit(
 $("#skill-form").addEventListener("submit", event => void handleSkillSubmit(event));
 $("#xp-form").addEventListener("submit", event => void handleXpSubmit(event));
 $("#folder-form").addEventListener("submit", event => void handleFolderSubmit(event));
-$("#cloud-auth-form").addEventListener("submit", event => {
-  event.preventDefault();
-  void handleAction("cloud-sign-in", event.currentTarget);
+$("#practice-filter").addEventListener("change", () => {
+  practiceLogLimit = 12;
+  renderPracticeLog();
 });
 document.addEventListener("submit", event => void handleProjectEntrySubmit(event));
 document.addEventListener("change", event => {

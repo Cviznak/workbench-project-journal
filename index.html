@@ -101,6 +101,13 @@
             </div>
             <div class="skills-intro" id="skills-summary"></div>
             <div class="skill-grid" id="skill-grid"></div>
+            <section class="panel practice-panel">
+              <div class="panel-heading">
+                <div><div class="eyebrow">A RECORD OF SHOWING UP</div><h2>Practice log</h2></div>
+                <label class="select-wrap"><span class="sr-only">Filter practice log by skill</span><select id="practice-filter"><option value="all">All skills</option></select></label>
+              </div>
+              <div id="practice-log"></div>
+            </section>
           </section>
 
           <section class="view-section" id="gallery-view" aria-labelledby="gallery-title">
@@ -138,15 +145,11 @@
                 <label class="field-label">Publishable / anon key<input id="cloud-key" type="password" placeholder="sb_publishable_… or anon key" autocomplete="off"></label>
                 <div class="sync-actions"><button class="button button-outline" data-action="save-cloud-config">Save connection</button><a class="text-button" href="README.md#private-cloud-sync-setup" target="_blank" rel="noreferrer">Setup guide ↗</a></div>
               </div>
-              <form id="cloud-auth-form" class="cloud-auth-form">
-                <p class="form-hint">Signed up with GitHub? Connect the GitHub provider in Supabase, then use GitHub sign-in here. The project key is not your account password.</p>
+              <div id="cloud-auth-form" class="cloud-auth-form">
+                <p class="form-hint">Sign in securely with the GitHub account connected to your Supabase project. The publishable key identifies the project; GitHub verifies your account.</p>
                 <button class="button button-outline github-sign-in" type="button" data-action="github-sign-in"><span aria-hidden="true">●</span> Continue with GitHub</button>
-                <div class="auth-divider"><span>or use email and password</span></div>
-                <label class="field-label">Email<input name="email" type="email" required autocomplete="username" placeholder="you@example.com"></label>
-                <label class="field-label">Password<input name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="At least 8 characters"></label>
-                <div class="sync-actions"><button class="button button-primary" type="submit">Sign in & sync</button><button class="button button-outline" type="button" data-action="create-cloud-account">Create account</button><button class="button button-quiet hidden" type="button" data-action="sign-out">Sign out</button></div>
-                <p class="form-hint" id="cloud-account-hint">Use the same account in each browser. Account credentials are sent only to the Supabase URL you configure.</p>
-              </form>
+                <p class="form-hint" id="cloud-account-hint">Use the same GitHub account in each browser. Your project data stays in your private Supabase workspace.</p>
+              </div>
               <div id="cloud-workspace" class="cloud-workspace hidden">
                 <div class="cloud-account-line"><span id="cloud-account-email"></span><span id="cloud-last-synced"></span></div>
                 <div id="cloud-conflict" class="cloud-conflict hidden"><strong>Both copies have changes.</strong><span>Choose which version should replace the other before continuing.</span><div class="sync-actions"><button class="button button-outline" data-action="pull-cloud">Use cloud copy</button><button class="button button-outline" data-action="push-cloud">Use this browser’s copy</button></div></div>

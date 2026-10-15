@@ -125,8 +125,6 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
 .sync-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .cloud-auth-form { padding-top: 15px; border-top: 1px solid #eeece5; }
 .github-sign-in { width: 100%; min-height: 40px; }
-.auth-divider { display: flex; align-items: center; gap: 10px; color: #a0a095; font-size: 9px; text-align: center; }
-.auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: #eeece5; content: ""; }
 .cloud-account-line { display: flex; justify-content: space-between; gap: 10px; margin: 3px 0 14px; color: #707267; font-size: 10px; }
 .cloud-account-line span:last-child { color: #999a90; }
 .cloud-conflict { display: grid; gap: 8px; margin-bottom: 15px; padding: 13px; border: 1px solid #ead8c9; border-radius: 6px; background: #faf4eb; color: #6e5948; font-size: 10px; }
@@ -206,6 +204,7 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
 .skill-level-badge { color: #55734e; background: #edf2e9; border-radius: 20px; padding: 5px 8px; font-size: 9px; font-weight: 600; white-space: nowrap; }
 .skill-card-progress { margin: 17px 0 6px; }
 .skill-xp-line { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; color: #96978d; font-size: 9px; }
+.skill-practice-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; color: #96978d; font-size: 9px; }
 .skill-card-bottom { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0efe9; }
 .skill-card-bottom span { color: #9a9b91; font-size: 9px; }
 .skill-card-actions { display: flex; gap: 5px; }
@@ -225,6 +224,13 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
 .gallery-empty { padding: 50px 20px; text-align: center; border: 1px dashed #deddd4; border-radius: 8px; }
 .gallery-empty h3 { margin-bottom: 7px; font-size: 16px; }
 .gallery-empty p { max-width: 360px; margin: 0 auto 16px; color: #85867c; font-size: 10px; line-height: 1.6; }
+.practice-panel { margin-top: 17px; }
+.practice-panel .select-wrap select { min-width: 130px; }
+.practice-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.practice-entry { display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 11px; border-radius: 6px; background: #faf9f5; }
+.practice-entry-copy { min-width: 0; }
+.practice-entry-copy p { margin: 1px 0 0; color: #62645b; font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+.practice-entry-copy time { display: block; margin-top: 5px; color: #a0a095; font-size: 8px; }
 .app-dialog { width: min(540px, calc(100% - 28px)); max-height: min(90vh, 760px); padding: 25px; overflow-y: auto; border: 1px solid #e8e6de; border-radius: 11px; background: #fffefa; color: var(--ink); box-shadow: 0 24px 80px rgba(36, 39, 32, .2); }
 .app-dialog::backdrop { background: rgba(36, 39, 32, .39); backdrop-filter: blur(2px); }
 .app-dialog form { display: grid; gap: 15px; }
@@ -323,6 +329,7 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
   .welcome-row h1 { max-width: 440px; font-size: 33px; }
   .dashboard-grid { grid-template-columns: 1fr; }
   .activity-list { grid-template-columns: 1fr; }
+  .practice-list { grid-template-columns: 1fr; }
   .activity-item { min-height: 48px; }
   .section-heading { align-items: flex-start; }
   .planner-columns { grid-template-columns: 1fr; }
