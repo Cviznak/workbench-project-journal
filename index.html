@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f3ed">
+    <title>Workbench — your project journal</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#" data-view="overview" aria-label="Workbench home">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+          <span>workbench<span class="brand-period">.</span></span>
+        </a>
+        <div class="sidebar-label">YOUR SPACE</div>
+        <nav class="main-nav" aria-label="Main navigation">
+          <button class="nav-link active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
+          <button class="nav-link" data-view="projects"><span class="nav-icon">▤</span>Projects<span class="nav-count" id="nav-project-count">0</span></button>
+          <button class="nav-link" data-view="skills"><span class="nav-icon">✳</span>Skills</button>
+          <button class="nav-link" data-view="gallery"><span class="nav-icon">▧</span>Gallery</button>
+          <button class="nav-link" data-view="planner"><span class="nav-icon">▦</span>Planner</button>
+          <button class="nav-link" data-view="sync"><span class="nav-icon">⇄</span>Sync & backup</button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="sidebar-note">
+            <span class="note-spark">✳</span>
+            <p>Every project starts somewhere. Keep track of how far you’ve come.</p>
+          </div>
+          <div class="profile">
+            <div class="profile-avatar">✿</div>
+            <div><strong>My workshop</strong><span>Personal space</span></div>
+            <span class="profile-menu" aria-hidden="true">···</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>My workshop</span><span class="crumb-divider">/</span><strong id="page-crumb">Overview</strong></div>
+          <div class="topbar-actions">
+            <span class="local-indicator"><span></span> Saved on this device</span>
+            <button class="button button-primary button-small" data-action="new-project"><span>＋</span> New project</button>
+          </div>
+        </header>
+        <div class="page-wrap">
+          <section class="view-section active" id="overview-view" aria-labelledby="welcome-title">
+            <div class="welcome-row">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> YOUR CREATIVE SPACE</div>
+                <h1 id="welcome-title">Make room for <span>what’s next.</span></h1>
+                <p class="welcome-copy">A little place to keep your projects, ideas, and all the skills you’re picking up along the way.</p>
+              </div>
+              <button class="button button-outline" data-action="new-project">＋ <span>Start a project</span></button>
+            </div>
+            <div class="stats-grid" id="overview-stats"></div>
+            <div class="dashboard-grid">
+              <section class="panel projects-panel">
+                <div class="panel-heading">
+                  <div><div class="eyebrow">IN YOUR WORKSHOP</div><h2>Recent projects</h2></div>
+                  <button class="text-button" data-view="projects">All projects <span>→</span></button>
+                </div>
+                <div id="recent-projects"></div>
+              </section>
+              <section class="panel skills-panel">
+                <div class="panel-heading">
+                  <div><div class="eyebrow">GROWING, ALWAYS</div><h2>Your skills</h2></div>
+                  <button class="icon-button" data-action="new-skill" aria-label="Add a skill">＋</button>
+                </div>
+                <div id="overview-skills"></div>
+              </section>
+            </div>
+            <section class="panel activity-panel">
+              <div class="panel-heading">
+                <div><div class="eyebrow">LITTLE WINS ADD UP</div><h2>Recent activity</h2></div>
+              </div>
+              <div id="recent-activity"></div>
+            </section>
+          </section>
+
+          <section class="view-section" id="projects-view" aria-labelledby="projects-title">
+            <div class="section-heading">
+              <div><div class="eyebrow"><span class="eyebrow-line"></span> THE THINGS YOU MAKE</div><h1 id="projects-title">Projects<span class="heading-period">.</span></h1><p>Ideas in motion, finished pieces, and everything in between.</p></div>
+              <button class="button button-primary" data-action="new-project">＋ New project</button>
+            </div>
+            <div class="toolbar">
+              <label class="search-box"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="Find a project..." aria-label="Search projects"></label>
+              <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
+              <label class="select-wrap"><span class="sr-only">Sort projects</span><select id="project-sort"><option value="updated">Recently updated</option><option value="due-soon">Due date</option><option value="priority">Priority</option><option value="name">Name</option></select></label>
+              <span class="result-count" id="project-result-count"></span>
+            </div>
+            <div class="project-grid" id="project-grid"></div>
+          </section>
+
+          <section class="view-section" id="skills-view" aria-labelledby="skills-title">
+            <div class="section-heading">
+              <div><div class="eyebrow"><span class="eyebrow-line"></span> THINGS YOU’RE LEARNING</div><h1 id="skills-title">Skills<span class="heading-period">.</span></h1><p>Every bit of practice counts. Keep an eye on your progress.</p></div>
+              <button class="button button-primary" data-action="new-skill">＋ Add a skill</button>
+            </div>
+            <div class="skills-intro" id="skills-summary"></div>
+            <div class="skill-grid" id="skill-grid"></div>
+          </section>
+
+          <section class="view-section" id="gallery-view" aria-labelledby="gallery-title">
+            <div class="section-heading">
+              <div><div class="eyebrow"><span class="eyebrow-line"></span> NOTES FROM THE MAKING</div><h1 id="gallery-title">Gallery<span class="heading-period">.</span></h1><p>A visual trail of your projects, gathered in one place.</p></div>
+            </div>
+            <div id="gallery-content"></div>
+          </section>
+
+          <section class="view-section" id="planner-view" aria-labelledby="planner-title">
+            <div class="section-heading">
+              <div><div class="eyebrow"><span class="eyebrow-line"></span> A LITTLE PLAN GOES A LONG WAY</div><h1 id="planner-title">Planner<span class="heading-period">.</span></h1><p>See what’s overdue, what’s coming up, and what you can pick back up.</p></div>
+              <button class="button button-primary" data-action="new-project">＋ New project</button>
+            </div>
+            <div class="planner-stats" id="planner-stats"></div>
+            <div class="planner-columns">
+              <section class="panel planner-panel"><div class="panel-heading"><div><div class="eyebrow">PAST THE TARGET</div><h2>Overdue</h2></div><span class="planner-count" id="overdue-count">0</span></div><div id="overdue-projects"></div></section>
+              <section class="panel planner-panel"><div class="panel-heading"><div><div class="eyebrow">ON THE HORIZON</div><h2>Coming up</h2></div><span class="planner-count" id="upcoming-count">0</span></div><div id="upcoming-projects"></div></section>
+            </div>
+            <section class="panel unscheduled-panel"><div class="panel-heading"><div><div class="eyebrow">NO RUSH, STILL IN MOTION</div><h2>Active without a date</h2></div><button class="text-button" data-view="projects">All projects <span>→</span></button></div><div id="undated-projects"></div></section>
+          </section>
+
+          <section class="view-section" id="sync-view" aria-labelledby="sync-title">
+            <div class="section-heading">
+              <div><div class="eyebrow"><span class="eyebrow-line"></span> YOUR DATA, YOUR CALL</div><h1 id="sync-title">Sync & backup<span class="heading-period">.</span></h1><p>Keep your workshop available across browsers, and keep a backup you control.</p></div>
+            </div>
+            <section class="panel sync-panel">
+              <div class="panel-heading">
+                <div><div class="eyebrow">PRIVATE CLOUD SYNC</div><h2>Connect your Supabase project</h2></div>
+                <span class="sync-badge" id="sync-badge"><span></span> Not connected</span>
+              </div>
+              <p class="sync-explainer">Your data syncs between browsers after you connect each one to the same Supabase project and sign in to the same account. Your database and private photo bucket are owned by you.</p>
+              <div class="cloud-config" id="cloud-config">
+                <label class="field-label">Project URL<input id="cloud-url" type="url" placeholder="https://your-project.supabase.co" autocomplete="url"></label>
+                <label class="field-label">Publishable / anon key<input id="cloud-key" type="password" placeholder="sb_publishable_… or anon key" autocomplete="off"></label>
+                <div class="sync-actions"><button class="button button-outline" data-action="save-cloud-config">Save connection</button><a class="text-button" href="README.md#private-cloud-sync-setup" target="_blank" rel="noreferrer">Setup guide ↗</a></div>
+              </div>
+              <form id="cloud-auth-form" class="cloud-auth-form">
+                <p class="form-hint">Signed up with GitHub? Connect the GitHub provider in Supabase, then use GitHub sign-in here. The project key is not your account password.</p>
+                <button class="button button-outline github-sign-in" type="button" data-action="github-sign-in"><span aria-hidden="true">●</span> Continue with GitHub</button>
+                <div class="auth-divider"><span>or use email and password</span></div>
+                <label class="field-label">Email<input name="email" type="email" required autocomplete="username" placeholder="you@example.com"></label>
+                <label class="field-label">Password<input name="password" type="password" required minlength="8" autocomplete="current-password" placeholder="At least 8 characters"></label>
+                <div class="sync-actions"><button class="button button-primary" type="submit">Sign in & sync</button><button class="button button-outline" type="button" data-action="create-cloud-account">Create account</button><button class="button button-quiet hidden" type="button" data-action="sign-out">Sign out</button></div>
+                <p class="form-hint" id="cloud-account-hint">Use the same account in each browser. Account credentials are sent only to the Supabase URL you configure.</p>
+              </form>
+              <div id="cloud-workspace" class="cloud-workspace hidden">
+                <div class="cloud-account-line"><span id="cloud-account-email"></span><span id="cloud-last-synced"></span></div>
+                <div id="cloud-conflict" class="cloud-conflict hidden"><strong>Both copies have changes.</strong><span>Choose which version should replace the other before continuing.</span><div class="sync-actions"><button class="button button-outline" data-action="pull-cloud">Use cloud copy</button><button class="button button-outline" data-action="push-cloud">Use this browser’s copy</button></div></div>
+                <div class="sync-actions"><button class="button button-outline" data-action="sync-now">Sync now</button><button class="button button-quiet" data-action="sign-out">Sign out</button></div>
+              </div>
+              <div id="sync-message" class="sync-message" role="status" aria-live="polite">Your data is currently saved in this browser only.</div>
+            </section>
+            <section class="panel backup-panel">
+              <div class="panel-heading"><div><div class="eyebrow">A COPY YOU CONTROL</div><h2>Workspace backup</h2></div></div>
+              <p class="sync-explainer">Export your projects, skills, notes, checklists, and photos into one backup file. Import replaces the current browser’s data, so export a backup first if you may need this copy.</p>
+              <div class="sync-actions"><button class="button button-outline" data-action="export-backup">↓ Export backup</button><button class="button button-quiet" data-action="import-backup">↑ Import backup</button></div>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <dialog class="app-dialog" id="project-dialog">
+      <form id="project-form" method="dialog">
+        <div class="dialog-heading"><div><div class="eyebrow">NEW IDEA, NEW CHAPTER</div><h2 id="project-dialog-title">Create a project</h2></div><button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button></div>
+        <input type="hidden" name="id">
+        <label class="field-label">Project name<input name="title" required maxlength="100" placeholder="What are you making?"></label>
+        <label class="field-label">A little about it<textarea name="description" rows="3" maxlength="2000" placeholder="The idea, the plan, the why..."></textarea></label>
+        <div class="form-row">
+          <label class="field-label">Status<select name="status"><option value="planned">Planned</option><option value="in-progress">In progress</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
+          <label class="field-label">Target date <span class="optional">(optional)</span><input name="targetDate" type="date"></label>
+        </div>
+        <div class="form-row">
+          <label class="field-label">Priority<select name="priority"><option value="normal">Normal</option><option value="high">High</option><option value="low">Low</option></select></label>
+          <label class="field-label">Tags <span class="optional">(comma separated)</span><input name="tags" maxlength="200" placeholder="e.g. gift, electronics, home"></label>
+        </div>
+        <fieldset class="skill-picker"><legend>Skills involved <span class="optional">(choose any)</span></legend><div class="skill-checklist" id="project-skill-options"></div></fieldset>
+        <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Save project <span>→</span></button></div>
+      </form>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="skill-dialog">
+      <form id="skill-form" method="dialog">
+        <div class="dialog-heading"><div><div class="eyebrow">A NEW THING TO LEARN</div><h2 id="skill-dialog-title">Add a skill</h2></div><button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button></div>
+        <input type="hidden" name="id">
+        <label class="field-label">Skill name<input name="name" required maxlength="60" placeholder="e.g. Crocheting"></label>
+        <label class="field-label">Category <span class="optional">(optional)</span><input name="category" maxlength="40" placeholder="e.g. Textiles, Digital, Workshop"></label>
+        <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Save skill <span>→</span></button></div>
+      </form>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="xp-dialog">
+      <form id="xp-form" method="dialog">
+        <div class="dialog-heading"><div><div class="eyebrow">A LITTLE PRACTICE GOES A LONG WAY</div><h2>Log some progress</h2></div><button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button></div>
+        <input type="hidden" name="skillId">
+        <label class="field-label">XP earned<select name="xp"><option value="10">+10 XP · A little practice</option><option value="25">+25 XP · A good session</option><option value="50">+50 XP · A big milestone</option><option value="100">+100 XP · A breakthrough</option></select></label>
+        <label class="field-label">What did you work on? <span class="optional">(optional)</span><input name="note" maxlength="120" placeholder="A few words to remember it by"></label>
+        <p class="form-hint">Every 100 XP brings your skill up one level.</p>
+        <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Log progress <span>→</span></button></div>
+      </form>
+    </dialog>
+
+    <dialog class="app-dialog detail-dialog" id="detail-dialog">
+      <div id="project-detail"></div>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="folder-dialog">
+      <form id="folder-form" method="dialog">
+        <div class="dialog-heading"><div><div class="eyebrow">KEEP THINGS TOGETHER</div><h2>New photo folder</h2></div><button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button></div>
+        <input type="hidden" name="projectId">
+        <label class="field-label">Folder name<input name="name" required maxlength="50" placeholder="e.g. First prototypes"></label>
+        <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Create folder <span>→</span></button></div>
+      </form>
+    </dialog>
+
+    <input type="file" id="photo-input" accept="image/*" multiple hidden>
+    <input type="file" id="backup-input" accept="application/json,.json" hidden>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
