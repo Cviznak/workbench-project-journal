@@ -20,6 +20,7 @@
         <nav class="main-nav" aria-label="Main navigation">
           <button class="nav-link active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
           <button class="nav-link" data-view="projects"><span class="nav-icon">▤</span>Projects<span class="nav-count" id="nav-project-count">0</span></button>
+          <button class="nav-link" data-view="timeline"><span class="nav-icon">◷</span>Activity & Journal</button>
           <button class="nav-link" data-view="skills"><span class="nav-icon">✳</span>Skills</button>
           <button class="nav-link" data-view="gallery"><span class="nav-icon">▧</span>Gallery</button>
           <button class="nav-link" data-view="planner"><span class="nav-icon">▦</span>Planner</button>
@@ -42,7 +43,8 @@
         <header class="topbar">
           <div class="breadcrumbs"><span>My workshop</span><span class="crumb-divider">/</span><strong id="page-crumb">Overview</strong></div>
           <div class="topbar-actions">
-            <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle dark/light theme" title="Toggle theme">
+            <button type="button" class="button button-outline button-small" data-action="open-timer" title="Practice Session Timer">⏱ Timer</button>
+            <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" data-action="toggle-theme" aria-label="Toggle dark/light theme" title="Toggle theme">
               <span class="theme-icon">◐</span>
             </button>
             <span class="local-indicator"><span></span> Saved on this device</span>
@@ -79,6 +81,7 @@
             <section class="panel activity-panel">
               <div class="panel-heading">
                 <div><div class="eyebrow">LITTLE WINS ADD UP</div><h2>Recent activity</h2></div>
+                <button type="button" class="button button-quiet button-small" data-view="timeline">View full journal →</button>
               </div>
               <div id="recent-activity"></div>
             </section>
@@ -92,10 +95,10 @@
             <div class="toolbar">
               <label class="search-box"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="Find a project..." aria-label="Search projects"></label>
               <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
-              <label class="select-wrap"><span class="sr-only">Filter by skill</span><select id="project-skill-filter"><option value="all">All skills</option></select></label>
               <label class="select-wrap"><span class="sr-only">Sort projects</span><select id="project-sort"><option value="updated">Recently updated</option><option value="due-soon">Due date</option><option value="priority">Priority</option><option value="name">Name</option></select></label>
               <span class="result-count" id="project-result-count"></span>
             </div>
+            <div class="skill-filter-bar" id="project-skill-pills" aria-label="Filter by skills"></div>
             <div class="project-grid" id="project-grid"></div>
           </section>
 
@@ -168,6 +171,51 @@
               <div class="sync-actions"><button class="button button-outline" data-action="export-backup">↓ Export backup</button><button class="button button-quiet" data-action="import-backup">↑ Import backup</button></div>
             </section>
           </section>
+
+          <section class="view-section" id="timeline-view" aria-labelledby="timeline-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> THE FULL RECORD OF YOUR MAKING</div>
+                <h1 id="timeline-title">Activity & Journal<span class="heading-period">.</span></h1>
+                <p>Every note, checklist step, practice session, plan, and milestone with full date and time.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="export-markdown">↓ Export Journal (.md)</button>
+              </div>
+            </div>
+            <div class="toolbar timeline-toolbar">
+              <label class="search-box">
+                <span aria-hidden="true">⌕</span>
+                <input id="timeline-search" type="search" placeholder="Search timeline, notes, plans..." aria-label="Search timeline">
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by type</span>
+                <select id="timeline-type-filter">
+                  <option value="all">All event types</option>
+                  <option value="note">Progress notes</option>
+                  <option value="task">Checklist steps</option>
+                  <option value="xp">Practice & XP logs</option>
+                  <option value="project">Project milestones</option>
+                  <option value="photo">Photos</option>
+                </select>
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by project</span>
+                <select id="timeline-project-filter">
+                  <option value="all">All projects</option>
+                </select>
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by skill</span>
+                <select id="timeline-skill-filter">
+                  <option value="all">All skills</option>
+                </select>
+              </label>
+              <span class="result-count" id="timeline-result-count"></span>
+            </div>
+            <div class="skill-filter-bar" id="timeline-skill-pills" aria-label="Filter timeline by skills"></div>
+            <div class="timeline-container" id="timeline-feed"></div>
+          </section>
         </div>
       </main>
     </div>
@@ -227,6 +275,31 @@
         <label class="field-label">Folder name<input name="name" required maxlength="50" placeholder="e.g. First prototypes"></label>
         <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Create folder <span>→</span></button></div>
       </form>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="timer-dialog" aria-label="Practice timer">
+      <div class="dialog-heading">
+        <div><div class="eyebrow">STAY IN THE FLOW</div><h2>Practice Timer</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="timer-body">
+        <label class="field-label">Skill to practice
+          <select id="timer-skill-select"></select>
+        </label>
+        <div class="timer-display" id="timer-display">25:00</div>
+        <div class="timer-presets">
+          <button type="button" class="small-action" data-action="set-timer" data-minutes="15">15m</button>
+          <button type="button" class="small-action active" data-action="set-timer" data-minutes="25">25m</button>
+          <button type="button" class="small-action" data-action="set-timer" data-minutes="45">45m</button>
+          <button type="button" class="small-action" data-action="set-timer" data-minutes="60">60m</button>
+          <button type="button" class="small-action" data-action="set-timer" data-minutes="0">Stopwatch</button>
+        </div>
+        <div class="timer-actions">
+          <button type="button" class="button button-primary" id="timer-start-btn" data-action="timer-toggle">Start</button>
+          <button type="button" class="button button-outline" data-action="timer-reset">Reset</button>
+          <button type="button" class="button button-quiet" data-action="timer-finish">Finish &amp; Log XP →</button>
+        </div>
+      </div>
     </dialog>
 
     <dialog class="app-dialog lightbox-dialog" id="lightbox-dialog" aria-label="Photo viewer">

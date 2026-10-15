@@ -112,6 +112,21 @@ function formatDate(value) {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
+function formatFullDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(date);
+}
+
 function localDateString(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -238,20 +253,28 @@ async function optimizeImage(file, maxDimension = 1600, quality = 0.85) {
 
 const THEME_KEY = "workbench-theme";
 function getSavedTheme() {
-  return localStorage.getItem(THEME_KEY) || "auto";
+  try {
+    return localStorage.getItem(THEME_KEY) || "auto";
+  } catch {
+    return "auto";
+  }
 }
 
-function applyTheme(theme) {
-  if (theme === "dark") {
-    document.documentElement.dataset.theme = "dark";
-  } else if (theme === "light") {
-    document.documentElement.dataset.theme = "light";
+function applyTheme(theme = getSavedTheme()) {
+  const isDark = theme === "dark" || (theme === "auto" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  if (isDark) {
+    document.documentElement.setAttribute("data-theme", "dark");
+    document.body?.setAttribute("data-theme", "dark");
+    document.documentElement.classList.add("theme-dark");
+    document.body?.classList.add("theme-dark");
   } else {
-    delete document.documentElement.dataset.theme;
+    document.documentElement.setAttribute("data-theme", "light");
+    document.body?.setAttribute("data-theme", "light");
+    document.documentElement.classList.remove("theme-dark");
+    document.body?.classList.remove("theme-dark");
   }
   const btn = $("#theme-toggle-btn");
   if (btn) {
-    const isDark = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
     const icon = btn.querySelector(".theme-icon");
     if (icon) icon.textContent = isDark ? "☼" : "☾";
     btn.title = `Switch to ${isDark ? "light" : "dark"} mode`;
@@ -259,11 +282,56 @@ function applyTheme(theme) {
 }
 
 function toggleTheme() {
-  const isDark = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  const nextTheme = isDark ? "light" : "dark";
-  localStorage.setItem(THEME_KEY, nextTheme);
+  const isCurrentlyDark = document.documentElement.getAttribute("data-theme") === "dark" ||
+    document.documentElement.classList.contains("theme-dark") ||
+    (!document.documentElement.getAttribute("data-theme") && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+  const nextTheme = isCurrentlyDark ? "light" : "dark";
+  try {
+    localStorage.setItem(THEME_KEY, nextTheme);
+  } catch (e) {
+    console.warn("Storage restricted", e);
+  }
   applyTheme(nextTheme);
-  showToast(`Switched to ${nextTheme} theme.`);
+  showToast(`Switched to ${nextTheme} mode.`);
+}
+
+try {
+  applyTheme(getSavedTheme());
+} catch {}
+
+const selectedSkillFilters = new Set();
+const selectedTimelineSkillFilters = new Set();
+
+function renderSkillFilterPills() {
+  const container = $("#project-skill-pills");
+  if (!container) return;
+  if (!state.skills.length) {
+    container.innerHTML = "";
+    return;
+  }
+  const isAll = selectedSkillFilters.size === 0;
+  let html = `<button type="button" class="skill-pill ${isAll ? "active" : ""}" data-action="filter-skill-all">All skills</button>`;
+  for (const skill of state.skills) {
+    const isSelected = selectedSkillFilters.has(skill.id);
+    html += `<button type="button" class="skill-pill ${isSelected ? "active" : ""}" data-action="filter-skill-toggle" data-skill-id="${escapeHTML(skill.id)}"><span class="pill-spark">✳</span>${escapeHTML(skill.name)}</button>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderTimelineSkillFilterPills() {
+  const container = $("#timeline-skill-pills");
+  if (!container) return;
+  if (!state.skills.length) {
+    container.innerHTML = "";
+    return;
+  }
+  const isAll = selectedTimelineSkillFilters.size === 0;
+  let html = `<button type="button" class="skill-pill ${isAll ? "active" : ""}" data-action="timeline-skill-all">All skills</button>`;
+  for (const skill of state.skills) {
+    const isSelected = selectedTimelineSkillFilters.has(skill.id);
+    html += `<button type="button" class="skill-pill ${isSelected ? "active" : ""}" data-action="timeline-skill-toggle" data-skill-id="${escapeHTML(skill.id)}"><span class="pill-spark">✳</span>${escapeHTML(skill.name)}</button>`;
+  }
+  container.innerHTML = html;
 }
 
 function projectSkillNames(project) {
@@ -727,6 +795,7 @@ function render() {
   renderPlanner();
   renderSkills();
   renderGallery();
+  renderTimeline();
   if (activeProjectId && $("#detail-dialog").open) renderProjectDetail(activeProjectId);
 }
 
@@ -781,20 +850,16 @@ function emptyState(title, description, action, buttonText = "Get started") {
 }
 
 function renderProjects() {
+  renderSkillFilterPills();
   const query = ($("#project-search")?.value || "").trim().toLowerCase();
   const filter = $("#project-status-filter")?.value || "all";
-  const skillSelect = $("#project-skill-filter");
-  const prevSkill = skillSelect?.value || "all";
-  if (skillSelect) {
-    skillSelect.innerHTML = `<option value="all">All skills</option>${state.skills.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`).join("")}`;
-    if (state.skills.some(s => s.id === prevSkill)) skillSelect.value = prevSkill;
-    else skillSelect.value = "all";
-  }
-  const effectiveSkill = skillSelect?.value || "all";
   const sort = $("#project-sort")?.value || "updated";
   const filtered = [...state.projects]
     .filter(project => (filter === "all" || safeStatus(project.status) === filter))
-    .filter(project => (effectiveSkill === "all" || (project.skillIds || []).includes(effectiveSkill)))
+    .filter(project => {
+      if (selectedSkillFilters.size === 0) return true;
+      return (project.skillIds || []).some(id => selectedSkillFilters.has(id));
+    })
     .filter(project => `${project.title} ${project.description} ${(project.tags || []).join(" ")} ${projectSkillNames(project).map(skill => skill.name).join(" ")}`.toLowerCase().includes(query))
     .sort((a, b) => {
       if (sort === "due-soon") return (a.targetDate || "9999").localeCompare(b.targetDate || "9999");
@@ -815,7 +880,7 @@ function renderProjects() {
       ${progress.total ? `<div class="card-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.completed}/${progress.total} steps</span></div>` : ""}
       <div class="project-card-bottom"><span class="project-card-meta">${images ? `▧ ${images} ${images === 1 ? "photo" : "photos"} · ` : ""}Updated ${relativeTime(project.updatedAt)}</span>${project.targetDate ? `<span class="project-card-meta">Due ${formatDate(project.targetDate)}</span>` : ""}</div>
     </article>`;
-  }).join("") : emptyState(query || filter !== "all" || effectiveSkill !== "all" ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" || effectiveSkill !== "all" ? "Try another search or status/skill filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
+  }).join("") : emptyState(query || filter !== "all" || selectedSkillFilters.size > 0 ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" || selectedSkillFilters.size > 0 ? "Try another search or status/skill filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
 }
 
 function renderPlanner() {
@@ -866,7 +931,7 @@ function renderSkills() {
       <div class="skill-card-header"><div class="skill-icon">${["✳", "⌘", "◈", "✿"][index % 4]}</div><div class="skill-card-heading"><h3>${escapeHTML(skill.name)}</h3><span>${escapeHTML(skill.category || "Personal skill")}</span></div><span class="skill-level-badge">Level ${skillLevel(skill.xp)}</span></div>
       <div class="skill-card-progress"><div class="progress-track"><div class="progress-bar" style="width:${skillProgress(skill.xp)}%"></div></div><div class="skill-xp-line"><span>${skillProgress(skill.xp)} / ${XP_PER_LEVEL} XP to next level</span><span>${skill.xp} total XP</span></div></div>
       <div class="skill-practice-meta"><span>${lastPracticed ? `Last practiced ${relativeTime(lastPracticed.at)}` : "No practice logged yet"}</span><span>${relatedCount} ${relatedCount === 1 ? "project" : "projects"}</span></div>
-      <div class="skill-card-bottom"><span>Level ${skillLevel(skill.xp)} progress</span><div class="skill-card-actions"><button class="small-action" data-action="edit-skill" data-id="${skill.id}">Edit</button><button class="small-action" data-action="log-xp" data-id="${skill.id}">＋ Log XP</button></div></div>
+      <div class="skill-card-bottom"><span>Level ${skillLevel(skill.xp)} progress</span><div class="skill-card-actions"><button class="small-action" data-action="edit-skill" data-id="${skill.id}">Edit</button><button class="small-action" data-action="log-xp" data-id="${skill.id}">＋ Log XP</button><button class="small-action danger-button" data-action="delete-skill" data-id="${skill.id}">Delete</button></div></div>
     </article>`;
   }).join("") : emptyState("Your skills deserve a spot here", "Track a skill, practice over time, and watch your level grow.", "new-skill", "Add a skill");
   renderPracticeLog();
@@ -882,7 +947,8 @@ function renderPracticeLog() {
   $("#practice-log").innerHTML = entries.length ? `<div class="practice-list">${entries.map(activity => `
     <article class="practice-entry">
       <span class="activity-icon">✳</span>
-      <div class="practice-entry-copy"><p>${escapeHTML(activity.text)}</p><time>${formatDate(typeof activity.at === "string" ? activity.at.slice(0, 10) : "")} · ${relativeTime(activity.at)}</time></div>
+      <div class="practice-entry-copy"><p>${escapeHTML(activity.text)}</p><time>${formatFullDateTime(activity.at)} · ${relativeTime(activity.at)}</time></div>
+      <button type="button" class="task-remove" data-action="delete-xp" data-id="${activity.id}" title="Delete logged practice session" aria-label="Delete logged practice session">×</button>
     </article>`).join("")}</div>` : `<div class="empty-inline">${filter === "all" ? "Log XP for a skill and your practice history will appear here." : "No practice logged for this skill yet."}</div>`;
   if (filtered.length > entries.length) {
     $("#practice-log").insertAdjacentHTML("beforeend", `<button class="panel-footer-link practice-more" data-action="show-more-practice">Show older practice <span>↓</span></button>`);
@@ -923,7 +989,7 @@ function renderProjectDetail(projectId) {
     ${tasks.length ? `<ul class="task-list">${tasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span></label><div class="task-item-actions">${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < tasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
     <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div><span class="form-hint">A dated note, just for this project.</span><button class="button button-outline" type="submit">＋ Add note</button></div></form>
-    ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatDate(note.at.slice(0, 10))}</div><p>${escapeHTML(note.text)}</p><div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
+    ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p><div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
     <div class="detail-section-heading"><h3>Project photos</h3><div><button class="small-action" data-action="new-folder" data-id="${project.id}">＋ Folder</button> <button class="small-action" data-action="add-photos" data-id="${project.id}">＋ Add photos</button></div></div>
     ${folders.map(folder => `<div class="folder-block"><div class="folder-heading"><div class="folder-title-wrap"><span class="folder-name-text">${escapeHTML(folder.name)}</span><button type="button" class="icon-link-btn" data-action="rename-folder" data-project="${project.id}" data-folder="${folder.id}" title="Rename folder" aria-label="Rename folder">✎</button>${folders.length > 1 ? `<button type="button" class="icon-link-btn danger-hover" data-action="delete-folder" data-project="${project.id}" data-folder="${folder.id}" title="Delete folder" aria-label="Delete folder">×</button>` : ""}</div><span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
     <div class="detail-footer"><button class="danger-button" data-action="delete-project" data-id="${project.id}">Delete project</button><span class="project-card-meta">${projectImageCount(project)} photos · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}</span></div>
@@ -933,9 +999,18 @@ function renderProjectDetail(projectId) {
 function switchView(view) {
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${view}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === view));
-  const title = { overview: "Overview", projects: "Projects", skills: "Skills", gallery: "Gallery", planner: "Planner", sync: "Sync & backup" }[view] || "Overview";
+  const title = {
+    overview: "Overview",
+    projects: "Projects",
+    skills: "Skills",
+    gallery: "Gallery",
+    planner: "Planner",
+    sync: "Sync & backup",
+    timeline: "Activity & Journal"
+  }[view] || "Overview";
   $("#page-crumb").textContent = title;
   if (view === "sync") renderCloudConnection();
+  if (view === "timeline") renderTimeline();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -982,6 +1057,18 @@ function openSkillForm(skill = null) {
     deleteBtn.dataset.id = skill?.id || "";
   }
   $("#skill-dialog").showModal();
+}
+
+function openXpDialog(skillId, xp = "25", note = "") {
+  const skill = state.skills.find(item => item.id === skillId);
+  if (!skill) return;
+  const form = $("#xp-form");
+  form.reset();
+  form.elements.skillId.value = skill.id;
+  if (form.elements.xp && xp) form.elements.xp.value = xp;
+  if (form.elements.note && note) form.elements.note.value = note;
+  $("#xp-dialog").querySelector(".eyebrow").textContent = `PRACTICE MAKES PROGRESS · ${skill.name.toUpperCase()}`;
+  $("#xp-dialog").showModal();
 }
 
 function openProjectDetail(id) {
@@ -1181,6 +1268,7 @@ async function handleTaskToggle(input) {
   const task = project?.tasks.find(item => item.id === input.dataset.id);
   if (!project || !task) return;
   task.done = input.checked;
+  task.completedAt = input.checked ? new Date().toISOString() : null;
   project.updatedAt = new Date().toISOString();
   try {
     await persistState();
@@ -1197,8 +1285,509 @@ async function handleTaskToggle(input) {
   }
 }
 
+/* Practice Timer State and Controls */
+const timer = {
+  durationSeconds: 25 * 60,
+  secondsLeft: 25 * 60,
+  intervalId: null,
+  isRunning: false,
+  isStopwatch: false
+};
+
+function playTimerChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const notes = [523.25, 659.25, 783.99, 1046.50];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+      gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.12);
+      gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + idx * 0.12 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.4);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + idx * 0.12);
+      osc.stop(ctx.currentTime + idx * 0.12 + 0.45);
+    });
+  } catch (e) {
+    console.warn("Audio chime not available", e);
+  }
+}
+
+function updateTimerDisplay() {
+  const display = $("#timer-display");
+  if (!display) return;
+  const s = timer.isStopwatch ? timer.secondsLeft : Math.max(0, timer.secondsLeft);
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  display.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const startBtn = $("#timer-start-btn");
+  if (startBtn) {
+    startBtn.textContent = timer.isRunning ? "Pause" : "Start";
+  }
+}
+
+function openTimerDialog(skillId = null) {
+  const select = $("#timer-skill-select");
+  if (select) {
+    select.innerHTML = state.skills.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`).join("");
+    if (skillId && state.skills.some(s => s.id === skillId)) {
+      select.value = skillId;
+    } else if (state.skills.length > 0) {
+      select.value = state.skills[0].id;
+    }
+  }
+  updateTimerDisplay();
+  $("#timer-dialog")?.showModal();
+}
+
+function setTimerPreset(minutes) {
+  if (timer.intervalId) {
+    clearInterval(timer.intervalId);
+    timer.intervalId = null;
+    timer.isRunning = false;
+  }
+  if (minutes === 0) {
+    timer.isStopwatch = true;
+    timer.durationSeconds = 0;
+    timer.secondsLeft = 0;
+  } else {
+    timer.isStopwatch = false;
+    timer.durationSeconds = minutes * 60;
+    timer.secondsLeft = minutes * 60;
+  }
+  $$("#timer-dialog [data-action='set-timer']").forEach(btn => {
+    btn.classList.toggle("active", Number(btn.dataset.minutes) === minutes);
+  });
+  updateTimerDisplay();
+}
+
+function toggleTimer() {
+  if (timer.isRunning) {
+    clearInterval(timer.intervalId);
+    timer.intervalId = null;
+    timer.isRunning = false;
+    updateTimerDisplay();
+  } else {
+    timer.isRunning = true;
+    updateTimerDisplay();
+    timer.intervalId = setInterval(() => {
+      if (timer.isStopwatch) {
+        timer.secondsLeft++;
+        updateTimerDisplay();
+      } else {
+        if (timer.secondsLeft > 0) {
+          timer.secondsLeft--;
+          updateTimerDisplay();
+          if (timer.secondsLeft === 0) {
+            clearInterval(timer.intervalId);
+            timer.intervalId = null;
+            timer.isRunning = false;
+            updateTimerDisplay();
+            playTimerChime();
+            showToast("Practice session finished! Ready to log your XP.");
+          }
+        }
+      }
+    }, 1000);
+  }
+}
+
+function resetTimer() {
+  if (timer.intervalId) {
+    clearInterval(timer.intervalId);
+    timer.intervalId = null;
+    timer.isRunning = false;
+  }
+  timer.secondsLeft = timer.durationSeconds;
+  updateTimerDisplay();
+}
+
+function finishTimer() {
+  const skillSelect = $("#timer-skill-select");
+  const skillId = skillSelect?.value || state.skills[0]?.id;
+  if (!skillId) {
+    showToast("Please add a skill first.");
+    return;
+  }
+  const elapsed = timer.isStopwatch ? timer.secondsLeft : (timer.durationSeconds - timer.secondsLeft);
+  const elapsedMins = Math.max(1, Math.round(elapsed / 60));
+  let recommendedXp = "10";
+  if (elapsedMins >= 55) recommendedXp = "100";
+  else if (elapsedMins >= 40) recommendedXp = "50";
+  else if (elapsedMins >= 20) recommendedXp = "25";
+
+  resetTimer();
+  $("#timer-dialog")?.close();
+  openXpDialog(skillId, recommendedXp, `${elapsedMins}m practice session`);
+}
+
+/* Activity & Journal Timeline */
+function getTimelineEvents() {
+  const events = [];
+
+  for (const project of state.projects) {
+    const skillIds = project.skillIds || [];
+    const skillNames = projectSkillNames(project).map(s => s.name);
+
+    events.push({
+      id: `proj-${project.id}`,
+      rawId: project.id,
+      type: "project",
+      badgeLabel: "Project",
+      badgeClass: "badge-project",
+      title: project.title,
+      text: project.description ? `Status: ${STATUS_LABELS[safeStatus(project.status)]} · ${project.description}` : `Project marked as ${STATUS_LABELS[safeStatus(project.status)]}`,
+      at: project.createdAt || project.updatedAt || new Date().toISOString(),
+      projectId: project.id,
+      projectTitle: project.title,
+      skillIds,
+      skillNames
+    });
+
+    for (const note of (project.notes || [])) {
+      events.push({
+        id: `note-${project.id}-${note.id}`,
+        rawId: note.id,
+        type: "note",
+        badgeLabel: "Progress Note",
+        badgeClass: "badge-note",
+        title: project.title,
+        text: note.text,
+        at: note.at || project.updatedAt || project.createdAt,
+        projectId: project.id,
+        projectTitle: project.title,
+        skillIds,
+        skillNames
+      });
+    }
+
+    for (const task of (project.tasks || [])) {
+      events.push({
+        id: `task-${project.id}-${task.id}`,
+        rawId: task.id,
+        type: "task",
+        badgeLabel: task.done ? "Plan Completed" : "Plan Step",
+        badgeClass: "badge-task",
+        title: project.title,
+        text: `${task.done ? "✓ " : "○ "} ${task.text}`,
+        at: task.completedAt || task.createdAt || task.at || project.updatedAt || project.createdAt,
+        projectId: project.id,
+        projectTitle: project.title,
+        skillIds,
+        skillNames
+      });
+    }
+
+    for (const folder of (project.folders || [])) {
+      for (const image of (folder.images || [])) {
+        events.push({
+          id: `photo-${image.id}`,
+          rawId: image.id,
+          type: "photo",
+          badgeLabel: "Photo",
+          badgeClass: "badge-photo",
+          title: `${project.title} (${folder.name})`,
+          text: image.name || "Project photo added",
+          at: image.addedAt || image.at || image.createdAt || project.updatedAt,
+          projectId: project.id,
+          projectTitle: project.title,
+          skillIds,
+          skillNames,
+          image
+        });
+      }
+    }
+  }
+
+  for (const entry of state.practiceLog) {
+    const skill = state.skills.find(s => s.id === entry.skillId) || state.skills.find(s => entry.text.startsWith(`${s.name} +`));
+    events.push({
+      id: `xp-${entry.id}`,
+      rawId: entry.id,
+      type: "xp",
+      badgeLabel: "Practice & XP",
+      badgeClass: "badge-xp",
+      title: skill ? skill.name : "Practice Session",
+      text: entry.text,
+      at: entry.at,
+      projectId: "",
+      projectTitle: "",
+      skillIds: skill ? [skill.id] : [],
+      skillNames: skill ? [skill.name] : []
+    });
+  }
+
+  for (const act of state.activity) {
+    if (act.kind === "xp") continue;
+    events.push({
+      id: `act-${act.id}`,
+      rawId: act.id,
+      type: "project",
+      badgeLabel: "Activity",
+      badgeClass: "badge-project",
+      title: "Workshop Activity",
+      text: act.text,
+      at: act.at,
+      projectId: "",
+      projectTitle: "",
+      skillIds: [],
+      skillNames: []
+    });
+  }
+
+  return events;
+}
+
+function renderTimeline() {
+  const container = $("#timeline-feed");
+  if (!container) return;
+
+  const projectSelect = $("#timeline-project-filter");
+  if (projectSelect) {
+    const curVal = projectSelect.value;
+    projectSelect.innerHTML = `<option value="all">All projects</option>${state.projects.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.title)}</option>`).join("")}`;
+    if (state.projects.some(p => p.id === curVal)) projectSelect.value = curVal;
+    else projectSelect.value = "all";
+  }
+
+  const skillSelect = $("#timeline-skill-filter");
+  if (skillSelect) {
+    const curVal = skillSelect.value;
+    skillSelect.innerHTML = `<option value="all">All skills</option>${state.skills.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`).join("")}`;
+    if (state.skills.some(s => s.id === curVal)) skillSelect.value = curVal;
+    else skillSelect.value = "all";
+  }
+
+  renderTimelineSkillFilterPills();
+
+  const query = ($("#timeline-search")?.value || "").trim().toLowerCase();
+  const typeFilter = $("#timeline-type-filter")?.value || "all";
+  const projectFilter = $("#timeline-project-filter")?.value || "all";
+  const skillSelectFilter = $("#timeline-skill-filter")?.value || "all";
+
+  const allEvents = getTimelineEvents();
+  const filtered = allEvents.filter(item => {
+    if (typeFilter !== "all" && item.type !== typeFilter) return false;
+    if (projectFilter !== "all" && item.projectId !== projectFilter) return false;
+    if (skillSelectFilter !== "all" && !(item.skillIds || []).includes(skillSelectFilter)) return false;
+    if (selectedTimelineSkillFilters.size > 0 && !(item.skillIds || []).some(id => selectedTimelineSkillFilters.has(id))) return false;
+    if (query) {
+      const matchText = `${item.title} ${item.text} ${item.projectTitle} ${(item.skillNames || []).join(" ")} ${item.badgeLabel}`.toLowerCase();
+      if (!matchText.includes(query)) return false;
+    }
+    return true;
+  }).sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+
+  const countElem = $("#timeline-result-count");
+  if (countElem) {
+    countElem.textContent = `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`;
+  }
+
+  if (!filtered.length) {
+    container.innerHTML = `<div class="empty-inline" style="padding:48px 24px;text-align:center;">No timeline entries match your filters. Add project notes, checklist plans, or practice sessions to see your full journal history.</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(item => `
+    <article class="timeline-card">
+      <div class="timeline-card-header">
+        <div class="timeline-card-left">
+          <span class="timeline-badge ${item.badgeClass}">${item.badgeLabel}</span>
+          ${item.projectId
+            ? `<strong class="clickable" data-action="open-project-detail" data-id="${item.projectId}">${escapeHTML(item.projectTitle)}</strong>`
+            : `<strong>${escapeHTML(item.title)}</strong>`
+          }
+          ${(item.skillNames || []).map(sn => `<span class="mini-tag">${escapeHTML(sn)}</span>`).join("")}
+          <span class="timeline-time" title="${escapeHTML(formatFullDateTime(item.at))}">${formatFullDateTime(item.at)} · ${relativeTime(item.at)}</span>
+        </div>
+        <div class="timeline-card-actions">
+          ${item.projectId ? `<button type="button" class="small-action" data-action="open-project-detail" data-id="${item.projectId}">View project</button>` : ""}
+          ${item.type === "xp" ? `<button type="button" class="small-action danger-button" data-action="delete-xp" data-id="${item.rawId}" title="Delete practice log">Delete</button>` : ""}
+        </div>
+      </div>
+      <div class="timeline-text">${escapeHTML(item.text)}</div>
+      ${item.image ? `<div class="timeline-photo" style="margin-top:8px"><img src="${imageUrl(item.image)}" alt="${escapeHTML(item.image.name)}" style="max-height:160px;border-radius:6px;object-fit:cover;cursor:pointer" data-action="open-lightbox" data-image-id="${item.image.id}" data-caption="${escapeHTML(item.image.name)}"></div>` : ""}
+    </article>
+  `).join("");
+}
+
+/* Markdown Journal Export */
+function exportMarkdownJournal() {
+  const dateStr = localDateString();
+  let md = `# Workshop Project Journal\n\n`;
+  md += `*Exported on ${formatFullDateTime(new Date().toISOString())}*\n\n`;
+
+  const totalXp = state.skills.reduce((sum, s) => sum + s.xp, 0);
+  md += `## Overview\n\n`;
+  md += `- **Total Projects:** ${state.projects.length}\n`;
+  md += `- **Total Skills:** ${state.skills.length}\n`;
+  md += `- **Total XP Earned:** ${totalXp.toLocaleString()} XP\n\n`;
+
+  md += `## Skills\n\n`;
+  if (state.skills.length) {
+    state.skills.forEach(skill => {
+      md += `### ${skill.name} (Level ${skillLevel(skill.xp)})\n`;
+      md += `- **Category:** ${skill.category || "General"}\n`;
+      md += `- **XP:** ${skill.xp} total XP (${skillProgress(skill.xp)} / ${XP_PER_LEVEL} to next level)\n\n`;
+    });
+  } else {
+    md += `*No skills added yet.*\n\n`;
+  }
+
+  md += `## Projects\n\n`;
+  if (state.projects.length) {
+    state.projects.forEach(project => {
+      const skills = projectSkillNames(project).map(s => s.name).join(", ");
+      md += `### ${project.title}\n\n`;
+      md += `- **Status:** ${STATUS_LABELS[safeStatus(project.status)]}\n`;
+      md += `- **Priority:** ${priorityLabel(project.priority)}\n`;
+      if (project.targetDate) md += `- **Target Date:** ${formatDate(project.targetDate)}\n`;
+      if (skills) md += `- **Skills:** ${skills}\n`;
+      if (project.tags?.length) md += `- **Tags:** ${project.tags.join(", ")}\n`;
+      if (project.description) md += `\n**Description:**\n${project.description}\n`;
+
+      if (project.tasks?.length) {
+        md += `\n#### Action Plan & Checklist\n`;
+        project.tasks.forEach(task => {
+          const check = task.done ? "[x]" : "[ ]";
+          const time = task.completedAt ? ` *(completed ${formatFullDateTime(task.completedAt)})*` : (task.createdAt ? ` *(added ${formatFullDateTime(task.createdAt)})*` : "");
+          md += `- ${check} ${task.text}${time}\n`;
+        });
+      }
+
+      if (project.notes?.length) {
+        md += `\n#### Progress Notes\n`;
+        project.notes.forEach(note => {
+          md += `> **${formatFullDateTime(note.at)}:**\n> ${note.text.replace(/\n/g, "\n> ")}\n\n`;
+        });
+      }
+
+      const imgCount = projectImageCount(project);
+      if (imgCount > 0) {
+        md += `\n*Photos: ${imgCount} project photo${imgCount === 1 ? "" : "s"} logged in workbench.*\n`;
+      }
+
+      md += `\n---\n\n`;
+    });
+  } else {
+    md += `*No projects logged yet.*\n\n`;
+  }
+
+  md += `## Practice & XP History\n\n`;
+  if (state.practiceLog?.length) {
+    const sortedPractice = [...state.practiceLog].sort((a, b) => new Date(b.at) - new Date(a.at));
+    sortedPractice.forEach(item => {
+      md += `- **${formatFullDateTime(item.at)}**: ${item.text}\n`;
+    });
+    md += `\n`;
+  } else {
+    md += `*No practice sessions logged yet.*\n\n`;
+  }
+
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `workbench-journal-${dateStr}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast("Markdown journal exported!");
+}
+
 async function handleAction(action, target) {
   const id = target.dataset.id;
+  if (action === "toggle-theme") {
+    toggleTheme();
+    return;
+  }
+  if (action === "filter-skill-all") {
+    selectedSkillFilters.clear();
+    renderProjects();
+    return;
+  }
+  if (action === "filter-skill-toggle") {
+    const sid = target.dataset.skillId;
+    if (selectedSkillFilters.has(sid)) selectedSkillFilters.delete(sid);
+    else selectedSkillFilters.add(sid);
+    renderProjects();
+    return;
+  }
+  if (action === "timeline-skill-all") {
+    selectedTimelineSkillFilters.clear();
+    if ($("#timeline-skill-filter")) $("#timeline-skill-filter").value = "all";
+    renderTimeline();
+    return;
+  }
+  if (action === "timeline-skill-toggle") {
+    const sid = target.dataset.skillId;
+    if (selectedTimelineSkillFilters.has(sid)) selectedTimelineSkillFilters.delete(sid);
+    else selectedTimelineSkillFilters.add(sid);
+    if ($("#timeline-skill-filter")) {
+      $("#timeline-skill-filter").value = selectedTimelineSkillFilters.size === 1 ? Array.from(selectedTimelineSkillFilters)[0] : "all";
+    }
+    renderTimeline();
+    return;
+  }
+  if (action === "open-timer") {
+    openTimerDialog(target.dataset.id || null);
+    return;
+  }
+  if (action === "set-timer") {
+    setTimerPreset(Number(target.dataset.minutes || 0));
+    return;
+  }
+  if (action === "timer-toggle") {
+    toggleTimer();
+    return;
+  }
+  if (action === "timer-reset") {
+    resetTimer();
+    return;
+  }
+  if (action === "timer-finish") {
+    finishTimer();
+    return;
+  }
+  if (action === "export-markdown") {
+    exportMarkdownJournal();
+    return;
+  }
+  if (action === "open-project-detail") {
+    openProjectDetail(id || target.dataset.id);
+    return;
+  }
+  if (action === "delete-xp") {
+    const entry = state.practiceLog.find(item => item.id === id);
+    if (!entry) return;
+    if (!window.confirm(`Delete this logged practice session (“${entry.text}”)? Any XP earned will be deducted.`)) return;
+    let xpAmount = entry.xp;
+    if (!Number.isFinite(xpAmount)) {
+      const match = entry.text.match(/\+(\d+)\s*XP/i);
+      xpAmount = match ? parseInt(match[1], 10) : 0;
+    }
+    const skill = state.skills.find(s => s.id === entry.skillId) || state.skills.find(s => entry.text.startsWith(`${s.name} +`));
+    if (skill && xpAmount > 0) {
+      skill.xp = Math.max(0, skill.xp - xpAmount);
+    }
+    state.practiceLog = state.practiceLog.filter(item => item.id !== id);
+    state.activity = state.activity.filter(item => item.id !== id);
+    try {
+      await persistState();
+      render();
+      showToast("Practice session deleted.");
+    } catch (error) {
+      console.error("Unable to delete practice session.", error);
+      showToast("Could not delete practice session.");
+    }
+    return;
+  }
   if (action === "new-project") openProjectForm();
   if (action === "new-skill") openSkillForm();
   if (action === "show-more-practice") {
@@ -1298,10 +1887,12 @@ async function handleAction(action, target) {
     state.projects.forEach(p => {
       p.skillIds = (p.skillIds || []).filter(sid => sid !== id);
     });
+    selectedSkillFilters.delete(id);
+    selectedTimelineSkillFilters.delete(id);
     makeActivity("skill", `Removed skill ${skill.name}`);
     try {
       await persistState();
-      $("#skill-dialog").close();
+      $("#skill-dialog")?.close();
       render();
       showToast(`Skill “${skill.name}” deleted.`);
     } catch (error) {
@@ -1567,11 +2158,9 @@ document.addEventListener("click", event => {
     if (tagTarget.dataset.skillId) {
       event.preventDefault();
       switchView("projects");
-      const skillFilter = $("#project-skill-filter");
-      if (skillFilter) {
-        skillFilter.value = tagTarget.dataset.skillId;
-        renderProjects();
-      }
+      selectedSkillFilters.clear();
+      selectedSkillFilters.add(tagTarget.dataset.skillId);
+      renderProjects();
       return;
     }
   }
@@ -1614,8 +2203,16 @@ document.addEventListener("keydown", event => {
 
 $("#project-search").addEventListener("input", renderProjects);
 $("#project-status-filter").addEventListener("change", renderProjects);
-$("#project-skill-filter")?.addEventListener("change", renderProjects);
 $("#project-sort").addEventListener("change", renderProjects);
+$("#timeline-search")?.addEventListener("input", renderTimeline);
+$("#timeline-type-filter")?.addEventListener("change", renderTimeline);
+$("#timeline-project-filter")?.addEventListener("change", renderTimeline);
+$("#timeline-skill-filter")?.addEventListener("change", () => {
+  const val = $("#timeline-skill-filter").value;
+  selectedTimelineSkillFilters.clear();
+  if (val !== "all") selectedTimelineSkillFilters.add(val);
+  renderTimeline();
+});
 $("#project-form").addEventListener("submit", event => void handleProjectSubmit(event));
 $("#skill-form").addEventListener("submit", event => void handleSkillSubmit(event));
 $("#xp-form").addEventListener("submit", event => void handleXpSubmit(event));

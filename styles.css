@@ -727,3 +727,178 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
   background: #272b22;
 }
 
+/* Multi-Skill Filter Bar */
+.skill-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -6px 0 18px;
+}
+.skill-pill {
+  border: 1px solid #e2e0d6;
+  background: var(--white);
+  color: #63655c;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 5px 11px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: .15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.skill-pill:hover {
+  border-color: #abbfa6;
+  background: var(--green-pale);
+  color: var(--green-dark);
+}
+.skill-pill.active {
+  background: var(--green);
+  color: #ffffff;
+  border-color: var(--green);
+  font-weight: 600;
+  box-shadow: 0 2px 7px rgba(47, 79, 55, .2);
+}
+[data-theme="dark"] .skill-pill, body.theme-dark .skill-pill {
+  background: #242820;
+  border-color: #383e30;
+  color: #b5b7aa;
+}
+[data-theme="dark"] .skill-pill:hover, body.theme-dark .skill-pill:hover {
+  background: #293827;
+  border-color: var(--green);
+  color: #a1cca5;
+}
+[data-theme="dark"] .skill-pill.active, body.theme-dark .skill-pill.active {
+  background: var(--green);
+  color: #11140e;
+  border-color: var(--green);
+  font-weight: 700;
+}
+
+/* Timeline / Activity & Journal View */
+.timeline-toolbar {
+  margin-bottom: 20px;
+}
+.timeline-container {
+  display: grid;
+  gap: 12px;
+}
+.timeline-card {
+  padding: 16px 18px;
+  background: var(--white);
+  border: 1px solid #eeece5;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  transition: border-color .15s ease;
+}
+.timeline-card:hover {
+  border-color: #d6ddcb;
+}
+.timeline-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.timeline-card-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.timeline-badge {
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.timeline-badge.badge-note { background: #edf2e9; color: #4f6c48; }
+.timeline-badge.badge-task { background: #f4eee6; color: #9c6c44; }
+.timeline-badge.badge-xp { background: #edf1e6; color: #55734e; }
+.timeline-badge.badge-project { background: #f5ede4; color: #a56a47; }
+.timeline-badge.badge-photo { background: #efebf3; color: #76688d; }
+.timeline-time {
+  color: #8c8d83;
+  font-size: 10px;
+}
+.timeline-text {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.timeline-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+[data-theme="dark"] .timeline-card, body.theme-dark .timeline-card {
+  background: var(--white);
+  border-color: var(--line);
+}
+[data-theme="dark"] .timeline-badge.badge-note, body.theme-dark .timeline-badge.badge-note { background: #263625; color: #8bb785; }
+[data-theme="dark"] .timeline-badge.badge-task, body.theme-dark .timeline-badge.badge-task { background: #392f23; color: #d6a176; }
+[data-theme="dark"] .timeline-badge.badge-xp, body.theme-dark .timeline-badge.badge-xp { background: #263826; color: #8ec387; }
+[data-theme="dark"] .timeline-badge.badge-project, body.theme-dark .timeline-badge.badge-project { background: #382c23; color: #dba277; }
+[data-theme="dark"] .timeline-badge.badge-photo, body.theme-dark .timeline-badge.badge-photo { background: #322b3a; color: #b7a1cb; }
+
+/* Practice Timer */
+.timer-body {
+  display: grid;
+  gap: 15px;
+}
+.timer-display {
+  font: 700 48px "Segoe UI", sans-serif;
+  letter-spacing: -2px;
+  text-align: center;
+  margin: 10px 0;
+  color: var(--green);
+}
+.timer-presets {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.timer-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+/* Prominent Delete Actions */
+.small-action.danger-button,
+.danger-button {
+  color: #a36054 !important;
+}
+.small-action.danger-button:hover,
+.danger-button:hover {
+  background: #f8ebe7 !important;
+  color: #8c3b2e !important;
+}
+[data-theme="dark"] .small-action.danger-button:hover,
+body.theme-dark .small-action.danger-button:hover {
+  background: #3c2a26 !important;
+  color: #de8878 !important;
+}
+
+/* Ensure theme classes work across root/body */
+html[data-theme="dark"],
+body[data-theme="dark"],
+body.theme-dark {
+  background: #161814 !important;
+  color: #e5e4dc !important;
+}
+
+
