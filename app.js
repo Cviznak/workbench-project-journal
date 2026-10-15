@@ -217,6 +217,15 @@ function localDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function formatMinutes(mins) {
+  mins = Math.max(0, Math.round(mins || 0));
+  if (mins === 0) return "0m";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (!h) return `${m}m`;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
+
 function activeProject(project) {
   return !["completed", "postponed", "on-hold"].includes(safeStatus(project.status));
 }
@@ -459,6 +468,7 @@ try {
 
 const selectedSkillFilters = new Set();
 const selectedTimelineSkillFilters = new Set();
+const selectedTagFilters = new Set();
 
 function renderSkillFilterPills() {
   const container = $("#project-skill-pills");
@@ -472,6 +482,32 @@ function renderSkillFilterPills() {
   for (const skill of state.skills) {
     const isSelected = selectedSkillFilters.has(skill.id);
     html += `<button type="button" class="skill-pill ${isSelected ? "active" : ""}" data-action="filter-skill-toggle" data-skill-id="${escapeHTML(skill.id)}"><span class="pill-spark">✳</span>${escapeHTML(skill.name)}</button>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderTagFilterPills() {
+  const container = $("#project-tag-pills");
+  if (!container) return;
+  const tagCounts = new Map();
+  for (const project of state.projects) {
+    for (const tag of (project.tags || [])) {
+      if (!tag) continue;
+      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+    }
+  }
+  if (!tagCounts.size) {
+    container.innerHTML = "";
+    container.style.display = "none";
+    return;
+  }
+  container.style.display = "flex";
+  const isAll = selectedTagFilters.size === 0;
+  let html = `<button type="button" class="skill-pill ${isAll ? "active" : ""}" data-action="filter-tag-all">All tags</button>`;
+  const sortedTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  for (const [tag, count] of sortedTags) {
+    const isSelected = selectedTagFilters.has(tag);
+    html += `<button type="button" class="skill-pill ${isSelected ? "active" : ""}" data-action="filter-tag-toggle" data-tag="${escapeHTML(tag)}">#${escapeHTML(tag)}<span class="pill-count">${count}</span></button>`;
   }
   container.innerHTML = html;
 }
@@ -926,6 +962,7 @@ async function importBackup(file) {
     project.notes = Array.isArray(project.notes) ? project.notes : [];
     project.materials = Array.isArray(project.materials) ? project.materials : [];
     project.pinned = Boolean(project.pinned);
+    project.timeSpent = Number.isFinite(project.timeSpent) ? project.timeSpent : 0;
   }
   if (!window.confirm("Importing replaces all projects and skills in this browser. Continue?")) return;
   state.projects = restored.projects;
@@ -972,8 +1009,10 @@ function renderOverview() {
   const completed = state.projects.filter(project => project.status === "completed").length;
   const totalXp = state.skills.reduce((sum, skill) => sum + skill.xp, 0);
   const photos = state.projects.reduce((sum, project) => sum + projectImageCount(project), 0);
+  const totalMinutes = state.projects.reduce((sum, project) => sum + (Number(project.timeSpent) || 0), 0);
   $("#overview-stats").innerHTML = [
     statCard("Projects in motion", inProgress, `${state.projects.length} in your workshop`, "↗"),
+    statCard("Time invested", formatMinutes(totalMinutes), "Across all workshop projects", "⏱"),
     statCard("Finished projects", completed, "A little something to be proud of", "✳"),
     statCard("Skills growing", state.skills.length, `${totalXp.toLocaleString()} XP earned so far`, "✽"),
     statCard("Moments captured", photos, "Photos saved across your projects", "▧")
@@ -1014,8 +1053,10 @@ function emptyState(title, description, action, buttonText = "Get started") {
 
 function renderProjects() {
   renderSkillFilterPills();
+  renderTagFilterPills();
   const query = ($("#project-search")?.value || "").trim().toLowerCase();
   const filter = $("#project-status-filter")?.value || "all";
+  const priorityFilter = $("#project-priority-filter")?.value || "all";
   const sort = $("#project-sort")?.value || "updated";
   const filtered = [...state.projects]
     .filter(project => {
@@ -1024,8 +1065,16 @@ function renderProjects() {
       return safeStatus(project.status) === filter;
     })
     .filter(project => {
+      if (priorityFilter === "all") return true;
+      return safePriority(project.priority) === priorityFilter;
+    })
+    .filter(project => {
       if (selectedSkillFilters.size === 0) return true;
       return (project.skillIds || []).some(id => selectedSkillFilters.has(id));
+    })
+    .filter(project => {
+      if (selectedTagFilters.size === 0) return true;
+      return (project.tags || []).some(tag => selectedTagFilters.has(tag));
     })
     .filter(project => `${project.title} ${project.description} ${(project.tags || []).join(" ")} ${projectSkillNames(project).map(skill => skill.name).join(" ")}`.toLowerCase().includes(query))
     .sort((a, b) => {
@@ -1053,9 +1102,9 @@ function renderProjects() {
       <div class="project-card-labels"><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>${(project.tags || []).slice(0, 3).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}${(project.tags || []).length > 3 ? `<span class="mini-tag">+${project.tags.length - 3}</span>` : ""}</div>
       <div class="project-card-skills">${skills.slice(0, 3).map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)}</span>`).join("")}${skills.length > 3 ? `<span class="mini-tag">+${skills.length - 3}</span>` : ""}</div>
       ${progress.total ? `<div class="card-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.completed}/${progress.total} steps</span></div>` : ""}
-      <div class="project-card-bottom"><span class="project-card-meta">${images ? `▧ ${images} ${images === 1 ? "photo" : "photos"} · ` : ""}${project.materials?.length ? `⚙ ${project.materials.length} parts · ` : ""}Updated ${relativeTime(project.updatedAt)}</span>${project.targetDate ? `<span class="project-card-meta">Due ${formatDate(project.targetDate)}</span>` : ""}</div>
+      <div class="project-card-bottom"><span class="project-card-meta">${images ? `▧ ${images} ${images === 1 ? "photo" : "photos"} · ` : ""}${project.materials?.length ? `⚙ ${project.materials.length} parts · ` : ""}${project.timeSpent ? `⏱ ${formatMinutes(project.timeSpent)} · ` : ""}Updated ${relativeTime(project.updatedAt)}</span>${project.targetDate ? `<span class="project-card-meta">Due ${formatDate(project.targetDate)}</span>` : ""}</div>
     </article>`;
-  }).join("") : emptyState(query || filter !== "all" || selectedSkillFilters.size > 0 ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" || selectedSkillFilters.size > 0 ? "Try another search or status/skill filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
+  }).join("") : emptyState(query || filter !== "all" || priorityFilter !== "all" || selectedSkillFilters.size > 0 || selectedTagFilters.size > 0 ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" || priorityFilter !== "all" || selectedSkillFilters.size > 0 || selectedTagFilters.size > 0 ? "Try another search or status/priority/tag filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
 }
 
 function renderPlanner() {
@@ -1159,6 +1208,16 @@ function renderProjectDetail(projectId) {
   const spentCost = materials.filter(m => m.status === "have" || m.status === "ordered").reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
   const haveCount = materials.filter(m => m.status === "have").length;
   const progress = projectTaskProgress(project);
+  const isComplete = project.status === "completed" || (progress.total > 0 && progress.completed === progress.total);
+  const completionBannerHtml = isComplete ? `
+    <div class="completion-banner">
+      <div class="completion-banner-icon">🎉</div>
+      <div class="completion-banner-text">
+        <strong>${project.status === "completed" ? "Project Complete!" : "All checklist steps complete!"}</strong>
+        <span>${progress.completed} of ${progress.total || tasks.length} steps finished · ${formatMinutes(project.timeSpent || 0)} invested${materials.length ? ` · $${totalCost.toFixed(2)} in parts` : ""}.</span>
+      </div>
+    </div>` : "";
+
   $("#project-detail").innerHTML = `<div class="detail-content">
     <div class="detail-top">
       <div class="detail-title">
@@ -1167,13 +1226,17 @@ function renderProjectDetail(projectId) {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <h2>${escapeHTML(project.title)}</h2>
             <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
+            <button type="button" class="small-action" data-action="open-time-dialog" data-id="${project.id}" title="Log time on this project">⏱ Log time</button>
+            <button type="button" class="small-action" data-action="open-timer" data-project="${project.id}" title="Start focused practice timer for this project">⏱ Timer</button>
+            <button type="button" class="small-action" data-action="copy-project-summary" data-id="${project.id}" title="Copy project summary to clipboard">📋 Copy summary</button>
             <button type="button" class="small-action print-keep" data-action="print-project" data-id="${project.id}" title="Print workshop sheet">🖶 Print sheet</button>
           </div>
-          <div class="detail-subtitle">Updated ${relativeTime(project.updatedAt)}${project.targetDate ? ` · Target ${formatDate(project.targetDate)}` : ""}</div>
+          <div class="detail-subtitle">Updated ${relativeTime(project.updatedAt)}${project.targetDate ? ` · Target ${formatDate(project.targetDate)}` : ""}${project.timeSpent ? ` · ⏱ ${formatMinutes(project.timeSpent)} invested` : ""}</div>
         </div>
       </div>
       <button class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
     </div>
+    ${completionBannerHtml}
     <p class="detail-description">${escapeHTML(project.description || "No description yet.")}</p>
     <div class="detail-top"><div class="project-card-labels"><span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)} priority</span>${(project.tags || []).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}</div><button class="small-action" data-action="edit-project" data-id="${project.id}">Edit project</button></div>
     ${skills.length ? `<div class="detail-skills">${skills.map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)} · Level ${skillLevel(skill.xp)}</span>`).join("")}</div>` : ""}
@@ -1234,8 +1297,8 @@ function renderProjectDetail(projectId) {
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
     <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div><span class="form-hint">A dated note, just for this project.</span><button class="button button-outline" type="submit">＋ Add note</button></div></form>
     ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p><div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
-    <div class="detail-section-heading"><h3>Project photos</h3><div><button class="small-action" data-action="new-folder" data-id="${project.id}">＋ Folder</button> <button class="small-action" data-action="add-photos" data-id="${project.id}">＋ Add photos</button></div></div>
-    ${folders.map(folder => `<div class="folder-block"><div class="folder-heading"><div class="folder-title-wrap"><span class="folder-name-text">${escapeHTML(folder.name)}</span><button type="button" class="icon-link-btn" data-action="rename-folder" data-project="${project.id}" data-folder="${folder.id}" title="Rename folder" aria-label="Rename folder">✎</button>${folders.length > 1 ? `<button type="button" class="icon-link-btn danger-hover" data-action="delete-folder" data-project="${project.id}" data-folder="${folder.id}" title="Delete folder" aria-label="Delete folder">×</button>` : ""}</div><span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
+    <div class="detail-section-heading"><h3>Project photos</h3><div><button class="small-action" data-action="new-folder" data-id="${project.id}">＋ Folder</button> <button class="small-action" data-action="snap-photo" data-id="${project.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}">＋ Add photos</button></div></div>
+    ${folders.map(folder => `<div class="folder-block"><div class="folder-heading"><div class="folder-title-wrap"><span class="folder-name-text">${escapeHTML(folder.name)}</span><button type="button" class="icon-link-btn" data-action="rename-folder" data-project="${project.id}" data-folder="${folder.id}" title="Rename folder" aria-label="Rename folder">✎</button>${folders.length > 1 ? `<button type="button" class="icon-link-btn danger-hover" data-action="delete-folder" data-project="${project.id}" data-folder="${folder.id}" title="Delete folder" aria-label="Delete folder">×</button>` : ""}</div><span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="snap-photo" data-id="${project.id}" data-folder="${folder.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
     <div class="detail-footer"><button class="danger-button" data-action="delete-project" data-id="${project.id}">Delete project</button><span class="project-card-meta">${projectImageCount(project)} photos · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}</span></div>
   </div>`;
 }
@@ -1348,6 +1411,24 @@ function beginPhotoUpload(projectId, folderId = null) {
   $("#photo-input").click();
 }
 
+function beginCameraCapture(projectId, folderId = null) {
+  const project = state.projects.find(item => item.id === projectId);
+  if (!project) return;
+  if (!project.folders.length) project.folders.push({ id: uid(), name: "General", images: [] });
+  activePhotoTarget = { projectId, folderId: folderId || project.folders[0].id };
+  $("#camera-input").click();
+}
+
+function openTimeDialog(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  const form = $("#time-form");
+  form.reset();
+  form.elements.projectId.value = project.id;
+  $("#time-dialog-title").textContent = `Log time · ${project.title}`;
+  $("#time-dialog")?.showModal();
+}
+
 async function handlePhotoUpload(files) {
   if (!activePhotoTarget || !files.length) return;
   const project = state.projects.find(item => item.id === activePhotoTarget.projectId);
@@ -1373,6 +1454,8 @@ async function handlePhotoUpload(files) {
   } finally {
     activePhotoTarget = null;
     $("#photo-input").value = "";
+    const cam = $("#camera-input");
+    if (cam) cam.value = "";
   }
 }
 
@@ -1397,6 +1480,7 @@ async function handleProjectSubmit(event) {
     notes: existing?.notes || [],
     materials: existing?.materials || [],
     pinned: Boolean(existing?.pinned),
+    timeSpent: Number.isFinite(existing?.timeSpent) ? existing.timeSpent : 0,
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -1620,7 +1704,32 @@ function updateTimerDisplay() {
   }
 }
 
-function openTimerDialog(skillId = null) {
+function openTimerDialog(arg = null) {
+  let skillId = null;
+  let projectId = null;
+  if (typeof arg === "string") {
+    skillId = state.skills.some(s => s.id === arg) ? arg : null;
+    projectId = state.projects.some(p => p.id === arg) ? arg : null;
+  } else if (arg && typeof arg === "object") {
+    skillId = arg.skillId || null;
+    projectId = arg.projectId || null;
+  }
+
+  const projectSelect = $("#timer-project-select");
+  if (projectSelect) {
+    projectSelect.innerHTML = `<option value="">None (general practice)</option>` +
+      state.projects.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.title)}</option>`).join("");
+    if (projectId && state.projects.some(p => p.id === projectId)) {
+      projectSelect.value = projectId;
+      const proj = state.projects.find(p => p.id === projectId);
+      if (!skillId && proj?.skillIds?.length) {
+        skillId = proj.skillIds[0];
+      }
+    } else {
+      projectSelect.value = "";
+    }
+  }
+
   const select = $("#timer-skill-select");
   if (select) {
     select.innerHTML = state.skills.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`).join("");
@@ -1697,12 +1806,11 @@ function resetTimer() {
 }
 
 function finishTimer() {
+  const projectSelect = $("#timer-project-select");
+  const projectId = projectSelect?.value;
   const skillSelect = $("#timer-skill-select");
   const skillId = skillSelect?.value || state.skills[0]?.id;
-  if (!skillId) {
-    showToast("Please add a skill first.");
-    return;
-  }
+
   const elapsed = timer.isStopwatch ? timer.secondsLeft : (timer.durationSeconds - timer.secondsLeft);
   const elapsedMins = Math.max(1, Math.round(elapsed / 60));
   let recommendedXp = "10";
@@ -1710,9 +1818,208 @@ function finishTimer() {
   else if (elapsedMins >= 40) recommendedXp = "50";
   else if (elapsedMins >= 20) recommendedXp = "25";
 
+  if (projectId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (project) {
+      project.timeSpent = (project.timeSpent || 0) + elapsedMins;
+      const at = new Date().toISOString();
+      project.notes.push({ id: uid(), text: `⏱ Focused work session: ${formatMinutes(elapsedMins)}`, at });
+      project.updatedAt = new Date().toISOString();
+      makeActivity("note", `Logged ${formatMinutes(elapsedMins)} on ${project.title}`);
+      void persistState().then(() => {
+        render();
+        if ($("#detail-dialog").open) renderProjectDetail(project.id);
+      });
+      showToast(`Logged ${formatMinutes(elapsedMins)} to “${project.title}”!`);
+    }
+  }
+
   resetTimer();
   $("#timer-dialog")?.close();
-  openXpDialog(skillId, recommendedXp, `${elapsedMins}m practice session`);
+  if (skillId) {
+    openXpDialog(skillId, recommendedXp, `${elapsedMins}m practice session`);
+  }
+}
+
+/* Workshop Reference & Tools */
+function openToolsDialog() {
+  renderFractionChart();
+  $("#tools-dialog")?.showModal();
+}
+
+function switchToolTab(tab) {
+  $$(".tool-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.toolTab === tab));
+  $$(".tool-tab-panel").forEach(panel => {
+    panel.style.display = panel.id === `tool-panel-${tab}` ? "block" : "none";
+  });
+}
+
+function parseFraction(str) {
+  if (!str) return NaN;
+  str = String(str).trim();
+  const mixedMatch = str.match(/^(\d+)\s+([0-9]+)\/([0-9]+)$/);
+  if (mixedMatch) {
+    const whole = parseFloat(mixedMatch[1]);
+    const num = parseFloat(mixedMatch[2]);
+    const den = parseFloat(mixedMatch[3]);
+    return den ? whole + num / den : NaN;
+  }
+  const fracMatch = str.match(/^([0-9]+)\/([0-9]+)$/);
+  if (fracMatch) {
+    const num = parseFloat(fracMatch[1]);
+    const den = parseFloat(fracMatch[2]);
+    return den ? num / den : NaN;
+  }
+  return parseFloat(str);
+}
+
+function decimalToFraction(val) {
+  if (!Number.isFinite(val) || val < 0) return "";
+  const whole = Math.floor(val);
+  const frac = val - whole;
+  if (frac < 0.0078125) return whole ? `${whole}"` : `0"`;
+  const sixtyFourths = Math.round(frac * 64);
+  if (sixtyFourths === 64) return `${whole + 1}"`;
+  let num = sixtyFourths;
+  let den = 64;
+  while (num % 2 === 0 && den % 2 === 0) {
+    num /= 2;
+    den /= 2;
+  }
+  return whole > 0 ? `${whole} ${num}/${den}"` : `${num}/${den}"`;
+}
+
+function updateFractionCalc(source) {
+  const fracInput = $("#tool-calc-fraction");
+  const decInput = $("#tool-calc-decimal");
+  const mmInput = $("#tool-calc-mm");
+  const resultBox = $("#tool-fraction-nearest");
+  if (!fracInput || !decInput || !mmInput) return;
+
+  let inches = NaN;
+  if (source === "fraction") {
+    inches = parseFraction(fracInput.value);
+    if (Number.isFinite(inches)) {
+      decInput.value = inches.toFixed(4).replace(/\.?0+$/, "");
+      mmInput.value = (inches * 25.4).toFixed(3).replace(/\.?0+$/, "");
+    }
+  } else if (source === "decimal") {
+    inches = parseFloat(decInput.value);
+    if (Number.isFinite(inches)) {
+      fracInput.value = decimalToFraction(inches).replace(/"$/, "");
+      mmInput.value = (inches * 25.4).toFixed(3).replace(/\.?0+$/, "");
+    }
+  } else if (source === "mm") {
+    const mm = parseFloat(mmInput.value);
+    if (Number.isFinite(mm)) {
+      inches = mm / 25.4;
+      decInput.value = inches.toFixed(4).replace(/\.?0+$/, "");
+      fracInput.value = decimalToFraction(inches).replace(/"$/, "");
+    }
+  }
+
+  if (Number.isFinite(inches) && inches >= 0) {
+    const mmVal = inches * 25.4;
+    const whole = Math.floor(inches);
+    const frac = inches - whole;
+    const n16 = Math.round(frac * 16);
+    const n32 = Math.round(frac * 32);
+    const n64 = Math.round(frac * 64);
+    resultBox.innerHTML = `
+      <div><strong>Exact:</strong> ${inches.toFixed(4)}" = ${mmVal.toFixed(3)} mm</div>
+      <div style="margin-top:6px;color:#707469;font-size:11px">
+        <strong>Nearest fractions:</strong>
+        1/16" ➔ <code>${whole ? `${whole} ` : ""}${n16}/16"</code> &nbsp;|&nbsp;
+        1/32" ➔ <code>${whole ? `${whole} ` : ""}${n32}/32"</code> &nbsp;|&nbsp;
+        1/64" ➔ <code>${whole ? `${whole} ` : ""}${n64}/64"</code>
+      </div>
+    `;
+  } else {
+    resultBox.innerHTML = `Enter a measurement above to see bidirectional conversion and fractional breakdown.`;
+  }
+}
+
+const COMMON_FRACTIONS = [
+  { frac: "1/16", dec: 0.0625, mm: 1.588 },
+  { frac: "1/8", dec: 0.1250, mm: 3.175 },
+  { frac: "3/16", dec: 0.1875, mm: 4.763 },
+  { frac: "1/4", dec: 0.2500, mm: 6.350 },
+  { frac: "5/16", dec: 0.3125, mm: 7.938 },
+  { frac: "3/8", dec: 0.3750, mm: 9.525 },
+  { frac: "7/16", dec: 0.4375, mm: 11.113 },
+  { frac: "1/2", dec: 0.5000, mm: 12.700 },
+  { frac: "9/16", dec: 0.5625, mm: 14.288 },
+  { frac: "5/8", dec: 0.6250, mm: 15.875 },
+  { frac: "11/16", dec: 0.6875, mm: 17.463 },
+  { frac: "3/4", dec: 0.7500, mm: 19.050 },
+  { frac: "13/16", dec: 0.8125, mm: 20.638 },
+  { frac: "7/8", dec: 0.8750, mm: 22.225 },
+  { frac: "15/16", dec: 0.9375, mm: 23.813 },
+  { frac: "1", dec: 1.0000, mm: 25.400 }
+];
+
+function renderFractionChart() {
+  const container = $("#tools-fraction-chart");
+  if (!container || container.children.length) return;
+  container.innerHTML = COMMON_FRACTIONS.map(item => `
+    <div class="tools-chart-cell" data-action="load-fraction" data-frac="${item.frac}">
+      <strong>${item.frac}"</strong>
+      <span>${item.dec.toFixed(4)}" · ${item.mm.toFixed(1)}mm</span>
+    </div>
+  `).join("");
+}
+
+function updateScaleCalc() {
+  const origInput = $("#tool-scale-original");
+  const presetSelect = $("#tool-scale-preset");
+  const customInput = $("#tool-scale-custom");
+  const customWrap = $("#tool-scale-custom-wrap");
+  const resultBox = $("#tool-scale-result");
+  if (!origInput || !presetSelect || !resultBox) return;
+
+  const orig = parseFloat(origInput.value);
+  const preset = presetSelect.value;
+  if (customWrap) customWrap.style.display = preset === "custom" ? "block" : "none";
+
+  let factor = 1;
+  if (preset === "1:12") factor = 1 / 12;
+  else if (preset === "1:24") factor = 1 / 24;
+  else if (preset === "1:48") factor = 1 / 48;
+  else if (preset === "1:72") factor = 1 / 72;
+  else if (preset === "custom") factor = parseFloat(customInput.value) || 1;
+  else factor = parseFloat(preset) || 1;
+
+  if (Number.isFinite(orig) && orig > 0) {
+    const scaled = orig * factor;
+    resultBox.innerHTML = `
+      <div><strong>Scaled dimension:</strong> <span style="font-size:16px;color:var(--green);font-weight:700">${scaled.toFixed(3)}</span> (at ${(factor * 100).toFixed(1)}% scale)</div>
+      <div style="margin-top:6px;color:#707469;font-size:11px">Original: ${orig} ➔ Scaled: ${scaled.toFixed(3)} (Scale factor: ${factor.toFixed(5)})</div>
+    `;
+  } else {
+    resultBox.innerHTML = `Enter an original dimension to see scaled results.`;
+  }
+}
+
+function updateBoardFeetCalc() {
+  const thick = parseFloat($("#tool-bf-thick")?.value) || 0;
+  const width = parseFloat($("#tool-bf-width")?.value) || 0;
+  const length = parseFloat($("#tool-bf-length")?.value) || 0;
+  const qty = parseInt($("#tool-bf-qty")?.value, 10) || 1;
+  const price = parseFloat($("#tool-bf-price")?.value) || 0;
+  const resultBox = $("#tool-bf-result");
+  if (!resultBox) return;
+
+  if (thick > 0 && width > 0 && length > 0) {
+    const bfPerBoard = (thick * width * length) / 12;
+    const totalBf = bfPerBoard * qty;
+    const totalCost = totalBf * price;
+    resultBox.innerHTML = `
+      <div><strong>Total Board Feet:</strong> <span style="font-size:16px;color:var(--green);font-weight:700">${totalBf.toFixed(2)} BF</span> (${bfPerBoard.toFixed(2)} BF per board)</div>
+      ${price > 0 ? `<div style="margin-top:6px"><strong>Estimated Cost:</strong> $${totalCost.toFixed(2)} ($${price.toFixed(2)}/BF)</div>` : `<div style="margin-top:6px;color:#888;font-size:11px">Tip: Enter price per BF to calculate total lumber purchase estimate.</div>`}
+    `;
+  } else {
+    resultBox.innerHTML = `Adjust board dimensions above to compute board footage and estimated material cost.`;
+  }
 }
 
 /* Activity & Journal Timeline */
@@ -1953,6 +2260,7 @@ function exportMarkdownJournal() {
       md += `- **Status:** ${STATUS_LABELS[safeStatus(project.status)]}\n`;
       md += `- **Priority:** ${priorityLabel(project.priority)}\n`;
       if (project.targetDate) md += `- **Target Date:** ${formatDate(project.targetDate)}\n`;
+      if (project.timeSpent) md += `- **Time Invested:** ${formatMinutes(project.timeSpent)}\n`;
       if (skills) md += `- **Skills:** ${skills}\n`;
       if (project.tags?.length) md += `- **Tags:** ${project.tags.join(", ")}\n`;
       if (project.description) md += `\n**Description:**\n${project.description}\n`;
@@ -2076,6 +2384,77 @@ async function handleAction(action, target) {
     }
     return;
   }
+  if (action === "open-tools") {
+    openToolsDialog();
+    return;
+  }
+  if (action === "switch-tool-tab") {
+    switchToolTab(target.dataset.toolTab);
+    return;
+  }
+  if (action === "load-fraction") {
+    const input = $("#tool-calc-fraction");
+    if (input) {
+      input.value = target.dataset.frac;
+      updateFractionCalc("fraction");
+    }
+    return;
+  }
+  if (action === "open-time-dialog") {
+    openTimeDialog(id || target.dataset.id);
+    return;
+  }
+  if (action === "snap-photo") {
+    beginCameraCapture(id || target.dataset.id, target.dataset.folder || null);
+    return;
+  }
+  if (action === "copy-project-summary") {
+    const project = state.projects.find(p => p.id === (id || target.dataset.id));
+    if (!project) return;
+    const progress = projectTaskProgress(project);
+    const skills = projectSkillNames(project).map(s => s.name);
+    const materials = project.materials || [];
+    const totalCost = materials.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+    const spentCost = materials.filter(m => m.status === "have" || m.status === "ordered").reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+
+    const summary = [
+      `🛠️ **${project.title}** (${STATUS_LABELS[safeStatus(project.status)]} · ${priorityLabel(project.priority)} priority)`,
+      project.description ? `\n${project.description}\n` : "",
+      `📊 **Progress:** ${progress.completed}/${progress.total} checklist steps (${progress.percent}%)`,
+      project.timeSpent ? `⏱️ **Time Invested:** ${formatMinutes(project.timeSpent)}` : "",
+      materials.length ? `💰 **Supplies Budget:** $${totalCost.toFixed(2)} ($${spentCost.toFixed(2)} acquired)` : "",
+      skills.length ? `🎯 **Skills:** ${skills.join(", ")}` : "",
+      project.tags?.length ? `🏷️ **Tags:** ${project.tags.map(t => `#${t}`).join(" ")}` : "",
+      project.tasks?.length ? `\n📋 **Checklist:**\n` + project.tasks.map(t => `- [${t.done ? "x" : " "}] ${t.text}`).join("\n") : "",
+      `\n_Exported from Workbench Project Journal_`
+    ].filter(Boolean).join("\n");
+
+    try {
+      await navigator.clipboard.writeText(summary);
+      showToast("Copied project summary to clipboard!");
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = summary;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      showToast("Copied project summary to clipboard!");
+    }
+    return;
+  }
+  if (action === "filter-tag-all") {
+    selectedTagFilters.clear();
+    renderProjects();
+    return;
+  }
+  if (action === "filter-tag-toggle") {
+    const tag = target.dataset.tag;
+    if (selectedTagFilters.has(tag)) selectedTagFilters.delete(tag);
+    else selectedTagFilters.add(tag);
+    renderProjects();
+    return;
+  }
   if (action === "toggle-theme") {
     toggleTheme();
     return;
@@ -2109,7 +2488,7 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "open-timer") {
-    openTimerDialog(target.dataset.id || null);
+    openTimerDialog({ skillId: target.dataset.id || null, projectId: target.dataset.project || null });
     return;
   }
   if (action === "set-timer") {
@@ -2473,6 +2852,7 @@ async function initialize() {
       project.notes = Array.isArray(project.notes) ? project.notes : [];
       project.materials = Array.isArray(project.materials) ? project.materials : [];
       project.pinned = Boolean(project.pinned);
+      project.timeSpent = Number.isFinite(project.timeSpent) ? project.timeSpent : 0;
     });
     if (!saved?.starterSkillsAdded) {
       const existingNames = new Set(state.skills.map(skill => skill.name.trim().toLocaleLowerCase()));
@@ -2526,11 +2906,9 @@ document.addEventListener("click", event => {
     if (tagTarget.dataset.tag) {
       event.preventDefault();
       switchView("projects");
-      const search = $("#project-search");
-      if (search) {
-        search.value = tagTarget.dataset.tag;
-        renderProjects();
-      }
+      selectedTagFilters.clear();
+      selectedTagFilters.add(tagTarget.dataset.tag);
+      renderProjects();
       return;
     }
     if (tagTarget.dataset.skillId) {
@@ -2588,6 +2966,7 @@ document.addEventListener("keydown", event => {
 
 $("#project-search").addEventListener("input", renderProjects);
 $("#project-status-filter").addEventListener("change", renderProjects);
+$("#project-priority-filter")?.addEventListener("change", renderProjects);
 $("#project-sort").addEventListener("change", renderProjects);
 $("#timeline-search")?.addEventListener("input", renderTimeline);
 $("#timeline-type-filter")?.addEventListener("change", renderTimeline);
@@ -2649,6 +3028,89 @@ document.addEventListener("change", event => {
   if (event.target.matches('input[data-action="toggle-task"]')) void handleTaskToggle(event.target);
 });
 $("#photo-input").addEventListener("change", event => void handlePhotoUpload(event.target.files));
+$("#camera-input")?.addEventListener("change", event => void handlePhotoUpload(event.target.files));
+
+$("#timer-project-select")?.addEventListener("change", event => {
+  const pid = event.target.value;
+  if (!pid) return;
+  const project = state.projects.find(p => p.id === pid);
+  if (project?.skillIds?.length) {
+    const firstSkill = state.skills.find(s => project.skillIds.includes(s.id));
+    if (firstSkill && $("#timer-skill-select")) {
+      $("#timer-skill-select").value = firstSkill.id;
+    }
+  }
+});
+
+$("#time-preset-select")?.addEventListener("change", event => {
+  if (event.target.value) {
+    const form = $("#time-form");
+    form.elements.minutes.value = event.target.value;
+  }
+});
+
+$("#time-form")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const projectId = form.elements.projectId.value;
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  const minutes = parseInt(form.elements.minutes.value, 10);
+  if (!minutes || minutes <= 0) return;
+  const note = form.elements.note.value.trim();
+  const awardXp = form.elements.awardXp?.checked;
+
+  project.timeSpent = (project.timeSpent || 0) + minutes;
+  const at = new Date().toISOString();
+  const noteText = `⏱ Worked for ${formatMinutes(minutes)}${note ? ` · ${note}` : ""}`;
+  project.notes.push({ id: uid(), text: noteText, at });
+  project.updatedAt = new Date().toISOString();
+
+  makeActivity("note", `Logged ${formatMinutes(minutes)} on ${project.title}`);
+
+  if (awardXp && project.skillIds?.length) {
+    let xpAmount = 10;
+    if (minutes >= 60) xpAmount = 50;
+    else if (minutes >= 30) xpAmount = 25;
+
+    for (const sid of project.skillIds) {
+      const skill = state.skills.find(s => s.id === sid);
+      if (skill) {
+        skill.xp += xpAmount;
+        const act = makeActivity("xp", `${skill.name} +${xpAmount} XP · ${formatMinutes(minutes)} on ${project.title}`, { skillId: skill.id, xp: xpAmount });
+        state.practiceLog.push(act);
+      }
+    }
+  }
+
+  try {
+    await persistState();
+    $("#time-dialog").close();
+    render();
+    if ($("#detail-dialog").open) renderProjectDetail(project.id);
+    showToast(`Logged ${formatMinutes(minutes)} to ${project.title}!`);
+  } catch (error) {
+    console.error("Unable to save project time.", error);
+    showToast("Could not log time.");
+  }
+});
+
+/* Workshop Tools listeners */
+$$(".tool-tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => switchToolTab(btn.dataset.toolTab));
+});
+$("#tool-calc-fraction")?.addEventListener("input", () => updateFractionCalc("fraction"));
+$("#tool-calc-decimal")?.addEventListener("input", () => updateFractionCalc("decimal"));
+$("#tool-calc-mm")?.addEventListener("input", () => updateFractionCalc("mm"));
+$("#tool-scale-original")?.addEventListener("input", updateScaleCalc);
+$("#tool-scale-preset")?.addEventListener("change", updateScaleCalc);
+$("#tool-scale-custom")?.addEventListener("input", updateScaleCalc);
+$("#tool-bf-thick")?.addEventListener("input", updateBoardFeetCalc);
+$("#tool-bf-width")?.addEventListener("input", updateBoardFeetCalc);
+$("#tool-bf-length")?.addEventListener("input", updateBoardFeetCalc);
+$("#tool-bf-qty")?.addEventListener("input", updateBoardFeetCalc);
+$("#tool-bf-price")?.addEventListener("input", updateBoardFeetCalc);
+
 $("#backup-input").addEventListener("change", async event => {
   const [file] = event.target.files;
   if (!file) return;
