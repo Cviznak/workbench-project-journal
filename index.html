@@ -197,7 +197,7 @@
               </div>
               <p class="sync-explainer">Your data syncs between browsers after you connect each one to the same Supabase project and sign in to the same account. Your database and private photo bucket are owned by you.</p>
               <div class="cloud-config" id="cloud-config">
-                <label class="field-label">Project URL<input id="cloud-url" type="url" placeholder="https://your-project.supabase.co" autocomplete="url"></label>
+                <label class="field-label">Project URL<input id="cloud-url" type="text" placeholder="https://your-project.supabase.co" autocomplete="url"></label>
                 <label class="field-label">Publishable / anon key<input id="cloud-key" type="password" placeholder="sb_publishable_… or anon key" autocomplete="off"></label>
                 <div class="sync-actions"><button class="button button-outline" data-action="save-cloud-config">Save connection</button><a class="text-button" href="README.md#private-cloud-sync-setup" target="_blank" rel="noreferrer">Setup guide ↗</a></div>
               </div>
@@ -859,7 +859,8 @@ create policy "Admins can view all workspaces" on public.workbench_workspace for
         <label class="field-label">Password
           <input type="password" id="signin-password" required autocomplete="current-password" placeholder="••••••••">
         </label>
-        <div class="auth-row-links">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 14px">
+          <button type="button" class="text-button" data-action="switch-auth-tab" data-tab="config">⚙️ Cloud Setup</button>
           <button type="button" class="text-button" data-action="auth-forgot-password">Forgot password?</button>
         </div>
         <div class="dialog-actions">
@@ -885,7 +886,8 @@ create policy "Admins can view all workspaces" on public.workbench_workspace for
             <option value="admin">Admin / Shop Lead (Directory &amp; Management)</option>
           </select>
         </label>
-        <p class="form-hint">Every account receives their own isolated private workbench synced across all their devices.</p>
+        <p class="form-hint" style="margin-bottom:8px">Every account receives their own isolated private workbench synced across all their devices.</p>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Need to set up or change your Supabase project? <button type="button" class="text-button" data-action="switch-auth-tab" data-tab="config">⚙️ Cloud Setup</button></div>
         <div class="dialog-actions">
           <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
           <button type="submit" class="button button-primary">Create Workbench →</button>
@@ -893,10 +895,10 @@ create policy "Admins can view all workspaces" on public.workbench_workspace for
       </form>
 
       <!-- Supabase Connection Config Panel -->
-      <form id="auth-config-form" class="auth-form-panel" style="display:none">
+      <form id="auth-config-form" class="auth-form-panel" novalidate style="display:none">
         <p class="form-hint" style="margin-bottom:12px">Point Workbench to your Supabase project so all your devices connect to the same cloud database.</p>
         <label class="field-label">Supabase Project URL
-          <input type="url" id="auth-cloud-url" placeholder="https://your-project.supabase.co" autocomplete="url">
+          <input type="text" id="auth-cloud-url" placeholder="https://your-project.supabase.co" autocomplete="url">
         </label>
         <label class="field-label">Publishable / Anon API Key
           <input type="password" id="auth-cloud-key" placeholder="sb_publishable_... or anon key" autocomplete="off">

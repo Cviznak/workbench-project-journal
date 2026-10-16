@@ -637,6 +637,18 @@ function getCloudConfig() {
   }
 }
 
+function setCloudConfig(config) {
+  if (config?.url && config?.key) {
+    const normalized = {
+      url: config.url.trim().replace(/\/+$/, ""),
+      key: config.key.trim()
+    };
+    localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(normalized));
+  } else if (!config) {
+    localStorage.removeItem(CLOUD_CONFIG_KEY);
+  }
+}
+
 function getCloudSession() {
   try {
     return JSON.parse(localStorage.getItem(CLOUD_SESSION_KEY) || "null");
@@ -4593,6 +4605,10 @@ async function handleAction(action, target) {
     openAuthModal(target.dataset.tab || "signin");
     return;
   }
+  if (action === "switch-auth-tab") {
+    switchAuthTab(target.dataset.tab || "signin");
+    return;
+  }
   if (action === "open-user-menu") {
     openUserMenuModal();
     return;
@@ -5010,17 +5026,24 @@ async function handleAction(action, target) {
   if (action === "save-cloud-config") {
     const urlInput = $("#cloud-url");
     const keyInput = $("#cloud-key");
-    const url = urlInput.value.trim().replace(/\/+$/, "");
-    const key = keyInput.value.trim();
-    if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) || !key) {
-      cloudMessage("Enter a valid Supabase project URL and publishable/anon key.", "error");
+    let url = (urlInput?.value || "").trim();
+    const key = (keyInput?.value || "").trim();
+    if (!url || !key) {
+      cloudMessage("Enter your Supabase project URL and anon key.", "error");
+      showToast("Please enter both URL and key.");
       return;
     }
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
+    url = url.replace(/\/+$/, "");
     try {
       const previous = getCloudConfig();
       if (previous?.url !== url || previous?.key !== key) setCloudSession(null);
-      localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify({ url, key }));
-      cloudMessage("Connection saved. Sign in to sync this workspace.", "info");
+      setCloudConfig({ url, key });
+      if ($("#auth-cloud-url")) $("#auth-cloud-url").value = url;
+      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = key;
+      cloudMessage("Connection saved. Sign in or create an account to sync.", "info");
       renderCloudConnection();
       showToast("Cloud connection saved on this browser.");
     } catch (error) {
@@ -5666,18 +5689,31 @@ $("#auth-signup-form")?.addEventListener("submit", async event => {
 
 $("#auth-config-form")?.addEventListener("submit", event => {
   event.preventDefault();
-  const url = $("#auth-cloud-url")?.value?.trim() || "";
+  let url = $("#auth-cloud-url")?.value?.trim() || "";
   const key = $("#auth-cloud-key")?.value?.trim() || "";
   if (!url || !key) {
-    showAuthAlert("Please provide both URL and anon key.", "error");
+    showAuthAlert("Please provide both Supabase Project URL and API Key.", "error");
     return;
   }
-  setCloudConfig({ url, key });
-  renderCloudConnection();
-  showAuthAlert("Supabase connection parameters saved successfully!", "success");
-  setTimeout(() => {
-    switchAuthTab("signin");
-  }, 1000);
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+  url = url.replace(/\/+$/, "");
+  try {
+    const previous = getCloudConfig();
+    if (previous?.url !== url || previous?.key !== key) setCloudSession(null);
+    setCloudConfig({ url, key });
+    if ($("#cloud-url")) $("#cloud-url").value = url;
+    if ($("#cloud-key")) $("#cloud-key").value = key;
+    renderCloudConnection();
+    showAuthAlert("✓ Supabase connection saved! You can now create your account or sign in.", "success");
+    showToast("Supabase connection saved!");
+    setTimeout(() => {
+      switchAuthTab("signup");
+    }, 700);
+  } catch (err) {
+    showAuthAlert("Failed to save connection: " + err.message, "error");
+  }
 });
 
 /* Admin console listeners */
