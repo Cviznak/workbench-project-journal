@@ -843,6 +843,8 @@ create policy "Admins can view all workspaces" on public.workbench_workspace for
         <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
       </div>
 
+      <div class="auth-locked-banner">🔒 Sign in or create an account to access Workbench.</div>
+
       <!-- Auth Tab Switcher -->
       <div class="auth-tabs">
         <button type="button" class="auth-tab-btn active" data-auth-tab="signin">Sign In</button>
@@ -855,7 +857,7 @@ create policy "Admins can view all workspaces" on public.workbench_workspace for
       <!-- Sign In Form -->
       <form id="auth-signin-form" class="auth-form-panel">
         <label class="field-label">Email address
-          <input type="email" id="signin-email" required autocomplete="email" placeholder="maker@workshop.com">
+          <input type="email" id="signin-email" required autocomplete="email" placeholder="e.g. alex@gmail.com">
         </label>
         <label class="field-label">Password
           <input type="password" id="signin-password" required autocomplete="current-password" placeholder="••••••••">
@@ -876,18 +878,15 @@ create policy "Admins can view all workspaces" on public.workbench_workspace for
           <input type="text" id="signup-name" required maxlength="50" placeholder="e.g. Alex Miller">
         </label>
         <label class="field-label">Email address
-          <input type="email" id="signup-email" required autocomplete="email" placeholder="maker@workshop.com">
+          <input type="email" id="signup-email" required autocomplete="email" placeholder="e.g. alex@gmail.com">
         </label>
         <label class="field-label">Password (min 6 characters)
           <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" placeholder="••••••••">
         </label>
-        <label class="field-label">Account Role
-          <select id="signup-role">
-            <option value="maker">Maker (Personal Workbench &amp; Skills)</option>
-            <option value="admin">Admin / Shop Lead (Directory &amp; Management)</option>
-          </select>
+        <label class="field-label">Confirm password
+          <input type="password" id="signup-password-confirm" required minlength="6" autocomplete="new-password" placeholder="••••••••">
         </label>
-        <p class="form-hint" style="margin-bottom:8px">Every account receives their own isolated private workbench synced across all their devices.</p>
+        <p class="form-hint" style="margin-bottom:8px">Every maker receives their own private cloud workbench synced across all their devices.</p>
         <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Need to set up or change your Supabase project? <button type="button" class="text-button" data-action="switch-auth-tab" data-tab="config">⚙️ Cloud Setup</button></div>
         <div class="dialog-actions">
           <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
@@ -946,10 +945,13 @@ create policy "Admins can view all workspaces" on public.workbench_workspace for
           <input type="text" id="admin-new-name" required placeholder="e.g. Jordan Lee">
         </label>
         <label class="field-label">Email address
-          <input type="email" id="admin-new-email" required placeholder="jordan@workshop.com">
+          <input type="email" id="admin-new-email" required placeholder="e.g. jordan@gmail.com">
         </label>
-        <label class="field-label">Initial Password
+        <label class="field-label">Initial Password (min 6 characters)
           <input type="password" id="admin-new-password" required minlength="6" placeholder="••••••••">
+        </label>
+        <label class="field-label">Confirm Password
+          <input type="password" id="admin-new-password-confirm" required minlength="6" placeholder="••••••••">
         </label>
         <label class="field-label">Account Role
           <select id="admin-new-role">

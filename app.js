@@ -680,6 +680,30 @@ function isCurrentUserAdmin() {
   return user?.role === "admin";
 }
 
+const PRIMARY_ADMIN_STORAGE_KEY = "workbench_primary_admin_id";
+
+function getPrimaryAdminId() {
+  return localStorage.getItem(PRIMARY_ADMIN_STORAGE_KEY) || "";
+}
+
+function ensurePrimaryAdmin(user) {
+  if (!user?.id) return;
+  const existing = localStorage.getItem(PRIMARY_ADMIN_STORAGE_KEY);
+  if (!existing && user.role === "admin") {
+    localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, user.id);
+  } else if (!existing) {
+    localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, user.id);
+    user.role = "admin";
+    const session = getCloudSession();
+    if (session?.user) {
+      session.user.user_metadata = session.user.user_metadata || {};
+      session.user.user_metadata.role = "admin";
+      setCloudSession(session);
+    }
+    upsertUserProfile(session?.user || user).catch(() => {});
+  }
+}
+
 function showAuthAlert(message, type = "error") {
   const alert = $("#auth-alert");
   if (!alert) return;
@@ -715,7 +739,11 @@ function openAuthModal(tab = "signin") {
   const dialog = $("#auth-dialog");
   if (!dialog) return;
   switchAuthTab(tab);
-  dialog.showModal();
+  if (!dialog.open) {
+    try {
+      dialog.showModal();
+    } catch {}
+  }
 }
 
 function openUserMenuModal() {
@@ -828,36 +856,49 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
     return;
   }
 
-  const res = await cloudRequest("/auth/v1/signup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: email.trim(),
-      password,
-      data: {
-        display_name: displayName.trim(),
-        role
-      }
-    })
-  }, false);
+  try {
+    const res = await cloudRequest("/auth/v1/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        data: {
+          display_name: displayName.trim(),
+          role
+        }
+      })
+    }, false);
 
-  if (res?.access_token && res?.user) {
-    setCloudSession({
-      ...res,
-      expires_at: res.expires_at || Math.floor(Date.now() / 1000) + (res.expires_in || 3600)
-    });
-    upsertUserProfile(res.user).catch(() => {});
-    await loadUserScopedState();
-    await persistState();
-    updateUserUI();
-    render();
-    renderCloudConnection();
-    $("#auth-dialog")?.close();
-    showToast(`Welcome to Workbench, ${displayName}!`);
-  } else if (res?.id || res?.user?.id) {
-    showAuthAlert("Account created! Check your email inbox to verify your account, then sign in.", "success");
-  } else {
-    throw new Error("Unable to register account. Please check your credentials.");
+    if (res?.access_token && res?.user) {
+      setCloudSession({
+        ...res,
+        expires_at: res.expires_at || Math.floor(Date.now() / 1000) + (res.expires_in || 3600)
+      });
+      ensurePrimaryAdmin(res.user);
+      upsertUserProfile(res.user).catch(() => {});
+      await loadUserScopedState();
+      await persistState();
+      updateUserUI();
+      render();
+      renderCloudConnection();
+      $("#auth-dialog")?.close();
+      showToast(`Welcome to Workbench, ${displayName}!`);
+    } else if (res?.id || res?.user?.id) {
+      showAuthAlert("Account created! Check your email inbox to verify your account, then sign in. (Tip: Turn off 'Confirm email' in Supabase to skip email verification).", "success");
+    } else {
+      throw new Error("Unable to register account. Please check your credentials.");
+    }
+  } catch (err) {
+    const msg = err.message || "";
+    if (msg.includes("429") || msg.toLowerCase().includes("rate limit") || msg.toLowerCase().includes("email rate limit")) {
+      showAuthAlert("⚠️ Supabase email rate limit exceeded (free tier sends max 3-4 confirmation emails/hour). To fix this permanently: In your Supabase Dashboard, go to Authentication → Providers → Email, and turn OFF 'Confirm email'. This allows instant unlimited registrations without sending emails.", "error");
+    } else if (msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("user already registered")) {
+      showAuthAlert("An account with this email is already registered. Switch to the Sign In tab above.", "error");
+    } else {
+      showAuthAlert(msg || "Unable to register account.", "error");
+    }
+    throw err;
   }
 }
 
@@ -929,6 +970,8 @@ function updateUserUI() {
   const adminNav = $("#nav-admin-link");
 
   if (user) {
+    document.body.classList.remove("auth-locked");
+    ensurePrimaryAdmin(user);
     const initial = (user.displayName || user.email || "M")[0].toUpperCase();
     if (topAuthBtn) {
       topAuthBtn.innerHTML = `${user.role === "admin" ? "👑" : "👤"} ${escapeHTML(user.displayName)}`;
@@ -940,14 +983,16 @@ function updateUserUI() {
     if (spaceLabel) spaceLabel.textContent = `${user.displayName}'s shop`;
     if (adminNav) adminNav.style.display = user.role === "admin" ? "flex" : "none";
   } else {
+    document.body.classList.add("auth-locked");
+    openAuthModal("signin");
     if (topAuthBtn) {
       topAuthBtn.innerHTML = "Sign in";
       topAuthBtn.title = "Sign in or create cloud workbench";
     }
-    if (userNameEl) userNameEl.textContent = "Guest Workbench";
-    if (userRoleEl) userRoleEl.textContent = "Personal space (local)";
-    if (userAvatarEl) userAvatarEl.textContent = "✿";
-    if (spaceLabel) spaceLabel.textContent = "My workshop";
+    if (userNameEl) userNameEl.textContent = "Sign In Required";
+    if (userRoleEl) userRoleEl.textContent = "Workshop locked";
+    if (userAvatarEl) userAvatarEl.textContent = "🔒";
+    if (spaceLabel) spaceLabel.textContent = "Locked workshop";
     if (adminNav) adminNav.style.display = "none";
   }
 }
@@ -4497,6 +4542,7 @@ async function renderAdminHub() {
     const nextRole = m.role === "admin" ? "maker" : "admin";
     const nextRoleLabel = m.role === "admin" ? "Demote to Maker" : "Promote to Admin";
 
+    const isProtectedAdmin = m.role === "admin" && (m.id === getPrimaryAdminId() || m.isSelf);
     return `
       <div class="admin-user-card" data-user-id="${m.id}">
         <div class="admin-user-header">
@@ -4531,9 +4577,12 @@ async function renderAdminHub() {
           <button type="button" class="button button-small button-outline" data-action="inspect-user-workbench" data-user-id="${m.id}" data-user-name="${escapeHTML(m.displayName)}">
             👁️ Inspect Workbench
           </button>
-          <button type="button" class="button button-small button-outline" data-action="admin-toggle-role" data-user-id="${m.id}" data-current-role="${m.role}">
-            ${m.role === "admin" ? "👤 " + nextRoleLabel : "👑 " + nextRoleLabel}
-          </button>
+          ${isProtectedAdmin
+            ? `<span style="font-size:11px;font-weight:600;color:#d69e2e;padding:6px 10px;background:rgba(214,158,46,0.12);border-radius:6px;border:1px solid rgba(214,158,46,0.3)">🔒 Primary Admin (Immutable)</span>`
+            : `<button type="button" class="button button-small button-outline" data-action="admin-toggle-role" data-user-id="${m.id}" data-current-role="${m.role}">
+                ${m.role === "admin" ? "👤 " + nextRoleLabel : "👑 " + nextRoleLabel}
+              </button>`
+          }
         </div>
       </div>
     `;
@@ -4612,10 +4661,10 @@ async function adminToggleUserRole(userId, currentRole) {
     return;
   }
 
-  if (userId === user.id && nextRole === "maker") {
-    if (!confirm("Are you sure you want to demote yourself from Admin to Maker? You will lose access to the Admin Console.")) {
-      return;
-    }
+  const primaryAdminId = getPrimaryAdminId();
+  if ((userId === primaryAdminId || userId === user.id) && currentRole === "admin") {
+    showToast("This admin status is permanent and immutable.");
+    return;
   }
 
   try {
@@ -5101,7 +5150,13 @@ async function handleAction(action, target) {
     renderPracticeLog();
     return;
   }
-  if (action === "close-dialog") target.closest("dialog")?.close();
+  if (action === "close-dialog") {
+    if (!getActiveUser() && target.closest("#auth-dialog")) {
+      return;
+    }
+    target.closest("dialog")?.close();
+    return;
+  }
   if (action === "save-cloud-config") {
     const urlInput = $("#cloud-url");
     const keyInput = $("#cloud-key");
@@ -5465,6 +5520,11 @@ async function initialize() {
 }
 
 document.addEventListener("click", event => {
+  if (!getActiveUser() && !event.target.closest("#auth-dialog")) {
+    event.preventDefault();
+    openAuthModal("signin");
+    return;
+  }
   if (event.target.closest("input, textarea, select, option") && !event.target.closest("[data-action]")) {
     return;
   }
@@ -5752,18 +5812,29 @@ $("#auth-signin-form")?.addEventListener("submit", async event => {
 
 $("#auth-signup-form")?.addEventListener("submit", async event => {
   event.preventDefault();
-  const name = $("#signup-name")?.value || "";
-  const email = $("#signup-email")?.value || "";
+  const name = $("#signup-name")?.value?.trim() || "";
+  const email = $("#signup-email")?.value?.trim() || "";
   const pass = $("#signup-password")?.value || "";
-  const role = $("#signup-role")?.value || "maker";
+  const passConfirm = $("#signup-password-confirm")?.value || "";
+
+  if (pass.length < 6) {
+    showAuthAlert("Password must be at least 6 characters long.", "error");
+    return;
+  }
+  if (pass !== passConfirm) {
+    showAuthAlert("Passwords do not match. Please re-enter both passwords.", "error");
+    return;
+  }
+
+  const role = "maker"; // Public registration is strictly Maker role
   const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating account…"; }
   try {
     await signUpWithEmail(email, pass, name, role);
   } catch (e) {
-    showAuthAlert(e.message || "Failed to create account.", "error");
+    // Handled in signUpWithEmail
   } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Account →"; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Workbench →"; }
   }
 });
 
@@ -5796,13 +5867,31 @@ $("#auth-config-form")?.addEventListener("submit", event => {
   }
 });
 
+/* Prevent Escape key from closing auth dialog when locked for guests */
+$("#auth-dialog")?.addEventListener("cancel", event => {
+  if (!getActiveUser()) {
+    event.preventDefault();
+  }
+});
+
 /* Admin console listeners */
 $("#admin-create-user-form")?.addEventListener("submit", async event => {
   event.preventDefault();
-  const name = $("#admin-new-name")?.value || "";
-  const email = $("#admin-new-email")?.value || "";
+  const name = $("#admin-new-name")?.value?.trim() || "";
+  const email = $("#admin-new-email")?.value?.trim() || "";
   const pass = $("#admin-new-password")?.value || "";
+  const passConfirm = $("#admin-new-password-confirm")?.value || "";
   const role = $("#admin-new-role")?.value || "maker";
+
+  if (pass.length < 6) {
+    alert("Password must be at least 6 characters long.");
+    return;
+  }
+  if (pass !== passConfirm) {
+    alert("Passwords do not match. Please verify both password fields.");
+    return;
+  }
+
   const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating…"; }
   try {
@@ -5814,7 +5903,7 @@ $("#admin-create-user-form")?.addEventListener("submit", async event => {
   } catch (e) {
     alert(e.message || "Failed to create maker account.");
   } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Account"; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Account →"; }
   }
 });
 

@@ -2494,6 +2494,51 @@ body.theme-dark .auth-alert.success {
   border-bottom: none;
 }
 
+/* Guest Auth Lock Screen / Gate */
+body.auth-locked .app {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.3s ease;
+}
+
+body.auth-locked #auth-dialog {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--line);
+}
+
+body.auth-locked #auth-dialog::backdrop {
+  background: rgba(10, 16, 22, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+body.auth-locked #auth-dialog .dialog-close,
+body.auth-locked #auth-dialog [data-action="close-dialog"] {
+  display: none !important;
+}
+
+.auth-locked-banner {
+  display: none;
+  padding: 8px 12px;
+  background: rgba(43, 108, 176, 0.12);
+  border: 1px solid rgba(43, 108, 176, 0.3);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--blue, #2b6cb0);
+  margin-bottom: 12px;
+  text-align: center;
+}
+[data-theme="dark"] .auth-locked-banner,
+body.theme-dark .auth-locked-banner {
+  background: rgba(99, 179, 237, 0.15);
+  border-color: rgba(99, 179, 237, 0.35);
+  color: #90cdf4;
+}
+body.auth-locked .auth-locked-banner {
+  display: block;
+}
+
+
 
 
 
