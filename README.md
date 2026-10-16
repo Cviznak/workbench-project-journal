@@ -68,6 +68,7 @@ Cloud accounts and sync use your own Supabase project.
 3. In **Project Settings → API**, copy the **Project URL** and the **anon / publishable** key.
 4. In Workbench, click **Sign In** in the top bar or sidebar, switch to the **⚙️ Cloud Setup** tab, paste the Project URL and key, and click **Save Connection**.
 5. Switch to **Create Account** to create your first maker or admin account.
+6. **Invite makers with One-Click Links**: Click **🔗 Copy One-Click Invite Link** in the Admin Console or Cloud Setup modal. Send this link to any maker or to your own phone. When opened, it connects instantly and prompts them to register their account—no manual copying of API keys needed, and no credentials committed to git!
 
 ```sql
 -- 1. User Workspaces

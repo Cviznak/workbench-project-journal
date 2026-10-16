@@ -3093,10 +3093,70 @@ function setupKanbanDragDrop(kanban) {
   });
 }
 
+function checkInviteOrSetupLink() {
+  let url = "";
+  let key = "";
+
+  const hash = window.location.hash || "";
+  if (hash.startsWith("#setup?") || hash.startsWith("#join?") || hash.startsWith("#invite?")) {
+    const rawQuery = hash.slice(hash.indexOf("?") + 1);
+    const params = new URLSearchParams(rawQuery);
+    url = params.get("url") || "";
+    key = params.get("key") || "";
+  }
+
+  if (!url || !key) {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.has("setup") || searchParams.has("join") || (searchParams.has("url") && searchParams.has("key"))) {
+      url = searchParams.get("url") || "";
+      key = searchParams.get("key") || "";
+    }
+  }
+
+  if (url && key) {
+    url = url.trim();
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    url = url.replace(/\/+$/, "");
+    key = key.trim();
+
+    try {
+      const previous = getCloudConfig();
+      if (previous?.url !== url || previous?.key !== key) setCloudSession(null);
+      setCloudConfig({ url, key });
+      if ($("#cloud-url")) $("#cloud-url").value = url;
+      if ($("#cloud-key")) $("#cloud-key").value = key;
+      if ($("#auth-cloud-url")) $("#auth-cloud-url").value = url;
+      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = key;
+
+      const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+      history.replaceState(null, "", cleanUrl);
+
+      renderCloudConnection();
+      showToast("Connected to shop cloud database! 🚀");
+
+      if (!getCloudSession()) {
+        setTimeout(() => {
+          openAuthModal("signup");
+          showAuthAlert("✓ Cloud connected! Create your maker account below to get started.", "success");
+        }, 350);
+      }
+      return true;
+    } catch (e) {
+      console.error("Failed to process setup link", e);
+    }
+  }
+  return false;
+}
+
 /* 🔖 Workshop QR Code Label Generator & Routing */
 function checkHashRouting() {
   const hash = window.location.hash || "";
   if (!hash) return;
+
+  if (hash.startsWith("#setup?") || hash.startsWith("#join?") || hash.startsWith("#invite?")) {
+    checkInviteOrSetupLink();
+    return;
+  }
 
   const projectMatch = hash.match(/^#project[=/]([a-zA-Z0-9_-]+)/);
   if (projectMatch) {
@@ -4659,6 +4719,25 @@ async function handleAction(action, target) {
     void copyAdminSql();
     return;
   }
+  if (action === "copy-invite-link") {
+    const cfg = getCloudConfig();
+    const url = cfg?.url || $("#auth-cloud-url")?.value?.trim() || $("#cloud-url")?.value?.trim();
+    const key = cfg?.key || $("#auth-cloud-key")?.value?.trim() || $("#cloud-key")?.value?.trim();
+    if (!url || !key) {
+      showToast("Please save your Supabase connection first.");
+      openAuthModal("config");
+      return;
+    }
+    const cleanUrl = url.replace(/\/+$/, "");
+    const inviteUrl = `${window.location.origin}${window.location.pathname}#setup?url=${encodeURIComponent(cleanUrl)}&key=${encodeURIComponent(key)}`;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      showToast("Copied one-click invite link to clipboard! 📋");
+    } catch {
+      window.prompt("Copy your one-click invite link:", inviteUrl);
+    }
+    return;
+  }
   if (action === "github-auth" || action === "github-sign-in") {
     try {
       await beginGitHubSignIn();
@@ -5364,6 +5443,7 @@ async function initialize() {
     });
     render();
     renderCloudConnection();
+    checkInviteOrSetupLink();
     checkHashRouting();
     window.addEventListener("hashchange", checkHashRouting);
     try {
