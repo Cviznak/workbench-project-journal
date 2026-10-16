@@ -2191,5 +2191,309 @@ body.theme-dark .qr-bin-label {
   color: #000000;
 }
 
+/* --- Multi-User Cloud & Admin Console Styles --- */
+.admin-inspect-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  background: #fff8e6;
+  border-bottom: 2px solid #ecc94b;
+  color: #744210;
+  font-size: 13px;
+  animation: slideDown .2s ease;
+}
+.admin-inspect-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inspect-icon {
+  font-size: 18px;
+}
+[data-theme="dark"] .admin-inspect-banner,
+body.theme-dark .admin-inspect-banner {
+  background: #2a220e;
+  border-bottom-color: #b7791f;
+  color: #fbd38d;
+}
+
+.admin-nav-link {
+  color: #d69e2e !important;
+}
+.admin-nav-link.active {
+  background: #fefcbf !important;
+  color: #744210 !important;
+}
+[data-theme="dark"] .admin-nav-link.active,
+body.theme-dark .admin-nav-link.active {
+  background: #3b2f15 !important;
+  color: #fbd38d !important;
+}
+
+.admin-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.admin-metric-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.admin-metric-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+.admin-metric-body {
+  display: flex;
+  flex-direction: column;
+}
+.admin-metric-body strong {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.admin-metric-body span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.admin-users-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+.admin-user-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.admin-user-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.06);
+}
+.admin-user-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.admin-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--green);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 16px;
+  flex: 0 0 40px;
+}
+.admin-user-meta {
+  flex: 1;
+  min-width: 0;
+}
+.admin-user-meta strong {
+  display: block;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink);
+}
+.admin-user-meta span {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.role-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.role-pill.role-admin {
+  background: #fef3c7;
+  color: #92400e;
+}
+.role-pill.role-maker {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+[data-theme="dark"] .role-pill.role-admin,
+body.theme-dark .role-pill.role-admin {
+  background: #451a03;
+  color: #fde68a;
+}
+[data-theme="dark"] .role-pill.role-maker,
+body.theme-dark .role-pill.role-maker {
+  background: #082f49;
+  color: #bae6fd;
+}
+
+.admin-user-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background: #f7f6f0;
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+[data-theme="dark"] .admin-user-stats,
+body.theme-dark .admin-user-stats {
+  background: #171b14;
+}
+.admin-user-stats-item strong {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+}
+.admin-user-stats-item span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.admin-user-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.sql-code-block {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  overflow-x: auto;
+  line-height: 1.45;
+  max-height: 160px;
+}
+
+/* Auth Dialog */
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.auth-tab-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.auth-tab-btn.active {
+  background: var(--green);
+  color: white;
+}
+.auth-alert {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.auth-alert.error {
+  background: #fed7d7;
+  color: #9b2c2c;
+  border: 1px solid #feb2b2;
+}
+.auth-alert.success {
+  background: #c6f6d5;
+  color: #22543d;
+  border: 1px solid #9ae6b4;
+}
+[data-theme="dark"] .auth-alert.error,
+body.theme-dark .auth-alert.error {
+  background: #4a1d1d;
+  color: #feb2b2;
+  border-color: #742a2a;
+}
+[data-theme="dark"] .auth-alert.success,
+body.theme-dark .auth-alert.success {
+  background: #1c3d27;
+  color: #9ae6b4;
+  border-color: #276749;
+}
+
+.auth-row-links {
+  display: flex;
+  justify-content: flex-end;
+  margin: 6px 0 14px;
+}
+.auth-alt-wrap {
+  margin-top: 14px;
+  text-align: center;
+}
+.auth-divider {
+  position: relative;
+  margin: 12px 0;
+  text-align: center;
+}
+.auth-divider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+}
+.auth-divider span {
+  position: relative;
+  background: var(--white);
+  padding: 0 10px;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+.button-block {
+  width: 100%;
+  justify-content: center;
+}
+
+.user-top-btn {
+  font-weight: 600;
+}
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.user-menu-item:last-child {
+  border-bottom: none;
+}
+
+
 
 

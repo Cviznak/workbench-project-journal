@@ -41,19 +41,37 @@ GitHub Pages is free for public repositories. Published sites must be no larger 
 - [GitHub Pages usage limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)
 - [Supabase pricing and quotas](https://supabase.com/pricing)
 
-## Private cloud sync setup
+## Multi-user cloud accounts & Admin Console
 
-Cloud sync is optional and uses a Supabase project that you own. Repeat the connection and sign-in steps in every browser you want to sync. Use the same Supabase project and GitHub account in each browser.
+Workbench supports multi-user collaboration and isolated maker workbenches powered by Supabase. Makers can sign in from any device (phone, laptop, tablet) to access their own private workbench, while Shop Leads/Admins can manage members and inspect workspaces.
 
-1. Create a Supabase project.
-2. Open the project's **SQL Editor** and run the SQL below. It creates a per-user workspace table, a private photo bucket, and row-level/storage policies. Every row and photo is restricted to its signed-in owner.
-3. In **Project Settings → API**, copy the Project URL and the **publishable** key (or legacy **anon** key). Never enter a `service_role` or secret key in this app.
-4. If you use GitHub to sign in, open **Authentication → Sign In / Providers → GitHub** in Supabase and configure the GitHub OAuth app there. Add the local/hosted Workbench URL to Supabase's allowed redirect URLs.
-5. In Workbench, open **Sync & backup**, save the URL and publishable/anon key, then choose **Continue with GitHub**.
-6. To sync another browser, open the same app there, enter the same URL and key, and sign in with the same GitHub account.
+### Account Roles
+
+- **Maker**: Each maker receives a private, isolated workbench. Their projects, checklists, photos, inventory, skills, and practice XP are isolated to their own account.
+- **Admin / Shop Lead**: Admins have full access to their own personal workbench, plus the **Admin Hub** navigation link. In the Admin Hub, admins can:
+  - View aggregate workshop metrics (total registered makers, total projects, total hours invested, active makers this week).
+  - Search and filter makers by name, email, or role (`maker` vs `admin`).
+  - Promote makers to admin or demote admins to maker.
+  - **Inspect Workbench**: Inspect another maker's workbench in a safe, read-only mode to review progress, photos, and project notes. Changes and syncs are disabled during inspection to ensure zero data overwrites.
+  - Register new maker accounts directly from the admin console.
+
+### Private cloud sync & multi-user setup
+
+Cloud accounts and sync use your own Supabase project.
+
+1. Create a Supabase project at [supabase.com](https://supabase.com).
+2. Open the project's **SQL Editor** and run the setup script below. It creates:
+   - `workbench_workspace`: Per-user isolated workspace data.
+   - `workbench_profiles`: User directory and role management (`maker` vs `admin`).
+   - `workbench-photos`: Private Supabase Storage bucket scoped to each user ID.
+   - Row-level security (RLS) policies granting users access to their own data and permitting admins to view the maker directory.
+3. In **Project Settings → API**, copy the **Project URL** and the **anon / publishable** key.
+4. In Workbench, click **Sign In** in the top bar or sidebar, switch to the **⚙️ Cloud Setup** tab, paste the Project URL and key, and click **Save Connection**.
+5. Switch to **Create Account** to create your first maker or admin account.
 
 ```sql
-create table public.workbench_workspace (
+-- 1. User Workspaces
+create table if not exists public.workbench_workspace (
   user_id uuid primary key references auth.users(id) on delete cascade,
   data jsonb not null,
   updated_at timestamptz not null default now()
@@ -78,6 +96,30 @@ create trigger workbench_workspace_updated_at
   before update on public.workbench_workspace
   for each row execute function public.workbench_set_updated_at();
 
+-- 2. User Profiles & Directory
+create table if not exists public.workbench_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  display_name text,
+  role text default 'maker',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.workbench_profiles enable row level security;
+grant select, insert, update on public.workbench_profiles to authenticated;
+
+drop policy if exists "Profiles viewable by authenticated" on public.workbench_profiles;
+create policy "Profiles viewable by authenticated" on public.workbench_profiles for select to authenticated using (true);
+
+drop policy if exists "Users can update own profile" on public.workbench_profiles;
+create policy "Users can update own profile" on public.workbench_profiles for update to authenticated using (auth.uid() = id);
+
+drop policy if exists "Users can insert own profile" on public.workbench_profiles;
+create policy "Users can insert own profile" on public.workbench_profiles for insert to authenticated with check (auth.uid() = id);
+
+-- 3. Workspace RLS Policies (Owner access + Admin inspection)
+drop policy if exists "Users can access their own Workbench workspace" on public.workbench_workspace;
 create policy "Users can access their own Workbench workspace"
   on public.workbench_workspace
   for all
@@ -85,6 +127,14 @@ create policy "Users can access their own Workbench workspace"
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
+drop policy if exists "Admins can view all workspaces" on public.workbench_workspace;
+create policy "Admins can view all workspaces"
+  on public.workbench_workspace
+  for select
+  to authenticated
+  using ((select auth.uid()) = user_id or exists (select 1 from public.workbench_profiles where id = auth.uid() and role = 'admin'));
+
+-- 4. Storage Bucket for Project Photos
 insert into storage.buckets (id, name, public)
 values ('workbench-photos', 'workbench-photos', false)
 on conflict (id) do update set public = false;
@@ -130,8 +180,9 @@ create policy "Users can delete their own Workbench photos"
   );
 ```
 
-On the first sign-in from another browser, Workbench downloads the cloud copy if its local workspace is empty. If both copies have changes, it pauses and asks which copy to keep rather than silently overwriting either one. Open browsers check for updates about every 30 seconds. Keep periodic exported backups as an additional recovery option.
+### Data Isolation & Conflict Safety
 
-Account credentials and the Supabase session are stored in that browser and sent only to the project URL you configured. The publishable/anon key is designed to be used by a client app; the database and storage policies above are what restrict access. Do not disable those policies.
+- **Local Storage Isolation**: Each user's state is keyed in IndexedDB by their user ID (`workbench_state_<userId>`). Signing out or switching users immediately switches the active workspace in IndexedDB and re-renders the UI without state leakage.
+- **Guest / Offline Mode**: Without logging in, users can use Workbench in Guest mode; data is stored in the browser under `workbench_state_local`.
+- **Admin Inspection Safety**: When an admin inspects another maker's workbench, the active state is backed up in memory, remote sync triggers are silenced (`adminInspectionActive = true`), and the inspected workbench is loaded in read-only mode. Exiting inspection mode cleanly restores the admin's personal workbench.
 
-The Supabase publishable/anon key is a project identifier for client apps, not a substitute for signing in. Workbench uses GitHub OAuth with a one-time PKCE verifier to identify your private user account. Do not use a GitHub personal access token, Supabase `service_role` key, or secret key in this app.

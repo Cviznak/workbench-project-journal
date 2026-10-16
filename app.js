@@ -154,20 +154,46 @@ function openDatabase() {
   });
 }
 
-function readSavedState() {
+let adminInspectionActive = false;
+let adminInspectionBackup = null;
+let adminInspectedUserName = "";
+
+function getActiveStateKey() {
+  const session = getCloudSession();
+  if (session?.user?.id) {
+    return `workbench_state_${session.user.id}`;
+  }
+  return STATE_KEY;
+}
+
+function readSavedState(overrideKey = null) {
   return new Promise((resolve, reject) => {
-    const request = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
-    request.onsuccess = () => resolve(request.result);
+    const key = overrideKey || getActiveStateKey();
+    const request = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(key);
+    request.onsuccess = () => {
+      // If user-specific key is empty, fall back to legacy STATE_KEY for first-time migration
+      if (!request.result && key !== STATE_KEY) {
+        const fallback = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
+        fallback.onsuccess = () => resolve(fallback.result);
+        fallback.onerror = () => resolve(null);
+      } else {
+        resolve(request.result);
+      }
+    };
     request.onerror = () => reject(request.error);
   });
 }
 
 function persistState({ syncCloud = true, preserveTimestamp = false } = {}) {
+  if (adminInspectionActive) {
+    return Promise.resolve(); // Never overwrite another user's workbench during inspection!
+  }
   return new Promise((resolve, reject) => {
     if (!preserveTimestamp) state.updatedAt = new Date().toISOString();
     if (syncCloud) state.hasUserChanges = true;
+    const key = getActiveStateKey();
     const transaction = database.transaction(STORE_NAME, "readwrite");
-    transaction.objectStore(STORE_NAME).put(state, STATE_KEY);
+    transaction.objectStore(STORE_NAME).put(state, key);
     transaction.oncomplete = () => {
       resolve();
       if (syncCloud) scheduleCloudSync();
@@ -624,6 +650,296 @@ function setCloudSession(session) {
   else localStorage.removeItem(CLOUD_SESSION_KEY);
 }
 
+function getActiveUser() {
+  const session = getCloudSession();
+  if (!session?.user) return null;
+  const u = session.user;
+  const meta = u.user_metadata || {};
+  return {
+    id: u.id,
+    email: u.email || "",
+    displayName: meta.display_name || (u.email ? u.email.split("@")[0] : "Maker"),
+    role: meta.role || "maker"
+  };
+}
+
+function isCurrentUserAdmin() {
+  const user = getActiveUser();
+  return user?.role === "admin";
+}
+
+function showAuthAlert(message, type = "error") {
+  const alert = $("#auth-alert");
+  if (!alert) return;
+  alert.textContent = message;
+  alert.className = `auth-alert ${type}`;
+  alert.style.display = "block";
+}
+
+function switchAuthTab(tab) {
+  $$(".auth-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.authTab === tab));
+  $$(".auth-form-panel").forEach(p => p.style.display = "none");
+  const alert = $("#auth-alert");
+  if (alert) alert.style.display = "none";
+
+  if (tab === "signin") {
+    $("#auth-signin-form").style.display = "block";
+    $("#auth-dialog-title").textContent = "Sign in to your workbench";
+  } else if (tab === "signup") {
+    $("#auth-signup-form").style.display = "block";
+    $("#auth-dialog-title").textContent = "Create your cloud workbench";
+  } else if (tab === "config") {
+    $("#auth-config-form").style.display = "block";
+    $("#auth-dialog-title").textContent = "Supabase Cloud Connection";
+    const cfg = getCloudConfig();
+    if (cfg) {
+      if ($("#auth-cloud-url")) $("#auth-cloud-url").value = cfg.url || "";
+      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = cfg.key || "";
+    }
+  }
+}
+
+function openAuthModal(tab = "signin") {
+  const dialog = $("#auth-dialog");
+  if (!dialog) return;
+  switchAuthTab(tab);
+  dialog.showModal();
+}
+
+function openUserMenuModal() {
+  const dialog = $("#user-menu-dialog");
+  const content = $("#user-menu-content");
+  if (!dialog || !content) return;
+
+  const user = getActiveUser();
+
+  if (user) {
+    const initial = (user.displayName || user.email || "M")[0].toUpperCase();
+    content.innerHTML = `
+      <div class="user-menu-item">
+        <div class="admin-user-avatar" style="${user.role === "admin" ? "background:#d69e2e" : ""}">${user.role === "admin" ? "👑" : initial}</div>
+        <div class="admin-user-meta">
+          <strong>${escapeHTML(user.displayName)}</strong>
+          <span>${escapeHTML(user.email)}</span>
+          <span class="role-pill role-${user.role}" style="display:inline-block;margin-top:4px">${user.role}</span>
+        </div>
+      </div>
+      <div style="padding:12px 0;font-size:12px;color:var(--muted)">
+        Connected to Supabase cloud · Data synced across all your devices.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+        ${user.role === "admin" ? `<button type="button" class="button button-outline" data-action="go-to-admin">👑 Open Admin Console</button>` : ""}
+        <button type="button" class="button button-outline" data-action="sync-now">⇄ Sync Now</button>
+        <button type="button" class="button button-outline" data-action="open-auth-modal" data-tab="signin">Switch Account</button>
+        <button type="button" class="danger-button" data-action="auth-sign-out">Sign Out</button>
+      </div>
+    `;
+  } else {
+    content.innerHTML = `
+      <div style="text-align:center;padding:12px 0">
+        <div class="profile-avatar" style="margin:0 auto 10px;width:48px;height:48px;font-size:24px">✿</div>
+        <h3>Guest / Local Workbench</h3>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 16px">Your projects and photos are currently saved only in this browser. Sign in or create an account to access your workbench from any phone, laptop, or tablet.</p>
+        <button type="button" class="button button-primary button-block" data-action="open-auth-modal" data-tab="signin">Sign In / Create Account →</button>
+      </div>
+    `;
+  }
+
+  dialog.showModal();
+}
+
+async function upsertUserProfile(user) {
+  try {
+    const meta = user.user_metadata || {};
+    await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=representation"
+      },
+      body: JSON.stringify([{
+        id: user.id,
+        email: user.email,
+        display_name: meta.display_name || (user.email ? user.email.split("@")[0] : "Maker"),
+        role: meta.role || "maker",
+        updated_at: new Date().toISOString()
+      }])
+    });
+  } catch (e) {
+    // Silently continue if profiles table is not created yet
+  }
+}
+
+async function signInWithEmail(email, password) {
+  const cfg = getCloudConfig();
+  if (!cfg?.url || !cfg?.key) {
+    switchAuthTab("config");
+    showAuthAlert("Please save your Supabase project URL and anon key first.", "error");
+    return;
+  }
+
+  const session = await cloudRequest("/auth/v1/token?grant_type=password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim(), password })
+  }, false);
+
+  if (!session?.access_token || !session?.user) {
+    throw new Error("Invalid response from auth server.");
+  }
+
+  setCloudSession({
+    ...session,
+    expires_at: session.expires_at || Math.floor(Date.now() / 1000) + (session.expires_in || 3600)
+  });
+
+  upsertUserProfile(session.user).catch(() => {});
+  await loadUserScopedState();
+  try {
+    await syncCloudWorkspace("pull");
+  } catch (e) {
+    console.warn("Initial sync pull notice", e);
+  }
+
+  updateUserUI();
+  render();
+  renderCloudConnection();
+  $("#auth-dialog")?.close();
+  showToast(`Signed in as ${getActiveUser()?.displayName}!`);
+}
+
+async function signUpWithEmail(email, password, displayName, role = "maker") {
+  const cfg = getCloudConfig();
+  if (!cfg?.url || !cfg?.key) {
+    switchAuthTab("config");
+    showAuthAlert("Please save your Supabase project URL and anon key first.", "error");
+    return;
+  }
+
+  const res = await cloudRequest("/auth/v1/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: email.trim(),
+      password,
+      data: {
+        display_name: displayName.trim(),
+        role
+      }
+    })
+  }, false);
+
+  if (res?.access_token && res?.user) {
+    setCloudSession({
+      ...res,
+      expires_at: res.expires_at || Math.floor(Date.now() / 1000) + (res.expires_in || 3600)
+    });
+    upsertUserProfile(res.user).catch(() => {});
+    await loadUserScopedState();
+    await persistState();
+    updateUserUI();
+    render();
+    renderCloudConnection();
+    $("#auth-dialog")?.close();
+    showToast(`Welcome to Workbench, ${displayName}!`);
+  } else if (res?.id || res?.user?.id) {
+    showAuthAlert("Account created! Check your email inbox to verify your account, then sign in.", "success");
+  } else {
+    throw new Error("Unable to register account. Please check your credentials.");
+  }
+}
+
+async function signOutUser() {
+  try {
+    await cloudRequest("/auth/v1/logout", { method: "POST" });
+  } catch {}
+  clearTimeout(syncTimer);
+  setCloudSession(null);
+  cloudConflict = null;
+  if (adminInspectionActive) {
+    exitInspectionMode();
+  }
+  await loadUserScopedState();
+  updateUserUI();
+  render();
+  renderCloudConnection();
+  $("#user-menu-dialog")?.close();
+  showToast("Signed out. Switched to local workbench.");
+}
+
+async function sendPasswordRecovery(email) {
+  const cfg = getCloudConfig();
+  if (!cfg?.url || !cfg?.key) {
+    switchAuthTab("config");
+    showAuthAlert("Please configure your Supabase connection first.", "error");
+    return;
+  }
+  await cloudRequest("/auth/v1/recover", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: email.trim() })
+  }, false);
+  showAuthAlert("Password recovery email sent! Check your inbox.", "success");
+}
+
+async function loadUserScopedState() {
+  const saved = await readSavedState();
+  if (saved) {
+    state.projects = Array.isArray(saved.projects) ? saved.projects : [];
+    state.skills = Array.isArray(saved.skills) ? saved.skills : [];
+    state.activity = Array.isArray(saved.activity) ? saved.activity : [];
+    state.practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
+    state.inventory = Array.isArray(saved.inventory) ? saved.inventory : [];
+    state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
+    state.weeklyGoal = Number.isFinite(saved.weeklyGoal) ? saved.weeklyGoal : 60;
+  } else {
+    state.projects = [];
+    state.skills = [];
+    state.activity = [];
+    state.practiceLog = [];
+    state.inventory = [];
+    state.customTemplates = [];
+    state.weeklyGoal = 60;
+    for (const [name, category] of STARTER_SKILLS) {
+      state.skills.push({ id: uid(), name, category, xp: 0 });
+    }
+    await persistState({ syncCloud: false });
+  }
+}
+
+function updateUserUI() {
+  const user = getActiveUser();
+  const topAuthBtn = $("#top-auth-btn");
+  const userNameEl = $("#user-name");
+  const userRoleEl = $("#user-role-label");
+  const userAvatarEl = $("#user-avatar");
+  const spaceLabel = $("#topbar-space-label");
+  const adminNav = $("#nav-admin-link");
+
+  if (user) {
+    const initial = (user.displayName || user.email || "M")[0].toUpperCase();
+    if (topAuthBtn) {
+      topAuthBtn.innerHTML = `${user.role === "admin" ? "👑" : "👤"} ${escapeHTML(user.displayName)}`;
+      topAuthBtn.title = `Signed in as ${user.email} (${user.role})`;
+    }
+    if (userNameEl) userNameEl.textContent = user.displayName;
+    if (userRoleEl) userRoleEl.textContent = user.role === "admin" ? "👑 Admin / Shop Lead" : "🛠️ Maker Workbench";
+    if (userAvatarEl) userAvatarEl.textContent = user.role === "admin" ? "👑" : initial;
+    if (spaceLabel) spaceLabel.textContent = `${user.displayName}'s shop`;
+    if (adminNav) adminNav.style.display = user.role === "admin" ? "flex" : "none";
+  } else {
+    if (topAuthBtn) {
+      topAuthBtn.innerHTML = "Sign in";
+      topAuthBtn.title = "Sign in or create cloud workbench";
+    }
+    if (userNameEl) userNameEl.textContent = "Guest Workbench";
+    if (userRoleEl) userRoleEl.textContent = "Personal space (local)";
+    if (userAvatarEl) userAvatarEl.textContent = "✿";
+    if (spaceLabel) spaceLabel.textContent = "My workshop";
+    if (adminNav) adminNav.style.display = "none";
+  }
+}
+
 function cloudMessage(text, status = "info") {
   $("#sync-message").textContent = text;
   $("#sync-message").dataset.status = status;
@@ -726,8 +1042,12 @@ async function completeGitHubSignIn() {
   }, false);
   if (!session?.access_token || !session.user) throw new Error("GitHub sign-in did not return a valid Supabase session.");
   setCloudSession({ ...session, expires_at: session.expires_at || Math.floor(Date.now() / 1000) + session.expires_in });
+  upsertUserProfile(session.user).catch(() => {});
+  await loadUserScopedState();
   await syncCloudWorkspace();
   if ($("#sync-message").dataset.status === "error") throw new Error($("#sync-message").textContent);
+  updateUserUI();
+  render();
   renderCloudConnection();
 }
 
@@ -759,8 +1079,10 @@ function hasWorkspaceContent() {
 }
 
 function cloudWorkspacePayload() {
+  const user = getActiveUser();
   return {
     ...state,
+    owner: user ? { id: user.id, email: user.email, displayName: user.displayName, role: user.role } : null,
     projects: state.projects.map(project => ({
       ...project,
       folders: (project.folders || []).map(folder => ({
@@ -771,14 +1093,16 @@ function cloudWorkspacePayload() {
   };
 }
 
-async function getRemoteWorkspace() {
+async function getRemoteWorkspace(overrideUserId = null) {
   const session = await ensureCloudSession();
-  const query = `?user_id=eq.${encodeURIComponent(session.user.id)}&select=data,updated_at`;
+  const targetId = overrideUserId || session.user.id;
+  const query = `?user_id=eq.${encodeURIComponent(targetId)}&select=data,updated_at`;
   const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}${query}`);
   return rows[0] || null;
 }
 
 async function storeRemoteWorkspace() {
+  if (adminInspectionActive) return; // Never overwrite another user's workbench during inspection!
   const session = await ensureCloudSession();
   const previous = await getRemoteWorkspace();
   for (const project of state.projects) {
@@ -1059,6 +1383,7 @@ function safeStatus(status) {
 }
 
 function render() {
+  updateUserUI();
   renderNavigation();
   renderCloudConnection();
   renderOverview();
@@ -1071,6 +1396,7 @@ function render() {
   renderInventory();
   renderWeeklyGoal();
   renderAchievements();
+  if ($("#admin-view")?.classList.contains("active")) renderAdminHub();
   if (activeProjectId && $("#detail-dialog").open) renderProjectDetail(activeProjectId);
 }
 
@@ -1427,13 +1753,15 @@ function switchView(view) {
     sync: "Sync & backup",
     timeline: "Activity & Journal",
     shopping: "Shopping list",
-    inventory: "Inventory"
+    inventory: "Inventory",
+    admin: "Admin Console"
   }[view] || "Overview";
   $("#page-crumb").textContent = title;
   if (view === "sync") renderCloudConnection();
   if (view === "timeline") renderTimeline();
   if (view === "shopping") renderShoppingList();
   if (view === "inventory") renderInventory();
+  if (view === "admin") renderAdminHub();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -3950,8 +4278,379 @@ async function setWeeklyPracticeGoal() {
   }
 }
 
+async function renderAdminHub() {
+  const adminView = $("#admin-view");
+  if (!adminView) return;
+
+  const user = getActiveUser();
+  if (!user || user.role !== "admin") {
+    const grid = $("#admin-users-grid");
+    if (grid) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-state-icon">🔒</div>
+          <h3>Admin Access Required</h3>
+          <p>You must be signed in with an administrator account to view the shop admin console.</p>
+          <button type="button" class="button button-primary" data-action="open-auth-modal" data-tab="signin" style="margin-top:12px">Sign in as Admin</button>
+        </div>`;
+    }
+    if ($("#admin-stat-users")) $("#admin-stat-users").textContent = "0";
+    if ($("#admin-stat-projects")) $("#admin-stat-projects").textContent = "0";
+    if ($("#admin-stat-hours")) $("#admin-stat-hours").textContent = "0h";
+    if ($("#admin-stat-active")) $("#admin-stat-active").textContent = "0";
+    if ($("#admin-user-count")) $("#admin-user-count").textContent = "";
+    return;
+  }
+
+  let makers = [];
+  try {
+    const workspaceMap = new Map();
+    try {
+      const workspaces = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`);
+      if (Array.isArray(workspaces)) {
+        for (const row of workspaces) {
+          if (row.user_id) workspaceMap.set(row.user_id, row);
+        }
+      }
+    } catch (e) {
+      console.warn("Could not fetch remote workspaces list:", e);
+    }
+
+    const profileMap = new Map();
+    try {
+      const profiles = await cloudRequest("/rest/v1/workbench_profiles?select=*");
+      if (Array.isArray(profiles)) {
+        for (const p of profiles) {
+          if (p.id) profileMap.set(p.id, p);
+        }
+      }
+    } catch (e) {
+      // profiles table might not be created yet
+    }
+
+    const allUserIds = new Set([...workspaceMap.keys(), ...profileMap.keys()]);
+    if (user.id) allUserIds.add(user.id);
+
+    const now = Date.now();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    makers = Array.from(allUserIds).map(uid => {
+      const p = profileMap.get(uid);
+      const ws = workspaceMap.get(uid);
+      const wsOwner = ws?.data?.owner;
+      const email = p?.email || wsOwner?.email || (uid === user.id ? user.email : "Unknown maker");
+      const displayName = p?.display_name || wsOwner?.displayName || (uid === user.id ? user.displayName : (email ? email.split("@")[0] : "Maker"));
+      const role = p?.role || wsOwner?.role || (uid === user.id ? user.role : "maker");
+
+      const projects = ws?.data?.projects || (uid === user.id ? state.projects : []);
+      const skills = ws?.data?.skills || (uid === user.id ? state.skills : []);
+      const totalMinutes = projects.reduce((sum, pr) => sum + (pr.timeSpent || 0), 0);
+      const hours = Math.round((totalMinutes / 60) * 10) / 10;
+      const updatedAt = ws?.updated_at || p?.updated_at || (uid === user.id ? state.updatedAt : null);
+      const isActiveWeek = updatedAt ? (now - new Date(updatedAt).getTime() < sevenDaysMs) : (uid === user.id);
+
+      return {
+        id: uid,
+        displayName,
+        email,
+        role,
+        projectCount: projects.length,
+        hours,
+        skillCount: skills.length,
+        updatedAt,
+        isActiveWeek,
+        isSelf: uid === user.id
+      };
+    });
+
+  } catch (err) {
+    console.warn("Falling back to active user for admin console:", err);
+    makers = [{
+      id: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      role: user.role,
+      projectCount: state.projects.length,
+      hours: Math.round((state.projects.reduce((s, p) => s + (p.timeSpent || 0), 0) / 60) * 10) / 10,
+      skillCount: state.skills.length,
+      updatedAt: state.updatedAt,
+      isActiveWeek: true,
+      isSelf: true
+    }];
+  }
+
+  const totalUsers = makers.length;
+  const totalProjects = makers.reduce((sum, m) => sum + m.projectCount, 0);
+  const totalHours = Math.round(makers.reduce((sum, m) => sum + m.hours, 0));
+  const activeThisWeek = makers.filter(m => m.isActiveWeek).length;
+
+  if ($("#admin-stat-users")) $("#admin-stat-users").textContent = totalUsers;
+  if ($("#admin-stat-projects")) $("#admin-stat-projects").textContent = totalProjects;
+  if ($("#admin-stat-hours")) $("#admin-stat-hours").textContent = `${totalHours}h`;
+  if ($("#admin-stat-active")) $("#admin-stat-active").textContent = activeThisWeek;
+
+  const searchQuery = ($("#admin-user-search")?.value || "").toLowerCase().trim();
+  const roleFilter = $("#admin-role-filter")?.value || "all";
+
+  const filteredMakers = makers.filter(m => {
+    if (roleFilter !== "all" && m.role !== roleFilter) return false;
+    if (searchQuery) {
+      const match = m.displayName.toLowerCase().includes(searchQuery) ||
+                    m.email.toLowerCase().includes(searchQuery) ||
+                    m.role.toLowerCase().includes(searchQuery);
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  const countEl = $("#admin-user-count");
+  if (countEl) countEl.textContent = `Showing ${filteredMakers.length} of ${makers.length} makers`;
+
+  const grid = $("#admin-users-grid");
+  if (!grid) return;
+
+  if (filteredMakers.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <div class="empty-state-icon">🔍</div>
+        <h3>No makers found</h3>
+        <p>No makers matched your search or role filter.</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = filteredMakers.map(m => {
+    const initial = (m.displayName || m.email || "M")[0].toUpperCase();
+    const lastActiveStr = m.updatedAt ? relativeTime(m.updatedAt) : "Never synced";
+    const nextRole = m.role === "admin" ? "maker" : "admin";
+    const nextRoleLabel = m.role === "admin" ? "Demote to Maker" : "Promote to Admin";
+
+    return `
+      <div class="admin-user-card" data-user-id="${m.id}">
+        <div class="admin-user-header">
+          <div class="admin-user-avatar" style="${m.role === "admin" ? "background:#d69e2e" : ""}">${m.role === "admin" ? "👑" : initial}</div>
+          <div class="admin-user-meta">
+            <h4>${escapeHTML(m.displayName)} ${m.isSelf ? '<span style="font-size:11px;color:var(--muted)">(You)</span>' : ''}</h4>
+            <span class="admin-user-email">${escapeHTML(m.email)}</span>
+            <div style="margin-top:4px">
+              <span class="role-pill role-${m.role}">${m.role}</span>
+              ${m.isActiveWeek ? '<span style="font-size:11px;color:#38a169;margin-left:6px;font-weight:600">● active recently</span>' : ''}
+            </div>
+          </div>
+        </div>
+        <div class="admin-user-stats">
+          <div class="admin-stat-item">
+            <strong>${m.projectCount}</strong>
+            <span>Projects</span>
+          </div>
+          <div class="admin-stat-item">
+            <strong>${m.hours}h</strong>
+            <span>Time</span>
+          </div>
+          <div class="admin-stat-item">
+            <strong>${m.skillCount}</strong>
+            <span>Skills</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+          Last active: <strong>${lastActiveStr}</strong>
+        </div>
+        <div class="admin-user-actions">
+          <button type="button" class="button button-small button-outline" data-action="inspect-user-workbench" data-user-id="${m.id}" data-user-name="${escapeHTML(m.displayName)}">
+            👁️ Inspect Workbench
+          </button>
+          <button type="button" class="button button-small button-outline" data-action="admin-toggle-role" data-user-id="${m.id}" data-current-role="${m.role}">
+            ${m.role === "admin" ? "👤 " + nextRoleLabel : "👑 " + nextRoleLabel}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function inspectUserWorkbench(targetUserId, targetUserName) {
+  const user = getActiveUser();
+  if (!user || user.role !== "admin") {
+    showToast("Admin access required to inspect other workbenches.");
+    return;
+  }
+
+  try {
+    showToast(`Loading ${targetUserName}'s workbench…`);
+    const remote = await getRemoteWorkspace(targetUserId);
+    if (!remote || !remote.data) {
+      showToast(`No cloud workbench data found for ${targetUserName} yet.`);
+      return;
+    }
+
+    if (!adminInspectionActive) {
+      adminInspectionBackup = structuredClone(state);
+    }
+
+    await loadRemoteWorkspace(remote);
+    adminInspectionActive = true;
+    adminInspectedUserName = targetUserName || "Maker";
+
+    const banner = $("#admin-inspect-banner");
+    if (banner) {
+      $("#inspect-user-name").textContent = adminInspectedUserName;
+      banner.style.display = "flex";
+    }
+
+    render();
+    switchView("projects");
+    showToast(`Viewing ${adminInspectedUserName}'s workbench in Read-Only mode.`);
+  } catch (err) {
+    console.error("Failed to inspect workbench:", err);
+    showToast(err.message || "Could not load that workbench.");
+  }
+}
+
+async function exitInspectionMode() {
+  if (adminInspectionBackup) {
+    state.projects = adminInspectionBackup.projects || [];
+    state.skills = adminInspectionBackup.skills || [];
+    state.activity = adminInspectionBackup.activity || [];
+    state.practiceLog = adminInspectionBackup.practiceLog || [];
+    state.inventory = adminInspectionBackup.inventory || [];
+    state.customTemplates = adminInspectionBackup.customTemplates || [];
+    state.weeklyGoal = adminInspectionBackup.weeklyGoal || 60;
+    state.updatedAt = adminInspectionBackup.updatedAt || "";
+    adminInspectionBackup = null;
+  } else {
+    await loadUserScopedState();
+  }
+
+  adminInspectionActive = false;
+  adminInspectedUserName = "";
+
+  const banner = $("#admin-inspect-banner");
+  if (banner) banner.style.display = "none";
+
+  render();
+  switchView("admin");
+  showToast("Exited inspection mode. Returned to your workbench.");
+}
+
+async function adminToggleUserRole(userId, currentRole) {
+  const nextRole = currentRole === "admin" ? "maker" : "admin";
+  const user = getActiveUser();
+  if (!user || user.role !== "admin") {
+    showToast("Admin privileges required.");
+    return;
+  }
+
+  if (userId === user.id && nextRole === "maker") {
+    if (!confirm("Are you sure you want to demote yourself from Admin to Maker? You will lose access to the Admin Console.")) {
+      return;
+    }
+  }
+
+  try {
+    try {
+      await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: nextRole, updated_at: new Date().toISOString() })
+      });
+    } catch (e) {
+      console.warn("Could not patch workbench_profiles table directly", e);
+    }
+
+    if (userId === user.id) {
+      const session = getCloudSession();
+      if (session?.user) {
+        session.user.user_metadata = session.user.user_metadata || {};
+        session.user.user_metadata.role = nextRole;
+        setCloudSession(session);
+        updateUserUI();
+      }
+    }
+
+    showToast(`Role updated to ${nextRole}!`);
+    await renderAdminHub();
+  } catch (err) {
+    console.error("Could not toggle user role:", err);
+    showToast(err.message || "Failed to update user role.");
+  }
+}
+
+async function copyAdminSql() {
+  const sqlEl = $("#admin-sql-code");
+  if (!sqlEl) return;
+  try {
+    await navigator.clipboard.writeText(sqlEl.textContent);
+    showToast("Copied Supabase SQL setup script to clipboard!");
+  } catch (err) {
+    console.error("Clipboard copy failed", err);
+    showToast("Failed to copy script to clipboard.");
+  }
+}
+
 async function handleAction(action, target) {
   const id = target.dataset.id;
+  if (action === "open-auth-modal") {
+    openAuthModal(target.dataset.tab || "signin");
+    return;
+  }
+  if (action === "open-user-menu") {
+    openUserMenuModal();
+    return;
+  }
+  if (action === "auth-forgot-password") {
+    const email = $("#signin-email")?.value;
+    if (!email) {
+      showAuthAlert("Please enter your email address in the field above first.", "error");
+      return;
+    }
+    try {
+      await sendPasswordRecovery(email);
+    } catch (e) {
+      showAuthAlert(e.message || "Could not send password recovery.", "error");
+    }
+    return;
+  }
+  if (action === "auth-sign-out") {
+    await signOutUser();
+    return;
+  }
+  if (action === "go-to-admin") {
+    $("#user-menu-dialog")?.close();
+    switchView("admin");
+    return;
+  }
+  if (action === "inspect-user-workbench") {
+    const uid = target.dataset.userId;
+    const uname = target.dataset.userName;
+    if (uid) void inspectUserWorkbench(uid, uname);
+    return;
+  }
+  if (action === "exit-inspection") {
+    void exitInspectionMode();
+    return;
+  }
+  if (action === "admin-toggle-role") {
+    const uid = target.dataset.userId;
+    const currentRole = target.dataset.currentRole;
+    if (uid && currentRole) void adminToggleUserRole(uid, currentRole);
+    return;
+  }
+  if (action === "open-admin-create-user") {
+    $("#admin-create-user-dialog")?.showModal();
+    return;
+  }
+  if (action === "copy-admin-sql") {
+    void copyAdminSql();
+    return;
+  }
+  if (action === "github-auth" || action === "github-sign-in") {
+    try {
+      await beginGitHubSignIn();
+    } catch (e) {
+      showAuthAlert(e.message || "Could not start GitHub sign-in.", "error");
+    }
+    return;
+  }
   if (action === "set-project-mode") {
     setProjectViewMode(target.dataset.mode);
     return;
@@ -4928,5 +5627,88 @@ $("#backup-input").addEventListener("change", async event => {
     event.target.value = "";
   }
 });
+/* Auth modal listeners */
+$$(".auth-tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => switchAuthTab(btn.dataset.authTab));
+});
+
+$("#auth-signin-form")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const email = $("#signin-email")?.value || "";
+  const pass = $("#signin-password")?.value || "";
+  const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Signing in…"; }
+  try {
+    await signInWithEmail(email, pass);
+  } catch (e) {
+    showAuthAlert(e.message || "Invalid email or password.", "error");
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Sign In →"; }
+  }
+});
+
+$("#auth-signup-form")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const name = $("#signup-name")?.value || "";
+  const email = $("#signup-email")?.value || "";
+  const pass = $("#signup-password")?.value || "";
+  const role = $("#signup-role")?.value || "maker";
+  const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating account…"; }
+  try {
+    await signUpWithEmail(email, pass, name, role);
+  } catch (e) {
+    showAuthAlert(e.message || "Failed to create account.", "error");
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Account →"; }
+  }
+});
+
+$("#auth-config-form")?.addEventListener("submit", event => {
+  event.preventDefault();
+  const url = $("#auth-cloud-url")?.value?.trim() || "";
+  const key = $("#auth-cloud-key")?.value?.trim() || "";
+  if (!url || !key) {
+    showAuthAlert("Please provide both URL and anon key.", "error");
+    return;
+  }
+  setCloudConfig({ url, key });
+  renderCloudConnection();
+  showAuthAlert("Supabase connection parameters saved successfully!", "success");
+  setTimeout(() => {
+    switchAuthTab("signin");
+  }, 1000);
+});
+
+/* Admin console listeners */
+$("#admin-create-user-form")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const name = $("#admin-new-name")?.value || "";
+  const email = $("#admin-new-email")?.value || "";
+  const pass = $("#admin-new-password")?.value || "";
+  const role = $("#admin-new-role")?.value || "maker";
+  const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating…"; }
+  try {
+    await signUpWithEmail(email, pass, name, role);
+    $("#admin-create-user-dialog")?.close();
+    event.currentTarget.reset();
+    showToast(`Created account for ${name} (${role})!`);
+    await renderAdminHub();
+  } catch (e) {
+    alert(e.message || "Failed to create maker account.");
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Account"; }
+  }
+});
+
+$("#admin-user-search")?.addEventListener("input", () => {
+  void renderAdminHub();
+});
+
+$("#admin-role-filter")?.addEventListener("change", () => {
+  void renderAdminHub();
+});
+
 $("#detail-dialog").addEventListener("close", () => { activeProjectId = null; });
 void initialize();

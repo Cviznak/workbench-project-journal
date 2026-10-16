@@ -43,15 +43,19 @@
           <button class="nav-link" data-view="gallery"><span class="nav-icon">▧</span>Gallery</button>
           <button class="nav-link" data-view="planner"><span class="nav-icon">▦</span>Planner</button>
           <button class="nav-link" data-view="sync"><span class="nav-icon">⇄</span>Sync & backup</button>
+          <button class="nav-link admin-nav-link" id="nav-admin-link" data-view="admin" style="display:none"><span class="nav-icon">👑</span>Admin Hub</button>
         </nav>
         <div class="sidebar-bottom">
           <div class="sidebar-note">
             <span class="note-spark">✳</span>
             <p>Every project starts somewhere. Keep track of how far you’ve come.</p>
           </div>
-          <div class="profile">
-            <div class="profile-avatar">✿</div>
-            <div><strong>My workshop</strong><span>Personal space</span></div>
+          <div class="profile" id="user-profile-badge" data-action="open-user-menu" role="button" tabindex="0" title="Account &amp; Profile">
+            <div class="profile-avatar" id="user-avatar">✿</div>
+            <div class="profile-meta">
+              <strong id="user-name">Guest Workbench</strong>
+              <span id="user-role-label">Personal space</span>
+            </div>
             <span class="profile-menu" aria-hidden="true">···</span>
           </div>
         </div>
@@ -59,17 +63,25 @@
 
       <main class="main-content">
         <header class="topbar">
-          <div class="breadcrumbs"><span>My workshop</span><span class="crumb-divider">/</span><strong id="page-crumb">Overview</strong></div>
+          <div class="breadcrumbs"><span id="topbar-space-label">My workshop</span><span class="crumb-divider">/</span><strong id="page-crumb">Overview</strong></div>
           <div class="topbar-actions">
+            <button type="button" class="button button-outline button-small user-top-btn" id="top-auth-btn" data-action="open-auth-modal">Sign in</button>
             <button type="button" class="button button-outline button-small" data-action="open-tools" title="Workshop Reference &amp; Conversion Tools">📐 Tools</button>
             <button type="button" class="button button-outline button-small" data-action="open-timer" title="Practice Session Timer">⏱ Timer</button>
             <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" data-action="toggle-theme" aria-label="Toggle dark/light theme" title="Toggle theme">
               <span class="theme-icon">◐</span>
             </button>
-            <span class="local-indicator"><span></span> Saved on this device</span>
+            <span class="local-indicator" id="local-indicator"><span></span> Saved on this device</span>
             <button class="button button-primary button-small" data-action="new-project"><span>＋</span> New project</button>
           </div>
         </header>
+        <div class="admin-inspect-banner" id="admin-inspect-banner" style="display:none">
+          <div class="admin-inspect-info">
+            <span class="inspect-icon">👁️</span>
+            <div><strong>Inspection Mode:</strong> Viewing <strong id="inspect-user-name">Maker</strong>'s workbench (Read-Only)</div>
+          </div>
+          <button type="button" class="button button-small button-outline" data-action="exit-inspection">Exit to My Workbench</button>
+        </div>
         <div class="page-wrap">
           <section class="view-section active" id="overview-view" aria-labelledby="welcome-title">
             <div class="welcome-row">
@@ -319,6 +331,97 @@
               <span class="result-count" id="inventory-result-count"></span>
             </div>
             <div class="inventory-grid" id="inventory-grid"></div>
+          </section>
+
+          <!-- Admin Console View -->
+          <section class="view-section" id="admin-view" aria-labelledby="admin-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> SHOP HEADQUARTERS</div>
+                <h1 id="admin-title">Admin Console<span class="heading-period">.</span></h1>
+                <p>Manage users, inspect maker workbenches, view shop-wide activity, and set permissions.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-primary" data-action="open-admin-create-user">＋ Create Maker Account</button>
+              </div>
+            </div>
+
+            <!-- Admin Summary Metrics -->
+            <div class="admin-metrics-grid" id="admin-metrics-grid">
+              <div class="admin-metric-card">
+                <div class="admin-metric-icon">👥</div>
+                <div class="admin-metric-body"><strong id="admin-stat-users">0</strong><span>Makers Registered</span></div>
+              </div>
+              <div class="admin-metric-card">
+                <div class="admin-metric-icon">🪵</div>
+                <div class="admin-metric-body"><strong id="admin-stat-projects">0</strong><span>Total Projects</span></div>
+              </div>
+              <div class="admin-metric-card">
+                <div class="admin-metric-icon">⏱️</div>
+                <div class="admin-metric-body"><strong id="admin-stat-hours">0h</strong><span>Hours Invested</span></div>
+              </div>
+              <div class="admin-metric-card">
+                <div class="admin-metric-icon">🔥</div>
+                <div class="admin-metric-body"><strong id="admin-stat-active">0</strong><span>Active This Week</span></div>
+              </div>
+            </div>
+
+            <!-- Search and filter -->
+            <div class="toolbar admin-toolbar">
+              <label class="search-box">
+                <span aria-hidden="true">🔍</span>
+                <input id="admin-user-search" type="search" placeholder="Search maker by name, email, or role..." aria-label="Search users">
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by role</span>
+                <select id="admin-role-filter">
+                  <option value="all">All roles</option>
+                  <option value="admin">Admins only</option>
+                  <option value="maker">Makers only</option>
+                </select>
+              </label>
+              <span class="result-count" id="admin-user-count"></span>
+            </div>
+
+            <!-- Users List Grid -->
+            <div class="admin-users-grid" id="admin-users-grid"></div>
+
+            <!-- SQL Setup Assistant panel for Supabase -->
+            <div class="panel admin-sql-panel" style="margin-top:24px">
+              <div class="panel-heading">
+                <div>
+                  <div class="eyebrow">SUPABASE MULTI-TENANCY</div>
+                  <h2>Multi-User &amp; Admin RLS Policies</h2>
+                </div>
+                <button type="button" class="button button-small button-outline" data-action="copy-admin-sql">📋 Copy SQL Setup Script</button>
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+                Run this SQL script in your Supabase SQL Editor to enable automatic profiles, user directories, and admin inspection across devices.
+              </p>
+              <pre class="sql-code-block" id="admin-sql-code"><code>create table if not exists public.workbench_profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  display_name text,
+  role text default 'maker',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+alter table public.workbench_profiles enable row level security;
+grant select, insert, update on public.workbench_profiles to authenticated;
+
+drop policy if exists "Profiles viewable by authenticated" on public.workbench_profiles;
+create policy "Profiles viewable by authenticated" on public.workbench_profiles for select to authenticated using (true);
+
+drop policy if exists "Users can update own profile" on public.workbench_profiles;
+create policy "Users can update own profile" on public.workbench_profiles for update to authenticated using (auth.uid() = id);
+
+drop policy if exists "Users can insert own profile" on public.workbench_profiles;
+create policy "Users can insert own profile" on public.workbench_profiles for insert to authenticated with check (auth.uid() = id);
+
+drop policy if exists "Admins can view all workspaces" on public.workbench_workspace;
+create policy "Admins can view all workspaces" on public.workbench_workspace for select to authenticated
+  using ((select auth.uid()) = user_id or exists (select 1 from public.workbench_profiles where id = auth.uid() and role = 'admin'));</code></pre>
+            </div>
           </section>
         </div>
       </main>
@@ -730,6 +833,128 @@
           <button type="button" class="button button-outline button-small" id="lightbox-annotate-btn" data-action="annotate-current-photo">✏️ Annotate</button>
         </div>
       </div>
+    </dialog>
+
+    <!-- Authentication Dialog -->
+    <dialog class="app-dialog auth-dialog" id="auth-dialog" aria-label="Sign in or create account">
+      <div class="dialog-heading">
+        <div><div class="eyebrow" id="auth-eyebrow">WORKBENCH CLOUD</div><h2 id="auth-dialog-title">Sign in to your workbench</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <!-- Auth Tab Switcher -->
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab-btn active" data-auth-tab="signin">Sign In</button>
+        <button type="button" class="auth-tab-btn" data-auth-tab="signup">Create Account</button>
+        <button type="button" class="auth-tab-btn" data-auth-tab="config">⚙️ Cloud Setup</button>
+      </div>
+
+      <div class="auth-alert" id="auth-alert" style="display:none"></div>
+
+      <!-- Sign In Form -->
+      <form id="auth-signin-form" class="auth-form-panel">
+        <label class="field-label">Email address
+          <input type="email" id="signin-email" required autocomplete="email" placeholder="maker@workshop.com">
+        </label>
+        <label class="field-label">Password
+          <input type="password" id="signin-password" required autocomplete="current-password" placeholder="••••••••">
+        </label>
+        <div class="auth-row-links">
+          <button type="button" class="text-button" data-action="auth-forgot-password">Forgot password?</button>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button type="submit" class="button button-primary">Sign In →</button>
+        </div>
+      </form>
+
+      <!-- Create Account Form -->
+      <form id="auth-signup-form" class="auth-form-panel" style="display:none">
+        <label class="field-label">Your Name / Maker Alias
+          <input type="text" id="signup-name" required maxlength="50" placeholder="e.g. Alex Miller">
+        </label>
+        <label class="field-label">Email address
+          <input type="email" id="signup-email" required autocomplete="email" placeholder="maker@workshop.com">
+        </label>
+        <label class="field-label">Password (min 6 characters)
+          <input type="password" id="signup-password" required minlength="6" autocomplete="new-password" placeholder="••••••••">
+        </label>
+        <label class="field-label">Account Role
+          <select id="signup-role">
+            <option value="maker">Maker (Personal Workbench &amp; Skills)</option>
+            <option value="admin">Admin / Shop Lead (Directory &amp; Management)</option>
+          </select>
+        </label>
+        <p class="form-hint">Every account receives their own isolated private workbench synced across all their devices.</p>
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button type="submit" class="button button-primary">Create Workbench →</button>
+        </div>
+      </form>
+
+      <!-- Supabase Connection Config Panel -->
+      <form id="auth-config-form" class="auth-form-panel" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Point Workbench to your Supabase project so all your devices connect to the same cloud database.</p>
+        <label class="field-label">Supabase Project URL
+          <input type="url" id="auth-cloud-url" placeholder="https://your-project.supabase.co" autocomplete="url">
+        </label>
+        <label class="field-label">Publishable / Anon API Key
+          <input type="password" id="auth-cloud-key" placeholder="sb_publishable_... or anon key" autocomplete="off">
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button type="submit" class="button button-primary">Save Connection</button>
+        </div>
+      </form>
+
+      <!-- Alternate OAuth -->
+      <div class="auth-alt-wrap">
+        <div class="auth-divider"><span>OR</span></div>
+        <button type="button" class="button button-outline button-block" data-action="github-sign-in">
+          <span>🐙</span> Continue with GitHub
+        </button>
+      </div>
+    </dialog>
+
+    <!-- User Account Dropdown Modal -->
+    <dialog class="app-dialog compact-dialog" id="user-menu-dialog" aria-label="Account details">
+      <div class="dialog-heading">
+        <div><div class="eyebrow">YOUR ACCOUNT</div><h2 id="user-menu-title">Profile &amp; Cloud</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="user-menu-content" id="user-menu-content"></div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+    </dialog>
+
+    <!-- Admin Create User Modal -->
+    <dialog class="app-dialog compact-dialog" id="admin-create-user-dialog" aria-label="Create User Account">
+      <form id="admin-create-user-form" method="dialog">
+        <div class="dialog-heading">
+          <div><div class="eyebrow">SHOP ROSTER</div><h2>Register Maker Account</h2></div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        <label class="field-label">Maker Full Name
+          <input type="text" id="admin-new-name" required placeholder="e.g. Jordan Lee">
+        </label>
+        <label class="field-label">Email address
+          <input type="email" id="admin-new-email" required placeholder="jordan@workshop.com">
+        </label>
+        <label class="field-label">Initial Password
+          <input type="password" id="admin-new-password" required minlength="6" placeholder="••••••••">
+        </label>
+        <label class="field-label">Account Role
+          <select id="admin-new-role">
+            <option value="maker">Maker (Personal Workbench)</option>
+            <option value="admin">Admin / Instructor (Shop Console)</option>
+          </select>
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button type="submit" class="button button-primary">Create Account →</button>
+        </div>
+      </form>
     </dialog>
 
     <input type="file" id="photo-input" accept="image/*" multiple hidden>
