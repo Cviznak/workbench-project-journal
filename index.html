@@ -7,6 +7,22 @@
     <title>Workbench — your project journal</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
+    <script>
+      (function(){
+        try {
+          var t = localStorage.getItem("workbench-theme") || "auto";
+          var isDark = t === "dark" || (t === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (isDark) {
+            document.documentElement.setAttribute("data-theme", "dark");
+            document.documentElement.classList.add("theme-dark");
+          } else {
+            document.documentElement.setAttribute("data-theme", "light");
+            document.documentElement.classList.remove("theme-dark");
+          }
+        } catch(e){}
+      })();
+    </script>
+    <script src="qr-generator.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -20,6 +36,8 @@
         <nav class="main-nav" aria-label="Main navigation">
           <button class="nav-link active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
           <button class="nav-link" data-view="projects"><span class="nav-icon">▤</span>Projects<span class="nav-count" id="nav-project-count">0</span></button>
+          <button class="nav-link" data-view="shopping"><span class="nav-icon">🛒</span>Shopping list<span class="nav-count" id="nav-shopping-count">0</span></button>
+          <button class="nav-link" data-view="inventory"><span class="nav-icon">🗄</span>Inventory<span class="nav-count" id="nav-inventory-count">0</span></button>
           <button class="nav-link" data-view="timeline"><span class="nav-icon">◷</span>Activity & Journal</button>
           <button class="nav-link" data-view="skills"><span class="nav-icon">✳</span>Skills</button>
           <button class="nav-link" data-view="gallery"><span class="nav-icon">▧</span>Gallery</button>
@@ -64,6 +82,7 @@
             </div>
             <div class="stats-grid" id="overview-stats"></div>
             <div id="overview-streak-container"></div>
+            <div id="overview-achievements"></div>
             <div class="dashboard-grid">
               <section class="panel projects-panel">
                 <div class="panel-heading">
@@ -92,7 +111,13 @@
           <section class="view-section" id="projects-view" aria-labelledby="projects-title">
             <div class="section-heading">
               <div><div class="eyebrow"><span class="eyebrow-line"></span> THE THINGS YOU MAKE</div><h1 id="projects-title">Projects<span class="heading-period">.</span></h1><p>Ideas in motion, finished pieces, and everything in between.</p></div>
-              <button class="button button-primary" data-action="new-project">＋ New project</button>
+              <div class="section-actions-row">
+                <div class="view-mode-toggle" id="project-view-mode-toggle">
+                  <button type="button" class="view-mode-btn active" data-action="set-project-mode" data-mode="grid" title="Grid view">⊞ Grid</button>
+                  <button type="button" class="view-mode-btn" data-action="set-project-mode" data-mode="kanban" title="Kanban board">☷ Kanban</button>
+                </div>
+                <button class="button button-primary" data-action="new-project">＋ New project</button>
+              </div>
             </div>
             <div class="toolbar">
               <label class="search-box"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="Find a project..." aria-label="Search projects"></label>
@@ -104,6 +129,7 @@
             <div class="skill-filter-bar" id="project-skill-pills" aria-label="Filter by skills"></div>
             <div class="skill-filter-bar tag-filter-bar" id="project-tag-pills" aria-label="Filter by tags"></div>
             <div class="project-grid" id="project-grid"></div>
+            <div class="kanban-board" id="project-kanban" style="display:none"></div>
           </section>
 
           <section class="view-section" id="skills-view" aria-labelledby="skills-title">
@@ -112,7 +138,9 @@
               <button class="button button-primary" data-action="new-skill">＋ Add a skill</button>
             </div>
             <div class="skills-intro" id="skills-summary"></div>
+            <div id="skills-weekly-goal"></div>
             <div id="skills-streak-container"></div>
+            <div id="skills-achievements"></div>
             <div class="skill-grid" id="skill-grid"></div>
             <section class="panel practice-panel">
               <div class="panel-heading">
@@ -126,6 +154,9 @@
           <section class="view-section" id="gallery-view" aria-labelledby="gallery-title">
             <div class="section-heading">
               <div><div class="eyebrow"><span class="eyebrow-line"></span> NOTES FROM THE MAKING</div><h1 id="gallery-title">Gallery<span class="heading-period">.</span></h1><p>A visual trail of your projects, gathered in one place.</p></div>
+              <div class="section-actions-row">
+                <button type="button" class="button button-outline" data-action="open-compare-photos" title="Compare two photos side by side">↔️ Compare photos</button>
+              </div>
             </div>
             <div id="gallery-content"></div>
           </section>
@@ -220,6 +251,74 @@
             </div>
             <div class="skill-filter-bar" id="timeline-skill-pills" aria-label="Filter timeline by skills"></div>
             <div class="timeline-container" id="timeline-feed"></div>
+          </section>
+
+          <section class="view-section" id="shopping-view" aria-labelledby="shopping-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> HARDWARE STORE MODE</div>
+                <h1 id="shopping-title">Shopping list<span class="heading-period">.</span></h1>
+                <p>All materials and supplies needed across your active projects, ready for your next trip to the store.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-shopping-list">📋 Copy shopping list</button>
+              </div>
+            </div>
+            <div class="toolbar shopping-toolbar">
+              <label class="search-box">
+                <span aria-hidden="true">⌕</span>
+                <input id="shopping-search" type="search" placeholder="Find material or part..." aria-label="Search shopping items">
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by status</span>
+                <select id="shopping-status-filter">
+                  <option value="need">Need to buy only</option>
+                  <option value="all">All items (Need &amp; Ordered)</option>
+                  <option value="ordered">Ordered only</option>
+                </select>
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by project</span>
+                <select id="shopping-project-filter">
+                  <option value="all">All projects</option>
+                </select>
+              </label>
+              <span class="result-count" id="shopping-result-count"></span>
+            </div>
+            <div class="shopping-summary-bar" id="shopping-summary-bar"></div>
+            <div class="shopping-list-grid" id="shopping-list-items"></div>
+          </section>
+
+          <section class="view-section" id="inventory-view" aria-labelledby="inventory-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> YOUR WORKSHOP DEPOT</div>
+                <h1 id="inventory-title">Inventory<span class="heading-period">.</span></h1>
+                <p>Track common supplies, scrap lumber, fasteners, finishes, and parts stored in your shop.</p>
+              </div>
+              <button class="button button-primary" data-action="open-inventory-dialog">＋ Add supply</button>
+            </div>
+            <div class="toolbar inventory-toolbar">
+              <label class="search-box">
+                <span aria-hidden="true">⌕</span>
+                <input id="inventory-search" type="search" placeholder="Find supply, bin, or material..." aria-label="Search inventory">
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by category</span>
+                <select id="inventory-category-filter">
+                  <option value="all">All categories</option>
+                  <option value="Lumber / Scrap">Lumber / Scrap</option>
+                  <option value="Fasteners &amp; Hardware">Fasteners &amp; Hardware</option>
+                  <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
+                  <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
+                  <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
+                  <option value="Tools &amp; Blades">Tools &amp; Blades</option>
+                  <option value="Other">Other</option>
+                </select>
+              </label>
+              <span class="result-count" id="inventory-result-count"></span>
+            </div>
+            <div class="inventory-grid" id="inventory-grid"></div>
           </section>
         </div>
       </main>
@@ -366,6 +465,7 @@
         <button type="button" class="tool-tab-btn active" data-tool-tab="fractions">📐 Fraction / Dec / mm</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="scale">⚖️ Scale &amp; Proportions</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="boardfeet">🪵 Board Foot (BF)</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="cutlist">✂️ Cut List Optimizer</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -445,6 +545,180 @@
           Adjust board dimensions above to compute board footage and estimated material cost.
         </div>
       </div>
+
+      <!-- Tab 4: Cut List Optimizer -->
+      <div class="tool-tab-panel" id="tool-panel-cutlist" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Enter your raw stock length and required cut pieces to compute the optimal cut layout and minimize offcut scrap.</p>
+        <div class="tool-calc-grid">
+          <label class="field-label">Stock length (inches or mm)
+            <input type="number" step="any" id="tool-cut-stock" value="96" placeholder="e.g. 96">
+          </label>
+          <label class="field-label">Blade kerf thickness
+            <input type="number" step="any" id="tool-cut-kerf" value="0.125" placeholder="e.g. 0.125 (1/8&quot;) or 3">
+          </label>
+          <label class="field-label" style="grid-column:1 / -1">Cut pieces list (e.g. <code>36 x 2</code> or <code>24 x 4</code> or <code>18.5 x 2</code>)
+            <textarea id="tool-cut-pieces" rows="3" placeholder="36 x 2&#10;24 x 4&#10;18 x 2&#10;12 x 3">36 x 2
+24 x 4
+18 x 2
+12 x 3</textarea>
+          </label>
+        </div>
+        <div style="margin:12px 0;display:flex;gap:8px">
+          <button type="button" class="button button-primary button-small" data-action="run-cut-optimizer">✂️ Optimize Cuts</button>
+          <button type="button" class="button button-quiet button-small" data-action="copy-cut-plan">📋 Copy Cut Plan</button>
+        </div>
+        <div class="tool-result-box" id="tool-cutlist-result">
+          Click “Optimize Cuts” above to calculate board count, yield percentage, and visual cutting layout.
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="qr-dialog" aria-label="Workshop QR Label">
+      <div class="dialog-heading">
+        <div><div class="eyebrow">PHYSICAL TO DIGITAL</div><h2>Workshop QR Label</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="qr-dialog-body" id="qr-dialog-body"></div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-outline" data-action="print-qr-label">🖶 Print Bin Label</button>
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+    </dialog>
+
+    <dialog class="app-dialog compare-dialog" id="compare-dialog" aria-label="Before &amp; After Photo Comparison">
+      <div class="dialog-heading">
+        <div><div class="eyebrow">VISUAL PROGRESS</div><h2>Before &amp; After Comparison</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="compare-controls">
+        <label class="field-label">Before (Photo A)
+          <select id="compare-select-before"></select>
+        </label>
+        <label class="field-label">After (Photo B)
+          <select id="compare-select-after"></select>
+        </label>
+      </div>
+      <div class="compare-viewport" id="compare-viewport">
+        <div class="compare-layer compare-layer-after"><img id="compare-img-after" alt="After photo"><span class="compare-badge compare-badge-after">AFTER</span></div>
+        <div class="compare-layer compare-layer-before" id="compare-layer-before"><img id="compare-img-before" alt="Before photo"><span class="compare-badge compare-badge-before">BEFORE</span></div>
+        <div class="compare-handle" id="compare-handle"><div class="compare-handle-line"></div><div class="compare-handle-knob">↔</div></div>
+      </div>
+      <div class="compare-slider-wrap">
+        <label class="sr-only" for="compare-range">Comparison Split</label>
+        <input type="range" id="compare-range" min="0" max="100" value="50">
+      </div>
+    </dialog>
+
+    <dialog class="app-dialog annotate-dialog" id="annotate-dialog" aria-label="Photo Annotation Studio">
+      <div class="dialog-heading">
+        <div><div class="eyebrow">WORKSHOP MARKUP</div><h2>Annotate Photo</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="annotate-toolbar">
+        <div class="annotate-tools-group">
+          <button type="button" class="tool-btn active" data-tool="pen" title="Freehand Pen">✏️ Pen</button>
+          <button type="button" class="tool-btn" data-tool="arrow" title="Pointer Arrow">➔ Arrow</button>
+          <button type="button" class="tool-btn" data-tool="dimension" title="Dimension Line">📏 Dimension</button>
+          <button type="button" class="tool-btn" data-tool="rect" title="Rectangle">▭ Box</button>
+          <button type="button" class="tool-btn" data-tool="circle" title="Circle">◯ Circle</button>
+        </div>
+        <div class="annotate-color-group">
+          <button type="button" class="color-swatch active" data-color="#e53e3e" style="background:#e53e3e" title="Safety Red"></button>
+          <button type="button" class="color-swatch" data-color="#ecc94b" style="background:#ecc94b" title="Caution Yellow"></button>
+          <button type="button" class="color-swatch" data-color="#3182ce" style="background:#3182ce" title="Blue"></button>
+          <button type="button" class="color-swatch" data-color="#38a169" style="background:#38a169" title="Green"></button>
+          <button type="button" class="color-swatch" data-color="#ffffff" style="background:#ffffff; border:1px solid #718096" title="White"></button>
+        </div>
+        <div class="annotate-size-group">
+          <button type="button" class="size-btn" data-size="2" title="Fine line">2px</button>
+          <button type="button" class="size-btn active" data-size="4" title="Medium line">4px</button>
+          <button type="button" class="size-btn" data-size="8" title="Bold line">8px</button>
+        </div>
+        <div class="annotate-actions-group">
+          <button type="button" class="small-action" data-action="annotate-undo" title="Undo last markup">↩ Undo</button>
+          <button type="button" class="small-action" data-action="annotate-clear" title="Clear all markup">✕ Clear</button>
+        </div>
+      </div>
+      <div class="annotate-canvas-wrap">
+        <canvas id="annotate-canvas"></canvas>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+        <button type="button" class="button button-primary" data-action="save-annotation">💾 Save Marked-Up Photo</button>
+      </div>
+    </dialog>
+
+    <dialog class="app-dialog dossier-dialog" id="dossier-dialog" aria-label="Project Dossier">
+      <div class="dossier-topbar no-print">
+        <button type="button" class="button button-primary" data-action="print-dossier">🖶 Print / Save PDF</button>
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+      <div class="dossier-sheet" id="dossier-sheet"></div>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="inventory-dialog" aria-label="Add or Edit Inventory Item">
+      <form id="inventory-form" method="dialog">
+        <div class="dialog-heading">
+          <div><div class="eyebrow">WORKSHOP SUPPLIES</div><h2 id="inventory-dialog-title">Add supply item</h2></div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        <input type="hidden" name="id">
+        <label class="field-label">Supply or material name<input name="name" required maxlength="80" placeholder="e.g. 1/4&quot; Baltic Birch Plywood, Titebond II, M3 Screws"></label>
+        <div class="form-row">
+          <label class="field-label">Category
+            <select name="category">
+              <option value="Lumber / Scrap">Lumber / Scrap</option>
+              <option value="Fasteners &amp; Hardware">Fasteners &amp; Hardware</option>
+              <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
+              <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
+              <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
+              <option value="Tools &amp; Blades">Tools &amp; Blades</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label class="field-label">Storage location / bin <span class="optional">(optional)</span>
+            <input name="location" maxlength="40" placeholder="e.g. Bin 4A, Top Rack, Drawer 2">
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="field-label">Quantity in stock<input name="quantity" type="number" step="any" min="0" required value="1" placeholder="e.g. 5"></label>
+          <label class="field-label">Unit of measure<input name="unit" maxlength="20" placeholder="e.g. pcs, sheets, boards, ft, spool"></label>
+        </div>
+        <label class="field-label">Notes / Dimensions / Specs <span class="optional">(optional)</span><textarea name="notes" rows="2" maxlength="300" placeholder="e.g. 12&quot;x24&quot; offcuts, coarse thread, PETG Black"></textarea></label>
+        <div class="dialog-actions">
+          <button type="button" class="danger-button hidden" id="delete-inventory-btn" data-action="delete-inventory-item">Delete</button>
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button class="button button-primary" type="submit">Save supply <span>→</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="template-dialog" aria-label="Save Custom Template">
+      <form id="template-form" method="dialog">
+        <div class="dialog-heading">
+          <div><div class="eyebrow">REUSABLE WORKFLOW</div><h2>Save as template</h2></div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        <input type="hidden" name="projectId">
+        <label class="field-label">Template name<input name="name" required maxlength="60" placeholder="e.g. Custom Cabinet Build"></label>
+        <label class="field-label">Description <span class="optional">(optional)</span><textarea name="description" rows="2" maxlength="200" placeholder="When to use this template..."></textarea></label>
+        <p class="form-hint">Saves the checklist structure, materials list, and tags from this project so you can reuse them on future projects.</p>
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button class="button button-primary" type="submit">Save template <span>→</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="inventory-pick-dialog" aria-label="Pick from Workshop Inventory">
+      <div class="dialog-heading">
+        <div><div class="eyebrow">SHOP DEPOT</div><h2>Pick from Inventory</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div id="inventory-pick-list"></div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+      </div>
     </dialog>
 
     <dialog class="app-dialog lightbox-dialog" id="lightbox-dialog" aria-label="Photo viewer">
@@ -452,6 +726,9 @@
         <button type="button" class="lightbox-close" data-action="close-dialog" aria-label="Close photo">×</button>
         <img id="lightbox-img" src="" alt="Enlarged project photo">
         <div id="lightbox-caption" class="lightbox-caption"></div>
+        <div class="lightbox-actions" style="margin-top:12px;display:flex;justify-content:center;gap:8px">
+          <button type="button" class="button button-outline button-small" id="lightbox-annotate-btn" data-action="annotate-current-photo">✏️ Annotate</button>
+        </div>
       </div>
     </dialog>
 

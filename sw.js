@@ -1,8 +1,9 @@
-const CACHE_NAME = "workbench-cache-v1";
+const CACHE_NAME = "workbench-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./qr-generator.js",
   "./app.js",
   "./manifest.json"
 ];
