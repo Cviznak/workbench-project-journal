@@ -690,21 +690,26 @@ function getActiveUser() {
   const u = session.user;
   const cachedProfile = getCachedUserProfile(u.id);
   const meta = u.user_metadata || {};
-  const role = cachedProfile?.role || meta.role || "maker";
   const primaryId = getPrimaryAdminId();
-  const isPrimary = Boolean(primaryId && primaryId === u.id) || Boolean(cachedProfile?.is_primary);
+  const isPrimary = Boolean((primaryId && primaryId === u.id) || cachedProfile?.is_primary || meta.is_primary);
+  let role = (cachedProfile?.role || meta.role || "maker").toLowerCase();
+  if (isPrimary || role === "admin" || role === "owner") {
+    role = "admin";
+  }
+  const isAdmin = role === "admin" || isPrimary;
   return {
     id: u.id,
     email: cachedProfile?.email || u.email || "",
     displayName: cachedProfile?.display_name || meta.display_name || (u.email ? u.email.split("@")[0] : "Maker"),
-    role,
+    role: isAdmin ? "admin" : "maker",
+    isAdmin,
     isPrimary
   };
 }
 
 function isCurrentUserAdmin() {
   const user = getActiveUser();
-  return user?.role === "admin";
+  return Boolean(user && (user.isAdmin || user.role === "admin" || user.isPrimary));
 }
 
 async function syncUserProfile(userId) {
@@ -715,17 +720,27 @@ async function syncUserProfile(userId) {
     const rows = await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(userId)}&select=*`);
     if (Array.isArray(rows) && rows.length > 0) {
       const profile = rows[0];
-      localStorage.setItem(CURRENT_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-      if (profile.is_primary) {
-        localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, profile.id);
+      const isPrimaryUser = (userId === getPrimaryAdminId()) || Boolean(profile.is_primary);
+      if (isPrimaryUser) {
+        profile.role = "admin";
+        profile.is_primary = true;
+        localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, userId);
       }
+      localStorage.setItem(CURRENT_PROFILE_STORAGE_KEY, JSON.stringify(profile));
       const session = getCloudSession();
-      if (session?.user && session.user.id === userId && profile.role) {
+      if (session?.user && session.user.id === userId) {
         session.user.user_metadata = session.user.user_metadata || {};
-        session.user.user_metadata.role = profile.role;
+        session.user.user_metadata.role = profile.role || (isPrimaryUser ? "admin" : "maker");
         if (profile.display_name) session.user.user_metadata.display_name = profile.display_name;
-        if (profile.is_primary) session.user.user_metadata.is_primary = true;
+        if (isPrimaryUser) session.user.user_metadata.is_primary = true;
         setCloudSession(session);
+      }
+      if (isPrimaryUser && rows[0]?.role !== "admin") {
+        cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(userId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "admin", is_primary: true, updated_at: new Date().toISOString() })
+        }).catch(() => {});
       }
       updateUserUI();
       return profile;
@@ -883,40 +898,22 @@ function openAuthModal(tab = "signin") {
   }
 }
 
-function openUserMenuModal() {
-  const dialog = $("#user-menu-dialog");
+let activeProfileTab = "account";
+
+function switchProfileTab(tab) {
+  activeProfileTab = tab;
+  renderProfileModalContent();
+}
+
+function renderProfileModalContent() {
   const content = $("#user-menu-content");
-  if (!dialog || !content) return;
+  const tabsNav = $("#profile-tabs-nav");
+  if (!content) return;
 
   const user = getActiveUser();
 
-  if (user) {
-    const initial = (user.displayName || user.email || "M")[0].toUpperCase();
-    const isOwner = user.isPrimary;
-    const roleLabel = isOwner ? "👑 Shop Owner (Admin)" : (user.role === "admin" ? "⭐ Shop Admin" : "🛠️ Maker Workbench");
-    content.innerHTML = `
-      <div class="user-menu-item">
-        <div class="admin-user-avatar" style="${user.role === "admin" ? "background:#d69e2e" : ""}">${isOwner ? "👑" : (user.role === "admin" ? "⭐" : initial)}</div>
-        <div class="admin-user-meta">
-          <strong>${escapeHTML(user.displayName)}</strong>
-          <span>${escapeHTML(user.email)}</span>
-          <div style="margin-top:4px;display:flex;gap:6px;align-items:center">
-            <span class="role-pill role-${user.role}">${roleLabel}</span>
-          </div>
-        </div>
-      </div>
-      <div style="padding:12px 0;font-size:12px;color:var(--muted)">
-        Connected to Supabase cloud · Workshop data synced across all your devices.
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
-        ${user.role === "admin" ? `<button type="button" class="button button-outline" data-action="go-to-admin">👑 Open Admin Hub</button>` : ""}
-        ${!isOwner ? `<button type="button" class="button button-outline" data-action="claim-primary-admin" style="border-color:#d69e2e;color:#b7791f;font-weight:600;background:rgba(214,158,46,0.06)">👑 Claim Shop Owner (Make me Admin)</button>` : ""}
-        <button type="button" class="button button-outline" data-action="sync-now">⇄ Sync Now</button>
-        <button type="button" class="button button-outline" data-action="open-auth-modal" data-tab="signin">Switch Account</button>
-        <button type="button" class="danger-button" data-action="auth-sign-out">Sign Out</button>
-      </div>
-    `;
-  } else {
+  if (!user) {
+    if (tabsNav) tabsNav.style.display = "none";
     content.innerHTML = `
       <div style="text-align:center;padding:12px 0">
         <div class="profile-avatar" style="margin:0 auto 10px;width:48px;height:48px;font-size:24px">✿</div>
@@ -925,9 +922,274 @@ function openUserMenuModal() {
         <button type="button" class="button button-primary button-block" data-action="open-auth-modal" data-tab="signin">Sign In / Create Account →</button>
       </div>
     `;
+    return;
   }
 
+  if (tabsNav) tabsNav.style.display = "flex";
+  $$(".profile-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === activeProfileTab));
+
+  const initial = (user.displayName || user.email || "M")[0].toUpperCase();
+  const isOwner = user.isPrimary;
+  const isAdmin = isCurrentUserAdmin();
+  const roleLabel = isOwner ? "👑 Shop Owner (Admin)" : (isAdmin ? "⭐ Shop Admin" : "🛠️ Maker Workbench");
+
+  if (activeProfileTab === "account") {
+    content.innerHTML = `
+      <div class="user-menu-item">
+        <div class="admin-user-avatar" style="${isAdmin ? "background:#d69e2e" : ""}">${isOwner ? "👑" : (isAdmin ? "⭐" : initial)}</div>
+        <div class="admin-user-meta">
+          <strong style="font-size:15px">${escapeHTML(user.displayName)}</strong>
+          <span>${escapeHTML(user.email)}</span>
+          <div style="margin-top:4px;display:flex;gap:6px;align-items:center">
+            <span class="role-pill role-${user.role}">${roleLabel}</span>
+            ${isOwner ? '<span style="font-size:11px;color:#d69e2e;font-weight:600">● Primary Admin</span>' : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-section-card" style="margin-top:14px">
+        <label class="field-label" style="font-size:12px;font-weight:700">Display Name / Maker Name
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <input type="text" id="profile-display-name" value="${escapeHTML(user.displayName)}" style="flex:1" placeholder="e.g. Jordan Lee" required>
+            <button type="button" class="button button-primary button-small" data-action="save-profile-name">Save Name</button>
+          </div>
+        </label>
+        <span style="font-size:11px;color:var(--muted)">This name appears on your workbench space, journal notes, and workshop activity.</span>
+      </div>
+
+      <div class="profile-section-card">
+        <div>
+          <strong style="font-size:13px;display:block">Workshop Role: ${roleLabel}</strong>
+          <span style="font-size:11px;color:var(--muted)">${isOwner ? "You have full owner access to inspect maker workbenches, create accounts, and manage permissions." : (isAdmin ? "You have administrator access to the workshop console." : "You have a personal maker workbench. Only admins can inspect other workbenches.")}</span>
+        </div>
+        ${!isOwner ? `
+          <button type="button" class="button button-outline" data-action="claim-primary-admin" style="border-color:#d69e2e;color:#b7791f;font-weight:600;background:rgba(214,158,46,0.06);margin-top:6px">
+            👑 Claim Shop Owner (Make me Admin)
+          </button>
+          <span style="font-size:11px;color:var(--muted)">Project owner? Claim the Shop Owner role to permanently unlock the Admin Hub and manage all makers.</span>
+        ` : ''}
+        ${isAdmin ? `
+          <button type="button" class="button button-outline" data-action="go-to-admin" style="margin-top:6px">
+            👑 Open Admin Hub
+          </button>
+        ` : ''}
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+        <button type="button" class="button button-outline" data-action="sync-now">⇄ Sync Workspace Now</button>
+        <button type="button" class="button button-outline" data-action="open-auth-modal" data-tab="signin">Switch Account</button>
+        <button type="button" class="danger-button" data-action="auth-sign-out">Sign Out</button>
+      </div>
+    `;
+  } else if (activeProfileTab === "security") {
+    content.innerHTML = `
+      <div class="profile-section-card">
+        <div style="margin-bottom:8px">
+          <h3 style="font-size:15px;margin:0 0 4px">Change Password</h3>
+          <p style="font-size:12px;color:var(--muted);margin:0">Enter a new secure password (minimum 6 characters) for your cloud account.</p>
+        </div>
+        <form id="profile-password-form" onsubmit="event.preventDefault(); void saveProfilePassword();">
+          <label class="field-label">New Password
+            <input type="password" id="profile-new-password" required minlength="6" placeholder="••••••••" autocomplete="new-password">
+          </label>
+          <label class="field-label" style="margin-top:8px">Confirm New Password
+            <input type="password" id="profile-new-password-confirm" required minlength="6" placeholder="••••••••" autocomplete="new-password">
+          </label>
+          <div id="profile-password-alert" class="auth-alert" style="display:none;margin-top:8px"></div>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end">
+            <button type="submit" class="button button-primary">Update Password →</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="profile-section-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div>
+            <strong style="font-size:13px;display:block">Forgot your password?</strong>
+            <span style="font-size:11px;color:var(--muted)">Send a password recovery email to ${escapeHTML(user.email)}.</span>
+          </div>
+          <button type="button" class="button button-small button-outline" data-action="profile-send-recovery" style="white-space:nowrap">Send Reset Link</button>
+        </div>
+      </div>
+    `;
+  } else if (activeProfileTab === "preferences") {
+    const savedTheme = getSavedTheme();
+    content.innerHTML = `
+      <div class="profile-section-card">
+        <h3 style="font-size:15px;margin:0 0 8px">Workshop Appearance</h3>
+        <label class="field-label">Theme Mode
+          <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="radio" name="pref-theme" value="light" ${savedTheme === "light" ? "checked" : ""}> ☀️ Light
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="radio" name="pref-theme" value="dark" ${savedTheme === "dark" ? "checked" : ""}> 🌙 Dark
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="radio" name="pref-theme" value="auto" ${savedTheme === "auto" ? "checked" : ""}> ⚙️ Match System
+            </label>
+          </div>
+        </label>
+      </div>
+
+      <div class="profile-section-card">
+        <h3 style="font-size:15px;margin:0 0 8px">Project Layout &amp; Practice Goals</h3>
+        <label class="field-label">Default Project View
+          <div style="display:flex;gap:14px;margin-top:6px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="radio" name="pref-project-mode" value="grid" ${projectLayoutMode === "grid" ? "checked" : ""}> ⊞ Grid Cards
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+              <input type="radio" name="pref-project-mode" value="kanban" ${projectLayoutMode === "kanban" ? "checked" : ""}> ☷ Kanban Board
+            </label>
+          </div>
+        </label>
+        <label class="field-label" style="margin-top:12px">Weekly Making Goal (Minutes per week)
+          <input type="number" id="pref-weekly-goal" min="10" max="6000" step="5" value="${state.weeklyGoal || 60}" style="max-width:180px;margin-top:4px">
+          <span style="font-size:11px;color:var(--muted);margin-top:2px">Used on the Overview dashboard to track your weekly progress.</span>
+        </label>
+        <div style="margin-top:12px;display:flex;justify-content:flex-end">
+          <button type="button" class="button button-primary button-small" data-action="save-profile-preferences">Save Preferences</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function openUserMenuModal(tab = "account") {
+  const dialog = $("#user-menu-dialog");
+  if (!dialog) return;
+  activeProfileTab = tab;
+  renderProfileModalContent();
   dialog.showModal();
+}
+
+async function saveProfilePassword() {
+  const newPass = $("#profile-new-password")?.value || "";
+  const confirmPass = $("#profile-new-password-confirm")?.value || "";
+  const alertEl = $("#profile-password-alert");
+
+  function showAlert(msg, type = "error") {
+    if (!alertEl) return;
+    alertEl.textContent = msg;
+    alertEl.className = `auth-alert ${type}`;
+    alertEl.style.display = "block";
+  }
+
+  if (newPass.length < 6) {
+    showAlert("Password must be at least 6 characters long.");
+    return;
+  }
+  if (newPass !== confirmPass) {
+    showAlert("Passwords do not match. Please verify both fields.");
+    return;
+  }
+
+  try {
+    showAlert("Updating password…", "info");
+    await cloudRequest("/auth/v1/user", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPass })
+    });
+    showAlert("✓ Password successfully updated!", "success");
+    showToast("Password updated successfully! 🔒");
+    if ($("#profile-new-password")) $("#profile-new-password").value = "";
+    if ($("#profile-new-password-confirm")) $("#profile-new-password-confirm").value = "";
+  } catch (err) {
+    console.error("Password change failed:", err);
+    showAlert(err.message || "Failed to update password. Please sign in again and retry.");
+  }
+}
+
+async function saveProfileName() {
+  const nameInput = $("#profile-display-name");
+  const newName = nameInput?.value?.trim();
+  if (!newName) {
+    showToast("Please enter a valid display name.");
+    return;
+  }
+  const user = getActiveUser();
+  if (!user?.id) return;
+
+  try {
+    showToast("Saving name…");
+    try {
+      await cloudRequest("/auth/v1/user", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: { display_name: newName } })
+      });
+    } catch (e) {
+      console.warn("Could not update auth metadata:", e);
+    }
+
+    try {
+      await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(user.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: newName, updated_at: new Date().toISOString() })
+      });
+    } catch (e) {
+      console.warn("Could not update workbench_profiles table:", e);
+    }
+
+    const session = getCloudSession();
+    if (session?.user) {
+      session.user.user_metadata = session.user.user_metadata || {};
+      session.user.user_metadata.display_name = newName;
+      setCloudSession(session);
+    }
+    const cached = getCachedUserProfile(user.id) || {};
+    localStorage.setItem(CURRENT_PROFILE_STORAGE_KEY, JSON.stringify({ ...cached, display_name: newName }));
+
+    updateUserUI();
+    render();
+    renderProfileModalContent();
+    showToast(`Display name updated to ${newName}!`);
+  } catch (err) {
+    console.error("Failed to update name:", err);
+    showToast(err.message || "Could not update name.");
+  }
+}
+
+async function saveProfilePreferences() {
+  const goalInput = $("#pref-weekly-goal");
+  const modeInput = $("input[name='pref-project-mode']:checked");
+  const themeInput = $("input[name='pref-theme']:checked");
+
+  if (goalInput) {
+    const val = parseInt(goalInput.value, 10);
+    if (val && val > 0) {
+      state.weeklyGoal = val;
+      await persistState();
+    }
+  }
+
+  if (modeInput?.value) {
+    setProjectViewMode(modeInput.value);
+  }
+
+  if (themeInput?.value) {
+    setSavedTheme(themeInput.value);
+    applyTheme(themeInput.value);
+  }
+
+  render();
+  renderProfileModalContent();
+  showToast("Preferences saved!");
+}
+
+async function profileSendRecovery() {
+  const user = getActiveUser();
+  if (!user?.email) return;
+  try {
+    showToast(`Sending recovery email to ${user.email}…`);
+    await sendPasswordRecovery(user.email);
+    showToast("Password reset email sent! Check your inbox 📬");
+  } catch (err) {
+    showToast(err.message || "Failed to send recovery email.");
+  }
 }
 
 async function upsertUserProfile(user, desiredRole = null) {
@@ -1163,8 +1425,9 @@ function updateUserUI() {
     ensurePrimaryAdmin(user);
     const initial = (user.displayName || user.email || "M")[0].toUpperCase();
     const isOwner = user.isPrimary;
-    const roleText = isOwner ? "👑 Shop Owner (Admin)" : (user.role === "admin" ? "⭐ Shop Admin" : "🛠️ Maker Workbench");
-    const avatarIcon = isOwner ? "👑" : (user.role === "admin" ? "⭐" : initial);
+    const isAdmin = isCurrentUserAdmin();
+    const roleText = isOwner ? "👑 Shop Owner (Admin)" : (isAdmin ? "⭐ Shop Admin" : "🛠️ Maker Workbench");
+    const avatarIcon = isOwner ? "👑" : (isAdmin ? "⭐" : initial);
     if (topAuthBtn) {
       topAuthBtn.innerHTML = `${avatarIcon} ${escapeHTML(user.displayName)}`;
       topAuthBtn.title = `Signed in as ${user.email} (${user.role})`;
@@ -1174,10 +1437,10 @@ function updateUserUI() {
     if (userRoleEl) userRoleEl.textContent = roleText;
     if (userAvatarEl) {
       userAvatarEl.textContent = avatarIcon;
-      userAvatarEl.style.background = isOwner ? "#d69e2e" : (user.role === "admin" ? "#b7791f" : "");
+      userAvatarEl.style.background = isOwner ? "#d69e2e" : (isAdmin ? "#b7791f" : "");
     }
     if (spaceLabel) spaceLabel.textContent = `${user.displayName}'s shop`;
-    if (adminNav) adminNav.style.display = user.role === "admin" ? "flex" : "none";
+    if (adminNav) adminNav.style.display = isAdmin ? "flex" : "none";
   } else {
     document.body.classList.add("auth-locked");
     openAuthModal("signin");
@@ -2014,6 +2277,7 @@ function switchView(view) {
     admin: "Admin Console"
   }[view] || "Overview";
   $("#page-crumb").textContent = title;
+  updateUserUI();
   if (view === "sync") renderCloudConnection();
   if (view === "timeline") renderTimeline();
   if (view === "shopping") renderShoppingList();
@@ -4600,7 +4864,7 @@ async function renderAdminHub() {
   if (!adminView) return;
 
   const user = getActiveUser();
-  if (!user || user.role !== "admin") {
+  if (!isCurrentUserAdmin()) {
     const grid = $("#admin-users-grid");
     if (grid) {
       grid.innerHTML = `
@@ -4792,8 +5056,7 @@ async function renderAdminHub() {
 }
 
 async function inspectUserWorkbench(targetUserId, targetUserName) {
-  const user = getActiveUser();
-  if (!user || user.role !== "admin") {
+  if (!isCurrentUserAdmin()) {
     showToast("Admin access required to inspect other workbenches.");
     return;
   }
@@ -4858,7 +5121,7 @@ async function exitInspectionMode() {
 async function adminToggleUserRole(userId, currentRole) {
   const nextRole = currentRole === "admin" ? "maker" : "admin";
   const user = getActiveUser();
-  if (!user || user.role !== "admin") {
+  if (!isCurrentUserAdmin()) {
     showToast("Admin privileges required.");
     return;
   }
@@ -4945,6 +5208,26 @@ async function handleAction(action, target) {
   }
   if (action === "claim-primary-admin") {
     await claimPrimaryAdmin();
+    return;
+  }
+  if (action === "switch-profile-tab") {
+    switchProfileTab(target.dataset.tab || "account");
+    return;
+  }
+  if (action === "save-profile-name") {
+    await saveProfileName();
+    return;
+  }
+  if (action === "save-profile-password") {
+    await saveProfilePassword();
+    return;
+  }
+  if (action === "save-profile-preferences") {
+    await saveProfilePreferences();
+    return;
+  }
+  if (action === "profile-send-recovery") {
+    await profileSendRecovery();
     return;
   }
   if (action === "go-to-admin") {
@@ -5698,6 +5981,12 @@ async function initialize() {
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible" && getCloudConfig() && getCloudSession()) {
         void syncCloudWorkspace();
+      }
+    });
+    window.addEventListener("storage", event => {
+      if (event.key === CLOUD_SESSION_KEY || event.key === CURRENT_PROFILE_STORAGE_KEY || event.key === PRIMARY_ADMIN_STORAGE_KEY) {
+        updateUserUI();
+        void loadUserScopedState().then(() => render());
       }
     });
     render();

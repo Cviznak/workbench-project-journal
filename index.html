@@ -927,15 +927,20 @@ create policy "Admins can view all workspaces" on public.workbench_workspace for
       </div>
     </dialog>
 
-    <!-- User Account Dropdown Modal -->
-    <dialog class="app-dialog compact-dialog" id="user-menu-dialog" aria-label="Account details">
+    <!-- User Account & Profile Settings Modal -->
+    <dialog class="app-dialog profile-settings-dialog" id="user-menu-dialog" aria-label="Account details">
       <div class="dialog-heading">
-        <div><div class="eyebrow">YOUR ACCOUNT</div><h2 id="user-menu-title">Profile &amp; Cloud</h2></div>
+        <div><div class="eyebrow">YOUR WORKBENCH ACCOUNT</div><h2 id="user-menu-title">Profile &amp; Settings</h2></div>
         <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="profile-tabs-nav" id="profile-tabs-nav">
+        <button type="button" class="profile-tab-btn active" data-action="switch-profile-tab" data-tab="account">👤 Profile</button>
+        <button type="button" class="profile-tab-btn" data-action="switch-profile-tab" data-tab="security">🔒 Password</button>
+        <button type="button" class="profile-tab-btn" data-action="switch-profile-tab" data-tab="preferences">⚙️ Preferences</button>
       </div>
       <div class="user-menu-content" id="user-menu-content"></div>
       <div class="dialog-actions">
-        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+        <button type="button" class="button button-quiet" data-action="close-dialog">Done</button>
       </div>
     </dialog>
 

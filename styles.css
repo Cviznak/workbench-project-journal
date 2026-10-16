@@ -2538,7 +2538,62 @@ body.auth-locked .auth-locked-banner {
   display: block;
 }
 
+/* User Profile & Account Settings Dialog */
+.profile-settings-dialog {
+  width: min(520px, calc(100% - 28px));
+  max-height: min(88vh, 720px);
+  overflow-y: auto;
+}
 
+.profile-tabs-nav {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  margin: 12px 0 16px;
+}
 
+.profile-tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
 
+.profile-tab-btn:hover {
+  background: var(--line);
+  color: var(--ink);
+}
 
+.profile-tab-btn.active {
+  background: var(--paper-warm, #f3f1e9);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .profile-tab-btn.active,
+body.theme-dark .profile-tab-btn.active {
+  background: #252b21;
+  color: #f7f6f0;
+}
+
+.profile-section-card {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+[data-theme="dark"] .profile-section-card,
+body.theme-dark .profile-section-card {
+  background: #171b14;
+}
