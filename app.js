@@ -662,16 +662,43 @@ function setCloudSession(session) {
   else localStorage.removeItem(CLOUD_SESSION_KEY);
 }
 
+const CURRENT_PROFILE_STORAGE_KEY = "workbench_current_profile";
+const PRIMARY_ADMIN_STORAGE_KEY = "workbench_primary_admin_id";
+
+function getCachedUserProfile(userId) {
+  try {
+    const raw = localStorage.getItem(CURRENT_PROFILE_STORAGE_KEY);
+    if (!raw) return null;
+    const profile = JSON.parse(raw);
+    if (profile?.id === userId) return profile;
+  } catch {}
+  return null;
+}
+
+function getPrimaryAdminId() {
+  const fromStorage = localStorage.getItem(PRIMARY_ADMIN_STORAGE_KEY);
+  if (fromStorage) return fromStorage;
+  const session = getCloudSession();
+  const cached = session?.user?.id ? getCachedUserProfile(session.user.id) : null;
+  if (cached?.is_primary) return cached.id;
+  return "";
+}
+
 function getActiveUser() {
   const session = getCloudSession();
   if (!session?.user) return null;
   const u = session.user;
+  const cachedProfile = getCachedUserProfile(u.id);
   const meta = u.user_metadata || {};
+  const role = cachedProfile?.role || meta.role || "maker";
+  const primaryId = getPrimaryAdminId();
+  const isPrimary = Boolean(primaryId && primaryId === u.id) || Boolean(cachedProfile?.is_primary);
   return {
     id: u.id,
-    email: u.email || "",
-    displayName: meta.display_name || (u.email ? u.email.split("@")[0] : "Maker"),
-    role: meta.role || "maker"
+    email: cachedProfile?.email || u.email || "",
+    displayName: cachedProfile?.display_name || meta.display_name || (u.email ? u.email.split("@")[0] : "Maker"),
+    role,
+    isPrimary
   };
 }
 
@@ -680,27 +707,137 @@ function isCurrentUserAdmin() {
   return user?.role === "admin";
 }
 
-const PRIMARY_ADMIN_STORAGE_KEY = "workbench_primary_admin_id";
-
-function getPrimaryAdminId() {
-  return localStorage.getItem(PRIMARY_ADMIN_STORAGE_KEY) || "";
+async function syncUserProfile(userId) {
+  if (!userId) return null;
+  const cfg = getCloudConfig();
+  if (!cfg?.url || !cfg?.key) return null;
+  try {
+    const rows = await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(userId)}&select=*`);
+    if (Array.isArray(rows) && rows.length > 0) {
+      const profile = rows[0];
+      localStorage.setItem(CURRENT_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+      if (profile.is_primary) {
+        localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, profile.id);
+      }
+      const session = getCloudSession();
+      if (session?.user && session.user.id === userId && profile.role) {
+        session.user.user_metadata = session.user.user_metadata || {};
+        session.user.user_metadata.role = profile.role;
+        if (profile.display_name) session.user.user_metadata.display_name = profile.display_name;
+        if (profile.is_primary) session.user.user_metadata.is_primary = true;
+        setCloudSession(session);
+      }
+      updateUserUI();
+      return profile;
+    }
+  } catch (err) {
+    console.warn("Could not sync user profile from cloud:", err);
+  }
+  return null;
 }
 
 function ensurePrimaryAdmin(user) {
   if (!user?.id) return;
-  const existing = localStorage.getItem(PRIMARY_ADMIN_STORAGE_KEY);
+  const existing = getPrimaryAdminId();
+  // Only record primary admin if the user is already recognized as an admin!
+  // NEVER auto-promote arbitrary new users to admin!
   if (!existing && user.role === "admin") {
     localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, user.id);
-  } else if (!existing) {
+  }
+}
+
+async function claimPrimaryAdmin() {
+  const user = getActiveUser();
+  if (!user?.id) {
+    showToast("Please sign in first.");
+    return;
+  }
+
+  try {
+    showToast("Claiming Shop Owner / Primary Admin…");
+    const oldPrimaryId = getPrimaryAdminId();
+
+    // 1. If a different account held the primary admin role, demote it in workbench_profiles
+    if (oldPrimaryId && oldPrimaryId !== user.id) {
+      try {
+        await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(oldPrimaryId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "maker", is_primary: false, updated_at: new Date().toISOString() })
+        });
+      } catch (e) {
+        console.warn("Could not demote previous primary admin in cloud:", e);
+      }
+    }
+
+    // 2. Promote current user to admin in Supabase workbench_profiles
+    try {
+      await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=representation"
+        },
+        body: JSON.stringify([{
+          id: user.id,
+          email: user.email,
+          display_name: user.displayName,
+          role: "admin",
+          is_primary: true,
+          updated_at: new Date().toISOString()
+        }])
+      });
+    } catch {
+      // Fallback without is_primary if column not present in SQL table yet
+      try {
+        await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "resolution=merge-duplicates,return=representation"
+          },
+          body: JSON.stringify([{
+            id: user.id,
+            email: user.email,
+            display_name: user.displayName,
+            role: "admin",
+            updated_at: new Date().toISOString()
+          }])
+        });
+      } catch (pe) {
+        console.warn("Could not upsert profile in workbench_profiles:", pe);
+      }
+    }
+
+    // 3. Set Primary Admin ID in localStorage
     localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, user.id);
-    user.role = "admin";
+
+    // 4. Update session metadata and cached profile
     const session = getCloudSession();
     if (session?.user) {
       session.user.user_metadata = session.user.user_metadata || {};
       session.user.user_metadata.role = "admin";
+      session.user.user_metadata.is_primary = true;
       setCloudSession(session);
     }
-    upsertUserProfile(session?.user || user).catch(() => {});
+
+    const updatedProfile = {
+      id: user.id,
+      email: user.email,
+      display_name: user.displayName,
+      role: "admin",
+      is_primary: true,
+      updated_at: new Date().toISOString()
+    };
+    localStorage.setItem(CURRENT_PROFILE_STORAGE_KEY, JSON.stringify(updatedProfile));
+
+    updateUserUI();
+    render();
+    $("#user-menu-dialog")?.close();
+    showToast("👑 You are now the Shop Owner & Primary Admin!");
+  } catch (err) {
+    console.error("Failed to claim primary admin role:", err);
+    showToast(err.message || "Could not claim admin role.");
   }
 }
 
@@ -755,20 +892,25 @@ function openUserMenuModal() {
 
   if (user) {
     const initial = (user.displayName || user.email || "M")[0].toUpperCase();
+    const isOwner = user.isPrimary;
+    const roleLabel = isOwner ? "👑 Shop Owner (Admin)" : (user.role === "admin" ? "⭐ Shop Admin" : "🛠️ Maker Workbench");
     content.innerHTML = `
       <div class="user-menu-item">
-        <div class="admin-user-avatar" style="${user.role === "admin" ? "background:#d69e2e" : ""}">${user.role === "admin" ? "👑" : initial}</div>
+        <div class="admin-user-avatar" style="${user.role === "admin" ? "background:#d69e2e" : ""}">${isOwner ? "👑" : (user.role === "admin" ? "⭐" : initial)}</div>
         <div class="admin-user-meta">
           <strong>${escapeHTML(user.displayName)}</strong>
           <span>${escapeHTML(user.email)}</span>
-          <span class="role-pill role-${user.role}" style="display:inline-block;margin-top:4px">${user.role}</span>
+          <div style="margin-top:4px;display:flex;gap:6px;align-items:center">
+            <span class="role-pill role-${user.role}">${roleLabel}</span>
+          </div>
         </div>
       </div>
       <div style="padding:12px 0;font-size:12px;color:var(--muted)">
-        Connected to Supabase cloud · Data synced across all your devices.
+        Connected to Supabase cloud · Workshop data synced across all your devices.
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
-        ${user.role === "admin" ? `<button type="button" class="button button-outline" data-action="go-to-admin">👑 Open Admin Console</button>` : ""}
+        ${user.role === "admin" ? `<button type="button" class="button button-outline" data-action="go-to-admin">👑 Open Admin Hub</button>` : ""}
+        ${!isOwner ? `<button type="button" class="button button-outline" data-action="claim-primary-admin" style="border-color:#d69e2e;color:#b7791f;font-weight:600;background:rgba(214,158,46,0.06)">👑 Claim Shop Owner (Make me Admin)</button>` : ""}
         <button type="button" class="button button-outline" data-action="sync-now">⇄ Sync Now</button>
         <button type="button" class="button button-outline" data-action="open-auth-modal" data-tab="signin">Switch Account</button>
         <button type="button" class="danger-button" data-action="auth-sign-out">Sign Out</button>
@@ -788,23 +930,68 @@ function openUserMenuModal() {
   dialog.showModal();
 }
 
-async function upsertUserProfile(user) {
+async function upsertUserProfile(user, desiredRole = null) {
   try {
+    let existingRole = null;
+    let existingPrimary = false;
+    try {
+      const rows = await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(user.id)}&select=role,is_primary`);
+      if (Array.isArray(rows) && rows.length > 0) {
+        existingRole = rows[0]?.role || null;
+        existingPrimary = Boolean(rows[0]?.is_primary);
+      }
+    } catch {}
+
     const meta = user.user_metadata || {};
-    await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates,return=representation"
-      },
-      body: JSON.stringify([{
-        id: user.id,
-        email: user.email,
-        display_name: meta.display_name || (user.email ? user.email.split("@")[0] : "Maker"),
-        role: meta.role || "maker",
-        updated_at: new Date().toISOString()
-      }])
-    });
+    const finalRole = desiredRole || existingRole || meta.role || "maker";
+    const isPrimary = existingPrimary || Boolean(meta.is_primary) || (user.id === getPrimaryAdminId());
+    const displayName = meta.display_name || (user.email ? user.email.split("@")[0] : "Maker");
+
+    try {
+      await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=representation"
+        },
+        body: JSON.stringify([{
+          id: user.id,
+          email: user.email,
+          display_name: displayName,
+          role: finalRole,
+          is_primary: isPrimary,
+          updated_at: new Date().toISOString()
+        }])
+      });
+    } catch {
+      await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=representation"
+        },
+        body: JSON.stringify([{
+          id: user.id,
+          email: user.email,
+          display_name: displayName,
+          role: finalRole,
+          updated_at: new Date().toISOString()
+        }])
+      });
+    }
+
+    const cached = {
+      id: user.id,
+      email: user.email,
+      display_name: displayName,
+      role: finalRole,
+      is_primary: isPrimary,
+      updated_at: new Date().toISOString()
+    };
+    localStorage.setItem(CURRENT_PROFILE_STORAGE_KEY, JSON.stringify(cached));
+    if (isPrimary) {
+      localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, user.id);
+    }
   } catch (e) {
     // Silently continue if profiles table is not created yet
   }
@@ -833,7 +1020,8 @@ async function signInWithEmail(email, password) {
     expires_at: session.expires_at || Math.floor(Date.now() / 1000) + (session.expires_in || 3600)
   });
 
-  upsertUserProfile(session.user).catch(() => {});
+  await syncUserProfile(session.user.id);
+  await upsertUserProfile(session.user);
   await loadUserScopedState();
   try {
     await syncCloudWorkspace("pull");
@@ -908,6 +1096,7 @@ async function signOutUser() {
   } catch {}
   clearTimeout(syncTimer);
   setCloudSession(null);
+  localStorage.removeItem(CURRENT_PROFILE_STORAGE_KEY);
   cloudConflict = null;
   if (adminInspectionActive) {
     exitInspectionMode();
@@ -973,13 +1162,20 @@ function updateUserUI() {
     document.body.classList.remove("auth-locked");
     ensurePrimaryAdmin(user);
     const initial = (user.displayName || user.email || "M")[0].toUpperCase();
+    const isOwner = user.isPrimary;
+    const roleText = isOwner ? "👑 Shop Owner (Admin)" : (user.role === "admin" ? "⭐ Shop Admin" : "🛠️ Maker Workbench");
+    const avatarIcon = isOwner ? "👑" : (user.role === "admin" ? "⭐" : initial);
     if (topAuthBtn) {
-      topAuthBtn.innerHTML = `${user.role === "admin" ? "👑" : "👤"} ${escapeHTML(user.displayName)}`;
+      topAuthBtn.innerHTML = `${avatarIcon} ${escapeHTML(user.displayName)}`;
       topAuthBtn.title = `Signed in as ${user.email} (${user.role})`;
+      topAuthBtn.dataset.action = "open-user-menu";
     }
     if (userNameEl) userNameEl.textContent = user.displayName;
-    if (userRoleEl) userRoleEl.textContent = user.role === "admin" ? "👑 Admin / Shop Lead" : "🛠️ Maker Workbench";
-    if (userAvatarEl) userAvatarEl.textContent = user.role === "admin" ? "👑" : initial;
+    if (userRoleEl) userRoleEl.textContent = roleText;
+    if (userAvatarEl) {
+      userAvatarEl.textContent = avatarIcon;
+      userAvatarEl.style.background = isOwner ? "#d69e2e" : (user.role === "admin" ? "#b7791f" : "");
+    }
     if (spaceLabel) spaceLabel.textContent = `${user.displayName}'s shop`;
     if (adminNav) adminNav.style.display = user.role === "admin" ? "flex" : "none";
   } else {
@@ -988,10 +1184,14 @@ function updateUserUI() {
     if (topAuthBtn) {
       topAuthBtn.innerHTML = "Sign in";
       topAuthBtn.title = "Sign in or create cloud workbench";
+      topAuthBtn.dataset.action = "open-auth-modal";
     }
     if (userNameEl) userNameEl.textContent = "Sign In Required";
     if (userRoleEl) userRoleEl.textContent = "Workshop locked";
-    if (userAvatarEl) userAvatarEl.textContent = "🔒";
+    if (userAvatarEl) {
+      userAvatarEl.textContent = "🔒";
+      userAvatarEl.style.background = "";
+    }
     if (spaceLabel) spaceLabel.textContent = "Locked workshop";
     if (adminNav) adminNav.style.display = "none";
   }
@@ -4542,16 +4742,18 @@ async function renderAdminHub() {
     const nextRole = m.role === "admin" ? "maker" : "admin";
     const nextRoleLabel = m.role === "admin" ? "Demote to Maker" : "Promote to Admin";
 
-    const isProtectedAdmin = m.role === "admin" && (m.id === getPrimaryAdminId() || m.isSelf);
+    const isPrimaryOwner = m.id === getPrimaryAdminId();
+    const isProtectedAdmin = m.role === "admin" && isPrimaryOwner;
+    const avatarIcon = isPrimaryOwner ? "👑" : (m.role === "admin" ? "⭐" : initial);
     return `
       <div class="admin-user-card" data-user-id="${m.id}">
         <div class="admin-user-header">
-          <div class="admin-user-avatar" style="${m.role === "admin" ? "background:#d69e2e" : ""}">${m.role === "admin" ? "👑" : initial}</div>
+          <div class="admin-user-avatar" style="${m.role === "admin" ? "background:#d69e2e" : ""}">${avatarIcon}</div>
           <div class="admin-user-meta">
-            <h4>${escapeHTML(m.displayName)} ${m.isSelf ? '<span style="font-size:11px;color:var(--muted)">(You)</span>' : ''}</h4>
+            <h4>${escapeHTML(m.displayName)} ${m.isSelf ? '<span style="font-size:11px;color:var(--muted)">(You)</span>' : ''} ${isPrimaryOwner ? '<span style="font-size:11px;color:#d69e2e;font-weight:600">👑 Shop Owner</span>' : ''}</h4>
             <span class="admin-user-email">${escapeHTML(m.email)}</span>
             <div style="margin-top:4px">
-              <span class="role-pill role-${m.role}">${m.role}</span>
+              <span class="role-pill role-${m.role}">${isPrimaryOwner ? "Shop Owner (Admin)" : (m.role === "admin" ? "Shop Admin" : "Maker")}</span>
               ${m.isActiveWeek ? '<span style="font-size:11px;color:#38a169;margin-left:6px;font-weight:600">● active recently</span>' : ''}
             </div>
           </div>
@@ -4578,9 +4780,9 @@ async function renderAdminHub() {
             👁️ Inspect Workbench
           </button>
           ${isProtectedAdmin
-            ? `<span style="font-size:11px;font-weight:600;color:#d69e2e;padding:6px 10px;background:rgba(214,158,46,0.12);border-radius:6px;border:1px solid rgba(214,158,46,0.3)">🔒 Primary Admin (Immutable)</span>`
+            ? `<span style="font-size:11px;font-weight:600;color:#d69e2e;padding:6px 10px;background:rgba(214,158,46,0.12);border-radius:6px;border:1px solid rgba(214,158,46,0.3)">🔒 Shop Owner (Immutable)</span>`
             : `<button type="button" class="button button-small button-outline" data-action="admin-toggle-role" data-user-id="${m.id}" data-current-role="${m.role}">
-                ${m.role === "admin" ? "👤 " + nextRoleLabel : "👑 " + nextRoleLabel}
+                ${m.role === "admin" ? "👤 Demote to Maker" : "👑 Promote to Admin"}
               </button>`
           }
         </div>
@@ -4662,8 +4864,8 @@ async function adminToggleUserRole(userId, currentRole) {
   }
 
   const primaryAdminId = getPrimaryAdminId();
-  if ((userId === primaryAdminId || userId === user.id) && currentRole === "admin") {
-    showToast("This admin status is permanent and immutable.");
+  if (userId === primaryAdminId && currentRole === "admin") {
+    showToast("The Shop Owner status is permanent and immutable.");
     return;
   }
 
@@ -4684,6 +4886,8 @@ async function adminToggleUserRole(userId, currentRole) {
         session.user.user_metadata = session.user.user_metadata || {};
         session.user.user_metadata.role = nextRole;
         setCloudSession(session);
+        const cached = getCachedUserProfile(userId) || {};
+        localStorage.setItem(CURRENT_PROFILE_STORAGE_KEY, JSON.stringify({ ...cached, role: nextRole }));
         updateUserUI();
       }
     }
@@ -4735,8 +4939,12 @@ async function handleAction(action, target) {
     }
     return;
   }
-  if (action === "auth-sign-out") {
+  if (action === "auth-sign-out" || action === "sign-out") {
     await signOutUser();
+    return;
+  }
+  if (action === "claim-primary-admin") {
+    await claimPrimaryAdmin();
     return;
   }
   if (action === "go-to-admin") {
@@ -5196,11 +5404,7 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "sign-out") {
-    clearTimeout(syncTimer);
-    setCloudSession(null);
-    cloudConflict = null;
-    cloudMessage("Signed out. This browser still has its local copy.", "info");
-    renderCloudConnection();
+    await signOutUser();
     return;
   }
   if (action === "sync-now") {
@@ -5498,6 +5702,10 @@ async function initialize() {
     });
     render();
     renderCloudConnection();
+    const activeSession = getCloudSession();
+    if (activeSession?.user?.id) {
+      void syncUserProfile(activeSession.user.id);
+    }
     checkInviteOrSetupLink();
     checkHashRouting();
     window.addEventListener("hashchange", checkHashRouting);
@@ -5894,13 +6102,57 @@ $("#admin-create-user-form")?.addEventListener("submit", async event => {
 
   const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating…"; }
+
+  const currentAdminSession = getCloudSession();
   try {
-    await signUpWithEmail(email, pass, name, role);
+    const res = await cloudRequest("/auth/v1/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim(),
+        password: pass,
+        data: {
+          display_name: name.trim(),
+          role
+        }
+      })
+    }, false);
+
+    const newUid = res?.user?.id || res?.id;
+    if (newUid) {
+      try {
+        await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "resolution=merge-duplicates,return=representation"
+          },
+          body: JSON.stringify([{
+            id: newUid,
+            email: email.trim(),
+            display_name: name.trim(),
+            role,
+            updated_at: new Date().toISOString()
+          }])
+        });
+      } catch (pe) {
+        console.warn("Could not insert profile for new user:", pe);
+      }
+    }
+
+    // Always restore the admin's session so the admin stays signed in!
+    if (currentAdminSession) {
+      setCloudSession(currentAdminSession);
+    }
+
     $("#admin-create-user-dialog")?.close();
     event.currentTarget.reset();
     showToast(`Created account for ${name} (${role})!`);
     await renderAdminHub();
   } catch (e) {
+    if (currentAdminSession) {
+      setCloudSession(currentAdminSession);
+    }
     alert(e.message || "Failed to create maker account.");
   } finally {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Account →"; }

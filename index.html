@@ -404,6 +404,7 @@
   email text,
   display_name text,
   role text default 'maker',
+  is_primary boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -415,6 +416,10 @@ create policy "Profiles viewable by authenticated" on public.workbench_profiles 
 
 drop policy if exists "Users can update own profile" on public.workbench_profiles;
 create policy "Users can update own profile" on public.workbench_profiles for update to authenticated using (auth.uid() = id);
+
+drop policy if exists "Admins can update any profile" on public.workbench_profiles;
+create policy "Admins can update any profile" on public.workbench_profiles for update to authenticated
+  using (exists (select 1 from public.workbench_profiles where id = auth.uid() and role = 'admin'));
 
 drop policy if exists "Users can insert own profile" on public.workbench_profiles;
 create policy "Users can insert own profile" on public.workbench_profiles for insert to authenticated with check (auth.uid() = id);
