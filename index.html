@@ -203,7 +203,7 @@
               <div class="cloud-config" id="cloud-config">
                 <label class="field-label">Project URL<input id="cloud-url" type="text" placeholder="https://your-project.supabase.co" autocomplete="url"></label>
                 <label class="field-label">Publishable / anon key<input id="cloud-key" type="password" placeholder="sb_publishable_… or anon key" autocomplete="off"></label>
-                <div class="sync-actions"><button class="button button-outline" data-action="save-cloud-config">Save connection</button><button type="button" class="button button-outline" data-action="copy-invite-link">🔗 Copy link for phone/makers</button><a class="text-button" href="README.md#private-cloud-sync-setup" target="_blank" rel="noreferrer">Setup guide ↗</a></div>
+                <div class="sync-actions"><button class="button button-outline" data-action="save-cloud-config">Save connection</button><button type="button" class="button button-outline" data-action="copy-invite-link">🔒 Copy Encrypted Invite Link</button><a class="text-button" href="README.md#private-cloud-sync-setup" target="_blank" rel="noreferrer">Setup guide ↗</a></div>
               </div>
               <div id="cloud-auth-form" class="cloud-auth-form">
                 <p class="form-hint">Sign in securely with the GitHub account connected to your Supabase project. The publishable key identifies the project; GitHub verifies your account.</p>
@@ -346,7 +346,7 @@
                 <p>Manage users, inspect maker workbenches, view shop-wide activity, and set permissions.</p>
               </div>
               <div class="sync-actions">
-                <button type="button" class="button button-outline" data-action="copy-invite-link">🔗 Copy One-Click Invite Link</button>
+                <button type="button" class="button button-outline" data-action="copy-invite-link">🔒 Copy Encrypted Invite Link</button>
                 <button type="button" class="button button-primary" data-action="open-admin-create-user">＋ Create Maker Account</button>
               </div>
             </div>
@@ -875,8 +875,8 @@
           <button type="submit" class="button button-primary">Save Connection</button>
         </div>
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line);text-align:center">
-          <button type="button" class="button button-outline button-block" data-action="copy-invite-link">🔗 Copy One-Click Invite Link</button>
-          <p class="form-hint" style="margin-top:6px;font-size:11px">Send this link to your phone or other makers. When opened, it connects automatically without needing to type API keys.</p>
+          <button type="button" class="button button-outline button-block" data-action="copy-invite-link">🔒 Copy Encrypted Invite Link</button>
+          <p class="form-hint" style="margin-top:6px;font-size:11px">Creates a secured, encrypted link that connects automatically without revealing raw Supabase URLs or API keys in the link.</p>
         </div>
       </form>
 

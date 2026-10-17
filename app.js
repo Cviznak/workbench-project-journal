@@ -3922,23 +3922,173 @@ function setupKanbanDragDrop(kanban) {
   });
 }
 
-function checkInviteOrSetupLink() {
+/* 🔐 Encrypted / Opaque Cloud Setup Invite Tokens */
+const WORKSHOP_INVITE_SECRET = "workbench-maker-shop-v1-cloud-key";
+
+function bytesToBase64Url(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function base64UrlToBytes(str) {
+  let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function getInviteAesKey() {
+  const enc = new TextEncoder();
+  const hash = await crypto.subtle.digest("SHA-256", enc.encode(WORKSHOP_INVITE_SECRET));
+  return crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+function fallbackScrambleInvite(text) {
+  const enc = new TextEncoder().encode(text);
+  const keyBytes = new TextEncoder().encode(WORKSHOP_INVITE_SECRET);
+  const out = new Uint8Array(enc.length);
+  for (let i = 0; i < enc.length; i++) {
+    out[i] = enc[i] ^ keyBytes[i % keyBytes.length] ^ ((i * 37) & 0xff);
+  }
+  return "wbx_" + bytesToBase64Url(out);
+}
+
+function fallbackUnscrambleInvite(token) {
+  if (!token || !token.startsWith("wbx_")) return null;
+  const bytes = base64UrlToBytes(token.slice(4));
+  const keyBytes = new TextEncoder().encode(WORKSHOP_INVITE_SECRET);
+  const out = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) {
+    out[i] = bytes[i] ^ keyBytes[i % keyBytes.length] ^ ((i * 37) & 0xff);
+  }
+  return new TextDecoder().decode(out);
+}
+
+async function encryptInviteToken(url, key) {
+  const payload = JSON.stringify({ u: url, k: key, t: Date.now() });
+  try {
+    if (window?.crypto?.subtle) {
+      const aesKey = await getInviteAesKey();
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const enc = new TextEncoder();
+      const cipherBuf = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        aesKey,
+        enc.encode(payload)
+      );
+      const cipherBytes = new Uint8Array(cipherBuf);
+      const combined = new Uint8Array(12 + cipherBytes.length);
+      combined.set(iv, 0);
+      combined.set(cipherBytes, 12);
+      return "wbe_" + bytesToBase64Url(combined);
+    }
+  } catch (e) {
+    console.warn("WebCrypto encryption failed, using fallback scrambler:", e);
+  }
+  return fallbackScrambleInvite(payload);
+}
+
+async function decryptInviteToken(token) {
+  if (!token || typeof token !== "string") return null;
+  token = decodeURIComponent(token.trim());
+  if (token.startsWith("wbe_")) {
+    try {
+      if (window?.crypto?.subtle) {
+        const combined = base64UrlToBytes(token.slice(4));
+        if (combined.length < 13) return null;
+        const iv = combined.slice(0, 12);
+        const ciphertext = combined.slice(12);
+        const aesKey = await getInviteAesKey();
+        const decryptedBuf = await window.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          aesKey,
+          ciphertext
+        );
+        return JSON.parse(new TextDecoder().decode(decryptedBuf));
+      }
+    } catch (e) {
+      console.warn("AES decryption failed:", e);
+      return null;
+    }
+  } else if (token.startsWith("wbx_")) {
+    try {
+      const json = fallbackUnscrambleInvite(token);
+      return JSON.parse(json);
+    } catch (e) {
+      console.warn("Fallback unscrambler failed:", e);
+      return null;
+    }
+  }
+  return null;
+}
+
+async function parseInputOrToken(inputStr) {
+  if (!inputStr || typeof inputStr !== "string") return null;
+  let s = inputStr.trim();
+  if (s.includes("#")) {
+    const hash = s.slice(s.indexOf("#"));
+    if (hash.startsWith("#join=") || hash.startsWith("#invite=") || hash.startsWith("#setup=") || hash.startsWith("#connect=")) {
+      s = hash.slice(hash.indexOf("=") + 1);
+    } else if (hash.includes("?")) {
+      const q = new URLSearchParams(hash.slice(hash.indexOf("?") + 1));
+      const tok = q.get("token") || q.get("code") || q.get("c");
+      if (tok) s = tok;
+      else if (q.get("url") && q.get("key")) return { url: q.get("url"), key: q.get("key") };
+    }
+  }
+  if (s.startsWith("wbe_") || s.startsWith("wbx_")) {
+    const dec = await decryptInviteToken(s);
+    if (dec && dec.u && dec.k) return { url: dec.u, key: dec.k };
+  }
+  return null;
+}
+
+async function checkInviteOrSetupLink() {
   let url = "";
   let key = "";
+  let token = "";
 
   const hash = window.location.hash || "";
-  if (hash.startsWith("#setup?") || hash.startsWith("#join?") || hash.startsWith("#invite?")) {
+  if (hash.startsWith("#join=") || hash.startsWith("#invite=") || hash.startsWith("#setup=") || hash.startsWith("#connect=")) {
+    token = hash.slice(hash.indexOf("=") + 1);
+  } else if (hash.startsWith("#setup?") || hash.startsWith("#join?") || hash.startsWith("#invite?") || hash.startsWith("#connect?")) {
     const rawQuery = hash.slice(hash.indexOf("?") + 1);
     const params = new URLSearchParams(rawQuery);
-    url = params.get("url") || "";
-    key = params.get("key") || "";
+    token = params.get("token") || params.get("code") || params.get("c") || "";
+    if (!token) {
+      url = params.get("url") || "";
+      key = params.get("key") || "";
+    }
   }
 
-  if (!url || !key) {
+  if (!token && !url) {
     const searchParams = new URLSearchParams(window.location.search);
-    if (searchParams.has("setup") || searchParams.has("join") || (searchParams.has("url") && searchParams.has("key"))) {
+    token = searchParams.get("join") || searchParams.get("token") || searchParams.get("invite") || searchParams.get("code") || searchParams.get("c") || "";
+    if (!token) {
       url = searchParams.get("url") || "";
       key = searchParams.get("key") || "";
+    }
+  }
+
+  if (token) {
+    try {
+      const decrypted = await decryptInviteToken(token);
+      if (decrypted && decrypted.u && decrypted.k) {
+        url = decrypted.u;
+        key = decrypted.k;
+      }
+    } catch (e) {
+      console.error("Failed to decrypt invite token", e);
     }
   }
 
@@ -3982,8 +4132,13 @@ function checkHashRouting() {
   const hash = window.location.hash || "";
   if (!hash) return;
 
-  if (hash.startsWith("#setup?") || hash.startsWith("#join?") || hash.startsWith("#invite?")) {
-    checkInviteOrSetupLink();
+  if (
+    hash.startsWith("#setup") ||
+    hash.startsWith("#join") ||
+    hash.startsWith("#invite") ||
+    hash.startsWith("#connect")
+  ) {
+    void checkInviteOrSetupLink();
     return;
   }
 
@@ -5952,12 +6107,19 @@ async function handleAction(action, target) {
       return;
     }
     const cleanUrl = url.replace(/\/+$/, "");
-    const inviteUrl = `${window.location.origin}${window.location.pathname}#setup?url=${encodeURIComponent(cleanUrl)}&key=${encodeURIComponent(key)}`;
     try {
-      await navigator.clipboard.writeText(inviteUrl);
-      showToast("Copied one-click invite link to clipboard! 📋");
-    } catch {
-      window.prompt("Copy your one-click invite link:", inviteUrl);
+      const token = await encryptInviteToken(cleanUrl, key);
+      const inviteUrl = `${window.location.origin}${window.location.pathname}#join=${encodeURIComponent(token)}`;
+      try {
+        await navigator.clipboard.writeText(inviteUrl);
+        showToast("Copied encrypted invite link to clipboard! 🔒📋");
+      } catch {
+        window.prompt("Copy your encrypted invite link:", inviteUrl);
+      }
+    } catch (err) {
+      console.error("Encryption error:", err);
+      const inviteUrl = `${window.location.origin}${window.location.pathname}#setup?url=${encodeURIComponent(cleanUrl)}&key=${encodeURIComponent(key)}`;
+      window.prompt("Copy your invite link:", inviteUrl);
     }
     return;
   }
@@ -6335,10 +6497,19 @@ async function handleAction(action, target) {
     const urlInput = $("#cloud-url");
     const keyInput = $("#cloud-key");
     let url = (urlInput?.value || "").trim();
-    const key = (keyInput?.value || "").trim();
+    let key = (keyInput?.value || "").trim();
+    if (url && !key) {
+      const creds = await parseInputOrToken(url);
+      if (creds?.url && creds?.key) {
+        url = creds.url;
+        key = creds.key;
+        if (urlInput) urlInput.value = url;
+        if (keyInput) keyInput.value = key;
+      }
+    }
     if (!url || !key) {
-      cloudMessage("Enter your Supabase project URL and anon key.", "error");
-      showToast("Please enter both URL and key.");
+      cloudMessage("Enter your Supabase project URL and anon key, or paste an encrypted invite token.", "error");
+      showToast("Please enter both URL and key, or an invite token.");
       return;
     }
     if (!/^https?:\/\//i.test(url)) {
@@ -7020,12 +7191,41 @@ $("#auth-signup-form")?.addEventListener("submit", async event => {
   }
 });
 
-$("#auth-config-form")?.addEventListener("submit", event => {
+async function autoDetectInviteToken(inputEl, keyEl) {
+  if (!inputEl) return;
+  const raw = inputEl.value.trim();
+  if (raw.startsWith("wbe_") || raw.startsWith("wbx_") || raw.includes("#join=") || raw.includes("#setup=")) {
+    const creds = await parseInputOrToken(raw);
+    if (creds?.url && creds?.key) {
+      inputEl.value = creds.url;
+      if (keyEl) keyEl.value = creds.key;
+      showToast("✓ Decrypted shop connection from token!");
+    }
+  }
+}
+
+$("#auth-cloud-url")?.addEventListener("input", e => autoDetectInviteToken(e.target, $("#auth-cloud-key")));
+$("#auth-cloud-url")?.addEventListener("paste", e => setTimeout(() => autoDetectInviteToken(e.target, $("#auth-cloud-key")), 50));
+$("#cloud-url")?.addEventListener("input", e => autoDetectInviteToken(e.target, $("#cloud-key")));
+$("#cloud-url")?.addEventListener("paste", e => setTimeout(() => autoDetectInviteToken(e.target, $("#cloud-key")), 50));
+
+$("#auth-config-form")?.addEventListener("submit", async event => {
   event.preventDefault();
   let url = $("#auth-cloud-url")?.value?.trim() || "";
-  const key = $("#auth-cloud-key")?.value?.trim() || "";
+  let key = $("#auth-cloud-key")?.value?.trim() || "";
+
+  if (url && !key) {
+    const creds = await parseInputOrToken(url);
+    if (creds?.url && creds?.key) {
+      url = creds.url;
+      key = creds.key;
+      if ($("#auth-cloud-url")) $("#auth-cloud-url").value = url;
+      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = key;
+    }
+  }
+
   if (!url || !key) {
-    showAuthAlert("Please provide both Supabase Project URL and API Key.", "error");
+    showAuthAlert("Please provide both Supabase Project URL and API Key, or paste an encrypted invite token.", "error");
     return;
   }
   if (!/^https?:\/\//i.test(url)) {
