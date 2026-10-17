@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f3ed">
     <title>Workbench — your project journal</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2.4.1">
     <link rel="manifest" href="manifest.json">
     <script>
       (function(){
@@ -23,7 +23,7 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="app.js" defer></script>
+    <script src="app.js?v=2.4.1" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -66,6 +66,7 @@
           <div class="breadcrumbs"><span id="topbar-space-label">My workshop</span><span class="crumb-divider">/</span><strong id="page-crumb">Overview</strong></div>
           <div class="topbar-actions">
             <button type="button" class="button button-outline button-small user-top-btn" id="top-auth-btn" data-action="open-auth-modal">Sign in</button>
+            <button type="button" class="button button-outline button-small" data-action="open-invite-modal" title="Invite makers to your shop">👥 Invite</button>
             <button type="button" class="button button-outline button-small" data-action="open-tools" title="Workshop Reference &amp; Conversion Tools">📐 Tools</button>
             <button type="button" class="button button-outline button-small" data-action="open-timer" title="Practice Session Timer">⏱ Timer</button>
             <button type="button" class="notification-btn" id="notification-btn" data-action="open-notifications" title="Notifications" aria-label="Notifications">
@@ -392,6 +393,63 @@
             <div class="admin-users-grid" id="admin-users-grid"></div>
           </section>
         </div>
+
+        <!-- 🏷️ Workshop Site Footer -->
+        <footer class="site-footer">
+          <div class="site-footer-inner">
+            <div class="footer-brand-col">
+              <div class="footer-brand">
+                <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+                <strong>workbench<span class="brand-period">.</span></strong>
+              </div>
+              <p class="footer-tagline">The offline-first project journal and shop companion for makers, woodworkers, crafters, engineers, and fabricators.</p>
+              <div class="footer-status-pill offline" id="footer-cloud-status">
+                <span class="status-dot"></span> <span id="footer-cloud-status-text">Local Storage Mode</span>
+              </div>
+            </div>
+
+            <div class="footer-links-grid">
+              <div class="footer-col">
+                <h4>Collaboration</h4>
+                <ul>
+                  <li><button type="button" class="footer-link-btn" data-action="open-invite-modal">👥 Invite Makers to Shop</button></li>
+                  <li><button type="button" class="footer-link-btn" data-action="open-auth-modal" data-tab="config">⚙️ Cloud Database Setup</button></li>
+                  <li><button type="button" class="footer-link-btn" data-action="switch-to-admin-or-login">👑 Shop Headquarters</button></li>
+                </ul>
+              </div>
+
+              <div class="footer-col">
+                <h4>Workshop Tools</h4>
+                <ul>
+                  <li><button type="button" class="footer-link-btn" data-action="open-tools">📐 Calculators &amp; Converters</button></li>
+                  <li><button type="button" class="footer-link-btn" data-action="open-timer">⏱ Practice Timer</button></li>
+                  <li><button type="button" class="footer-link-btn" data-view="sync">💾 Backup &amp; JSON Export</button></li>
+                </ul>
+              </div>
+
+              <div class="footer-col">
+                <h4>About &amp; Legal</h4>
+                <ul>
+                  <li><button type="button" class="footer-link-btn" data-action="open-about-modal">ℹ️ About Workbench</button></li>
+                  <li><button type="button" class="footer-link-btn" data-action="open-terms-modal">📜 Terms of Service</button></li>
+                  <li><button type="button" class="footer-link-btn" data-action="open-privacy-modal">🛡️ Privacy &amp; Data Ownership</button></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer-bottom-row">
+            <div>
+              <span>© 2026 Workbench Project Journal.</span>
+              <span class="footer-sep">•</span>
+              <span>100% Client-Side &amp; Private. Zero Telemetry.</span>
+            </div>
+            <div class="footer-meta-links">
+              <span class="version-tag">v2.4.1</span>
+              <button type="button" class="footer-mini-btn" data-action="scroll-to-top" title="Scroll to top">↑ Back to top</button>
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
 
@@ -951,6 +1009,129 @@
       <div class="notification-list" id="notification-list"></div>
       <div class="dialog-actions">
         <button type="button" class="button button-quiet" data-action="close-dialog">Done</button>
+      </div>
+    </dialog>
+
+    <!-- 👥 Dedicated Invite Makers Dialog -->
+    <dialog class="app-dialog" id="invite-dialog" aria-label="Invite Makers to Your Shop">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">SHOP COLLABORATION</div>
+          <h2>Invite Makers to Your Shop</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <p class="form-hint" style="margin-bottom:14px">
+        Share this secured invite link with friends, students, or fellow makers. When opened, it automatically connects their browser to your shop cloud database <strong>without revealing your raw database URL or API keys</strong>.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label class="field-label">Secured Invite Link (Opaque Token)
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <input type="text" id="invite-dialog-url" readonly style="font-family:monospace;font-size:11px;background:var(--paper-warm,#f3f1e9);color:var(--ink)" onclick="this.select()">
+            <button type="button" class="button button-primary" id="invite-dialog-copy-btn" data-action="copy-dialog-invite" style="white-space:nowrap">📋 Copy Link</button>
+          </div>
+        </label>
+        <div id="invite-dialog-qr-container" style="text-align:center;padding:16px;background:var(--paper-warm,#f3f1e9);border-radius:8px;border:1px solid var(--line);margin-top:4px">
+          <div id="invite-qr-code" style="display:flex;justify-content:center;margin-bottom:8px"></div>
+          <span style="font-size:11px;color:var(--muted)">Scan with a mobile camera to join shop on phone</span>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--muted)">🔒 Encrypted with 256-bit AES-GCM token</span>
+        <button type="button" class="button button-quiet" data-action="close-dialog">Done</button>
+      </div>
+    </dialog>
+
+    <!-- ℹ️ About Us Dialog -->
+    <dialog class="app-dialog" id="about-dialog" aria-label="About Workbench">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">THE MAKER JOURNAL</div>
+          <h2>About Workbench</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;font-size:13px;line-height:1.6">
+        <p><strong>Workbench</strong> is an offline-first project journal, shop inventory manager, and craft documentation tool designed specifically for makers, woodworkers, crafters, electronics hobbyists, and artists.</p>
+        <div class="profile-section-card" style="margin:0">
+          <h4 style="margin:0 0 6px;font-size:13px">✨ Core Highlights</h4>
+          <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:12px">
+            <li><strong>Offline-First:</strong> Works completely without an internet connection. Your projects, materials, checklists, and photos live right in your browser.</li>
+            <li><strong>Private Cloud Sync:</strong> Connect seamlessly to your personal Supabase project for multi-device sync and shop collaboration with trusted makers.</li>
+            <li><strong>Skill Progression:</strong> Log practice time and earn XP across carpentry, 3D printing, electronics, leathercraft, and more.</li>
+            <li><strong>Workshop Converters:</strong> Instant bidirectional fraction-to-decimal calculators, scale sizers, and board-foot estimators.</li>
+          </ul>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">
+          Version 2.4.1 • Free &amp; Open Source • Built for makers everywhere.
+        </div>
+      </div>
+      <div class="dialog-actions" style="margin-top:16px">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+    </dialog>
+
+    <!-- 📜 Terms of Service Dialog -->
+    <dialog class="app-dialog" id="terms-dialog" aria-label="Terms of Service">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">LEGAL &amp; RESPONSIBILITY</div>
+          <h2>Terms of Service</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;font-size:12px;line-height:1.6">
+        <div>
+          <strong style="display:block;font-size:13px;margin-bottom:2px">1. 100% Data Ownership</strong>
+          <span style="color:var(--muted)">You retain full ownership, copyright, and intellectual property rights over all project plans, journal notes, checklists, and photos stored in Workbench. We do not sell or claim rights to your work.</span>
+        </div>
+        <div>
+          <strong style="display:block;font-size:13px;margin-bottom:2px">2. Self-Hosted Infrastructure</strong>
+          <span style="color:var(--muted)">Workbench runs client-side in your browser and connects directly to your own private Supabase instance. There is no middleman server collecting or intermediating your data.</span>
+        </div>
+        <div>
+          <strong style="display:block;font-size:13px;margin-bottom:2px">3. Workshop Safety Responsibility</strong>
+          <span style="color:var(--muted)">Physical crafting, woodworking, electrical wiring, and fabrication involve sharp tools, machinery, and dangerous materials. Workbench is purely a record-keeping software tool and does not provide certified engineering or safety advice. Always wear eye protection and follow tool manufacturer safety guidelines.</span>
+        </div>
+        <div>
+          <strong style="display:block;font-size:13px;margin-bottom:2px">4. Software Provided "As-Is"</strong>
+          <span style="color:var(--muted)">Workbench is provided free of charge without warranty of any kind. We recommend periodically exporting a JSON backup of your projects from the Sync & Backup tab.</span>
+        </div>
+      </div>
+      <div class="dialog-actions" style="margin-top:16px">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Understood</button>
+      </div>
+    </dialog>
+
+    <!-- 🛡️ Privacy Policy Dialog -->
+    <dialog class="app-dialog" id="privacy-dialog" aria-label="Privacy Policy">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">YOUR PRIVACY &amp; DATA</div>
+          <h2>Privacy Policy</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;font-size:12px;line-height:1.6">
+        <div>
+          <strong style="display:block;font-size:13px;margin-bottom:2px">🛡️ Zero Telemetry &amp; Zero Tracking</strong>
+          <span style="color:var(--muted)">Workbench does not load Google Analytics, Meta pixels, tracking cookies, or advertising beacons. We do not track what you build, how often you use the app, or what tools you use.</span>
+        </div>
+        <div>
+          <strong style="display:block;font-size:13px;margin-bottom:2px">🔒 Local-First Storage</strong>
+          <span style="color:var(--muted)">By default, all your projects and data stay strictly on your device inside your browser's LocalStorage and IndexedDB. Nothing leaves your computer unless you explicitly configure cloud sync.</span>
+        </div>
+        <div>
+          <strong style="display:block;font-size:13px;margin-bottom:2px">🔑 Encrypted Cloud Connection Tokens</strong>
+          <span style="color:var(--muted)">When you share an invite link with your phone or fellow makers, your database credentials are encrypted using 256-bit AES-GCM tokens. All communication between your browser and Supabase uses HTTPS/TLS encryption.</span>
+        </div>
+        <div>
+          <strong style="display:block;font-size:13px;margin-bottom:2px">👥 Maker Account Isolation (Row Level Security)</strong>
+          <span style="color:var(--muted)">When syncing with a shared shop database, project data is segregated by user accounts through Postgres Row Level Security (RLS). Other makers cannot see or alter your private projects unless designated as shop administrators.</span>
+        </div>
+      </div>
+      <div class="dialog-actions" style="margin-top:16px">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
       </div>
     </dialog>
 

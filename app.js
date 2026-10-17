@@ -1045,6 +1045,7 @@ function renderProfileModalContent() {
       </div>
 
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+        <button type="button" class="button button-outline" data-action="open-invite-modal">👥 Invite Makers to Shop</button>
         <button type="button" class="button button-outline" data-action="sync-now">⇄ Sync Workspace Now</button>
         <button type="button" class="button button-outline" data-action="open-auth-modal" data-tab="signin">Switch Account</button>
         <button type="button" class="danger-button" data-action="auth-sign-out">Sign Out</button>
@@ -2068,6 +2069,20 @@ function renderCloudConnection() {
   $("#cloud-last-synced").textContent = marker?.remoteUpdatedAt ? `Last synced ${relativeTime(marker.remoteUpdatedAt)}` : "";
   if (config && !session?.access_token && $("#sync-message").dataset.status === "info") {
     cloudMessage("Connection saved. Sign in to sync this workspace.", "info");
+  }
+  const footerStatusText = $("#footer-cloud-status-text");
+  const footerStatusPill = $("#footer-cloud-status");
+  if (footerStatusText && footerStatusPill) {
+    if (session?.access_token) {
+      footerStatusText.textContent = `Cloud Synced (${session?.user?.email || "Connected"})`;
+      footerStatusPill.className = "footer-status-pill connected";
+    } else if (config?.url) {
+      footerStatusText.textContent = "Cloud Configured (Offline/Guest)";
+      footerStatusPill.className = "footer-status-pill pending";
+    } else {
+      footerStatusText.textContent = "Local Storage Mode (Offline)";
+      footerStatusPill.className = "footer-status-pill offline";
+    }
   }
 }
 
@@ -3948,9 +3963,10 @@ function base64UrlToBytes(str) {
 }
 
 async function getInviteAesKey() {
+  const c = (typeof window !== "undefined" && window.crypto) || (typeof crypto !== "undefined" ? crypto : null);
   const enc = new TextEncoder();
-  const hash = await crypto.subtle.digest("SHA-256", enc.encode(WORKSHOP_INVITE_SECRET));
-  return crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+  const hash = await c.subtle.digest("SHA-256", enc.encode(WORKSHOP_INVITE_SECRET));
+  return c.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
 function fallbackScrambleInvite(text) {
@@ -3977,11 +3993,12 @@ function fallbackUnscrambleInvite(token) {
 async function encryptInviteToken(url, key) {
   const payload = JSON.stringify({ u: url, k: key, t: Date.now() });
   try {
-    if (window?.crypto?.subtle) {
+    const c = (typeof window !== "undefined" && window.crypto) || (typeof crypto !== "undefined" ? crypto : null);
+    if (c?.subtle) {
       const aesKey = await getInviteAesKey();
-      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const iv = c.getRandomValues(new Uint8Array(12));
       const enc = new TextEncoder();
-      const cipherBuf = await window.crypto.subtle.encrypt(
+      const cipherBuf = await c.subtle.encrypt(
         { name: "AES-GCM", iv },
         aesKey,
         enc.encode(payload)
@@ -4003,13 +4020,14 @@ async function decryptInviteToken(token) {
   token = decodeURIComponent(token.trim());
   if (token.startsWith("wbe_")) {
     try {
-      if (window?.crypto?.subtle) {
+      const c = (typeof window !== "undefined" && window.crypto) || (typeof crypto !== "undefined" ? crypto : null);
+      if (c?.subtle) {
         const combined = base64UrlToBytes(token.slice(4));
         if (combined.length < 13) return null;
         const iv = combined.slice(0, 12);
         const ciphertext = combined.slice(12);
         const aesKey = await getInviteAesKey();
-        const decryptedBuf = await window.crypto.subtle.decrypt(
+        const decryptedBuf = await c.subtle.decrypt(
           { name: "AES-GCM", iv },
           aesKey,
           ciphertext
@@ -4051,6 +4069,69 @@ async function parseInputOrToken(inputStr) {
     if (dec && dec.u && dec.k) return { url: dec.u, key: dec.k };
   }
   return null;
+}
+
+async function getEncryptedInviteUrl() {
+  const cfg = getCloudConfig();
+  const url = cfg?.url || $("#auth-cloud-url")?.value?.trim() || $("#cloud-url")?.value?.trim() || "";
+  const key = cfg?.key || $("#auth-cloud-key")?.value?.trim() || $("#cloud-key")?.value?.trim() || "";
+  if (!url || !key) return null;
+  const cleanUrl = url.replace(/\/+$/, "");
+  const token = await encryptInviteToken(cleanUrl, key);
+  return `${window.location.origin}${window.location.pathname}#join=${encodeURIComponent(token)}`;
+}
+
+async function openInviteModal() {
+  const dialog = $("#invite-dialog");
+  if (!dialog) return;
+
+  const inviteUrl = await getEncryptedInviteUrl();
+  if (!inviteUrl) {
+    showToast("Please save your Supabase connection first to create an invite link.");
+    openAuthModal("config");
+    return;
+  }
+
+  const inputEl = $("#invite-dialog-url");
+  const qrContainer = $("#invite-qr-code");
+  const copyBtn = $("#invite-dialog-copy-btn");
+
+  if (inputEl) inputEl.value = inviteUrl;
+  if (copyBtn) {
+    copyBtn.textContent = "📋 Copy Link";
+    copyBtn.disabled = false;
+  }
+
+  if (qrContainer) {
+    if (window.QR && typeof window.QR.toSVG === "function") {
+      qrContainer.innerHTML = window.QR.toSVG(inviteUrl, { cellSize: 3, margin: 2 });
+    } else {
+      qrContainer.innerHTML = `<span style="font-size:12px;color:var(--muted)">Scan or copy link above</span>`;
+    }
+  }
+
+  dialog.showModal();
+}
+
+async function copyInviteLinkToClipboard(sourceBtn = null) {
+  const inviteUrl = await getEncryptedInviteUrl();
+  if (!inviteUrl) {
+    showToast("Please save your Supabase connection first.");
+    openAuthModal("config");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(inviteUrl);
+    showToast("Copied encrypted invite link to clipboard! 🔒📋");
+    if (sourceBtn) {
+      const origText = sourceBtn.textContent;
+      sourceBtn.textContent = "✓ Copied!";
+      setTimeout(() => { if (sourceBtn) sourceBtn.textContent = origText; }, 2500);
+    }
+  } catch {
+    window.prompt("Copy your encrypted invite link:", inviteUrl);
+  }
 }
 
 async function checkInviteOrSetupLink() {
@@ -6097,29 +6178,36 @@ async function handleAction(action, target) {
     $("#admin-create-user-dialog")?.showModal();
     return;
   }
-  if (action === "copy-invite-link") {
-    const cfg = getCloudConfig();
-    const url = cfg?.url || $("#auth-cloud-url")?.value?.trim() || $("#cloud-url")?.value?.trim();
-    const key = cfg?.key || $("#auth-cloud-key")?.value?.trim() || $("#cloud-key")?.value?.trim();
-    if (!url || !key) {
-      showToast("Please save your Supabase connection first.");
-      openAuthModal("config");
-      return;
-    }
-    const cleanUrl = url.replace(/\/+$/, "");
-    try {
-      const token = await encryptInviteToken(cleanUrl, key);
-      const inviteUrl = `${window.location.origin}${window.location.pathname}#join=${encodeURIComponent(token)}`;
-      try {
-        await navigator.clipboard.writeText(inviteUrl);
-        showToast("Copied encrypted invite link to clipboard! 🔒📋");
-      } catch {
-        window.prompt("Copy your encrypted invite link:", inviteUrl);
-      }
-    } catch (err) {
-      console.error("Encryption error:", err);
-      const inviteUrl = `${window.location.origin}${window.location.pathname}#setup?url=${encodeURIComponent(cleanUrl)}&key=${encodeURIComponent(key)}`;
-      window.prompt("Copy your invite link:", inviteUrl);
+  if (action === "open-invite-modal") {
+    void openInviteModal();
+    return;
+  }
+  if (action === "copy-dialog-invite" || action === "copy-invite-link") {
+    void copyInviteLinkToClipboard(target);
+    return;
+  }
+  if (action === "open-about-modal") {
+    $("#about-dialog")?.showModal();
+    return;
+  }
+  if (action === "open-terms-modal") {
+    $("#terms-dialog")?.showModal();
+    return;
+  }
+  if (action === "open-privacy-modal") {
+    $("#privacy-dialog")?.showModal();
+    return;
+  }
+  if (action === "scroll-to-top") {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  if (action === "switch-to-admin-or-login") {
+    const curUser = getActiveUser();
+    if (curUser && (curUser.role === "admin" || curUser.id === getPrimaryAdminId())) {
+      switchView("admin");
+    } else {
+      openAuthModal("signin");
     }
     return;
   }
