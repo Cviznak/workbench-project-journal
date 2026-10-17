@@ -171,11 +171,25 @@ function readSavedState(overrideKey = null) {
     const key = overrideKey || getActiveStateKey();
     const request = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(key);
     request.onsuccess = () => {
-      // If user-specific key is empty, fall back to legacy STATE_KEY for first-time migration
+      // If an explicit override key was requested, never fall back to legacy STATE_KEY
+      if (overrideKey) {
+        resolve(request.result || null);
+        return;
+      }
+      // If user-specific key is empty:
+      // ONLY the primary admin / shop owner should migrate legacy unpartitioned STATE_KEY!
+      // New or non-owner users must start fresh with their own blank workspace.
       if (!request.result && key !== STATE_KEY) {
-        const fallback = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
-        fallback.onsuccess = () => resolve(fallback.result);
-        fallback.onerror = () => resolve(null);
+        const session = getCloudSession();
+        const primaryAdminId = getPrimaryAdminId();
+        const isCurrentPrimary = session?.user?.id && primaryAdminId && (session.user.id === primaryAdminId);
+        if (isCurrentPrimary || !primaryAdminId) {
+          const fallback = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
+          fallback.onsuccess = () => resolve(fallback.result);
+          fallback.onerror = () => resolve(null);
+          return;
+        }
+        resolve(null);
       } else {
         resolve(request.result);
       }
@@ -684,6 +698,53 @@ function getPrimaryAdminId() {
   return "";
 }
 
+async function getOwnerProjectIds() {
+  const ids = new Set();
+  const primaryId = getPrimaryAdminId();
+  const user = getActiveUser();
+
+  // If current active session is the primary admin / shop owner
+  if (user && (user.isPrimary || user.id === primaryId) && Array.isArray(state?.projects)) {
+    for (const p of state.projects) {
+      if (p?.id) ids.add(p.id);
+    }
+  }
+
+  // From legacy unpartitioned STATE_KEY ("main") in IndexedDB
+  if (database) {
+    try {
+      const legacy = await new Promise(resolve => {
+        const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+      if (legacy && Array.isArray(legacy.projects)) {
+        for (const p of legacy.projects) {
+          if (p?.id) ids.add(p.id);
+        }
+      }
+    } catch {}
+  }
+
+  // From primary admin's IndexedDB state
+  if (primaryId && database) {
+    try {
+      const primaryRec = await new Promise(resolve => {
+        const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(`workbench_state_${primaryId}`);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      });
+      if (primaryRec && Array.isArray(primaryRec.projects)) {
+        for (const p of primaryRec.projects) {
+          if (p?.id) ids.add(p.id);
+        }
+      }
+    } catch {}
+  }
+
+  return ids;
+}
+
 function getActiveUser() {
   const session = getCloudSession();
   if (!session?.user) return null;
@@ -1045,10 +1106,10 @@ function renderProfileModalContent() {
         <label class="field-label">Default Project View
           <div style="display:flex;gap:14px;margin-top:6px">
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-              <input type="radio" name="pref-project-mode" value="grid" ${projectLayoutMode === "grid" ? "checked" : ""}> ⊞ Grid Cards
+              <input type="radio" name="pref-project-mode" value="grid" ${projectViewMode === "grid" ? "checked" : ""}> ⊞ Grid Cards
             </label>
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-              <input type="radio" name="pref-project-mode" value="kanban" ${projectLayoutMode === "kanban" ? "checked" : ""}> ☷ Kanban Board
+              <input type="radio" name="pref-project-mode" value="kanban" ${projectViewMode === "kanban" ? "checked" : ""}> ☷ Kanban Board
             </label>
           </div>
         </label>
@@ -1061,6 +1122,19 @@ function renderProfileModalContent() {
         </div>
       </div>
     `;
+
+    // Live preview listeners for instant feedback
+    content.querySelectorAll("input[name='pref-theme']").forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        applyTheme(e.target.value);
+        setSavedTheme(e.target.value);
+      });
+    });
+    content.querySelectorAll("input[name='pref-project-mode']").forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        setProjectViewMode(e.target.value);
+      });
+    });
   }
 }
 
@@ -1242,6 +1316,8 @@ async function getLocallyKnownUsers() {
   // 2. From IndexedDB keys
   if (database) {
     try {
+      const ownerIds = await getOwnerProjectIds();
+      const primaryId = getPrimaryAdminId();
       const keys = await new Promise((resolve) => {
         const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAllKeys();
         req.onsuccess = () => resolve(req.result || []);
@@ -1259,14 +1335,35 @@ async function getLocallyKnownUsers() {
               });
               const owner = uState?.owner;
               const existing = users.get(uid) || {};
+              const isPrimary = existing.isPrimary || Boolean(owner?.isPrimary || owner?.is_primary) || (uid === primaryId);
+              let projects = Array.isArray(uState?.projects) ? uState.projects : (existing.projects || []);
+              let practiceLog = Array.isArray(uState?.practiceLog) ? uState.practiceLog : (existing.practiceLog || []);
+
+              // If this maker is NOT the primary owner, cleanse any accidentally inherited owner projects
+              if (!isPrimary && ownerIds.size > 0 && projects.length > 0) {
+                const hasCloned = projects.some(p => ownerIds.has(p?.id));
+                if (hasCloned) {
+                  projects = projects.filter(p => !ownerIds.has(p?.id));
+                  if (projects.length === 0) practiceLog = [];
+                  if (uState) {
+                    uState.projects = projects;
+                    uState.practiceLog = practiceLog;
+                    try {
+                      const writeTx = database.transaction(STORE_NAME, "readwrite");
+                      writeTx.objectStore(STORE_NAME).put(uState, k);
+                    } catch {}
+                  }
+                }
+              }
+
               users.set(uid, {
                 id: uid,
                 email: existing.email || owner?.email || "",
                 displayName: existing.displayName || owner?.displayName || owner?.display_name || (existing.email ? existing.email.split("@")[0] : "Maker"),
                 role: existing.role || owner?.role || "maker",
-                isPrimary: existing.isPrimary || Boolean(owner?.isPrimary || owner?.is_primary),
+                isPrimary,
                 updatedAt: uState?.updatedAt || existing.updatedAt || null,
-                projects: Array.isArray(uState?.projects) ? uState.projects : (existing.projects || []),
+                projects,
                 skills: Array.isArray(uState?.skills) ? uState.skills : (existing.skills || [])
               });
             } catch {}
@@ -1526,14 +1623,44 @@ async function sendPasswordRecovery(email) {
 
 async function loadUserScopedState() {
   const saved = await readSavedState();
+  const user = getActiveUser();
+  const primaryId = getPrimaryAdminId();
+  const isOwner = Boolean(user?.isPrimary || (user && user.id === primaryId));
+
   if (saved) {
-    state.projects = Array.isArray(saved.projects) ? saved.projects : [];
+    let projects = Array.isArray(saved.projects) ? saved.projects : [];
+    let practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
+
+    // If this maker is NOT the primary owner, cleanse any accidentally inherited owner projects
+    if (!isOwner && projects.length > 0) {
+      const ownerIds = await getOwnerProjectIds();
+      if (ownerIds.size > 0 && projects.some(p => ownerIds.has(p?.id))) {
+        projects = projects.filter(p => !ownerIds.has(p?.id));
+        if (projects.length === 0) practiceLog = [];
+        saved.projects = projects;
+        saved.practiceLog = practiceLog;
+        try {
+          const key = getActiveStateKey();
+          const tx = database.transaction(STORE_NAME, "readwrite");
+          tx.objectStore(STORE_NAME).put(saved, key);
+        } catch {}
+      }
+    }
+
+    state.projects = projects;
     state.skills = Array.isArray(saved.skills) ? saved.skills : [];
     state.activity = Array.isArray(saved.activity) ? saved.activity : [];
-    state.practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
+    state.practiceLog = practiceLog;
     state.inventory = Array.isArray(saved.inventory) ? saved.inventory : [];
     state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
     state.weeklyGoal = Number.isFinite(saved.weeklyGoal) ? saved.weeklyGoal : 60;
+
+    // Ensure non-owner has at least starter skills if their skills were empty
+    if (!isOwner && state.skills.length === 0) {
+      for (const [name, category] of STARTER_SKILLS) {
+        state.skills.push({ id: uid(), name, category, xp: 0 });
+      }
+    }
   } else {
     state.projects = [];
     state.skills = [];
@@ -5056,6 +5183,8 @@ async function renderAdminHub() {
     const now = Date.now();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
+    const ownerIds = await getOwnerProjectIds();
+
     makers = Array.from(allUserIds).map(uid => {
       const p = profileMap.get(uid);
       const ws = workspaceMap.get(uid);
@@ -5068,8 +5197,14 @@ async function renderAdminHub() {
       let role = p?.role || wsOwner?.role || loc?.role || (uid === user.id ? user.role : "maker");
       if (isPrimaryUser) role = "admin";
 
-      const projects = ws?.data?.projects || loc?.projects || (uid === user.id ? state.projects : []);
-      const skills = ws?.data?.skills || loc?.skills || (uid === user.id ? state.skills : []);
+      let projects = ws?.data?.projects || loc?.projects || (uid === user.id ? state.projects : []);
+      let skills = ws?.data?.skills || loc?.skills || (uid === user.id ? state.skills : []);
+
+      // If this maker is NOT the primary owner, strip any accidentally inherited owner projects
+      if (!isPrimaryUser && ownerIds.size > 0 && Array.isArray(projects) && projects.length > 0) {
+        projects = projects.filter(pr => !ownerIds.has(pr?.id));
+      }
+
       const totalMinutes = projects.reduce((sum, pr) => sum + (pr.timeSpent || 0), 0);
       const hours = Math.round((totalMinutes / 60) * 10) / 10;
       const updatedAt = ws?.updated_at || p?.updated_at || loc?.updatedAt || (uid === user.id ? state.updatedAt : null);
@@ -5227,6 +5362,17 @@ async function inspectUserWorkbench(targetUserId, targetUserName) {
       return;
     }
 
+    const isTargetPrimary = targetUserId === getPrimaryAdminId();
+    if (!isTargetPrimary) {
+      const ownerIds = await getOwnerProjectIds();
+      if (ownerIds.size > 0 && Array.isArray(remote.data.projects)) {
+        remote.data.projects = remote.data.projects.filter(p => !ownerIds.has(p?.id));
+        if (remote.data.projects.length === 0) {
+          remote.data.practiceLog = [];
+        }
+      }
+    }
+
     if (!adminInspectionActive) {
       adminInspectionBackup = structuredClone(state);
     }
@@ -5345,17 +5491,6 @@ async function adminToggleUserRole(userId, currentRole) {
   }
 }
 
-async function copyAdminSql() {
-  const sqlEl = $("#admin-sql-code");
-  if (!sqlEl) return;
-  try {
-    await navigator.clipboard.writeText(sqlEl.textContent);
-    showToast("Copied Supabase SQL setup script to clipboard!");
-  } catch (err) {
-    console.error("Clipboard copy failed", err);
-    showToast("Failed to copy script to clipboard.");
-  }
-}
 
 async function handleAction(action, target) {
   const id = target.dataset.id;
@@ -5435,10 +5570,6 @@ async function handleAction(action, target) {
   }
   if (action === "open-admin-create-user") {
     $("#admin-create-user-dialog")?.showModal();
-    return;
-  }
-  if (action === "copy-admin-sql") {
-    void copyAdminSql();
     return;
   }
   if (action === "copy-invite-link") {
