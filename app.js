@@ -2183,6 +2183,7 @@ function render() {
   renderInventory();
   renderWeeklyGoal();
   renderAchievements();
+  renderNotificationBadge();
   if ($("#admin-view")?.classList.contains("active")) renderAdminHub();
   if (activeProjectId && $("#detail-dialog").open) renderProjectDetail(activeProjectId);
 }
@@ -2469,7 +2470,15 @@ function renderProjectDetail(projectId) {
     ${progress.total ? `<div class="detail-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.percent}%</span></div>` : ""}
     <form class="inline-add-form task-add-form" data-project="${project.id}"><input name="taskText" required maxlength="140" placeholder="Add a next step..." aria-label="New checklist step"><button type="button" class="small-action mic-btn" data-action="dictate-task" data-project="${project.id}" title="Voice dictate next step">🎙 Dictate</button><button class="button button-outline" type="submit">＋ Add step</button></form>
     ${tasks.length ? `<ul class="task-list">${tasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span></label><div class="task-item-actions">${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < tasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
-    <div class="detail-section-heading"><h3>Materials &amp; Supplies <span class="subtle-count">${materials.length ? `${materials.length} items · $${totalCost.toFixed(2)} total` : "Track parts & budget"}</span></h3><div><button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}">📥 From inventory</button></div></div>
+    <div class="detail-section-heading">
+      <div>
+        <h3>Materials &amp; Supplies</h3>
+        <span class="subtle-count">${materials.length ? `${materials.length} items · $${totalCost.toFixed(2)} total` : "Track parts & build budget"}</span>
+      </div>
+      <div>
+        <button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}">📥 Add from inventory</button>
+      </div>
+    </div>
     ${materials.length ? `
       <div class="materials-summary-bar">
         <div><strong>Budget:</strong> $${totalCost.toFixed(2)} total · <span class="materials-cost-total">$${spentCost.toFixed(2)} acquired</span></div>
@@ -2485,7 +2494,7 @@ function renderProjectDetail(projectId) {
         <option value="ordered">Ordered</option>
         <option value="have">Have / In stock</option>
       </select>
-      <button class="button button-outline" type="submit">＋ Add</button>
+      <button class="button button-primary" type="submit">＋ Add</button>
     </form>
     ${materials.length ? `
       <div class="materials-table-wrap">
@@ -2518,7 +2527,7 @@ function renderProjectDetail(projectId) {
           </tbody>
         </table>
       </div>
-    ` : `<div class="folder-empty">No materials tracked yet. Add items and parts to keep track of your build budget.</div>`}
+    ` : `<div class="folder-empty"><span style="font-size:16px;margin-right:6px">🪵</span>No materials tracked yet. Add items and parts above to keep track of your build budget.</div>`}
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
     <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="form-hint">A dated note, just for this project.</span><div style="display:flex;gap:6px"><button type="button" class="small-action mic-btn" data-action="dictate-note" data-project="${project.id}" title="Voice dictate note">🎙 Dictate</button><button class="button button-outline" type="submit">＋ Add note</button></div></div></form>
     ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p><div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
@@ -3737,6 +3746,8 @@ function setProjectViewMode(mode) {
   renderProjects();
 }
 
+let isDraggingKanbanCard = false;
+
 function renderKanban(projects) {
   const kanban = $("#project-kanban");
   if (!kanban) return;
@@ -3764,11 +3775,14 @@ function renderKanban(projects) {
             return `
               <div class="kanban-card ${project.pinned ? "is-pinned" : ""}" draggable="true" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
                 <div class="kanban-card-top">
-                  <span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>
-                  ${project.pinned ? `<span class="pin-badge">📌</span>` : ""}
-                  <div class="kanban-card-quickshift">
-                    <select class="kanban-shift-select" data-project="${project.id}" title="Move status" aria-label="Move project status">
-                      ${statuses.map(s => `<option value="${s.key}" ${s.key === st.key ? "selected" : ""}>Move to ${s.label}</option>`).join("")}
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>
+                    ${project.pinned ? `<span class="pin-badge">📌</span>` : ""}
+                  </div>
+                  <div class="kanban-card-quickshift" onclick="event.stopPropagation()">
+                    <select class="kanban-shift-select" data-project="${project.id}" title="Move project status" aria-label="Move project status">
+                      <option value="" disabled selected>Move ▾</option>
+                      ${statuses.filter(s => s.key !== st.key).map(s => `<option value="${s.key}">→ ${s.label}</option>`).join("")}
                     </select>
                   </div>
                 </div>
@@ -3783,6 +3797,7 @@ function renderKanban(projects) {
                 <div class="kanban-card-meta">
                   ${project.timeSpent ? `<span>⏱️ ${formatMinutes(project.timeSpent)}</span>` : ""}
                   ${project.materials?.length ? `<span>📦 ${project.materials.length} parts</span>` : ""}
+                  <span style="margin-left:auto;font-size:10px;color:var(--muted)">⠿ Drag to move</span>
                 </div>
               </div>
             `;
@@ -3797,49 +3812,78 @@ function renderKanban(projects) {
 
 function setupKanbanDragDrop(kanban) {
   let draggedProjectId = null;
+  const dragDepthMap = new Map();
 
   kanban.querySelectorAll(".kanban-card[draggable='true']").forEach(card => {
     card.addEventListener("dragstart", event => {
+      isDraggingKanbanCard = true;
       draggedProjectId = card.dataset.project;
-      card.classList.add("dragging");
+      card.classList.add("is-dragging");
       event.dataTransfer.setData("text/plain", draggedProjectId);
       event.dataTransfer.effectAllowed = "move";
     });
 
     card.addEventListener("dragend", () => {
-      card.classList.remove("dragging");
-      kanban.querySelectorAll(".kanban-dropzone").forEach(dz => dz.classList.remove("drag-over"));
+      card.classList.remove("is-dragging");
+      kanban.querySelectorAll(".kanban-dropzone, .kanban-column").forEach(dz => dz.classList.remove("drag-over"));
+      setTimeout(() => {
+        isDraggingKanbanCard = false;
+      }, 150);
     });
   });
 
-  kanban.querySelectorAll(".kanban-dropzone").forEach(dropzone => {
+  kanban.querySelectorAll(".kanban-column, .kanban-dropzone").forEach(dropzone => {
+    const status = dropzone.dataset.status;
+    if (!status) return;
+
     dropzone.addEventListener("dragover", event => {
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       dropzone.classList.add("drag-over");
     });
 
+    dropzone.addEventListener("dragenter", event => {
+      event.preventDefault();
+      const count = (dragDepthMap.get(dropzone) || 0) + 1;
+      dragDepthMap.set(dropzone, count);
+      dropzone.classList.add("drag-over");
+    });
+
     dropzone.addEventListener("dragleave", () => {
-      dropzone.classList.remove("drag-over");
+      const count = Math.max(0, (dragDepthMap.get(dropzone) || 1) - 1);
+      dragDepthMap.set(dropzone, count);
+      if (count === 0) {
+        dropzone.classList.remove("drag-over");
+      }
     });
 
     dropzone.addEventListener("drop", async event => {
       event.preventDefault();
+      dragDepthMap.set(dropzone, 0);
       dropzone.classList.remove("drag-over");
+      kanban.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+
       const pid = event.dataTransfer.getData("text/plain") || draggedProjectId;
-      const targetStatus = dropzone.dataset.status;
-      if (!pid || !targetStatus) return;
+      if (!pid || !status) return;
 
       const project = state.projects.find(p => p.id === pid);
-      if (!project || project.status === targetStatus) return;
+      if (!project || project.status === status) return;
 
-      project.status = targetStatus;
+      project.status = status;
       project.updatedAt = new Date().toISOString();
-      makeActivity("project", `Moved ${project.title} to ${STATUS_LABELS[targetStatus] || targetStatus}`);
+      makeActivity("project", `Moved ${project.title} to ${STATUS_LABELS[status] || status}`);
+      if (status === "completed") {
+        addNotification({
+          title: `Project Complete: ${project.title}`,
+          message: `Great job! You finished ${project.title}.`,
+          icon: "🎯",
+          type: "project"
+        });
+      }
       try {
         await persistState();
         render();
-        showToast(`Moved to ${STATUS_LABELS[targetStatus] || targetStatus}.`);
+        showToast(`Moved to ${STATUS_LABELS[status] || status}!`);
       } catch (e) {
         console.error(e);
       }
@@ -3851,16 +3895,25 @@ function setupKanbanDragDrop(kanban) {
       event.stopPropagation();
       const pid = sel.dataset.project;
       const targetStatus = sel.value;
+      if (!targetStatus) return;
       const project = state.projects.find(p => p.id === pid);
       if (!project || project.status === targetStatus) return;
 
       project.status = targetStatus;
       project.updatedAt = new Date().toISOString();
       makeActivity("project", `Moved ${project.title} to ${STATUS_LABELS[targetStatus] || targetStatus}`);
+      if (targetStatus === "completed") {
+        addNotification({
+          title: `Project Complete: ${project.title}`,
+          message: `Great job! You finished ${project.title}.`,
+          icon: "🎯",
+          type: "project"
+        });
+      }
       try {
         await persistState();
         render();
-        showToast(`Moved to ${STATUS_LABELS[targetStatus] || targetStatus}.`);
+        showToast(`Moved to ${STATUS_LABELS[targetStatus] || targetStatus}!`);
       } catch (e) {
         console.error(e);
       }
@@ -4934,7 +4987,168 @@ async function handleTemplateSubmit(event) {
   }
 }
 
-/* 🏅 Milestone Badges & Achievements */
+/* 🪟 Panel Minimization & Window Collapsing */
+function isPanelCollapsed(panelId) {
+  try {
+    const list = JSON.parse(localStorage.getItem("workbench-collapsed-panels") || "[]");
+    return Array.isArray(list) && list.includes(panelId);
+  } catch {
+    return false;
+  }
+}
+
+function togglePanelCollapse(panelId) {
+  try {
+    const list = JSON.parse(localStorage.getItem("workbench-collapsed-panels") || "[]");
+    const arr = Array.isArray(list) ? list : [];
+    const idx = arr.indexOf(panelId);
+    if (idx >= 0) {
+      arr.splice(idx, 1);
+    } else {
+      arr.push(panelId);
+    }
+    localStorage.setItem("workbench-collapsed-panels", JSON.stringify(arr));
+    render();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+/* 🔔 In-App Notification Center */
+const NOTIFICATIONS_STORAGE_PREFIX = "workbench_notifications_";
+
+function getNotificationsStorageKey() {
+  const session = getCloudSession();
+  if (session?.user?.id) return `${NOTIFICATIONS_STORAGE_PREFIX}${session.user.id}`;
+  return `${NOTIFICATIONS_STORAGE_PREFIX}local`;
+}
+
+function getStoredNotifications() {
+  try {
+    const raw = localStorage.getItem(getNotificationsStorageKey());
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredNotifications(list) {
+  try {
+    localStorage.setItem(getNotificationsStorageKey(), JSON.stringify(list.slice(0, 60)));
+  } catch {}
+}
+
+function addNotification({ title, message, icon = "🔔", type = "info" }) {
+  const list = getStoredNotifications();
+  const notification = {
+    id: uid(),
+    title,
+    message,
+    icon,
+    type,
+    read: false,
+    at: new Date().toISOString()
+  };
+  list.unshift(notification);
+  saveStoredNotifications(list);
+  renderNotificationBadge();
+  return notification;
+}
+
+function markAllNotificationsRead() {
+  const list = getStoredNotifications().map(n => ({ ...n, read: true }));
+  saveStoredNotifications(list);
+  renderNotificationBadge();
+  renderNotificationList();
+}
+
+function clearAllNotifications() {
+  saveStoredNotifications([]);
+  renderNotificationBadge();
+  renderNotificationList();
+}
+
+function renderNotificationBadge() {
+  const badge = $("#notification-badge");
+  if (!badge) return;
+  const list = getStoredNotifications();
+  const unreadCount = list.filter(n => !n.read).length;
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
+    badge.style.display = "inline-flex";
+  } else {
+    badge.style.display = "none";
+  }
+}
+
+function renderNotificationList() {
+  const listEl = $("#notification-list");
+  if (!listEl) return;
+  const list = getStoredNotifications();
+  if (list.length === 0) {
+    listEl.innerHTML = `
+      <div class="notification-empty">
+        <div class="empty-icon">🔔</div>
+        <h4>No notifications yet</h4>
+        <p>Unlocked milestones, completed projects, and weekly practice goal celebrations will appear here.</p>
+      </div>
+    `;
+    return;
+  }
+  listEl.innerHTML = list.map(n => `
+    <div class="notification-item ${n.read ? "read" : "unread"}" data-id="${n.id}">
+      <div class="notification-item-icon">${n.icon}</div>
+      <div class="notification-item-body">
+        <div class="notification-item-head">
+          <strong class="notification-item-title">${escapeHTML(n.title)}</strong>
+          <span class="notification-item-time">${relativeTime(n.at)}</span>
+        </div>
+        <p class="notification-item-msg">${escapeHTML(n.message)}</p>
+      </div>
+      ${!n.read ? `<span class="notification-dot" title="Unread"></span>` : ""}
+    </div>
+  `).join("");
+}
+
+function openNotificationsModal() {
+  const dialog = $("#notification-dialog");
+  if (!dialog) return;
+  renderNotificationList();
+  dialog.showModal();
+}
+
+const UNLOCKED_BADGES_KEY = "workbench_unlocked_badges";
+function checkNewBadgeUnlocks(achievements) {
+  try {
+    const prev = JSON.parse(localStorage.getItem(UNLOCKED_BADGES_KEY) || "[]");
+    const prevSet = new Set(Array.isArray(prev) ? prev : []);
+    const newlyUnlocked = [];
+
+    achievements.forEach(a => {
+      if (a.unlocked && !prevSet.has(a.id)) {
+        newlyUnlocked.push(a);
+        prevSet.add(a.id);
+      }
+    });
+
+    localStorage.setItem(UNLOCKED_BADGES_KEY, JSON.stringify([...prevSet]));
+
+    // Only notify if this is not the very first load
+    if (newlyUnlocked.length > 0 && prev.length > 0) {
+      newlyUnlocked.forEach(a => {
+        addNotification({
+          title: `Milestone Unlocked: ${a.title}`,
+          message: a.desc,
+          icon: a.icon,
+          type: "badge"
+        });
+        showToast(`🎉 Milestone Unlocked: ${a.title}!`);
+      });
+    }
+  } catch {}
+}
+
+/* 🏅 Milestone Badges & Achievements (22 Badges) */
 function computeAchievements() {
   const totalProjects = state.projects.length;
   const completedProjects = state.projects.filter(p => safeStatus(p.status) === "completed").length;
@@ -4947,6 +5161,33 @@ function computeAchievements() {
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 86400000;
   const recentPractice = (state.practiceLog || []).filter(item => new Date(item.at).getTime() >= sevenDaysAgo).length;
+
+  const allTimestamps = [
+    ...(state.practiceLog || []).map(item => item.at),
+    ...state.projects.flatMap(p => (p.notes || []).map(n => n.at)),
+    ...(state.activity || []).map(a => a.at)
+  ].filter(Boolean);
+
+  const hasNightWork = allTimestamps.some(ts => {
+    const h = new Date(ts).getHours();
+    return h >= 21 || h < 4;
+  });
+
+  const hasEarlyWork = allTimestamps.some(ts => {
+    const h = new Date(ts).getHours();
+    return h >= 5 && h < 8;
+  });
+
+  const maxSingleSession = (state.practiceLog || []).reduce((max, log) => {
+    const match = (log.text || "").match(/·\s*(\d+)m/);
+    const m = match ? parseInt(match[1], 10) : 15;
+    return Math.max(max, m);
+  }, 0);
+
+  const maxSkillXp = (state.skills || []).reduce((max, s) => Math.max(max, s.xp || 0), 0);
+  const hasDetailedChecklist = state.projects.some(p => p.tasks && p.tasks.length >= 5 && p.tasks.every(t => t.done));
+  const projectsWithMaterials = state.projects.filter(p => p.materials && p.materials.length > 0).length;
+  const totalNotes = state.projects.reduce((s, p) => s + (p.notes?.length || 0), 0);
 
   return [
     {
@@ -5020,6 +5261,110 @@ function computeAchievements() {
       desc: "Logged 3 practice sessions in the past 7 days",
       unlocked: recentPractice >= 3,
       progress: `${Math.min(recentPractice, 3)}/3`
+    },
+    {
+      id: "night_owl",
+      title: "Night Owl",
+      icon: "🌙",
+      desc: "Logged project work or journal notes after 9:00 PM",
+      unlocked: hasNightWork,
+      progress: hasNightWork ? "1/1" : "0/1"
+    },
+    {
+      id: "early_bird",
+      title: "Early Bird",
+      icon: "🌅",
+      desc: "Logged workshop practice or notes before 8:00 AM",
+      unlocked: hasEarlyWork,
+      progress: hasEarlyWork ? "1/1" : "0/1"
+    },
+    {
+      id: "marathoner",
+      title: "Marathon Maker",
+      icon: "🏃",
+      desc: "Logged 60+ minutes in a single practice session",
+      unlocked: maxSingleSession >= 60,
+      progress: `${Math.min(maxSingleSession, 60)}/60m`
+    },
+    {
+      id: "skill_specialist",
+      title: "Skill Specialist",
+      icon: "⭐",
+      desc: "Reached Level 3 (100+ XP) in any skill",
+      unlocked: maxSkillXp >= 100,
+      progress: `${Math.min(maxSkillXp, 100)}/100 XP`
+    },
+    {
+      id: "grandmaster",
+      title: "Grandmaster",
+      icon: "🏆",
+      desc: "Reached Level 5 (300+ XP) in any skill",
+      unlocked: maxSkillXp >= 300,
+      progress: `${Math.min(maxSkillXp, 300)}/300 XP`
+    },
+    {
+      id: "polymath",
+      title: "Polymath",
+      icon: "🎨",
+      desc: "Practiced 5 or more distinct skills",
+      unlocked: distinctSkills >= 5,
+      progress: `${Math.min(distinctSkills, 5)}/5`
+    },
+    {
+      id: "prolific",
+      title: "Prolific Maker",
+      icon: "🚀",
+      desc: "Completed 5 or more full projects",
+      unlocked: completedProjects >= 5,
+      progress: `${Math.min(completedProjects, 5)}/5`
+    },
+    {
+      id: "master_photo",
+      title: "Master Photographer",
+      icon: "📸",
+      desc: "Attached 10 or more build photos across projects",
+      unlocked: totalPhotos >= 10,
+      progress: `${Math.min(totalPhotos, 10)}/10`
+    },
+    {
+      id: "detail_oriented",
+      title: "Detail Oriented",
+      icon: "📋",
+      desc: "Completed all steps on a project with 5+ checklist tasks",
+      unlocked: hasDetailedChecklist,
+      progress: hasDetailedChecklist ? "1/1" : "0/1"
+    },
+    {
+      id: "shop_curator",
+      title: "Shop Curator",
+      icon: "🧰",
+      desc: "Cataloged 6 or more tools or materials in inventory",
+      unlocked: inventoryCount >= 6,
+      progress: `${Math.min(inventoryCount, 6)}/6`
+    },
+    {
+      id: "streak_master",
+      title: "Habit of Craft",
+      icon: "🔥",
+      desc: "Logged 5 or more practice sessions in the past 7 days",
+      unlocked: recentPractice >= 5,
+      progress: `${Math.min(recentPractice, 5)}/5`
+    },
+    {
+      id: "bom_master",
+      title: "BOM Master",
+      icon: "🧾",
+      desc: "Tracked materials and budget on 2 or more projects",
+      unlocked: projectsWithMaterials >= 2,
+      progress: `${Math.min(projectsWithMaterials, 2)}/2`
+    },
+    {
+      id: "chronicler",
+      title: "Chronicler",
+      icon: "✍️",
+      desc: "Written 5 or more progress journal notes",
+      unlocked: totalNotes >= 5,
+      progress: `${Math.min(totalNotes, 5)}/5`
     }
   ];
 }
@@ -5027,27 +5372,33 @@ function computeAchievements() {
 function renderAchievements() {
   const achievements = computeAchievements();
   const unlockedCount = achievements.filter(a => a.unlocked).length;
+  const isCollapsed = isPanelCollapsed("achievements");
 
   const markup = `
-    <div class="panel achievements-panel" style="margin-bottom:20px">
-      <div class="panel-heading">
+    <div class="panel achievements-panel ${isCollapsed ? "is-collapsed" : ""}" style="margin-bottom:20px" id="panel-achievements">
+      <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center">
         <div>
           <div class="eyebrow">MAKER JOURNEY</div>
-          <h2>Milestones &amp; Badges (${unlockedCount}/${achievements.length})</h2>
+          <h2>Milestones &amp; Badges (${unlockedCount}/${achievements.length}) ${isCollapsed ? `<span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px">(Minimized)</span>` : ""}</h2>
         </div>
+        <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="achievements" title="${isCollapsed ? "Expand panel" : "Minimize panel"}">
+          ${isCollapsed ? "＋ Expand" : "− Minimize"}
+        </button>
       </div>
-      <div class="achievements-grid">
-        ${achievements.map(a => `
-          <div class="achievement-card ${a.unlocked ? "unlocked" : "locked"}" title="${escapeHTML(a.desc)}">
-            <div class="achievement-icon">${a.icon}</div>
-            <div class="achievement-info">
-              <strong class="achievement-title">${escapeHTML(a.title)}</strong>
-              <p class="achievement-desc">${escapeHTML(a.desc)}</p>
-              <span class="achievement-progress">${a.unlocked ? "✓ Unlocked" : a.progress}</span>
+      ${!isCollapsed ? `
+        <div class="achievements-grid">
+          ${achievements.map(a => `
+            <div class="achievement-card ${a.unlocked ? "unlocked" : "locked"}" title="${escapeHTML(a.desc)}">
+              <div class="achievement-icon">${a.icon}</div>
+              <div class="achievement-info">
+                <strong class="achievement-title">${escapeHTML(a.title)}</strong>
+                <p class="achievement-desc">${escapeHTML(a.desc)}</p>
+                <span class="achievement-progress">${a.unlocked ? "✓ Unlocked" : a.progress}</span>
+              </div>
             </div>
-          </div>
-        `).join("")}
-      </div>
+          `).join("")}
+        </div>
+      ` : ""}
     </div>
   `;
 
@@ -5056,6 +5407,8 @@ function renderAchievements() {
 
   const skillsContainer = $("#skills-achievements");
   if (skillsContainer) skillsContainer.innerHTML = markup;
+
+  checkNewBadgeUnlocks(achievements);
 }
 
 /* 🎯 Weekly Practice Goals */
@@ -5504,6 +5857,23 @@ async function handleAction(action, target) {
   }
   if (action === "open-user-menu") {
     openUserMenuModal();
+    return;
+  }
+  if (action === "open-notifications") {
+    openNotificationsModal();
+    return;
+  }
+  if (action === "mark-notifications-read") {
+    markAllNotificationsRead();
+    return;
+  }
+  if (action === "clear-notifications") {
+    clearAllNotifications();
+    return;
+  }
+  if (action === "toggle-panel-collapse") {
+    const pid = target.dataset.panel;
+    if (pid) togglePanelCollapse(pid);
     return;
   }
   if (action === "auth-forgot-password") {
@@ -6357,7 +6727,7 @@ document.addEventListener("click", event => {
       return;
     }
   }
-  const target = event.target.closest("[data-action], [data-view], .project-card[data-project], .project-row[data-project], .planner-row[data-project]");
+  const target = event.target.closest("[data-action], [data-view], .project-card[data-project], .project-row[data-project], .planner-row[data-project], .kanban-card[data-project]");
   if (!target) return;
   if (target.dataset.view) {
     event.preventDefault();
@@ -6368,7 +6738,9 @@ document.addEventListener("click", event => {
     void handleAction(target.dataset.action, target);
     return;
   }
-  if (target.dataset.project && target.matches(".project-card, .project-row, .planner-row, [role='button']")) {
+  if (isDraggingKanbanCard) return;
+  if (target.dataset.project && target.matches(".project-card, .project-row, .planner-row, .kanban-card, [role='button']")) {
+    if (event.target.closest(".kanban-shift-select, select, button")) return;
     openProjectDetail(target.dataset.project);
     return;
   }
