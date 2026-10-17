@@ -119,7 +119,7 @@ create policy "Users can update own profile" on public.workbench_profiles for up
 drop policy if exists "Users can insert own profile" on public.workbench_profiles;
 create policy "Users can insert own profile" on public.workbench_profiles for insert to authenticated with check (auth.uid() = id);
 
--- 3. Workspace RLS Policies (Owner access + Admin inspection)
+-- 3. Workspace RLS Policies (Owner access, Admin inspection & Collaborative projects)
 drop policy if exists "Users can access their own Workbench workspace" on public.workbench_workspace;
 create policy "Users can access their own Workbench workspace"
   on public.workbench_workspace
@@ -129,11 +129,12 @@ create policy "Users can access their own Workbench workspace"
   with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Admins can view all workspaces" on public.workbench_workspace;
-create policy "Admins can view all workspaces"
+drop policy if exists "Authenticated users can select workspaces" on public.workbench_workspace;
+create policy "Authenticated users can select workspaces"
   on public.workbench_workspace
   for select
   to authenticated
-  using ((select auth.uid()) = user_id or exists (select 1 from public.workbench_profiles where id = auth.uid() and role = 'admin'));
+  using (true);
 
 -- 4. Storage Bucket for Project Photos
 insert into storage.buckets (id, name, public)

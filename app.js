@@ -139,7 +139,8 @@ const CURRENCIES = {
   CAD: { code: "CAD", symbol: "CA$", name: "Canadian Dollar (CA$)", rate: 1.36 },
   AUD: { code: "AUD", symbol: "AU$", name: "Australian Dollar (AU$)", rate: 1.52 },
   JPY: { code: "JPY", symbol: "¥", name: "Japanese Yen (¥)", rate: 155.0 },
-  CHF: { code: "CHF", symbol: "CHF ", name: "Swiss Franc (CHF)", rate: 0.90 }
+  CHF: { code: "CHF", symbol: "CHF ", name: "Swiss Franc (CHF)", rate: 0.90 },
+  ILS: { code: "ILS", symbol: "₪", name: "Israeli Shekel (₪)", rate: 3.70 }
 };
 
 function formatMoney(amount) {
@@ -705,9 +706,39 @@ function projectSkillNames(project) {
   return (project.skillIds || []).map(id => state.skills.find(skill => skill.id === id)).filter(Boolean);
 }
 
+function obfuscateStoredKey(str) {
+  try {
+    if (!str || typeof str !== "string") return "";
+    const encoded = btoa(unescape(encodeURIComponent(str)));
+    return "wbo_" + encoded.split("").reverse().join("");
+  } catch {
+    return str;
+  }
+}
+
+function deobfuscateStoredKey(str) {
+  try {
+    if (!str || typeof str !== "string") return "";
+    if (str.startsWith("wbo_")) {
+      const reversed = str.slice(4).split("").reverse().join("");
+      return decodeURIComponent(escape(atob(reversed)));
+    }
+    return str;
+  } catch {
+    return str;
+  }
+}
+
 function getCloudConfig() {
   try {
-    return JSON.parse(localStorage.getItem(CLOUD_CONFIG_KEY) || "null");
+    const raw = localStorage.getItem(CLOUD_CONFIG_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.url) return null;
+    return {
+      url: parsed.url,
+      key: deobfuscateStoredKey(parsed.key)
+    };
   } catch {
     return null;
   }
@@ -715,9 +746,11 @@ function getCloudConfig() {
 
 function setCloudConfig(config) {
   if (config?.url && config?.key) {
+    const rawKey = deobfuscateStoredKey(config.key.trim());
     const normalized = {
       url: config.url.trim().replace(/\/+$/, ""),
-      key: config.key.trim()
+      key: obfuscateStoredKey(rawKey),
+      updatedAt: Date.now()
     };
     localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(normalized));
   } else if (!config) {
@@ -1022,7 +1055,7 @@ function switchAuthTab(tab) {
     const cfg = getCloudConfig();
     if (cfg) {
       if ($("#auth-cloud-url")) $("#auth-cloud-url").value = cfg.url || "";
-      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = cfg.key || "";
+      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = cfg.key ? "••••••••••••••••" : "";
     }
   }
 }
@@ -1770,10 +1803,15 @@ async function signInWithEmail(email, password) {
     role: session.user.user_metadata?.role || "maker"
   });
 
-  await syncUserProfile(session.user.id);
-  await upsertUserProfile(session.user);
-  await loadUserScopedState();
+  $("#auth-dialog")?.close();
+  updateUserUI();
+  renderCloudConnection();
+  showToast(`Signed in as ${getActiveUser()?.displayName || "Maker"}!`);
+
   try {
+    await syncUserProfile(session.user.id);
+    await upsertUserProfile(session.user);
+    await loadUserScopedState();
     await syncCloudWorkspace("pull");
   } catch (e) {
     console.warn("Initial sync pull notice", e);
@@ -1782,8 +1820,6 @@ async function signInWithEmail(email, password) {
   updateUserUI();
   render();
   renderCloudConnection();
-  $("#auth-dialog")?.close();
-  showToast(`Signed in as ${getActiveUser()?.displayName}!`);
 
   const curUser = getActiveUser();
   const primaryId = getPrimaryAdminId();
@@ -1828,9 +1864,15 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
         role
       });
       ensurePrimaryAdmin(res.user);
-      await upsertUserProfile(res.user);
-      await persistState();
+
+      $("#auth-dialog")?.close();
+      updateUserUI();
+      renderCloudConnection();
+      showToast(`Welcome to Workbench, ${displayName}!`);
+
       try {
+        await upsertUserProfile(res.user);
+        await persistState();
         await storeRemoteWorkspace();
       } catch (e) {
         console.warn("Could not push initial workspace on signup:", e);
@@ -1838,8 +1880,6 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
       updateUserUI();
       render();
       renderCloudConnection();
-      $("#auth-dialog")?.close();
-      showToast(`Welcome to Workbench, ${displayName}!`);
     } else if (res?.id || res?.user?.id) {
       showAuthAlert("Account created! Check your email inbox to verify your account, then sign in. (Tip: Turn off 'Confirm email' in Supabase to skip email verification).", "success");
     } else {
@@ -2034,19 +2074,51 @@ async function cloudRequest(path, options = {}, authenticated = true) {
   return response.status === 204 ? null : response.json();
 }
 
+let activeRefreshPromise = null;
+
 async function ensureCloudSession() {
   const session = getCloudSession();
   if (!session?.access_token) throw new Error("Sign in to your Supabase account first.");
   if (session.expires_at && session.expires_at * 1000 > Date.now() + 60_000) return session;
   if (!session.refresh_token) throw new Error("Your cloud session expired. Sign in again.");
-  const refreshed = await cloudRequest("/auth/v1/token?grant_type=refresh_token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: session.refresh_token })
-  }, false);
-  const nextSession = { ...refreshed, expires_at: refreshed.expires_at || Math.floor(Date.now() / 1000) + refreshed.expires_in };
-  setCloudSession(nextSession);
-  return nextSession;
+
+  if (activeRefreshPromise) {
+    return activeRefreshPromise;
+  }
+
+  activeRefreshPromise = (async () => {
+    try {
+      const refreshed = await cloudRequest("/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: session.refresh_token })
+      }, false);
+      const nextSession = {
+        ...refreshed,
+        expires_at: refreshed.expires_at || Math.floor(Date.now() / 1000) + (refreshed.expires_in || 3600)
+      };
+      setCloudSession(nextSession);
+      return nextSession;
+    } catch (err) {
+      const msg = err.message || "";
+      if (
+        msg.includes("400") ||
+        msg.toLowerCase().includes("invalid refresh token") ||
+        msg.toLowerCase().includes("refresh token not found") ||
+        msg.toLowerCase().includes("token expired")
+      ) {
+        console.warn("Stale refresh token detected. Clearing stale session to avoid error loops.", err);
+        setCloudSession(null);
+        updateUserUI();
+        renderCloudConnection();
+      }
+      throw err;
+    } finally {
+      activeRefreshPromise = null;
+    }
+  })();
+
+  return activeRefreshPromise;
 }
 
 function encodeBase64Url(bytes) {
@@ -2290,21 +2362,25 @@ async function syncCloudWorkspace(choice = "automatic") {
         await storeRemoteWorkspace();
         cloudMessage("Cloud workspace initialized for this account.", "connected");
       }
+      await syncCloudCollaborations().catch(() => {});
       return;
     }
     if (choice === "push") {
       await storeRemoteWorkspace();
+      await syncCloudCollaborations().catch(() => {});
       return;
     }
     if (!remote) {
       await storeRemoteWorkspace();
       cloudMessage("Cloud sync is ready. This browser’s workspace is now backed up.", "connected");
+      await syncCloudCollaborations().catch(() => {});
       return;
     }
     const marker = readSyncMarker(session.user.id);
     if (!hasLocal) {
       await loadRemoteWorkspace(remote);
       cloudMessage("Cloud workspace loaded on this browser.", "connected");
+      await syncCloudCollaborations().catch(() => {});
       return;
     }
     if (!marker) {
@@ -2327,6 +2403,7 @@ async function syncCloudWorkspace(choice = "automatic") {
       writeSyncMarker(session.user.id, remote.updated_at);
       cloudMessage("Everything is up to date.", "connected");
     }
+    await syncCloudCollaborations().catch(() => {});
   } catch (error) {
     console.error("Cloud sync failed.", error);
     cloudMessage(error.message || "Cloud sync failed. Check your connection and setup.", "error");
@@ -2353,7 +2430,7 @@ function renderCloudConnection() {
   indicator.lastChild.textContent = session?.access_token ? " Cloud sync enabled" : " Saved on this device";
   indicator.title = session?.access_token ? "Cloud sync is enabled for this account." : "Data is saved in this browser.";
   $("#cloud-url").value = config?.url || "";
-  $("#cloud-key").value = config?.key || "";
+  $("#cloud-key").value = config?.key ? "••••••••••••••••" : "";
   $("#cloud-config").classList.toggle("hidden", Boolean(session?.access_token));
   $("#cloud-auth-form").classList.toggle("hidden", Boolean(session?.access_token));
   $("#cloud-workspace").classList.toggle("hidden", !session?.access_token);
@@ -2751,11 +2828,17 @@ function renderCalendar() {
     const prevMonthDate = new Date(year, month - 1, dayNum);
     const dateStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
     const dayProjects = projectsByDate.get(dateStr) || [];
+    const prevPractice = practiceByDate.get(dateStr) || [];
     cellsHtml += `
       <div class="calendar-cell is-other-month">
         <div class="calendar-cell-header"><span class="calendar-cell-num">${dayNum}</span></div>
         <div class="calendar-events-list">
           ${dayProjects.map(p => `<div class="calendar-badge calendar-badge-project" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)}">✳ ${escapeHTML(p.title)}</div>`).join("")}
+          ${prevPractice.map(l => `
+            <div class="calendar-badge calendar-badge-practice" data-action="open-activity-detail" data-id="${l.id}" title="${escapeHTML(l.text)}">
+              ⏱ ${escapeHTML(l.text.replace(/^[^+]+/, "") || l.text)}
+            </div>
+          `).join("")}
         </div>
       </div>
     `;
@@ -2783,8 +2866,8 @@ function renderCalendar() {
             `;
           }).join("")}
           ${dayPractice.map(l => `
-            <div class="calendar-badge calendar-badge-practice" title="${escapeHTML(l.text)}">
-              ⏱ ${escapeHTML(l.text.replace(/^[^+]+/, ""))}
+            <div class="calendar-badge calendar-badge-practice" data-action="open-activity-detail" data-id="${l.id}" title="${escapeHTML(l.text)}">
+              ⏱ ${escapeHTML(l.text.replace(/^[^+]+/, "") || l.text)}
             </div>
           `).join("")}
         </div>
@@ -2798,11 +2881,17 @@ function renderCalendar() {
     const nextMonthDate = new Date(year, month + 1, nextDay);
     const dateStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-${String(nextDay).padStart(2, "0")}`;
     const dayProjects = projectsByDate.get(dateStr) || [];
+    const nextPractice = practiceByDate.get(dateStr) || [];
     cellsHtml += `
       <div class="calendar-cell is-other-month">
         <div class="calendar-cell-header"><span class="calendar-cell-num">${nextDay}</span></div>
         <div class="calendar-events-list">
           ${dayProjects.map(p => `<div class="calendar-badge calendar-badge-project" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)}">✳ ${escapeHTML(p.title)}</div>`).join("")}
+          ${nextPractice.map(l => `
+            <div class="calendar-badge calendar-badge-practice" data-action="open-activity-detail" data-id="${l.id}" title="${escapeHTML(l.text)}">
+              ⏱ ${escapeHTML(l.text.replace(/^[^+]+/, "") || l.text)}
+            </div>
+          `).join("")}
         </div>
       </div>
     `;
@@ -2951,10 +3040,10 @@ function renderProjectDetail(projectId) {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <h2>${escapeHTML(project.title)}</h2>
             <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
+            <button type="button" class="button button-small prominent-team-btn" data-action="open-collaborators-dialog" data-id="${project.id}" title="Manage co-creators & project team members">👥 Project Team (${(project.coCreators || []).length + 1})</button>
             <button type="button" class="small-action" data-action="open-time-dialog" data-id="${project.id}" title="Log time on this project">⏱ Log time</button>
             <button type="button" class="small-action" data-action="open-timer" data-project="${project.id}" title="Start focused practice timer for this project">⏱ Timer</button>
             <button type="button" class="small-action" data-action="open-showcase" data-id="${project.id}" title="Shareable project showcase & build story">🌟 Showcase</button>
-            <button type="button" class="small-action" data-action="open-collaborators-dialog" data-id="${project.id}" title="Manage co-creators & transfer creator ownership">👥 Team (${(project.coCreators || []).length + 1})</button>
             <button type="button" class="small-action" data-action="open-project-pricing" data-id="${project.id}" title="Labor cost & selling price calculator">🏷️ Price & Profit</button>
             <button type="button" class="small-action" data-action="open-project-blueprint" data-id="${project.id}" title="2D Blueprint & dimensioned sketchpad">📐 Blueprint</button>
             <button type="button" class="small-action" data-action="open-project-qr" data-id="${project.id}" title="Workshop QR bin label">🏷️ QR Label</button>
@@ -2968,6 +3057,22 @@ function renderProjectDetail(projectId) {
             Updated ${relativeTime(project.updatedAt)}${project.targetDate ? ` · Target ${formatDate(project.targetDate)}` : ""}${project.timeSpent ? ` · ⏱ ${formatMinutes(project.timeSpent)} invested` : ""}
             ${isCollab ? ` · <span class="collab-badge">👥 👑 ${escapeHTML(project.creator?.name || "Creator")} + ${(project.coCreators || []).map(c => escapeHTML(c.name || c.email)).join(", ")}</span>` : ""}
             ${project.lastStatusChange ? ` · <span style="color:var(--muted)">Status changed by ${escapeHTML(project.lastStatusChange.by)}</span>` : ""}
+          </div>
+          <div class="collab-team-banner" style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;margin:10px 0 4px" data-action="open-collaborators-dialog" data-id="${project.id}">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0">
+              <div style="font-size:20px;flex-shrink:0">👥</div>
+              <div style="min-width:0">
+                <div style="font-weight:600;font-size:13px;color:var(--ink)">
+                  Project Team · 👑 ${escapeHTML(project.creator?.name || "Creator")} ${isCollab ? `+ ${(project.coCreators || []).map(c => escapeHTML(c.name || c.email)).join(", ")}` : `<span style="font-weight:normal;color:var(--muted)">(Solo project)</span>`}
+                </div>
+                <div style="font-size:11px;color:var(--muted)">
+                  ${isCollab ? `${(project.coCreators || []).length + 1} collaborators sharing this project · Click to manage` : `Invite a co-creator to collaborate on this project in real-time`}
+                </div>
+              </div>
+            </div>
+            <button type="button" class="button button-outline button-small" data-action="open-collaborators-dialog" data-id="${project.id}" style="flex-shrink:0">
+              ${isCollab ? `👥 Manage Team (${(project.coCreators || []).length + 1})` : `＋ Add Co-Creator`}
+            </button>
           </div>
         </div>
       </div>
@@ -4819,16 +4924,16 @@ async function checkInviteOrSetupLink() {
     key = key.trim();
 
     try {
+      const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+      history.replaceState(null, "", cleanUrl);
+
       const previous = getCloudConfig();
       if (previous?.url !== url || previous?.key !== key) setCloudSession(null);
       setCloudConfig({ url, key });
       if ($("#cloud-url")) $("#cloud-url").value = url;
-      if ($("#cloud-key")) $("#cloud-key").value = key;
+      if ($("#cloud-key")) $("#cloud-key").value = "••••••••••••••••";
       if ($("#auth-cloud-url")) $("#auth-cloud-url").value = url;
-      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = key;
-
-      const cleanUrl = `${window.location.origin}${window.location.pathname}`;
-      history.replaceState(null, "", cleanUrl);
+      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = "••••••••••••••••";
 
       renderCloudConnection();
       showToast("Connected to shop cloud database! 🚀");
@@ -6784,6 +6889,25 @@ async function adminToggleUserRole(userId, currentRole) {
 
 async function handleAction(action, target) {
   const id = target.dataset.id;
+  if (action === "open-activity-detail") {
+    openActivityDetail(id || target.dataset.id);
+    return;
+  }
+  if (adminInspectionActive) {
+    const blockedActions = [
+      "new-project", "edit-project", "delete-project", "archive-project", "save-project",
+      "new-skill", "edit-skill", "delete-skill", "delete-xp",
+      "toggle-task", "delete-task", "move-task-up", "move-task-down", "edit-task",
+      "dictate-task", "add-task", "pick-from-inventory", "add-material",
+      "delete-material", "add-journal", "delete-journal",
+      "add-co-creator", "remove-co-creator", "toggle-co-creator-role", "pass-creator-status",
+      "save-inventory", "delete-inventory", "save-maintenance", "delete-maintenance"
+    ];
+    if (blockedActions.includes(action)) {
+      showToast("🔒 Read-Only Inspection: Modifying another user's workbench is disabled.", "warning");
+      return;
+    }
+  }
   if (action === "open-auth-modal") {
     openAuthModal(target.dataset.tab || "signin");
     return;
@@ -7451,13 +7575,16 @@ async function handleAction(action, target) {
     const keyInput = $("#cloud-key");
     let url = (urlInput?.value || "").trim();
     let key = (keyInput?.value || "").trim();
+    if (key === "••••••••••••••••") {
+      key = getCloudConfig()?.key || "";
+    }
     if (url && !key) {
       const creds = await parseInputOrToken(url);
       if (creds?.url && creds?.key) {
         url = creds.url;
         key = creds.key;
         if (urlInput) urlInput.value = url;
-        if (keyInput) keyInput.value = key;
+        if (keyInput) keyInput.value = "••••••••••••••••";
       }
     }
     if (!url || !key) {
@@ -7474,7 +7601,8 @@ async function handleAction(action, target) {
       if (previous?.url !== url || previous?.key !== key) setCloudSession(null);
       setCloudConfig({ url, key });
       if ($("#auth-cloud-url")) $("#auth-cloud-url").value = url;
-      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = key;
+      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = "••••••••••••••••";
+      if (keyInput) keyInput.value = "••••••••••••••••";
       cloudMessage("Connection saved. Sign in or create an account to sync.", "info");
       renderCloudConnection();
       showToast("Cloud connection saved on this browser.");
@@ -8177,6 +8305,9 @@ $("#auth-config-form")?.addEventListener("submit", async event => {
   event.preventDefault();
   let url = $("#auth-cloud-url")?.value?.trim() || "";
   let key = $("#auth-cloud-key")?.value?.trim() || "";
+  if (key === "••••••••••••••••") {
+    key = getCloudConfig()?.key || "";
+  }
 
   if (url && !key) {
     const creds = await parseInputOrToken(url);
@@ -8184,7 +8315,7 @@ $("#auth-config-form")?.addEventListener("submit", async event => {
       url = creds.url;
       key = creds.key;
       if ($("#auth-cloud-url")) $("#auth-cloud-url").value = url;
-      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = key;
+      if ($("#auth-cloud-key")) $("#auth-cloud-key").value = "••••••••••••••••";
     }
   }
 
@@ -8201,7 +8332,8 @@ $("#auth-config-form")?.addEventListener("submit", async event => {
     if (previous?.url !== url || previous?.key !== key) setCloudSession(null);
     setCloudConfig({ url, key });
     if ($("#cloud-url")) $("#cloud-url").value = url;
-    if ($("#cloud-key")) $("#cloud-key").value = key;
+    if ($("#cloud-key")) $("#cloud-key").value = "••••••••••••••••";
+    if ($("#auth-cloud-key")) $("#auth-cloud-key").value = "••••••••••••••••";
     renderCloudConnection();
     showAuthAlert("✓ Supabase connection saved! You can now create your account or sign in.", "success");
     showToast("Supabase connection saved!");
@@ -10162,6 +10294,171 @@ function isCollaborativeProject(project) {
   return Boolean(project && Array.isArray(project.coCreators) && project.coCreators.length > 0);
 }
 
+function isUserCollaborator(project, user = null) {
+  if (!project) return false;
+  ensureProjectCreator(project);
+  const curUser = user || getActiveUser();
+  if (!curUser) return false;
+  const uId = curUser.id;
+  const uEmail = (curUser.email || "").toLowerCase().trim();
+
+  const isCreator = (project.creator?.id && project.creator.id === uId) ||
+                    (uEmail && project.creator?.email && project.creator.email.toLowerCase().trim() === uEmail);
+  const isCoCreator = Array.isArray(project.coCreators) && project.coCreators.some(c =>
+    (c.id && c.id === uId) ||
+    (uEmail && c.email && c.email.toLowerCase().trim() === uEmail)
+  );
+  return Boolean(isCreator || isCoCreator || curUser.isAdmin);
+}
+
+async function syncCloudCollaborations() {
+  const session = getCloudSession();
+  const curUser = getActiveUser();
+  if (!session?.access_token || !curUser || adminInspectionActive) return;
+
+  try {
+    const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`).catch(() => []);
+    if (!Array.isArray(rows) || rows.length === 0) return;
+
+    let hasChanges = false;
+    const myId = curUser.id;
+    const myEmail = (curUser.email || "").toLowerCase().trim();
+
+    for (const row of rows) {
+      if (row.user_id === myId) continue;
+      const remoteProjects = Array.isArray(row.data?.projects) ? row.data.projects : [];
+
+      for (const rp of remoteProjects) {
+        if (!rp || !rp.id) continue;
+        ensureProjectCreator(rp);
+
+        const isCreator = (rp.creator?.id && rp.creator.id === myId) ||
+                          (myEmail && rp.creator?.email && rp.creator.email.toLowerCase().trim() === myEmail);
+        const isCoCreator = Array.isArray(rp.coCreators) && rp.coCreators.some(c =>
+          (c.id && c.id === myId) ||
+          (myEmail && c.email && c.email.toLowerCase().trim() === myEmail)
+        );
+
+        if (!isCreator && !isCoCreator && !curUser.isAdmin) continue;
+
+        const existingIdx = state.projects.findIndex(p => p.id === rp.id);
+        if (existingIdx === -1) {
+          state.projects.unshift(rp);
+          hasChanges = true;
+        } else {
+          const existing = state.projects[existingIdx];
+          const remoteTime = new Date(rp.updatedAt || 0).getTime();
+          const localTime = new Date(existing.updatedAt || 0).getTime();
+          if (remoteTime > localTime) {
+            state.projects[existingIdx] = rp;
+            hasChanges = true;
+          }
+        }
+      }
+    }
+
+    if (hasChanges) {
+      syncSharedCollaborations();
+      await persistState({ syncCloud: false });
+      render();
+      if (activeProjectId && $("#detail-dialog")?.open) {
+        renderProjectDetail(activeProjectId);
+      }
+    }
+  } catch (err) {
+    console.warn("Could not sync cloud collaborations:", err);
+  }
+}
+
+function openActivityDetail(activityId) {
+  if (!activityId) return;
+  const item = (state.practiceLog || []).find(l => l.id === activityId) ||
+               (state.activity || []).find(a => a.id === activityId);
+  if (!item) return;
+
+  const dialog = $("#activity-detail-dialog");
+  const titleEl = $("#activity-detail-title");
+  const bodyEl = $("#activity-detail-body");
+  const deleteBtn = $("#delete-activity-detail-btn");
+  if (!dialog || !bodyEl) return;
+
+  const isXp = item.kind === "xp" || item.xp;
+  if (titleEl) {
+    titleEl.textContent = isXp ? "Practice / XP Session" : "Activity Details";
+  }
+
+  const dateFormatted = item.at ? new Date(item.at).toLocaleString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }) : "Recent session";
+
+  const skill = item.skillId ? (state.skills || []).find(s => s.id === item.skillId) : null;
+  const project = item.projectId ? (state.projects || []).find(p => p.id === item.projectId) : null;
+
+  bodyEl.innerHTML = `
+    <div style="background:var(--surface-hover);padding:14px;border-radius:8px;border-left:4px solid var(--accent)">
+      <div style="font-size:15px;font-weight:600;color:var(--ink);line-height:1.4">
+        ${escapeHTML(item.text)}
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:6px">
+        <span>🕒</span>
+        <span>${dateFormatted}</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px">
+      <div class="stat-card" style="padding:10px 14px">
+        <div style="font-size:11px;text-transform:uppercase;color:var(--muted)">Activity Type</div>
+        <div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:2px">${isXp ? "⚡ Skill Practice" : "📝 Project Log"}</div>
+      </div>
+      ${item.xp ? `
+        <div class="stat-card" style="padding:10px 14px">
+          <div style="font-size:11px;text-transform:uppercase;color:var(--muted)">XP Gained</div>
+          <div style="font-size:14px;font-weight:700;color:var(--accent);margin-top:2px">+${item.xp} XP</div>
+        </div>
+      ` : ""}
+      ${skill ? `
+        <div class="stat-card" style="padding:10px 14px">
+          <div style="font-size:11px;text-transform:uppercase;color:var(--muted)">Related Skill</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:2px">${escapeHTML(skill.name)} (Lvl ${skillLevel(skill.xp)})</div>
+        </div>
+      ` : ""}
+      ${project ? `
+        <div class="stat-card" style="padding:10px 14px">
+          <div style="font-size:11px;text-transform:uppercase;color:var(--muted)">Project</div>
+          <div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:2px">${escapeHTML(project.title)}</div>
+        </div>
+      ` : ""}
+    </div>
+  `;
+
+  if (deleteBtn) {
+    deleteBtn.classList.remove("hidden");
+    deleteBtn.onclick = async () => {
+      if (adminInspectionActive) {
+        showToast("Inspection mode: edits disabled.", "warning");
+        return;
+      }
+      if (!confirm("Are you sure you want to remove this practice log entry?")) return;
+      state.practiceLog = (state.practiceLog || []).filter(l => l.id !== item.id);
+      state.activity = (state.activity || []).filter(a => a.id !== item.id);
+      if (item.xp && skill) {
+        skill.xp = Math.max(0, (skill.xp || 0) - item.xp);
+      }
+      await persistState();
+      dialog.close();
+      render();
+      showToast("Practice session removed.");
+    };
+  }
+
+  dialog.showModal();
+}
+
 function getSharedCollaborations() {
   try {
     const raw = localStorage.getItem(SHARED_COLLAB_STORAGE_KEY);
@@ -10273,13 +10570,15 @@ async function renderCollaboratorsDialog(project) {
     <div>
       <h3 style="font-size:13px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:10px 0 6px 0">Project Creator (Immutable)</h3>
       <div class="collab-member-card">
-        <div class="collab-avatar">👑</div>
-        <div class="collab-member-info">
-          <div style="display:flex;align-items:center;gap:6px">
-            <span class="collab-member-name">${escapeHTML(project.creator?.name || "Project Creator")}</span>
-            <span class="collab-creator-badge">👑 Primary Creator</span>
+        <div class="collab-member-main">
+          <div class="collab-avatar">👑</div>
+          <div class="collab-member-info">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="collab-member-name">${escapeHTML(project.creator?.name || "Project Creator")}</span>
+              <span class="collab-creator-badge">👑 Primary Creator</span>
+            </div>
+            <span class="collab-member-email">${escapeHTML(project.creator?.email || "Lead owner")}</span>
           </div>
-          <span class="collab-member-email">${escapeHTML(project.creator?.email || "Lead owner")}</span>
         </div>
         <div class="collab-member-actions">
           <span style="font-size:11px;color:var(--muted);font-weight:600">Immutable Owner</span>
@@ -10303,13 +10602,15 @@ async function renderCollaboratorsDialog(project) {
         <div style="display:flex;flex-direction:column;gap:8px">
           ${coCreators.map(c => `
             <div class="collab-member-card">
-              <div class="collab-avatar">${(c.name || c.email || "M").slice(0, 1).toUpperCase()}</div>
-              <div class="collab-member-info">
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span class="collab-member-name">${escapeHTML(c.name || c.email)}</span>
-                  <span class="collab-badge">${escapeHTML(c.role || "Editor")}</span>
+              <div class="collab-member-main">
+                <div class="collab-avatar">${(c.name || c.email || "M").slice(0, 1).toUpperCase()}</div>
+                <div class="collab-member-info">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span class="collab-member-name">${escapeHTML(c.name || c.email)}</span>
+                    <span class="collab-badge">${escapeHTML(c.role || "Editor")}</span>
+                  </div>
+                  <span class="collab-member-email">${escapeHTML(c.email || "Co-creator")}</span>
                 </div>
-                <span class="collab-member-email">${escapeHTML(c.email || "Co-creator")}</span>
               </div>
               <div class="collab-member-actions">
                 ${canManage ? `
@@ -10327,19 +10628,19 @@ async function renderCollaboratorsDialog(project) {
     </div>
 
     ${canManage ? `
-      <div style="margin-top:12px;padding-top:14px;border-top:1px solid var(--line)">
-        <h3 style="font-size:13px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:0 0 8px 0">Add Co-Creator</h3>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input type="text" id="new-collab-input" placeholder="Maker name or email (e.g. sarah@maker.org)" style="flex:2;min-width:180px">
-          <select id="new-collab-role" style="flex:1;min-width:110px">
+      <div class="add-collab-box">
+        <h3 style="font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:0 0 10px 0;font-weight:700">Add Co-Creator to Team</h3>
+        <div class="add-collab-row">
+          <input type="text" id="new-collab-input" class="add-collab-input" placeholder="Maker name or email (e.g. sarah@maker.org)">
+          <select id="new-collab-role" class="add-collab-select">
             <option value="Editor">Editor</option>
             <option value="Viewer">Viewer</option>
             <option value="Contributor">Contributor</option>
           </select>
-          <button type="button" class="button button-primary button-small" data-action="add-co-creator" data-project="${project.id}">＋ Add</button>
+          <button type="button" class="button button-primary button-small add-collab-btn" data-action="add-co-creator" data-project="${project.id}">＋ Add</button>
         </div>
         ${knownMakers.length > 0 ? `
-          <div style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
+          <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
             <span>Quick add known makers:</span>
             ${knownMakers.slice(0, 4).map(m => `
               <button type="button" class="mini-tag clickable" data-action="quick-add-collab" data-project="${project.id}" data-name="${escapeHTML(m.displayName || m.email)}" data-email="${escapeHTML(m.email || "")}" data-id="${escapeHTML(m.id)}">＋ ${escapeHTML(m.displayName || m.email)}</button>

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f3ed">
     <title>Workbench — your project journal</title>
-    <link rel="stylesheet" href="styles.css?v=2.7.0">
+    <link rel="stylesheet" href="styles.css?v=2.8.0">
     <link rel="manifest" href="manifest.json">
     <script>
       (function(){
@@ -23,7 +23,7 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="app.js?v=2.7.0" defer></script>
+    <script src="app.js?v=2.8.0" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -214,8 +214,8 @@
               </div>
               <p class="sync-explainer">Your data syncs between browsers after you connect each one to the same Supabase project and sign in to the same account. Your database and private photo bucket are owned by you.</p>
               <div class="cloud-config" id="cloud-config">
-                <label class="field-label">Project URL<input id="cloud-url" type="text" placeholder="https://your-project.supabase.co" autocomplete="url"></label>
-                <label class="field-label">Publishable / anon key<input id="cloud-key" type="password" placeholder="sb_publishable_… or anon key" autocomplete="off"></label>
+                <label class="field-label">Project URL<input id="cloud-url" type="text" placeholder="https://your-project.supabase.co" autocomplete="off" data-lpignore="true"></label>
+                <label class="field-label">Publishable / anon key<input id="cloud-key" type="text" class="masked-key-input" placeholder="sb_publishable_… or anon key" autocomplete="off" data-lpignore="true" data-1p-ignore="true"></label>
                 <div class="sync-actions"><button class="button button-outline" data-action="save-cloud-config">Save connection</button><button type="button" class="button button-outline" data-action="copy-invite-link">🔒 Copy Encrypted Invite Link</button><a class="text-button" href="README.md#private-cloud-sync-setup" target="_blank" rel="noreferrer">Setup guide ↗</a></div>
               </div>
               <div id="cloud-auth-form" class="cloud-auth-form">
@@ -987,13 +987,13 @@
       </form>
 
       <!-- Supabase Connection Config Panel -->
-      <form id="auth-config-form" class="auth-form-panel" novalidate style="display:none">
+      <form id="auth-config-form" class="auth-form-panel" novalidate style="display:none" autocomplete="off" data-lpignore="true">
         <p class="form-hint" style="margin-bottom:12px">Point Workbench to your Supabase project so all your devices connect to the same cloud database.</p>
         <label class="field-label">Supabase Project URL
-          <input type="text" id="auth-cloud-url" placeholder="https://your-project.supabase.co" autocomplete="url">
+          <input type="text" id="auth-cloud-url" placeholder="https://your-project.supabase.co" autocomplete="off" data-lpignore="true">
         </label>
         <label class="field-label">Publishable / Anon API Key
-          <input type="password" id="auth-cloud-key" placeholder="sb_publishable_... or anon key" autocomplete="off">
+          <input type="text" id="auth-cloud-key" class="masked-key-input" placeholder="sb_publishable_... or anon key" autocomplete="off" data-lpignore="true" data-1p-ignore="true">
         </label>
         <div class="dialog-actions">
           <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
@@ -1367,6 +1367,7 @@
               <option value="AUD">AUD (AU$) — Australian Dollar</option>
               <option value="JPY">JPY (¥) — Japanese Yen</option>
               <option value="CHF">CHF (CHF) — Swiss Franc</option>
+              <option value="ILS">ILS (₪) — Israeli Shekel</option>
             </select>
           </label>
         </div>
@@ -1409,6 +1410,22 @@
       </div>
       <div id="collaborators-dialog-body" style="padding:10px 0;display:flex;flex-direction:column;gap:14px"></div>
       <div class="dialog-actions" style="margin-top:14px">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+    </dialog>
+
+    <!-- 📋 Activity & Practice Session Detail Dialog -->
+    <dialog class="app-dialog compact-dialog" id="activity-detail-dialog" aria-label="Activity details">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">WORKBENCH ACTIVITY</div>
+          <h2 id="activity-detail-title">Activity Details</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div id="activity-detail-body" style="padding:10px 0;display:flex;flex-direction:column;gap:12px"></div>
+      <div class="dialog-actions" style="margin-top:14px">
+        <button type="button" class="danger-button hidden" id="delete-activity-detail-btn">Delete Session</button>
         <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
       </div>
     </dialog>
