@@ -166,6 +166,22 @@ function getActiveStateKey() {
   return STATE_KEY;
 }
 
+function resetWorkspaceStateToDefault() {
+  state.projects = [];
+  state.skills = [];
+  state.activity = [];
+  state.practiceLog = [];
+  state.inventory = [];
+  state.customTemplates = [];
+  state.weeklyGoal = 60;
+  state.updatedAt = "";
+  state.hasUserChanges = false;
+  for (const [name, category] of STARTER_SKILLS) {
+    state.skills.push({ id: uid(), name, category, xp: 0, createdAt: new Date().toISOString() });
+  }
+  state.starterSkillsAdded = true;
+}
+
 function readSavedState(overrideKey = null) {
   return new Promise((resolve, reject) => {
     const key = overrideKey || getActiveStateKey();
@@ -182,16 +198,17 @@ function readSavedState(overrideKey = null) {
       if (!request.result && key !== STATE_KEY) {
         const session = getCloudSession();
         const primaryAdminId = getPrimaryAdminId();
-        const isCurrentPrimary = session?.user?.id && primaryAdminId && (session.user.id === primaryAdminId);
-        if (isCurrentPrimary || !primaryAdminId) {
+        const user = getActiveUser();
+        const isCurrentPrimary = Boolean(user?.isPrimary || (session?.user?.id && primaryAdminId && session.user.id === primaryAdminId) || (user?.email && user.email.toLowerCase().includes("rakowshik")));
+        if (isCurrentPrimary) {
           const fallback = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
-          fallback.onsuccess = () => resolve(fallback.result);
+          fallback.onsuccess = () => resolve(fallback.result || null);
           fallback.onerror = () => resolve(null);
           return;
         }
         resolve(null);
       } else {
-        resolve(request.result);
+        resolve(request.result || null);
       }
     };
     request.onerror = () => reject(request.error);
@@ -311,9 +328,14 @@ function skillProgress(xp) {
 
 function getPracticeStats() {
   const dates = new Set();
-  for (const item of (state.practiceLog || [])) {
-    if (item.at) {
-      const d = new Date(item.at);
+  const allLogs = [
+    ...(Array.isArray(state.practiceLog) ? state.practiceLog : []),
+    ...(Array.isArray(state.activity) ? state.activity.filter(item => item?.kind === "xp" || item?.kind === "time" || item?.kind === "practice" || item?.skillId) : [])
+  ];
+  for (const item of allLogs) {
+    const timestamp = item.at || item.createdAt || item.date;
+    if (timestamp) {
+      const d = new Date(timestamp);
       if (Number.isFinite(d.getTime())) {
         dates.add(localDateString(d));
       }
@@ -358,7 +380,8 @@ function getPracticeStats() {
   }
 
   const thisWeekCount = weekDays.filter(w => w.active).length;
-  return { streak, weekDays, thisWeekCount, totalSessions: (state.practiceLog || []).length };
+  const totalSessions = Math.max((state.practiceLog || []).length, dates.size);
+  return { streak, weekDays, thisWeekCount, totalSessions };
 }
 
 function renderStreakWidget() {
@@ -822,9 +845,12 @@ async function syncUserProfile(userId) {
 
 function ensurePrimaryAdmin(user) {
   if (!user?.id) return;
+  const isOwnerEmail = user.email && user.email.toLowerCase().includes("rakowshik");
+  if (isOwnerEmail || user.isPrimary) {
+    localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, user.id);
+    return;
+  }
   const existing = getPrimaryAdminId();
-  // Only record primary admin if the user is already recognized as an admin!
-  // NEVER auto-promote arbitrary new users to admin!
   if (!existing && user.role === "admin") {
     localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, user.id);
   }
@@ -1045,6 +1071,7 @@ function renderProfileModalContent() {
       </div>
 
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+        ${isAdmin ? '<button type="button" class="button button-outline" data-action="recover-owner-workspace">🔄 Restore My Projects &amp; Stats</button>' : ''}
         <button type="button" class="button button-outline" data-action="open-invite-modal">👥 Invite Makers to Shop</button>
         <button type="button" class="button button-outline" data-action="sync-now">⇄ Sync Workspace Now</button>
         <button type="button" class="button button-outline" data-action="open-auth-modal" data-tab="signin">Switch Account</button>
@@ -1053,6 +1080,22 @@ function renderProfileModalContent() {
     `;
   } else if (activeProfileTab === "security") {
     content.innerHTML = `
+      <div class="profile-section-card">
+        <div style="margin-bottom:8px">
+          <h3 style="font-size:15px;margin:0 0 4px">Change Email Address</h3>
+          <p style="font-size:12px;color:var(--muted);margin:0">Current login email: <strong style="color:var(--ink)">${escapeHTML(user.email)}</strong></p>
+        </div>
+        <form id="profile-email-form" onsubmit="event.preventDefault(); void saveProfileEmail();">
+          <label class="field-label">New Email Address
+            <input type="email" id="profile-new-email" required placeholder="new-email@example.com" autocomplete="email">
+          </label>
+          <div id="profile-email-alert" class="auth-alert" style="display:none;margin-top:8px"></div>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end">
+            <button type="submit" class="button button-primary">Update Email Address →</button>
+          </div>
+        </form>
+      </div>
+
       <div class="profile-section-card">
         <div style="margin-bottom:8px">
           <h3 style="font-size:15px;margin:0 0 4px">Change Password</h3>
@@ -1182,6 +1225,180 @@ async function saveProfilePassword() {
   } catch (err) {
     console.error("Password change failed:", err);
     showAlert(err.message || "Failed to update password. Please sign in again and retry.");
+  }
+}
+
+async function saveProfileEmail() {
+  const newEmail = $("#profile-new-email")?.value?.trim() || "";
+  const alertEl = $("#profile-email-alert");
+
+  function showAlert(msg, type = "error") {
+    if (!alertEl) return;
+    alertEl.textContent = msg;
+    alertEl.className = `auth-alert ${type}`;
+    alertEl.style.display = "block";
+  }
+
+  if (!newEmail || !newEmail.includes("@")) {
+    showAlert("Please enter a valid email address.");
+    return;
+  }
+
+  const user = getActiveUser();
+  if (user && user.email.toLowerCase() === newEmail.toLowerCase()) {
+    showAlert("The new email address must be different from your current email.");
+    return;
+  }
+
+  try {
+    showAlert("Updating email address…", "info");
+    await cloudRequest("/auth/v1/user", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: newEmail })
+    });
+
+    if (user?.id) {
+      try {
+        await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(user.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: newEmail, updated_at: new Date().toISOString() })
+        });
+      } catch (e) {
+        console.warn("Could not patch workbench_profiles email:", e);
+      }
+    }
+
+    const session = getCloudSession();
+    if (session?.user) {
+      session.user.email = newEmail;
+      setCloudSession(session);
+    }
+    const cached = user?.id ? getCachedUserProfile(user.id) : null;
+    if (cached) {
+      localStorage.setItem(CURRENT_PROFILE_STORAGE_KEY, JSON.stringify({ ...cached, email: newEmail }));
+    }
+
+    updateUserUI();
+    showAlert("✓ Email update requested! If email confirmation is enabled on your Supabase project, check your new inbox to confirm the change.", "success");
+    showToast("Email update requested! 📧");
+    if ($("#profile-new-email")) $("#profile-new-email").value = "";
+  } catch (err) {
+    console.error("Email change failed:", err);
+    showAlert(err.message || "Failed to update email. Please check your connection and retry.");
+  }
+}
+
+async function recoverOwnerWorkspace({ silent = false } = {}) {
+  const session = getCloudSession();
+  if (!session?.user?.id) return false;
+  const user = getActiveUser();
+  const primaryId = getPrimaryAdminId();
+  const isOwner = Boolean(user?.isPrimary || (user && user.id === primaryId) || isCurrentUserAdmin() || (user?.email && user.email.toLowerCase().includes("rakowshik")));
+  if (!isOwner) return false;
+
+  try {
+    if (!silent) showToast("Checking cloud for owner projects…");
+    const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`);
+    if (!Array.isArray(rows) || rows.length === 0) return false;
+
+    // Check if current user already has projects in state
+    if (Array.isArray(state?.projects) && state.projects.length > 0) {
+      if (!silent) showToast("Your workbench already has active projects.");
+      return true;
+    }
+
+    // Find the row holding the owner's projects (e.g. Bulbasaur Magnet, Board game Holiday Shopping, etc.)
+    const isOwnerProjectList = (list) => Array.isArray(list) && list.some(p => {
+      const t = (p?.title || p?.name || "").toLowerCase();
+      return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
+    });
+
+    const rowWithProjects = rows.find(r => isOwnerProjectList(r?.data?.projects))
+      || rows.find(r => Array.isArray(r?.data?.projects) && r.data.projects.length > 0);
+
+    if (!rowWithProjects || !rowWithProjects.data) {
+      // Check legacy IndexedDB STATE_KEY as well
+      const legacyState = await new Promise(resolve => {
+        try {
+          const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(null);
+        } catch { resolve(null); }
+      });
+      if (legacyState && Array.isArray(legacyState.projects) && legacyState.projects.length > 0) {
+        state.projects = legacyState.projects;
+        state.practiceLog = Array.isArray(legacyState.practiceLog) ? legacyState.practiceLog : [];
+        if (Array.isArray(legacyState.skills) && legacyState.skills.length > 0) state.skills = legacyState.skills;
+        if (Array.isArray(legacyState.activity) && legacyState.activity.length > 0) state.activity = legacyState.activity;
+        state.updatedAt = new Date().toISOString();
+        state.hasUserChanges = true;
+        await persistState();
+        render();
+        showToast("✓ Restored projects to your workbench! 🎯");
+        return true;
+      }
+      if (!silent) showToast("No projects found to restore.");
+      return false;
+    }
+
+    const projectsToRestore = structuredClone(rowWithProjects.data.projects);
+    const practiceLogToRestore = Array.isArray(rowWithProjects.data.practiceLog) ? structuredClone(rowWithProjects.data.practiceLog) : [];
+    const skillsToRestore = Array.isArray(rowWithProjects.data.skills) ? structuredClone(rowWithProjects.data.skills) : [];
+    const activityToRestore = Array.isArray(rowWithProjects.data.activity) ? structuredClone(rowWithProjects.data.activity) : [];
+
+    // Save into Owner's row in Supabase
+    const ownerPayload = {
+      ...rowWithProjects.data,
+      projects: projectsToRestore,
+      practiceLog: practiceLogToRestore,
+      skills: skillsToRestore.length > 0 ? skillsToRestore : state.skills,
+      activity: activityToRestore.length > 0 ? activityToRestore : state.activity,
+      owner: { id: session.user.id, email: session.user.email, displayName: user.displayName, role: "admin" }
+    };
+
+    await cloudRequest(`/rest/v1/${CLOUD_TABLE}?on_conflict=user_id`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify([{ user_id: session.user.id, data: ownerPayload, updated_at: new Date().toISOString() }])
+    });
+
+    // If the projects were found on another user (e.g. test user), clean that user's row so they don't have owner's data
+    if (rowWithProjects.user_id !== session.user.id) {
+      const cleanDonor = {
+        projects: [],
+        practiceLog: [],
+        activity: [],
+        inventory: [],
+        customTemplates: [],
+        weeklyGoal: 60,
+        skills: STARTER_SKILLS.map(([name, category]) => ({ id: uid(), name, category, xp: 0 })),
+        owner: rowWithProjects.data.owner || null
+      };
+      await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(rowWithProjects.user_id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: cleanDonor, updated_at: new Date().toISOString() })
+      }).catch(() => {});
+    }
+
+    // Apply to owner active state
+    state.projects = projectsToRestore;
+    state.practiceLog = practiceLogToRestore;
+    if (skillsToRestore.length > 0) state.skills = skillsToRestore;
+    if (activityToRestore.length > 0) state.activity = activityToRestore;
+    state.updatedAt = new Date().toISOString();
+    state.hasUserChanges = true;
+
+    await persistState({ syncCloud: false });
+    render();
+    showToast(`✓ Restored ${projectsToRestore.length} projects & practice history to your workbench! 🎯`);
+    return true;
+  } catch (err) {
+    console.error("recoverOwnerWorkspace failed:", err);
+    if (!silent) showToast("Could not complete project recovery: " + err.message);
+    return false;
   }
 }
 
@@ -1521,6 +1738,13 @@ async function signInWithEmail(email, password) {
   renderCloudConnection();
   $("#auth-dialog")?.close();
   showToast(`Signed in as ${getActiveUser()?.displayName}!`);
+
+  const curUser = getActiveUser();
+  const primaryId = getPrimaryAdminId();
+  const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
+  if (isOwner && (!Array.isArray(state.projects) || state.projects.length === 0)) {
+    void recoverOwnerWorkspace({ silent: true });
+  }
 }
 
 async function signUpWithEmail(email, password, displayName, role = "maker") {
@@ -1546,6 +1770,7 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
     }, false);
 
     if (res?.access_token && res?.user) {
+      resetWorkspaceStateToDefault();
       setCloudSession({
         ...res,
         expires_at: res.expires_at || Math.floor(Date.now() / 1000) + (res.expires_in || 3600)
@@ -1558,7 +1783,6 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
       });
       ensurePrimaryAdmin(res.user);
       await upsertUserProfile(res.user);
-      await loadUserScopedState();
       await persistState();
       try {
         await storeRemoteWorkspace();
@@ -1599,6 +1823,7 @@ async function signOutUser() {
   if (adminInspectionActive) {
     exitInspectionMode();
   }
+  resetWorkspaceStateToDefault();
   await loadUserScopedState();
   updateUserUI();
   render();
@@ -1624,55 +1849,39 @@ async function sendPasswordRecovery(email) {
 
 async function loadUserScopedState() {
   const saved = await readSavedState();
-  const user = getActiveUser();
-  const primaryId = getPrimaryAdminId();
-  const isOwner = Boolean(user?.isPrimary || (user && user.id === primaryId));
-
   if (saved) {
-    let projects = Array.isArray(saved.projects) ? saved.projects : [];
-    let practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
-
-    // If this maker is NOT the primary owner, cleanse any accidentally inherited owner projects
-    if (!isOwner && projects.length > 0) {
-      const ownerIds = await getOwnerProjectIds();
-      if (ownerIds.size > 0 && projects.some(p => ownerIds.has(p?.id))) {
-        projects = projects.filter(p => !ownerIds.has(p?.id));
-        if (projects.length === 0) practiceLog = [];
-        saved.projects = projects;
-        saved.practiceLog = practiceLog;
-        try {
-          const key = getActiveStateKey();
-          const tx = database.transaction(STORE_NAME, "readwrite");
-          tx.objectStore(STORE_NAME).put(saved, key);
-        } catch {}
-      }
-    }
-
-    state.projects = projects;
+    state.projects = Array.isArray(saved.projects) ? saved.projects : [];
     state.skills = Array.isArray(saved.skills) ? saved.skills : [];
     state.activity = Array.isArray(saved.activity) ? saved.activity : [];
-    state.practiceLog = practiceLog;
+    state.practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
     state.inventory = Array.isArray(saved.inventory) ? saved.inventory : [];
     state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
     state.weeklyGoal = Number.isFinite(saved.weeklyGoal) ? saved.weeklyGoal : 60;
 
-    // Ensure non-owner has at least starter skills if their skills were empty
-    if (!isOwner && state.skills.length === 0) {
+    // Guard: Non-owner makers must NEVER retain the owner's leaked signature projects
+    const curUser = getActiveUser();
+    const primaryId = getPrimaryAdminId();
+    const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
+    if (!isOwner && state.projects.length > 0) {
+      const isOwnerProject = p => {
+        const t = (p?.title || p?.name || "").toLowerCase();
+        return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
+      };
+      if (state.projects.some(isOwnerProject)) {
+        state.projects = state.projects.filter(p => !isOwnerProject(p));
+        state.practiceLog = [];
+        state.activity = [];
+        await persistState({ syncCloud: false });
+      }
+    }
+
+    if (state.skills.length === 0) {
       for (const [name, category] of STARTER_SKILLS) {
-        state.skills.push({ id: uid(), name, category, xp: 0 });
+        state.skills.push({ id: uid(), name, category, xp: 0, createdAt: new Date().toISOString() });
       }
     }
   } else {
-    state.projects = [];
-    state.skills = [];
-    state.activity = [];
-    state.practiceLog = [];
-    state.inventory = [];
-    state.customTemplates = [];
-    state.weeklyGoal = 60;
-    for (const [name, category] of STARTER_SKILLS) {
-      state.skills.push({ id: uid(), name, category, xp: 0 });
-    }
+    resetWorkspaceStateToDefault();
     await persistState({ syncCloud: false });
   }
 }
@@ -1939,6 +2148,21 @@ async function loadRemoteWorkspace(remote) {
   remoteState.practiceLog = Array.isArray(remoteState.practiceLog)
     ? remoteState.practiceLog.filter(item => item?.kind === "xp" && typeof item.text === "string")
     : migratePracticeLog(remoteState.activity, remoteState.skills);
+
+  const curUser = getActiveUser();
+  const primaryId = getPrimaryAdminId();
+  const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
+  if (!isOwner && remoteState.projects.length > 0) {
+    const isOwnerProject = p => {
+      const t = (p?.title || p?.name || "").toLowerCase();
+      return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
+    };
+    if (remoteState.projects.some(isOwnerProject)) {
+      remoteState.projects = remoteState.projects.filter(p => !isOwnerProject(p));
+      remoteState.practiceLog = [];
+      remoteState.activity = [];
+    }
+  }
   for (const project of remoteState.projects) {
     project.createdAt = project.createdAt || remote.updated_at;
     project.updatedAt = project.updatedAt || remote.updated_at;
@@ -6141,12 +6365,20 @@ async function handleAction(action, target) {
     await saveProfileName();
     return;
   }
+  if (action === "save-profile-email") {
+    await saveProfileEmail();
+    return;
+  }
   if (action === "save-profile-password") {
     await saveProfilePassword();
     return;
   }
   if (action === "save-profile-preferences") {
     await saveProfilePreferences();
+    return;
+  }
+  if (action === "recover-owner-workspace") {
+    await recoverOwnerWorkspace();
     return;
   }
   if (action === "profile-send-recovery") {
@@ -6947,7 +7179,14 @@ async function initialize() {
       cloudMessage(error.message || "Could not complete GitHub sign-in.", "error");
     }
     if (getCloudConfig() && getCloudSession()) {
-      void syncCloudWorkspace();
+      void syncCloudWorkspace().then(async () => {
+        const curUser = getActiveUser();
+        const primaryId = getPrimaryAdminId();
+        const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
+        if (isOwner && (!Array.isArray(state.projects) || state.projects.length === 0)) {
+          await recoverOwnerWorkspace({ silent: true });
+        }
+      });
       setInterval(() => {
         if (getCloudSession() && !document.hidden) void syncCloudWorkspace();
       }, 30_000);

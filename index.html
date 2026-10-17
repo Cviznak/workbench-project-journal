@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f3ed">
     <title>Workbench — your project journal</title>
-    <link rel="stylesheet" href="styles.css?v=2.4.1">
+    <link rel="stylesheet" href="styles.css?v=2.4.2">
     <link rel="manifest" href="manifest.json">
     <script>
       (function(){
@@ -23,7 +23,7 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="app.js?v=2.4.1" defer></script>
+    <script src="app.js?v=2.4.2" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -347,6 +347,7 @@
                 <p>Manage users, inspect maker workbenches, view shop-wide activity, and set permissions.</p>
               </div>
               <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="recover-owner-workspace" title="Restore projects and stats from cloud">🔄 Restore My Projects</button>
                 <button type="button" class="button button-outline" data-action="copy-invite-link">🔒 Copy Encrypted Invite Link</button>
                 <button type="button" class="button button-primary" data-action="open-admin-create-user">＋ Create Maker Account</button>
               </div>
@@ -955,7 +956,7 @@
       </div>
       <div class="profile-tabs-nav" id="profile-tabs-nav">
         <button type="button" class="profile-tab-btn active" data-action="switch-profile-tab" data-tab="account">👤 Profile</button>
-        <button type="button" class="profile-tab-btn" data-action="switch-profile-tab" data-tab="security">🔒 Password</button>
+        <button type="button" class="profile-tab-btn" data-action="switch-profile-tab" data-tab="security">🔒 Login &amp; Security</button>
         <button type="button" class="profile-tab-btn" data-action="switch-profile-tab" data-tab="preferences">⚙️ Preferences</button>
       </div>
       <div class="user-menu-content" id="user-menu-content"></div>
