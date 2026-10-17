@@ -1371,109 +1371,48 @@ async function recoverOwnerWorkspace({ silent = false } = {}) {
   if (!isOwner) return false;
 
   try {
-    if (!silent) showToast("Checking cloud for owner projects & cleaning workspaces…");
-    const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`);
-    if (!Array.isArray(rows) || rows.length === 0) return false;
+    if (!silent) showToast("Checking local backup for owner projects…");
 
-    // Find the row holding the owner's projects (e.g. Bulbasaur Magnet, Board game Holiday Shopping, etc.)
-    const isOwnerProjectList = (list) => Array.isArray(list) && list.some(p => {
-      const t = (p?.title || p?.name || "").toLowerCase();
-      return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
-    });
-
-    const rowWithProjects = rows.find(r => isOwnerProjectList(r?.data?.projects))
-      || rows.find(r => Array.isArray(r?.data?.projects) && r.data.projects.length > 0);
-
-    // Clean any other users in Supabase that received leaked owner projects or leaked skills
-    for (const r of rows) {
-      if (r.user_id && r.user_id !== session.user.id) {
-        const hasOwnerProjects = isOwnerProjectList(r?.data?.projects);
-        const hasLeakedSkills = Array.isArray(r?.data?.skills) && r.data.skills.some(s => (s.xp || 0) > 0) && (!Array.isArray(r?.data?.practiceLog) || r.data.practiceLog.length === 0);
-        if (hasOwnerProjects || hasLeakedSkills) {
-          const cleanDonor = {
-            projects: [],
-            skills: [],
-            activity: [],
-            practiceLog: [],
-            inventory: [],
-            customTemplates: [],
-            weeklyGoal: 60,
-            updatedAt: new Date().toISOString(),
-            owner: r.data?.owner || null
-          };
-          await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(r.user_id)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data: cleanDonor, updated_at: new Date().toISOString() })
-          }).catch(e => console.warn("Could not patch donor row:", e));
-        }
-      }
-    }
-
-    // Check if current user already has projects in state
+    // Only restore if current user actually has 0 projects
     if (Array.isArray(state?.projects) && state.projects.length > 0) {
-      if (!silent) showToast("✓ Owner workbench verified & other workbenches partitioned.");
+      if (!silent) showToast("✓ Workbench is active and up to date.");
       return true;
     }
 
-    if (!rowWithProjects || !rowWithProjects.data) {
-      // Check legacy IndexedDB STATE_KEY as well
-      const legacyState = await new Promise(resolve => {
-        try {
-          const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => resolve(null);
-        } catch { resolve(null); }
-      });
-      if (legacyState && Array.isArray(legacyState.projects) && legacyState.projects.length > 0) {
-        state.projects = legacyState.projects;
-        state.practiceLog = Array.isArray(legacyState.practiceLog) ? legacyState.practiceLog : [];
-        if (Array.isArray(legacyState.skills) && legacyState.skills.length > 0) state.skills = legacyState.skills;
-        if (Array.isArray(legacyState.activity) && legacyState.activity.length > 0) state.activity = legacyState.activity;
-        state.updatedAt = new Date().toISOString();
-        state.hasUserChanges = true;
-        await persistState();
+    // Check owner's own cloud row in Supabase
+    try {
+      const ownRemote = await getRemoteWorkspace();
+      if (ownRemote?.data && Array.isArray(ownRemote.data.projects) && ownRemote.data.projects.length > 0) {
+        await loadRemoteWorkspace(ownRemote);
         render();
-        showToast("✓ Restored projects & skills to your workbench! 🎯");
+        if (!silent) showToast("✓ Restored projects from your cloud backup! 🎯");
         return true;
       }
-      if (!silent) showToast("No projects found to restore.");
-      return false;
+    } catch {}
+
+    // Check legacy IndexedDB STATE_KEY as well
+    const legacyState = await new Promise(resolve => {
+      try {
+        const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch { resolve(null); }
+    });
+    if (legacyState && Array.isArray(legacyState.projects) && legacyState.projects.length > 0) {
+      state.projects = legacyState.projects;
+      state.practiceLog = Array.isArray(legacyState.practiceLog) ? legacyState.practiceLog : [];
+      if (Array.isArray(legacyState.skills) && legacyState.skills.length > 0) state.skills = legacyState.skills;
+      if (Array.isArray(legacyState.activity) && legacyState.activity.length > 0) state.activity = legacyState.activity;
+      state.updatedAt = new Date().toISOString();
+      state.hasUserChanges = true;
+      await persistState();
+      render();
+      if (!silent) showToast("✓ Restored projects & skills from legacy local database! 🎯");
+      return true;
     }
 
-    const projectsToRestore = structuredClone(rowWithProjects.data.projects);
-    const practiceLogToRestore = Array.isArray(rowWithProjects.data.practiceLog) ? structuredClone(rowWithProjects.data.practiceLog) : [];
-    const skillsToRestore = Array.isArray(rowWithProjects.data.skills) ? structuredClone(rowWithProjects.data.skills) : [];
-    const activityToRestore = Array.isArray(rowWithProjects.data.activity) ? structuredClone(rowWithProjects.data.activity) : [];
-
-    // Save into Owner's row in Supabase
-    const ownerPayload = {
-      ...rowWithProjects.data,
-      projects: projectsToRestore,
-      practiceLog: practiceLogToRestore,
-      skills: skillsToRestore.length > 0 ? skillsToRestore : state.skills,
-      activity: activityToRestore.length > 0 ? activityToRestore : state.activity,
-      owner: { id: session.user.id, email: session.user.email, displayName: user.displayName, role: "admin" }
-    };
-
-    await cloudRequest(`/rest/v1/${CLOUD_TABLE}?on_conflict=user_id`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify([{ user_id: session.user.id, data: ownerPayload, updated_at: new Date().toISOString() }])
-    });
-
-    // Apply to owner active state
-    state.projects = projectsToRestore;
-    state.practiceLog = practiceLogToRestore;
-    if (skillsToRestore.length > 0) state.skills = skillsToRestore;
-    if (activityToRestore.length > 0) state.activity = activityToRestore;
-    state.updatedAt = new Date().toISOString();
-    state.hasUserChanges = true;
-
-    await persistState({ syncCloud: false });
-    render();
-    showToast(`✓ Restored ${projectsToRestore.length} projects & practice history to your workbench! 🎯`);
-    return true;
+    if (!silent) showToast("No previous backups found to restore.");
+    return false;
   } catch (err) {
     console.error("recoverOwnerWorkspace failed:", err);
     if (!silent) showToast("Could not complete project recovery: " + err.message);
@@ -1952,31 +1891,6 @@ async function loadUserScopedState() {
       ensureProjectCreator(p);
     }
 
-    // Guard: Non-owner makers must NEVER retain the owner's leaked signature projects (unless explicitly shared as co-creators)
-    const curUser = getActiveUser();
-    const primaryId = getPrimaryAdminId();
-    const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
-    if (!isOwner) {
-      const isOwnerProject = p => {
-        // If this user is an authorized co-creator, keep the collaborative project!
-        if (curUser && (p.coCreators || []).some(c => c.id === curUser.id || (c.email && c.email.toLowerCase() === curUser.email.toLowerCase()))) {
-          return false;
-        }
-        const t = (p?.title || p?.name || "").toLowerCase();
-        return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
-      };
-      const hasContaminatedProjects = Array.isArray(state.projects) && state.projects.some(isOwnerProject);
-      const hasContaminatedSkills = (state.projects.length === 0 || hasContaminatedProjects) && (state.practiceLog || []).length === 0 && Array.isArray(state.skills) && state.skills.some(s => (s.xp || 0) > 0);
-
-      if (hasContaminatedProjects || hasContaminatedSkills) {
-        state.projects = state.projects.filter(p => !isOwnerProject(p));
-        state.skills = [];
-        state.practiceLog = [];
-        state.activity = [];
-        await persistState({ syncCloud: true });
-      }
-    }
-
     loadSharedCollaborationsIntoState();
     syncSharedCollaborations();
     updateTopbarUnitsPill();
@@ -1999,6 +1913,7 @@ function updateUserUI() {
 
   if (user) {
     document.body.classList.remove("auth-locked");
+    $("#auth-dialog")?.close();
     ensurePrimaryAdmin(user);
     const initial = (user.displayName || user.email || "M")[0].toUpperCase();
     const isOwner = user.isPrimary;
@@ -2150,31 +2065,79 @@ async function completeGitHubSignIn() {
   const currentUrl = new URL(window.location.href);
   const code = currentUrl.searchParams.get("code");
   const authError = currentUrl.searchParams.get("error_description") || currentUrl.searchParams.get("error");
-  if (!code && !authError) return;
+  const hash = window.location.hash || "";
+  const hasHashToken = hash.includes("access_token=");
+  if (!code && !authError && !hasHashToken) return;
+
   const redirectTo = `${window.location.origin}${window.location.pathname}`;
   history.replaceState(null, "", redirectTo);
+
   if (authError) {
     localStorage.removeItem(CLOUD_PKCE_KEY);
     cloudMessage(`GitHub sign-in was not completed: ${authError}`, "error");
     return;
   }
-  const pending = JSON.parse(localStorage.getItem(CLOUD_PKCE_KEY) || "null");
-  if (!pending?.verifier || pending.redirectTo !== redirectTo || Date.now() - pending.startedAt > 10 * 60 * 1000) {
+
+  let session = null;
+  if (code) {
+    const pending = JSON.parse(localStorage.getItem(CLOUD_PKCE_KEY) || "null");
+    if (!pending?.verifier || Date.now() - pending.startedAt > 15 * 60 * 1000) {
+      localStorage.removeItem(CLOUD_PKCE_KEY);
+      throw new Error("The GitHub sign-in session is missing or expired. Please try again.");
+    }
     localStorage.removeItem(CLOUD_PKCE_KEY);
-    throw new Error("The GitHub sign-in session is missing or expired. Please try again.");
+    session = await cloudRequest("/auth/v1/token?grant_type=pkce", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auth_code: code, code_verifier: pending.verifier })
+    }, false);
+  } else if (hasHashToken) {
+    const params = new URLSearchParams(hash.replace(/^#/, ""));
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token") || "";
+    const expires_in = parseInt(params.get("expires_in") || "3600", 10);
+    if (access_token) {
+      const config = getCloudConfig();
+      const userRes = await fetch(cloudEndpoint("/auth/v1/user"), {
+        headers: { apikey: config.key, Authorization: `Bearer ${access_token}` }
+      });
+      if (!userRes.ok) throw new Error("Could not fetch user profile from Supabase with hash token.");
+      const user = await userRes.json();
+      session = {
+        access_token,
+        refresh_token,
+        expires_in,
+        expires_at: Math.floor(Date.now() / 1000) + expires_in,
+        user
+      };
+    }
   }
-  localStorage.removeItem(CLOUD_PKCE_KEY);
-  const session = await cloudRequest("/auth/v1/token?grant_type=pkce", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ auth_code: code, code_verifier: pending.verifier })
-  }, false);
+
   if (!session?.access_token || !session.user) throw new Error("GitHub sign-in did not return a valid Supabase session.");
-  setCloudSession({ ...session, expires_at: session.expires_at || Math.floor(Date.now() / 1000) + session.expires_in });
-  upsertUserProfile(session.user).catch(() => {});
-  await loadUserScopedState();
-  await syncCloudWorkspace();
-  if ($("#sync-message").dataset.status === "error") throw new Error($("#sync-message").textContent);
+  setCloudSession({ ...session, expires_at: session.expires_at || Math.floor(Date.now() / 1000) + (session.expires_in || 3600) });
+
+  const gitHubUser = session.user;
+  const meta = gitHubUser.user_metadata || {};
+  const displayName = meta.full_name || meta.display_name || meta.user_name || (gitHubUser.email ? gitHubUser.email.split("@")[0] : "Maker");
+  recordKnownMaker({
+    id: gitHubUser.id,
+    email: gitHubUser.email,
+    displayName,
+    role: meta.role || "maker"
+  });
+  ensurePrimaryAdmin(gitHubUser);
+
+  document.body.classList.remove("auth-locked");
+  $("#auth-dialog")?.close();
+  showToast(`Signed in with GitHub as ${displayName}!`);
+
+  try {
+    await upsertUserProfile(gitHubUser);
+    await loadUserScopedState();
+    await syncCloudWorkspace();
+  } catch (syncErr) {
+    console.warn("GitHub sign-in background sync notice:", syncErr);
+  }
   updateUserUI();
   render();
   renderCloudConnection();
@@ -2283,24 +2246,7 @@ async function loadRemoteWorkspace(remote) {
     ? remoteState.practiceLog.filter(item => item?.kind === "xp" && typeof item.text === "string")
     : migratePracticeLog(remoteState.activity, remoteState.skills);
 
-  const curUser = getActiveUser();
-  const primaryId = getPrimaryAdminId();
-  const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
-  if (!isOwner) {
-    const isOwnerProject = p => {
-      const t = (p?.title || p?.name || "").toLowerCase();
-      return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
-    };
-    const hasContaminatedProjects = Array.isArray(remoteState.projects) && remoteState.projects.some(isOwnerProject);
-    const hasContaminatedSkills = (remoteState.projects.length === 0 || hasContaminatedProjects) && (remoteState.practiceLog || []).length === 0 && Array.isArray(remoteState.skills) && remoteState.skills.some(s => (s.xp || 0) > 0);
 
-    if (hasContaminatedProjects || hasContaminatedSkills) {
-      remoteState.projects = remoteState.projects.filter(p => !isOwnerProject(p));
-      remoteState.skills = [];
-      remoteState.practiceLog = [];
-      remoteState.activity = [];
-    }
-  }
   for (const project of remoteState.projects) {
     project.createdAt = project.createdAt || remote.updated_at;
     project.updatedAt = project.updatedAt || remote.updated_at;
@@ -2741,7 +2687,22 @@ function renderPlanner() {
     return due.getTime() - new Date(`${today}T12:00:00`).getTime() <= 30 * 86400000;
   }).length;
   const undated = projects.filter(project => !project.targetDate).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+  // Count everything done today across practice sessions, activities, and tasks
+  const todayLogs = (state.practiceLog || []).filter(l => l.at && localDateString(new Date(l.at)) === today);
+  const todayActivities = (state.activity || []).filter(a => a.at && localDateString(new Date(a.at)) === today);
+  let todayTasksCount = 0;
+  for (const p of state.projects) {
+    for (const t of (p.tasks || [])) {
+      if (t.done && t.completedAt && localDateString(new Date(t.completedAt)) === today) {
+        todayTasksCount++;
+      }
+    }
+  }
+  const todayDoneTotal = todayLogs.length + todayActivities.length + todayTasksCount;
+
   $("#planner-stats").innerHTML = [
+    statCard("Done today", todayDoneTotal, todayDoneTotal ? `${todayDoneTotal} action${todayDoneTotal === 1 ? "" : "s"} logged today` : "Log a session or checklist step", "⚡"),
     statCard("Overdue", overdue.length, overdue.length ? "A chance to reset the target" : "You’re all caught up", "⌛"),
     statCard("Due in 30 days", nextThirtyDays, "Upcoming project targets", "↗"),
     statCard("Active projects", projects.length, `${undated.length} without a target date`, "▤")
@@ -2811,14 +2772,81 @@ function renderCalendar() {
     }
   }
 
-  const practiceByDate = new Map();
+  // Group all activities by local date string
+  const eventsByDate = new Map();
+  const addEvent = (dStr, evt) => {
+    if (!dStr) return;
+    if (!eventsByDate.has(dStr)) eventsByDate.set(dStr, []);
+    eventsByDate.get(dStr).push(evt);
+  };
+
+  // Practice log items
   for (const log of (state.practiceLog || [])) {
     if (log.at) {
-      const d = log.at.slice(0, 10);
-      if (!practiceByDate.has(d)) practiceByDate.set(d, []);
-      practiceByDate.get(d).push(log);
+      const d = localDateString(new Date(log.at));
+      addEvent(d, {
+        id: log.id,
+        kind: "practice",
+        badgeClass: "calendar-badge-practice",
+        icon: "⏱",
+        label: log.text.replace(/^[^+]+/, "") || log.text,
+        tooltip: `${log.text} · ${new Date(log.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+      });
     }
   }
+
+  // Activity items (status changes, project creations, milestones)
+  for (const act of (state.activity || [])) {
+    if (act.at) {
+      const d = localDateString(new Date(act.at));
+      addEvent(d, {
+        id: act.id,
+        kind: "activity",
+        badgeClass: "calendar-badge-activity",
+        icon: "⚡",
+        label: act.text,
+        tooltip: `${act.text} · ${new Date(act.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+      });
+    }
+  }
+
+  // Project tasks completed on dates
+  for (const p of state.projects) {
+    for (const t of (p.tasks || [])) {
+      if (t.done && t.completedAt) {
+        const d = localDateString(new Date(t.completedAt));
+        addEvent(d, {
+          id: p.id,
+          kind: "task",
+          badgeClass: "calendar-badge-task",
+          icon: "✓",
+          label: `${t.text} (${p.title})`,
+          tooltip: `Completed step: ${t.text} in ${p.title}`,
+          isProjectAction: true
+        });
+      }
+    }
+  }
+
+  const renderCellBadges = (dateStr) => {
+    const dayProjects = projectsByDate.get(dateStr) || [];
+    const dayEvents = eventsByDate.get(dateStr) || [];
+    return `
+      ${dayProjects.map(p => {
+        const isOverdue = p.targetDate < today && p.status !== "completed";
+        return `
+          <div class="calendar-badge ${isOverdue ? "calendar-badge-overdue" : "calendar-badge-project"}" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)} · ${STATUS_LABELS[safeStatus(p.status)]}">
+            ${isOverdue ? "⌛ " : "✳ "}${escapeHTML(p.title)}
+          </div>
+        `;
+      }).join("")}
+      ${dayEvents.map(e => `
+        <div class="calendar-badge ${e.badgeClass}" data-action="${e.isProjectAction ? "open-project-detail" : "open-activity-detail"}" data-id="${e.id}" title="${escapeHTML(e.tooltip || e.label)}">
+          ${e.icon} ${escapeHTML(e.label)}
+        </div>
+      `).join("")}
+    `;
+  };
 
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   let cellsHtml = "";
@@ -2827,18 +2855,11 @@ function renderCalendar() {
     const dayNum = prevDaysInMonth - i;
     const prevMonthDate = new Date(year, month - 1, dayNum);
     const dateStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-    const dayProjects = projectsByDate.get(dateStr) || [];
-    const prevPractice = practiceByDate.get(dateStr) || [];
     cellsHtml += `
       <div class="calendar-cell is-other-month">
         <div class="calendar-cell-header"><span class="calendar-cell-num">${dayNum}</span></div>
         <div class="calendar-events-list">
-          ${dayProjects.map(p => `<div class="calendar-badge calendar-badge-project" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)}">✳ ${escapeHTML(p.title)}</div>`).join("")}
-          ${prevPractice.map(l => `
-            <div class="calendar-badge calendar-badge-practice" data-action="open-activity-detail" data-id="${l.id}" title="${escapeHTML(l.text)}">
-              ⏱ ${escapeHTML(l.text.replace(/^[^+]+/, "") || l.text)}
-            </div>
-          `).join("")}
+          ${renderCellBadges(dateStr)}
         </div>
       </div>
     `;
@@ -2847,8 +2868,6 @@ function renderCalendar() {
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const isToday = dateStr === today;
-    const dayProjects = projectsByDate.get(dateStr) || [];
-    const dayPractice = practiceByDate.get(dateStr) || [];
 
     cellsHtml += `
       <div class="calendar-cell ${isToday ? "is-today" : ""}">
@@ -2857,19 +2876,7 @@ function renderCalendar() {
           ${isToday ? '<span class="status-pill status-in-progress" style="font-size:9px;padding:1px 4px">Today</span>' : ""}
         </div>
         <div class="calendar-events-list">
-          ${dayProjects.map(p => {
-            const isOverdue = p.targetDate < today && p.status !== "completed";
-            return `
-              <div class="calendar-badge ${isOverdue ? "calendar-badge-overdue" : "calendar-badge-project"}" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)} · ${STATUS_LABELS[safeStatus(p.status)]}">
-                ${isOverdue ? "⌛ " : "✳ "}${escapeHTML(p.title)}
-              </div>
-            `;
-          }).join("")}
-          ${dayPractice.map(l => `
-            <div class="calendar-badge calendar-badge-practice" data-action="open-activity-detail" data-id="${l.id}" title="${escapeHTML(l.text)}">
-              ⏱ ${escapeHTML(l.text.replace(/^[^+]+/, "") || l.text)}
-            </div>
-          `).join("")}
+          ${renderCellBadges(dateStr)}
         </div>
       </div>
     `;
@@ -2880,18 +2887,11 @@ function renderCalendar() {
   for (let nextDay = 1; nextDay <= trailingCells; nextDay++) {
     const nextMonthDate = new Date(year, month + 1, nextDay);
     const dateStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-${String(nextDay).padStart(2, "0")}`;
-    const dayProjects = projectsByDate.get(dateStr) || [];
-    const nextPractice = practiceByDate.get(dateStr) || [];
     cellsHtml += `
       <div class="calendar-cell is-other-month">
         <div class="calendar-cell-header"><span class="calendar-cell-num">${nextDay}</span></div>
         <div class="calendar-events-list">
-          ${dayProjects.map(p => `<div class="calendar-badge calendar-badge-project" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)}">✳ ${escapeHTML(p.title)}</div>`).join("")}
-          ${nextPractice.map(l => `
-            <div class="calendar-badge calendar-badge-practice" data-action="open-activity-detail" data-id="${l.id}" title="${escapeHTML(l.text)}">
-              ⏱ ${escapeHTML(l.text.replace(/^[^+]+/, "") || l.text)}
-            </div>
-          `).join("")}
+          ${renderCellBadges(dateStr)}
         </div>
       </div>
     `;
@@ -4576,52 +4576,62 @@ function setupKanbanDragDrop(kanban) {
     });
   });
 
-  kanban.querySelectorAll(".kanban-column, .kanban-dropzone").forEach(dropzone => {
-    const status = dropzone.dataset.status;
+  kanban.querySelectorAll(".kanban-column").forEach(column => {
+    const status = column.dataset.status;
     if (!status) return;
 
-    dropzone.addEventListener("dragover", event => {
+    column.addEventListener("dragover", event => {
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
-      dropzone.classList.add("drag-over");
+      column.classList.add("drag-over");
+      const dropzone = column.querySelector(".kanban-dropzone");
+      if (dropzone) dropzone.classList.add("drag-over");
     });
 
-    dropzone.addEventListener("dragenter", event => {
+    column.addEventListener("dragenter", event => {
       event.preventDefault();
-      const count = (dragDepthMap.get(dropzone) || 0) + 1;
-      dragDepthMap.set(dropzone, count);
-      dropzone.classList.add("drag-over");
+      const count = (dragDepthMap.get(column) || 0) + 1;
+      dragDepthMap.set(column, count);
+      column.classList.add("drag-over");
+      const dropzone = column.querySelector(".kanban-dropzone");
+      if (dropzone) dropzone.classList.add("drag-over");
     });
 
-    dropzone.addEventListener("dragleave", () => {
-      const count = Math.max(0, (dragDepthMap.get(dropzone) || 1) - 1);
-      dragDepthMap.set(dropzone, count);
+    column.addEventListener("dragleave", () => {
+      const count = Math.max(0, (dragDepthMap.get(column) || 1) - 1);
+      dragDepthMap.set(column, count);
       if (count === 0) {
-        dropzone.classList.remove("drag-over");
+        column.classList.remove("drag-over");
+        const dropzone = column.querySelector(".kanban-dropzone");
+        if (dropzone) dropzone.classList.remove("drag-over");
       }
     });
 
-    dropzone.addEventListener("drop", async event => {
+    column.addEventListener("drop", async event => {
       event.preventDefault();
-      dragDepthMap.set(dropzone, 0);
-      dropzone.classList.remove("drag-over");
+      dragDepthMap.set(column, 0);
       kanban.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
 
       const pid = event.dataTransfer.getData("text/plain") || draggedProjectId;
       if (!pid || !status) return;
 
+      const project = state.projects.find(p => p.id === pid);
+      if (!project) return;
+      if (project.status === status) return;
+
       const oldStatus = project.status;
       project.status = status;
       const maker = getCurrentMakerIdentity();
+      const makerName = maker.name || maker.displayName || "Maker";
       project.lastStatusChange = {
         from: STATUS_LABELS[oldStatus] || oldStatus,
         to: STATUS_LABELS[status] || status,
-        by: maker,
+        by: makerName,
         at: new Date().toISOString()
       };
       project.updatedAt = new Date().toISOString();
       syncSharedCollaborations();
-      makeActivity("project", `${maker.name} moved ${project.title} to ${STATUS_LABELS[status] || status}`);
+      makeActivity("project", `${makerName} moved ${project.title} to ${STATUS_LABELS[status] || status}`);
       if (status === "completed") {
         addNotification({
           title: `Project Complete: ${project.title}`,
@@ -4965,6 +4975,48 @@ function checkHashRouting() {
   ) {
     void checkInviteOrSetupLink();
     return;
+  }
+
+  const teamMatch = hash.match(/^#(?:team-project|import-project)[=/]([a-zA-Z0-9+/=_-]+)/);
+  if (teamMatch) {
+    try {
+      const raw = decodeURIComponent(atob(teamMatch[1]));
+      const data = JSON.parse(raw);
+      const incomingProject = data?.p;
+      if (incomingProject && incomingProject.id) {
+        history.replaceState(null, "", `${window.location.origin}${window.location.pathname}`);
+        ensureProjectCreator(incomingProject);
+        const curUser = getActiveUser();
+        if (curUser && curUser.id !== "local-maker") {
+          const already = (incomingProject.coCreators || []).some(c => c.id === curUser.id || (c.email && curUser.email && c.email.toLowerCase() === curUser.email.toLowerCase()));
+          if (!already && incomingProject.creator?.id !== curUser.id) {
+            incomingProject.coCreators = incomingProject.coCreators || [];
+            incomingProject.coCreators.push({
+              id: curUser.id,
+              name: curUser.displayName || "Maker",
+              email: curUser.email || "",
+              role: "Editor",
+              addedAt: new Date().toISOString()
+            });
+          }
+        }
+        const existingIdx = state.projects.findIndex(p => p.id === incomingProject.id);
+        if (existingIdx >= 0) {
+          state.projects[existingIdx] = incomingProject;
+        } else {
+          state.projects.unshift(incomingProject);
+        }
+        syncSharedCollaborations();
+        void persistState();
+        render();
+        switchView("projects");
+        openProjectDetail(incomingProject.id);
+        showToast(`👥 Joined team project: ${incomingProject.title}!`);
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not import team project from link:", e);
+    }
   }
 
   const projectMatch = hash.match(/^#project[=/]([a-zA-Z0-9_-]+)/);
@@ -7019,6 +7071,10 @@ async function handleAction(action, target) {
     void copyInviteLinkToClipboard(target);
     return;
   }
+  if (action === "copy-team-link") {
+    void copyTeamProjectLink(target.dataset.project, target);
+    return;
+  }
   if (action === "open-about-modal") {
     $("#about-dialog")?.showModal();
     return;
@@ -7928,6 +7984,12 @@ async function initialize() {
         void loadUserScopedState().then(() => render());
       }
     });
+    try {
+      await completeGitHubSignIn();
+    } catch (error) {
+      console.error("Unable to complete GitHub sign-in.", error);
+      cloudMessage(error.message || "Could not complete GitHub sign-in.", "error");
+    }
     render();
     renderCloudConnection();
     const activeSession = getCloudSession();
@@ -7937,12 +7999,6 @@ async function initialize() {
     checkInviteOrSetupLink();
     checkHashRouting();
     window.addEventListener("hashchange", checkHashRouting);
-    try {
-      await completeGitHubSignIn();
-    } catch (error) {
-      console.error("Unable to complete GitHub sign-in.", error);
-      cloudMessage(error.message || "Could not complete GitHub sign-in.", "error");
-    }
     if (getCloudConfig() && getCloudSession()) {
       void syncCloudWorkspace().then(async () => {
         const curUser = getActiveUser();
@@ -10278,7 +10334,7 @@ function ensureProjectCreator(project) {
   }
 }
 
-function isProjectCreator(project, user = null) {
+function isProjectCreator(project, user = null, includeAdmin = false) {
   if (!project) return false;
   ensureProjectCreator(project);
   const curUser = user || getActiveUser();
@@ -10286,7 +10342,7 @@ function isProjectCreator(project, user = null) {
   return Boolean(
     (project.creator.id && project.creator.id === curUser.id) ||
     (project.creator.email && curUser.email && project.creator.email.toLowerCase() === curUser.email.toLowerCase()) ||
-    curUser.isAdmin
+    (includeAdmin && curUser.isAdmin)
   );
 }
 
@@ -10294,7 +10350,7 @@ function isCollaborativeProject(project) {
   return Boolean(project && Array.isArray(project.coCreators) && project.coCreators.length > 0);
 }
 
-function isUserCollaborator(project, user = null) {
+function isUserCollaborator(project, user = null, includeAdmin = false) {
   if (!project) return false;
   ensureProjectCreator(project);
   const curUser = user || getActiveUser();
@@ -10308,7 +10364,7 @@ function isUserCollaborator(project, user = null) {
     (c.id && c.id === uId) ||
     (uEmail && c.email && c.email.toLowerCase().trim() === uEmail)
   );
-  return Boolean(isCreator || isCoCreator || curUser.isAdmin);
+  return Boolean(isCreator || isCoCreator || (includeAdmin && curUser.isAdmin));
 }
 
 async function syncCloudCollaborations() {
@@ -10339,7 +10395,15 @@ async function syncCloudCollaborations() {
           (myEmail && c.email && c.email.toLowerCase().trim() === myEmail)
         );
 
-        if (!isCreator && !isCoCreator && !curUser.isAdmin) continue;
+        if (!isCreator && !isCoCreator) {
+          // If we had this project in our workbench, but remote confirms we are no longer creator or co-creator, remove it!
+          const existingIdx = state.projects.findIndex(p => p.id === rp.id);
+          if (existingIdx !== -1) {
+            state.projects.splice(existingIdx, 1);
+            hasChanges = true;
+          }
+          continue;
+        }
 
         const existingIdx = state.projects.findIndex(p => p.id === rp.id);
         if (existingIdx === -1) {
@@ -10372,8 +10436,22 @@ async function syncCloudCollaborations() {
 
 function openActivityDetail(activityId) {
   if (!activityId) return;
-  const item = (state.practiceLog || []).find(l => l.id === activityId) ||
-               (state.activity || []).find(a => a.id === activityId);
+  let item = (state.practiceLog || []).find(l => l.id === activityId) ||
+             (state.activity || []).find(a => a.id === activityId);
+  if (!item) {
+    for (const p of state.projects) {
+      const note = (p.notes || []).find(n => n.id === activityId);
+      if (note) {
+        item = { id: note.id, text: note.text, at: note.at || note.createdAt, projectId: p.id, kind: "note" };
+        break;
+      }
+      const task = (p.tasks || []).find(t => t.id === activityId);
+      if (task) {
+        item = { id: task.id, text: `Completed checklist step: ${task.text} (${p.title})`, at: task.completedAt, projectId: p.id, kind: "task" };
+        break;
+      }
+    }
+  }
   if (!item) return;
 
   const dialog = $("#activity-detail-dialog");
@@ -10567,6 +10645,15 @@ async function renderCollaboratorsDialog(project) {
       </p>
     </div>
 
+    <div style="display:flex;gap:8px;margin:10px 0 4px 0;flex-wrap:wrap">
+      <button type="button" class="button button-outline button-small" data-action="copy-team-link" data-project="${project.id}" style="display:inline-flex;align-items:center;gap:6px">
+        🔗 Copy Team Project Link
+      </button>
+      <button type="button" class="button button-quiet button-small" data-action="open-project-qr" data-project="${project.id}" style="display:inline-flex;align-items:center;gap:6px">
+        📱 Project QR
+      </button>
+    </div>
+
     <div>
       <h3 style="font-size:13px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:10px 0 6px 0">Project Creator (Immutable)</h3>
       <div class="collab-member-card">
@@ -10685,6 +10772,80 @@ async function handleAddCoCreator(projectId) {
   input.value = "";
 }
 
+async function pushProjectToCollaboratorWorkspaces(project) {
+  if (!project) return;
+  const session = getCloudSession();
+  const curUser = getActiveUser();
+  if (!session?.access_token || !curUser) return;
+
+  try {
+    const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`).catch(() => []);
+    if (!Array.isArray(rows) || rows.length === 0) return;
+
+    const memberIds = new Set();
+    const memberEmails = new Set();
+
+    if (project.creator?.id) memberIds.add(project.creator.id);
+    if (project.creator?.email) memberEmails.add(project.creator.email.toLowerCase().trim());
+
+    for (const c of (project.coCreators || [])) {
+      if (c.id) memberIds.add(c.id);
+      if (c.email) memberEmails.add(c.email.toLowerCase().trim());
+    }
+
+    for (const row of rows) {
+      if (row.user_id === curUser.id) continue;
+      const ownerEmail = (row.data?.owner?.email || "").toLowerCase().trim();
+      const isMember = memberIds.has(row.user_id) || (ownerEmail && memberEmails.has(ownerEmail));
+
+      if (isMember) {
+        row.data = row.data || {};
+        const remoteProjects = Array.isArray(row.data.projects) ? row.data.projects : [];
+        const idx = remoteProjects.findIndex(p => p.id === project.id);
+        if (idx >= 0) {
+          remoteProjects[idx] = structuredClone(project);
+        } else {
+          remoteProjects.unshift(structuredClone(project));
+        }
+        row.data.projects = remoteProjects;
+        await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(row.user_id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: row.data, updated_at: new Date().toISOString() })
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn("Could not push project to collaborator workspaces:", err);
+  }
+}
+
+async function copyTeamProjectLink(projectId, btn = null) {
+  const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
+  if (!project) return;
+  ensureProjectCreator(project);
+
+  const payload = {
+    p: project,
+    sharedAt: new Date().toISOString()
+  };
+  const json = JSON.stringify(payload);
+  const base64 = btoa(encodeURIComponent(json));
+  const link = `${window.location.origin}${window.location.pathname}#team-project=${base64}`;
+
+  try {
+    await navigator.clipboard.writeText(link);
+    showToast("📋 Copied Team Project Link! Share this link with any member to join on PC or phone.");
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = "✓ Link Copied!";
+      setTimeout(() => { if (btn) btn.textContent = orig; }, 2500);
+    }
+  } catch {
+    window.prompt("Copy Team Project Link:", link);
+  }
+}
+
 async function addCoCreator(projectId, identityOrString, role = "Editor") {
   const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
   if (!project) return;
@@ -10711,6 +10872,20 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
     };
   }
 
+  // Match known maker to get real Supabase user_id if available
+  try {
+    const known = await getLocallyKnownUsers();
+    for (const m of known.values()) {
+      if ((m.email && newMember.email && m.email.toLowerCase() === newMember.email.toLowerCase()) ||
+          (m.displayName && newMember.name && m.displayName.toLowerCase() === newMember.name.toLowerCase())) {
+        newMember.id = m.id;
+        if (!newMember.email && m.email) newMember.email = m.email;
+        if (m.displayName) newMember.name = m.displayName;
+        break;
+      }
+    }
+  } catch {}
+
   const exists = project.coCreators.some(c => (c.email && newMember.email && c.email.toLowerCase() === newMember.email.toLowerCase()) || (c.name.toLowerCase() === newMember.name.toLowerCase()));
   if (exists) {
     showToast(`${newMember.name} is already a co-creator on this project.`);
@@ -10726,6 +10901,7 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
   syncSharedCollaborations();
   try {
     await persistState();
+    void pushProjectToCollaboratorWorkspaces(project);
     render();
     if ($("#detail-dialog").open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
@@ -10781,6 +10957,7 @@ async function passCreatorStatus(projectId, targetId) {
   syncSharedCollaborations();
   try {
     await persistState();
+    void pushProjectToCollaboratorWorkspaces(project);
     render();
     if ($("#detail-dialog").open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
@@ -10806,6 +10983,7 @@ async function toggleCoCreatorRole(projectId, targetId) {
   syncSharedCollaborations();
   try {
     await persistState();
+    void pushProjectToCollaboratorWorkspaces(project);
     await renderCollaboratorsDialog(project);
     showToast(`Updated role for ${target.name} to ${target.role}.`);
   } catch (err) {
@@ -10829,13 +11007,31 @@ async function removeCoCreator(projectId, targetId) {
   makeActivity("project", `${maker.name} removed ${target.name} from ${project.title}`);
 
   syncSharedCollaborations();
+
+  const curUser = getActiveUser();
+  const isSelf = targetId === curUser?.id || (curUser?.email && target.email && target.email.toLowerCase().trim() === curUser.email.toLowerCase().trim());
+  const stillCollaborator = isUserCollaborator(project, curUser);
+
+  if (isSelf || !stillCollaborator) {
+    state.projects = state.projects.filter(p => p.id !== project.id);
+    activeCollabProjectId = null;
+    $("#collaborators-dialog")?.close();
+    if (activeProjectId === project.id) {
+      $("#detail-dialog")?.close();
+      activeProjectId = null;
+    }
+  }
+
   try {
     await persistState();
+    void pushProjectToCollaboratorWorkspaces(project);
     render();
     if ($("#detail-dialog").open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
     }
-    await renderCollaboratorsDialog(project);
+    if ($("#collaborators-dialog").open && activeCollabProjectId === project.id) {
+      await renderCollaboratorsDialog(project);
+    }
     showToast(`Removed ${target.name} from project team.`);
   } catch (err) {
     console.error(err);
