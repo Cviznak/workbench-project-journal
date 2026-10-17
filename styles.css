@@ -3709,3 +3709,334 @@ body.theme-dark .version-tag {
   .goals-grid { grid-template-columns: 1fr; }
 }
 
+/* ==========================================================================
+   FEATURE SUITE 2.0: 5 Power Tools
+   ========================================================================== */
+
+/* 1. Labor & Selling Price Calculator */
+.pricing-summary-card {
+  margin: 16px 0;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.pricing-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.pricing-stat-box {
+  display: flex;
+  flex-direction: column;
+}
+.pricing-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.pricing-stat-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.pricing-stat-val.retail {
+  color: #16a34a;
+}
+[data-theme="dark"] .pricing-stat-val.retail {
+  color: #4ade80;
+}
+.pricing-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 14px;
+  background: var(--surface-hover);
+  border-radius: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.pricing-preset-pills {
+  display: flex;
+  gap: 6px;
+}
+
+/* 2. Linear Cut List & Stock Optimizer */
+.cut-optimizer-container {
+  padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.cut-inputs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.cut-rows-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.cut-rows-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.cut-rows-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.cut-results-card {
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cut-board-visual {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cut-board-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.cut-board-bar {
+  height: 38px;
+  background: var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  border: 1px solid var(--line);
+}
+.cut-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+  transition: opacity 0.15s;
+  border-right: 2px solid rgba(0, 0, 0, 0.4);
+}
+.cut-segment:hover {
+  opacity: 0.9;
+}
+.cut-scrap-segment {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(156, 163, 175, 0.15),
+    rgba(156, 163, 175, 0.15) 6px,
+    rgba(156, 163, 175, 0.3) 6px,
+    rgba(156, 163, 175, 0.3) 12px
+  );
+  color: var(--muted);
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* 3. Workshop Tool Maintenance & Safety Tracker */
+.maintenance-container {
+  margin-top: 18px;
+}
+.maintenance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.maintenance-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s;
+}
+.maintenance-card:hover {
+  border-color: var(--accent);
+}
+.maintenance-card.status-overdue {
+  border-color: #ef4444;
+  background: var(--surface);
+}
+.maintenance-badge-good {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 12px;
+}
+[data-theme="dark"] .maintenance-badge-good {
+  background: #14532d;
+  color: #86efac;
+}
+.maintenance-badge-soon {
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 12px;
+}
+[data-theme="dark"] .maintenance-badge-soon {
+  background: #78350f;
+  color: #fde68a;
+}
+.maintenance-badge-overdue {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 12px;
+}
+[data-theme="dark"] .maintenance-badge-overdue {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* 4. Ambient Workshop Soundscapes */
+.soundscape-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--surface-hover);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin: 12px 0;
+}
+.soundscape-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.soundscape-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+.soundscape-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.soundscape-vol-slider {
+  width: 80px;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+/* 5. 2D Blueprint & Dimensioned Sketchpad */
+.blueprint-dialog {
+  max-width: 920px;
+  width: 95vw;
+}
+.blueprint-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.blueprint-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--surface-hover);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.blueprint-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.blueprint-tool-btn:hover {
+  border-color: var(--accent);
+}
+.blueprint-tool-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.blueprint-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.05);
+  cursor: crosshair;
+}
+[data-theme="dark"] .blueprint-canvas-wrap {
+  background: #0f172a;
+}
+.blueprint-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.blueprint-color-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.blueprint-color-circle.active {
+  border-color: var(--ink);
+  transform: scale(1.15);
+}
+
+

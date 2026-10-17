@@ -124,6 +124,7 @@ const state = {
   inventory: [],
   customTemplates: [],
   makerGoals: [],
+  maintenance: [],
   weeklyGoal: 60,
   starterSkillsAdded: false,
   hasUserChanges: false
@@ -177,6 +178,7 @@ function resetWorkspaceStateToDefault() {
   state.inventory = [];
   state.customTemplates = [];
   state.makerGoals = [];
+  state.maintenance = [];
   state.weeklyGoal = 60;
   state.updatedAt = "";
   state.hasUserChanges = false;
@@ -1865,6 +1867,7 @@ async function loadUserScopedState() {
     state.inventory = Array.isArray(saved.inventory) ? saved.inventory : [];
     state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved.makerGoals) ? saved.makerGoals : [];
+    state.maintenance = Array.isArray(saved.maintenance) ? saved.maintenance : [];
     state.weeklyGoal = Number.isFinite(saved.weeklyGoal) ? saved.weeklyGoal : 60;
 
     // Guard: Non-owner makers must NEVER retain the owner's leaked signature projects or skills
@@ -2407,6 +2410,7 @@ async function importBackup(file) {
   state.inventory = Array.isArray(restored.inventory) ? restored.inventory : [];
   state.customTemplates = Array.isArray(restored.customTemplates) ? restored.customTemplates : [];
   state.makerGoals = Array.isArray(restored.makerGoals) ? restored.makerGoals : [];
+  state.maintenance = Array.isArray(restored.maintenance) ? restored.maintenance : [];
   state.weeklyGoal = Number.isFinite(restored.weeklyGoal) ? restored.weeklyGoal : 60;
   state.starterSkillsAdded = true;
   try {
@@ -2881,6 +2885,8 @@ function renderProjectDetail(projectId) {
             <button type="button" class="small-action" data-action="open-time-dialog" data-id="${project.id}" title="Log time on this project">⏱ Log time</button>
             <button type="button" class="small-action" data-action="open-timer" data-project="${project.id}" title="Start focused practice timer for this project">⏱ Timer</button>
             <button type="button" class="small-action" data-action="open-showcase" data-id="${project.id}" title="Shareable project showcase & build story">🌟 Showcase</button>
+            <button type="button" class="small-action" data-action="open-project-pricing" data-id="${project.id}" title="Labor cost & selling price calculator">🏷️ Price & Profit</button>
+            <button type="button" class="small-action" data-action="open-project-blueprint" data-id="${project.id}" title="2D Blueprint & dimensioned sketchpad">📐 Blueprint</button>
             <button type="button" class="small-action" data-action="open-project-qr" data-id="${project.id}" title="Workshop QR bin label">🏷️ QR Label</button>
             <button type="button" class="small-action" data-action="save-project-template" data-id="${project.id}" title="Save as reusable template">💾 Template</button>
             <button type="button" class="small-action" data-action="open-compare-photos" data-project="${project.id}" title="Compare photos side-by-side">↔️ Compare</button>
@@ -4948,6 +4954,8 @@ function renderInventory() {
   const view = $("#inventory-view");
   if (!view) return;
 
+  renderToolMaintenance();
+
   const search = ($("#inventory-search")?.value || "").trim().toLowerCase();
   const categoryFilter = $("#inventory-category-filter")?.value || "all";
 
@@ -6538,6 +6546,7 @@ async function exitInspectionMode() {
     state.inventory = adminInspectionBackup.inventory || [];
     state.customTemplates = adminInspectionBackup.customTemplates || [];
     state.makerGoals = adminInspectionBackup.makerGoals || [];
+    state.maintenance = adminInspectionBackup.maintenance || [];
     state.weeklyGoal = adminInspectionBackup.weeklyGoal || 60;
     state.updatedAt = adminInspectionBackup.updatedAt || "";
     adminInspectionBackup = null;
@@ -7143,6 +7152,74 @@ async function handleAction(action, target) {
     if (goalId && !isNaN(idx)) void toggleGoalMilestone(goalId, idx);
     return;
   }
+  if (action === "open-project-pricing") {
+    openProjectPricing(id || target.dataset.id);
+    return;
+  }
+  if (action === "set-pricing-preset") {
+    setPricingPreset(target.dataset.preset);
+    return;
+  }
+  if (action === "run-cut-optimizer") {
+    runCutOptimizer();
+    return;
+  }
+  if (action === "copy-cut-plan") {
+    void copyCutPlan();
+    return;
+  }
+  if (action === "open-maintenance-dialog") {
+    openMaintenanceDialog();
+    return;
+  }
+  if (action === "edit-maintenance") {
+    openMaintenanceDialog((state.maintenance || []).find(m => m.id === (id || target.dataset.id)));
+    return;
+  }
+  if (action === "delete-maintenance") {
+    void deleteMaintenance(id || target.dataset.id || $("#maintenance-form input[name='id']")?.value);
+    return;
+  }
+  if (action === "log-service-today") {
+    void logServiceToday(id || target.dataset.id);
+    return;
+  }
+  if (action === "toggle-soundscape") {
+    toggleSoundscape(target.dataset.track);
+    return;
+  }
+  if (action === "toggle-soundscape-panel") {
+    toggleSoundscapePanel();
+    return;
+  }
+  if (action === "open-project-blueprint") {
+    openProjectBlueprint(id || target.dataset.id || target.dataset.project);
+    return;
+  }
+  if (action === "set-blueprint-tool") {
+    setBlueprintTool(target.dataset.tool);
+    return;
+  }
+  if (action === "set-blueprint-grid") {
+    setBlueprintGrid(target.dataset.grid);
+    return;
+  }
+  if (action === "set-blueprint-color") {
+    setBlueprintColor(target.dataset.color);
+    return;
+  }
+  if (action === "blueprint-undo") {
+    blueprintUndo();
+    return;
+  }
+  if (action === "blueprint-clear") {
+    blueprintClear();
+    return;
+  }
+  if (action === "save-blueprint-to-project") {
+    void saveBlueprintToProject();
+    return;
+  }
   if (action === "export-markdown") {
     exportMarkdownJournal();
     return;
@@ -7511,6 +7588,7 @@ async function initialize() {
     state.inventory = Array.isArray(saved?.inventory) ? saved.inventory : [];
     state.customTemplates = Array.isArray(saved?.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved?.makerGoals) ? saved.makerGoals : [];
+    state.maintenance = Array.isArray(saved?.maintenance) ? saved.maintenance : [];
     state.weeklyGoal = Number.isFinite(saved?.weeklyGoal) ? saved.weeklyGoal : 60;
 
     if (!saved?.starterSkillsAdded) {
@@ -8475,6 +8553,1020 @@ async function toggleGoalMilestone(goalId, index) {
   }
 }
 
+/* ============================================================
+   FEATURE 1: Project Labor Cost & Selling Price Calculator
+   ============================================================ */
+let activePricingProjectId = null;
+
+function openProjectPricing(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  activePricingProjectId = project.id;
+  renderProjectPricing();
+  $("#price-dialog")?.showModal();
+}
+
+function setPricingPreset(preset) {
+  if (!activePricingProjectId) return;
+  const project = state.projects.find(p => p.id === activePricingProjectId);
+  if (!project) return;
+  if (preset === "hobby") {
+    project.laborRate = project.laborRate || 15;
+    project.overheadPercent = 0;
+    project.profitMargin = 15;
+  } else if (preset === "sidehustle") {
+    project.laborRate = project.laborRate || 25;
+    project.overheadPercent = 15;
+    project.profitMargin = 30;
+  } else if (preset === "pro") {
+    project.laborRate = project.laborRate || 45;
+    project.overheadPercent = 25;
+    project.profitMargin = 50;
+  }
+  void persistState();
+  renderProjectPricing();
+}
+
+function renderProjectPricing() {
+  const project = state.projects.find(p => p.id === activePricingProjectId);
+  const container = $("#pricing-dialog-body");
+  if (!project || !container) return;
+
+  const hours = (project.timeSpent || 0) / 60;
+  const laborRate = Number.isFinite(project.laborRate) ? project.laborRate : 25;
+  const overheadPercent = Number.isFinite(project.overheadPercent) ? project.overheadPercent : 15;
+  const profitMargin = Number.isFinite(project.profitMargin) ? project.profitMargin : 30;
+
+  const materialsCost = (project.materials || []).reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+  const laborCost = hours * laborRate;
+  const baseCost = materialsCost + laborCost;
+  const overheadCost = baseCost * (overheadPercent / 100);
+  const totalProductionCost = baseCost + overheadCost;
+
+  const marginFrac = profitMargin / 100;
+  const retailPrice = marginFrac < 1 ? (totalProductionCost / (1 - marginFrac)) : (totalProductionCost * 2);
+  const wholesalePrice = retailPrice * 0.55;
+  const netProfit = retailPrice - totalProductionCost;
+
+  container.innerHTML = `
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
+      Valuation and pricing model for <strong>${escapeHTML(project.title)}</strong> based on logged craft time (${formatMinutes(project.timeSpent || 0)}) and acquired materials ($${materialsCost.toFixed(2)}).
+    </div>
+
+    <div class="pricing-summary-card">
+      <div class="pricing-stats-grid">
+        <div class="pricing-stat-box">
+          <span class="pricing-stat-label">Materials</span>
+          <span class="pricing-stat-val">$${materialsCost.toFixed(2)}</span>
+        </div>
+        <div class="pricing-stat-box">
+          <span class="pricing-stat-label">Labor (${hours.toFixed(1)}h @ $${laborRate}/h)</span>
+          <span class="pricing-stat-val">$${laborCost.toFixed(2)}</span>
+        </div>
+        <div class="pricing-stat-box">
+          <span class="pricing-stat-label">Total Cost (+Overhead)</span>
+          <span class="pricing-stat-val">$${totalProductionCost.toFixed(2)}</span>
+        </div>
+        <div class="pricing-stat-box">
+          <span class="pricing-stat-label">Suggested Retail</span>
+          <span class="pricing-stat-val retail">$${retailPrice.toFixed(2)}</span>
+        </div>
+        <div class="pricing-stat-box">
+          <span class="pricing-stat-label">Wholesale (55%)</span>
+          <span class="pricing-stat-val">$${wholesalePrice.toFixed(2)}</span>
+        </div>
+        <div class="pricing-stat-box">
+          <span class="pricing-stat-label">Net Profit / Item</span>
+          <span class="pricing-stat-val retail">+$${netProfit.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">PRICING PRESETS:</span>
+        <div class="pricing-preset-pills">
+          <button type="button" class="button button-outline button-small" data-action="set-pricing-preset" data-preset="hobby" title="Low markup for gifts and hobby sales">Hobbyist (15%)</button>
+          <button type="button" class="button button-outline button-small" data-action="set-pricing-preset" data-preset="sidehustle" title="Balanced craft fair & Etsy pricing">Side Hustle (30%)</button>
+          <button type="button" class="button button-outline button-small" data-action="set-pricing-preset" data-preset="pro" title="Full commercial studio rate & margin">Bespoke Pro (50%)</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="pricing-slider-row">
+        <label style="flex:1;font-size:13px;font-weight:600">Hourly Craft Rate: <span>$${laborRate}/hr</span></label>
+        <input type="range" id="pricing-labor-slider" min="10" max="150" step="1" value="${laborRate}" style="flex:1">
+      </div>
+
+      <div class="pricing-slider-row">
+        <label style="flex:1;font-size:13px;font-weight:600">Overhead Markup (% for electricity, tool wear, consumables): <span>${overheadPercent}%</span></label>
+        <input type="range" id="pricing-overhead-slider" min="0" max="40" step="1" value="${overheadPercent}" style="flex:1">
+      </div>
+
+      <div class="pricing-slider-row">
+        <label style="flex:1;font-size:13px;font-weight:600">Profit Margin (%): <span>${profitMargin}%</span></label>
+        <input type="range" id="pricing-margin-slider" min="5" max="80" step="1" value="${profitMargin}" style="flex:1">
+      </div>
+    </div>
+  `;
+
+  $("#pricing-labor-slider")?.addEventListener("input", e => {
+    project.laborRate = parseFloat(e.target.value) || 25;
+    void persistState();
+    renderProjectPricing();
+  });
+  $("#pricing-overhead-slider")?.addEventListener("input", e => {
+    project.overheadPercent = parseFloat(e.target.value) || 0;
+    void persistState();
+    renderProjectPricing();
+  });
+  $("#pricing-margin-slider")?.addEventListener("input", e => {
+    project.profitMargin = parseFloat(e.target.value) || 30;
+    void persistState();
+    renderProjectPricing();
+  });
+}
+
+/* ============================================================
+   FEATURE 2: Linear Cut List & Stock Optimizer
+   ============================================================ */
+let lastCutPlanText = "";
+
+function runCutOptimizer() {
+  const stockInput = $("#tool-cut-stock");
+  const kerfInput = $("#tool-cut-kerf");
+  const piecesInput = $("#tool-cut-pieces");
+  const resultBox = $("#tool-cutlist-result");
+  if (!stockInput || !kerfInput || !piecesInput || !resultBox) return;
+
+  const stockLen = parseFloat(stockInput.value);
+  const kerf = parseFloat(kerfInput.value) || 0;
+  if (!Number.isFinite(stockLen) || stockLen <= 0) {
+    resultBox.innerHTML = `<span style="color:#ef4444">Please enter a valid raw stock length (e.g. 96 or 2400).</span>`;
+    return;
+  }
+
+  const lines = piecesInput.value.split("\n");
+  const pieces = [];
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const match = line.match(/^([0-9.]+)\s*(?:[xX*]|qty|count)?\s*([0-9]+)?/);
+    if (match) {
+      const len = parseFloat(match[1]);
+      const qty = match[2] ? parseInt(match[2], 10) : 1;
+      if (Number.isFinite(len) && len > 0 && qty > 0) {
+        for (let i = 0; i < qty; i++) {
+          pieces.push(len);
+        }
+      }
+    }
+  }
+
+  if (pieces.length === 0) {
+    resultBox.innerHTML = `<span style="color:#ef4444">Please enter at least one cut piece (e.g. <code>36 x 2</code>).</span>`;
+    return;
+  }
+
+  const overlong = pieces.filter(p => p > stockLen);
+  if (overlong.length > 0) {
+    resultBox.innerHTML = `<span style="color:#ef4444">Piece length (${overlong[0]}) exceeds raw stock length (${stockLen}). Increase stock length or trim piece.</span>`;
+    return;
+  }
+
+  // First Fit Decreasing bin-packing
+  pieces.sort((a, b) => b - a);
+
+  const boards = [];
+  for (const piece of pieces) {
+    let placed = false;
+    for (const board of boards) {
+      const needed = board.cuts.length > 0 ? (piece + kerf) : piece;
+      if (board.remaining >= needed) {
+        board.cuts.push(piece);
+        board.remaining -= needed;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      boards.push({
+        cuts: [piece],
+        remaining: stockLen - piece
+      });
+    }
+  }
+
+  const totalPartsLength = pieces.reduce((a, b) => a + b, 0);
+  const totalStockLength = boards.length * stockLen;
+  const yieldEfficiency = Math.round((totalPartsLength / totalStockLength) * 100);
+  const totalOffcut = boards.reduce((sum, b) => sum + b.remaining, 0);
+
+  const PALETTE = ["#2563eb", "#059669", "#d97706", "#7c3aed", "#db2777", "#0891b2", "#ea580c"];
+
+  let cutPlanSummary = `✂️ CUT LIST & STOCK OPTIMIZATION PLAN\n`;
+  cutPlanSummary += `Stock Length: ${stockLen} | Blade Kerf: ${kerf}\n`;
+  cutPlanSummary += `Boards Needed: ${boards.length} | Total Cuts: ${pieces.length} | Yield: ${yieldEfficiency}% | Total Scrap: ${totalOffcut.toFixed(2)}\n\n`;
+
+  boards.forEach((b, idx) => {
+    cutPlanSummary += `Board #${idx + 1} (cuts: ${b.cuts.join(", ")} | offcut: ${b.remaining.toFixed(2)})\n`;
+  });
+  lastCutPlanText = cutPlanSummary;
+
+  const boardsHtml = boards.map((board, idx) => {
+    const cutSegments = board.cuts.map((cut, cIdx) => {
+      const pct = (cut / stockLen) * 100;
+      const color = PALETTE[cIdx % PALETTE.length];
+      return `<div class="cut-segment" style="width:${pct}%;background:${color}" title="Cut: ${cut}">${cut}</div>`;
+    }).join("");
+
+    const scrapPct = Math.max(0, (board.remaining / stockLen) * 100);
+    const scrapSegment = scrapPct > 0 ? `<div class="cut-scrap-segment" style="width:${scrapPct}%" title="Offcut Scrap: ${board.remaining.toFixed(2)}">${board.remaining > (stockLen * 0.08) ? `Scrap: ${board.remaining.toFixed(1)}` : ""}</div>` : "";
+
+    return `
+      <div class="cut-board-visual">
+        <div class="cut-board-head">
+          <span>Board #${idx + 1} (${board.cuts.length} pieces)</span>
+          <span style="color:var(--muted)">Offcut Scrap: ${board.remaining.toFixed(2)} (${scrapPct.toFixed(1)}%)</span>
+        </div>
+        <div class="cut-board-bar">
+          ${cutSegments}
+          ${scrapSegment}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  resultBox.innerHTML = `
+    <div class="cut-results-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-size:18px;font-weight:700;color:var(--ink)">${boards.length} ${boards.length === 1 ? "Board" : "Boards"} Required</span>
+          <span style="margin-left:8px;font-size:13px;color:var(--muted)">(${pieces.length} cut pieces · ${yieldEfficiency}% yield efficiency)</span>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--green)">
+          Total Offcut Scrap: ${totalOffcut.toFixed(2)}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        ${boardsHtml}
+      </div>
+    </div>
+  `;
+}
+
+async function copyCutPlan() {
+  if (!lastCutPlanText) {
+    runCutOptimizer();
+  }
+  if (!lastCutPlanText) return;
+  try {
+    await navigator.clipboard.writeText(lastCutPlanText);
+    showToast("Copied cut plan to clipboard!");
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = lastCutPlanText;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    showToast("Copied cut plan to clipboard!");
+  }
+}
+
+/* ============================================================
+   FEATURE 3: Workshop Tool Maintenance & Safety Tracker
+   ============================================================ */
+function renderToolMaintenance() {
+  const container = $("#inventory-maintenance-section");
+  if (!container) return;
+
+  const list = state.maintenance || [];
+  const now = new Date();
+
+  const formattedItems = list.map(item => {
+    const lastDate = new Date(item.lastServiced);
+    const interval = parseInt(item.intervalDays, 10) || 30;
+    const dueDate = new Date(lastDate);
+    dueDate.setDate(dueDate.getDate() + interval);
+
+    const diffTime = dueDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let status = "good";
+    let badgeHtml = "";
+    if (diffDays < 0) {
+      status = "overdue";
+      badgeHtml = `<span class="maintenance-badge-overdue">⚠️ Overdue by ${Math.abs(diffDays)}d</span>`;
+    } else if (diffDays <= 7) {
+      status = "soon";
+      badgeHtml = `<span class="maintenance-badge-soon">⏰ Due in ${diffDays}d</span>`;
+    } else {
+      status = "good";
+      badgeHtml = `<span class="maintenance-badge-good">✓ Good (${diffDays}d left)</span>`;
+    }
+
+    return {
+      ...item,
+      status,
+      diffDays,
+      dueStr: dueDate.toISOString().slice(0, 10),
+      badgeHtml
+    };
+  });
+
+  formattedItems.sort((a, b) => a.diffDays - b.diffDays);
+
+  const overdueCount = formattedItems.filter(i => i.status === "overdue").length;
+  const soonCount = formattedItems.filter(i => i.status === "soon").length;
+
+  container.innerHTML = `
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--line)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <h2 style="font-size:18px;margin:0">🧰 Equipment Maintenance &amp; Safety Tracker</h2>
+          <span style="font-size:12px;color:var(--muted)">
+            ${formattedItems.length} tool schedule${formattedItems.length === 1 ? "" : "s"}${overdueCount > 0 ? ` · <strong style="color:#ef4444">${overdueCount} overdue</strong>` : ""}${soonCount > 0 ? ` · <strong style="color:#d97706">${soonCount} due soon</strong>` : ""}
+          </span>
+        </div>
+        <button type="button" class="button button-outline button-small" data-action="open-maintenance-dialog">+ Schedule Tool Care</button>
+      </div>
+
+      ${formattedItems.length === 0 ? `
+        <div class="inventory-empty" style="margin-top:14px">
+          <p>No equipment service schedules yet. Track table saw blade sharpening, 3D printer nozzle swaps, dust filter cleaning, and CNC lubrication.</p>
+          <button type="button" class="button button-primary button-small" data-action="open-maintenance-dialog">+ Schedule First Tool</button>
+        </div>
+      ` : `
+        <div class="maintenance-grid">
+          ${formattedItems.map(item => `
+            <div class="maintenance-card ${item.status === "overdue" ? "status-overdue" : ""}">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">
+                <div>
+                  <h3 style="font-size:15px;margin:0 0 2px 0">${escapeHTML(item.toolName)}</h3>
+                  <div style="font-size:12px;color:var(--muted)">Interval: Every ${item.intervalDays} days</div>
+                </div>
+                ${item.badgeHtml}
+              </div>
+
+              <div style="font-size:13px;font-weight:600;color:var(--ink)">
+                🔧 ${escapeHTML(item.task)}
+              </div>
+
+              ${item.notes ? `
+                <div style="font-size:11px;color:var(--muted);background:var(--surface-hover);padding:6px 8px;border-radius:4px;border-left:3px solid var(--accent)">
+                  🦺 <strong>SOP / Safety:</strong> ${escapeHTML(item.notes)}
+                </div>
+              ` : ""}
+
+              <div style="font-size:11px;color:var(--muted);display:flex;justify-content:space-between;margin-top:auto;padding-top:6px;border-top:1px solid var(--line)">
+                <span>Last: ${item.lastServiced}</span>
+                <span>Next due: ${item.dueStr}</span>
+              </div>
+
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:6px">
+                <button type="button" class="button button-outline button-small" data-action="log-service-today" data-id="${item.id}" title="Record maintenance completed today">✓ Log Service Today</button>
+                <div style="display:flex;gap:4px">
+                  <button type="button" class="icon-link-btn" data-action="edit-maintenance" data-id="${item.id}" title="Edit schedule">✎</button>
+                  <button type="button" class="icon-link-btn danger-hover" data-action="delete-maintenance" data-id="${item.id}" title="Remove schedule">×</button>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function openMaintenanceDialog(item = null) {
+  const form = $("#maintenance-form");
+  const dialog = $("#maintenance-dialog");
+  const delBtn = $("#delete-maintenance-btn");
+  const title = $("#maintenance-dialog-title");
+  if (!form || !dialog) return;
+
+  form.reset();
+  if (item) {
+    if (title) title.textContent = "Edit Tool Maintenance";
+    form.elements.id.value = item.id;
+    form.elements.toolName.value = item.toolName || "";
+    form.elements.task.value = item.task || "";
+    form.elements.intervalDays.value = item.intervalDays || 30;
+    form.elements.lastServiced.value = item.lastServiced || new Date().toISOString().slice(0, 10);
+    form.elements.notes.value = item.notes || "";
+    if (delBtn) delBtn.classList.remove("hidden");
+  } else {
+    if (title) title.textContent = "Schedule Tool Maintenance";
+    form.elements.id.value = "";
+    form.elements.lastServiced.value = new Date().toISOString().slice(0, 10);
+    if (delBtn) delBtn.classList.add("hidden");
+  }
+  dialog.showModal();
+}
+
+async function handleMaintenanceSubmit(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const id = form.elements.id.value;
+  const toolName = form.elements.toolName.value.trim();
+  const task = form.elements.task.value.trim();
+  const intervalDays = parseInt(form.elements.intervalDays.value, 10) || 30;
+  const lastServiced = form.elements.lastServiced.value || new Date().toISOString().slice(0, 10);
+  const notes = form.elements.notes.value.trim();
+
+  state.maintenance = state.maintenance || [];
+
+  if (id) {
+    const item = state.maintenance.find(m => m.id === id);
+    if (item) {
+      item.toolName = toolName;
+      item.task = task;
+      item.intervalDays = intervalDays;
+      item.lastServiced = lastServiced;
+      item.notes = notes;
+    }
+  } else {
+    state.maintenance.push({
+      id: uid(),
+      toolName,
+      task,
+      intervalDays,
+      lastServiced,
+      notes
+    });
+  }
+
+  try {
+    await persistState();
+    $("#maintenance-dialog")?.close();
+    renderToolMaintenance();
+    showToast(`Maintenance schedule saved for “${toolName}”!`);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not save maintenance schedule.");
+  }
+}
+
+async function logServiceToday(id) {
+  const item = (state.maintenance || []).find(m => m.id === id);
+  if (!item) return;
+
+  item.lastServiced = new Date().toISOString().slice(0, 10);
+  try {
+    await persistState();
+    makeActivity("project", `Serviced ${item.toolName}: ${item.task}`);
+    renderToolMaintenance();
+    showToast(`✓ Logged maintenance for “${item.toolName}” today!`);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not update service log.");
+  }
+}
+
+async function deleteMaintenance(id) {
+  const item = (state.maintenance || []).find(m => m.id === id);
+  if (!item) return;
+  if (!window.confirm(`Delete service schedule for “${item.toolName}”?`)) return;
+
+  state.maintenance = (state.maintenance || []).filter(m => m.id !== id);
+  try {
+    await persistState();
+    $("#maintenance-dialog")?.close();
+    renderToolMaintenance();
+    showToast("Service schedule removed.");
+  } catch (err) {
+    console.error(err);
+    showToast("Could not remove maintenance schedule.");
+  }
+}
+
+/* ============================================================
+   FEATURE 4: Ambient Workshop Soundscapes (Web Audio procedural)
+   ============================================================ */
+let soundscapeAudioCtx = null;
+let activeSoundscape = "off";
+let soundscapeMasterGain = null;
+let soundscapeNodes = [];
+
+function initSoundscapeContext() {
+  if (!soundscapeAudioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    soundscapeAudioCtx = new AudioContextClass();
+    soundscapeMasterGain = soundscapeAudioCtx.createGain();
+    const volInput = $("#soundscape-volume");
+    soundscapeMasterGain.gain.setValueAtTime(volInput ? parseFloat(volInput.value) : 0.5, soundscapeAudioCtx.currentTime);
+    soundscapeMasterGain.connect(soundscapeAudioCtx.destination);
+  }
+  if (soundscapeAudioCtx.state === "suspended") {
+    soundscapeAudioCtx.resume();
+  }
+  return soundscapeAudioCtx;
+}
+
+function stopCurrentSoundscape() {
+  for (const node of soundscapeNodes) {
+    try {
+      if (typeof node.stop === "function") node.stop();
+      if (typeof node.disconnect === "function") node.disconnect();
+    } catch {}
+  }
+  soundscapeNodes = [];
+}
+
+function toggleSoundscape(track) {
+  if (activeSoundscape === track && track !== "off") {
+    track = "off";
+  }
+  activeSoundscape = track;
+  stopCurrentSoundscape();
+  updateSoundscapeButtons();
+
+  if (track === "off") {
+    return;
+  }
+
+  const ctx = initSoundscapeContext();
+  if (!ctx) return;
+
+  if (track === "rain") {
+    const bufferSize = ctx.sampleRate * 2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      b0 = 0.99886 * b0 + white * 0.0555179;
+      b1 = 0.99332 * b1 + white * 0.0750759;
+      b2 = 0.96900 * b2 + white * 0.1538520;
+      b3 = 0.86650 * b3 + white * 0.3104856;
+      b4 = 0.55000 * b4 + white * 0.5329522;
+      b5 = -0.7616 * b5 - white * 0.0168980;
+      data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
+      b6 = white * 0.115926;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    noise.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(1200, ctx.currentTime);
+
+    noise.connect(filter);
+    filter.connect(soundscapeMasterGain);
+    noise.start();
+    soundscapeNodes.push(noise, filter);
+
+  } else if (track === "brown") {
+    const bufferSize = ctx.sampleRate * 2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let lastOut = 0.0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      data[i] = (lastOut + (0.02 * white)) / 1.02;
+      lastOut = data[i];
+      data[i] *= 3.5;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    noise.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(600, ctx.currentTime);
+
+    noise.connect(filter);
+    filter.connect(soundscapeMasterGain);
+    noise.start();
+    soundscapeNodes.push(noise, filter);
+
+  } else if (track === "hum") {
+    const osc60 = ctx.createOscillator();
+    osc60.type = "sine";
+    osc60.frequency.setValueAtTime(60, ctx.currentTime);
+
+    const osc120 = ctx.createOscillator();
+    osc120.type = "sine";
+    osc120.frequency.setValueAtTime(120, ctx.currentTime);
+
+    const humGain = ctx.createGain();
+    humGain.gain.setValueAtTime(0.08, ctx.currentTime);
+
+    osc60.connect(humGain);
+    osc120.connect(humGain);
+    humGain.connect(soundscapeMasterGain);
+
+    const bufferSize = ctx.sampleRate * 2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.04;
+    const airNoise = ctx.createBufferSource();
+    airNoise.buffer = buffer;
+    airNoise.loop = true;
+
+    const airFilter = ctx.createBiquadFilter();
+    airFilter.type = "bandpass";
+    airFilter.frequency.setValueAtTime(320, ctx.currentTime);
+    airFilter.Q.setValueAtTime(3, ctx.currentTime);
+
+    airNoise.connect(airFilter);
+    airFilter.connect(soundscapeMasterGain);
+
+    osc60.start();
+    osc120.start();
+    airNoise.start();
+    soundscapeNodes.push(osc60, osc120, humGain, airNoise, airFilter);
+
+  } else if (track === "fire") {
+    const bufferSize = ctx.sampleRate * 2;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let lastOut = 0.0;
+    for (let i = 0; i < bufferSize; i++) {
+      const white = Math.random() * 2 - 1;
+      data[i] = (lastOut + (0.015 * white)) / 1.015;
+      lastOut = data[i];
+      if (Math.random() < 0.0006) {
+        data[i] += (Math.random() * 2 - 1) * 0.8;
+      }
+      data[i] *= 2.8;
+    }
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    noise.loop = true;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(800, ctx.currentTime);
+
+    noise.connect(filter);
+    filter.connect(soundscapeMasterGain);
+    noise.start();
+    soundscapeNodes.push(noise, filter);
+  }
+}
+
+function updateSoundscapeButtons() {
+  $$(".soundscape-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.track === activeSoundscape);
+  });
+  const topbarBtn = $("#topbar-soundscape-btn");
+  if (topbarBtn) {
+    if (activeSoundscape !== "off") {
+      topbarBtn.classList.add("button-primary");
+      topbarBtn.classList.remove("button-outline");
+      topbarBtn.textContent = `🎧 ${activeSoundscape.toUpperCase()}`;
+    } else {
+      topbarBtn.classList.remove("button-primary");
+      topbarBtn.classList.add("button-outline");
+      topbarBtn.textContent = "🎧 Sounds";
+    }
+  }
+}
+
+function setSoundscapeVolume(val) {
+  const v = parseFloat(val);
+  if (soundscapeMasterGain && soundscapeAudioCtx && Number.isFinite(v)) {
+    soundscapeMasterGain.gain.setValueAtTime(v, soundscapeAudioCtx.currentTime);
+  }
+}
+
+function toggleSoundscapePanel() {
+  const timerDialog = $("#timer-dialog");
+  if (!timerDialog?.open) {
+    openTimerDialog();
+  }
+}
+
+/* ============================================================
+   FEATURE 5: 2D Blueprint & Dimensioned Sketchpad
+   ============================================================ */
+let activeBlueprintProjectId = null;
+let blueprintTool = "pencil";
+let blueprintGrid = "square";
+let blueprintColor = "#1e40af";
+let blueprintCanvas = null;
+let blueprintCtx = null;
+let blueprintIsDrawing = false;
+let blueprintStartX = 0;
+let blueprintStartY = 0;
+let blueprintSnapshot = null;
+let blueprintHistory = [];
+let blueprintEventsAttached = false;
+
+function openProjectBlueprint(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  activeBlueprintProjectId = project.id;
+
+  const title = $("#blueprint-dialog-title");
+  if (title) title.textContent = `Blueprint & Sketchpad · ${project.title}`;
+
+  $("#blueprint-dialog")?.showModal();
+  setTimeout(() => initBlueprintCanvas(), 60);
+}
+
+function initBlueprintCanvas() {
+  blueprintCanvas = $("#blueprint-canvas");
+  if (!blueprintCanvas) return;
+  blueprintCtx = blueprintCanvas.getContext("2d");
+
+  const wrap = $("#blueprint-canvas-wrap");
+  if (wrap) {
+    const rect = wrap.getBoundingClientRect();
+    if (rect.width > 200) {
+      blueprintCanvas.width = Math.floor(rect.width);
+      blueprintCanvas.height = Math.floor(rect.height || 480);
+    }
+  }
+
+  blueprintHistory = [];
+  redrawBlueprintGrid();
+  attachBlueprintEvents();
+}
+
+function redrawBlueprintGrid() {
+  if (!blueprintCtx || !blueprintCanvas) return;
+  const w = blueprintCanvas.width;
+  const h = blueprintCanvas.height;
+
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  blueprintCtx.fillStyle = isDark ? "#0f172a" : "#ffffff";
+  blueprintCtx.fillRect(0, 0, w, h);
+
+  if (blueprintGrid === "square") {
+    blueprintCtx.lineWidth = 1;
+    blueprintCtx.strokeStyle = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+    for (let x = 0; x <= w; x += 20) {
+      blueprintCtx.beginPath();
+      blueprintCtx.moveTo(x, 0);
+      blueprintCtx.lineTo(x, h);
+      blueprintCtx.stroke();
+    }
+    for (let y = 0; y <= h; y += 20) {
+      blueprintCtx.beginPath();
+      blueprintCtx.moveTo(0, y);
+      blueprintCtx.lineTo(w, y);
+      blueprintCtx.stroke();
+    }
+    blueprintCtx.strokeStyle = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.13)";
+    for (let x = 0; x <= w; x += 100) {
+      blueprintCtx.beginPath();
+      blueprintCtx.moveTo(x, 0);
+      blueprintCtx.lineTo(x, h);
+      blueprintCtx.stroke();
+    }
+    for (let y = 0; y <= h; y += 100) {
+      blueprintCtx.beginPath();
+      blueprintCtx.moveTo(0, y);
+      blueprintCtx.lineTo(w, y);
+      blueprintCtx.stroke();
+    }
+  } else if (blueprintGrid === "isometric") {
+    blueprintCtx.lineWidth = 1;
+    blueprintCtx.strokeStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+    const step = 30;
+    const tan30 = Math.tan(Math.PI / 6);
+    for (let x = -h; x <= w + h; x += step) {
+      blueprintCtx.beginPath();
+      blueprintCtx.moveTo(x, 0);
+      blueprintCtx.lineTo(x + h * tan30, h);
+      blueprintCtx.stroke();
+
+      blueprintCtx.beginPath();
+      blueprintCtx.moveTo(x, 0);
+      blueprintCtx.lineTo(x - h * tan30, h);
+      blueprintCtx.stroke();
+    }
+  }
+
+  pushBlueprintSnapshot();
+}
+
+function pushBlueprintSnapshot() {
+  if (!blueprintCtx || !blueprintCanvas) return;
+  try {
+    const data = blueprintCtx.getImageData(0, 0, blueprintCanvas.width, blueprintCanvas.height);
+    blueprintHistory.push(data);
+    if (blueprintHistory.length > 25) blueprintHistory.shift();
+  } catch {}
+}
+
+function blueprintUndo() {
+  if (blueprintHistory.length > 1) {
+    blueprintHistory.pop();
+    const previous = blueprintHistory[blueprintHistory.length - 1];
+    if (previous && blueprintCtx) {
+      blueprintCtx.putImageData(previous, 0, 0);
+    }
+  } else if (blueprintHistory.length === 1) {
+    const initial = blueprintHistory[0];
+    if (initial && blueprintCtx) blueprintCtx.putImageData(initial, 0, 0);
+  }
+}
+
+function blueprintClear() {
+  if (!window.confirm("Clear the blueprint sketchpad?")) return;
+  blueprintHistory = [];
+  redrawBlueprintGrid();
+}
+
+function attachBlueprintEvents() {
+  if (blueprintEventsAttached || !blueprintCanvas) return;
+  blueprintEventsAttached = true;
+
+  const getCanvasCoords = e => {
+    const rect = blueprintCanvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (blueprintCanvas.width / rect.width),
+      y: (e.clientY - rect.top) * (blueprintCanvas.height / rect.height)
+    };
+  };
+
+  blueprintCanvas.addEventListener("mousedown", e => {
+    blueprintIsDrawing = true;
+    const pos = getCanvasCoords(e);
+    blueprintStartX = pos.x;
+    blueprintStartY = pos.y;
+    blueprintSnapshot = blueprintCtx.getImageData(0, 0, blueprintCanvas.width, blueprintCanvas.height);
+
+    if (blueprintTool === "pencil" || blueprintTool === "eraser") {
+      blueprintCtx.beginPath();
+      blueprintCtx.moveTo(pos.x, pos.y);
+      blueprintCtx.lineWidth = blueprintTool === "eraser" ? 18 : 2.5;
+      blueprintCtx.lineCap = "round";
+      blueprintCtx.strokeStyle = blueprintTool === "eraser" ? (document.documentElement.getAttribute("data-theme") === "dark" ? "#0f172a" : "#ffffff") : blueprintColor;
+    }
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!blueprintIsDrawing || !blueprintCtx) return;
+    const pos = getCanvasCoords(e);
+
+    if (blueprintTool === "pencil" || blueprintTool === "eraser") {
+      blueprintCtx.lineTo(pos.x, pos.y);
+      blueprintCtx.stroke();
+    } else {
+      blueprintCtx.putImageData(blueprintSnapshot, 0, 0);
+      blueprintCtx.lineWidth = 2.5;
+      blueprintCtx.strokeStyle = blueprintColor;
+
+      if (blueprintTool === "line") {
+        blueprintCtx.beginPath();
+        blueprintCtx.moveTo(blueprintStartX, blueprintStartY);
+        blueprintCtx.lineTo(pos.x, pos.y);
+        blueprintCtx.stroke();
+      } else if (blueprintTool === "rect") {
+        blueprintCtx.strokeRect(blueprintStartX, blueprintStartY, pos.x - blueprintStartX, pos.y - blueprintStartY);
+      } else if (blueprintTool === "circle") {
+        const radius = Math.hypot(pos.x - blueprintStartX, pos.y - blueprintStartY);
+        blueprintCtx.beginPath();
+        blueprintCtx.arc(blueprintStartX, blueprintStartY, radius, 0, Math.PI * 2);
+        blueprintCtx.stroke();
+      } else if (blueprintTool === "dimension") {
+        drawDimensionLine(blueprintStartX, blueprintStartY, pos.x, pos.y, false);
+      }
+    }
+  });
+
+  window.addEventListener("mouseup", e => {
+    if (!blueprintIsDrawing || !blueprintCtx) return;
+    blueprintIsDrawing = false;
+    const pos = getCanvasCoords(e);
+
+    if (blueprintTool === "dimension") {
+      blueprintCtx.putImageData(blueprintSnapshot, 0, 0);
+      const distPx = Math.round(Math.hypot(pos.x - blueprintStartX, pos.y - blueprintStartY));
+      if (distPx > 10) {
+        const estInches = (distPx / 20).toFixed(1).replace(/\.0$/, "");
+        const label = window.prompt("Enter dimension measurement label:", `${estInches}"`);
+        if (label !== null) {
+          drawDimensionLine(blueprintStartX, blueprintStartY, pos.x, pos.y, true, label.trim() || `${estInches}"`);
+        }
+      }
+    }
+
+    pushBlueprintSnapshot();
+  });
+}
+
+function drawDimensionLine(x1, y1, x2, y2, commit, labelText = "") {
+  if (!blueprintCtx) return;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy);
+  if (len < 5) return;
+
+  const ux = dx / len;
+  const uy = dy / len;
+  const px = -uy;
+  const py = ux;
+  const tickLen = 8;
+
+  blueprintCtx.save();
+  blueprintCtx.strokeStyle = blueprintColor;
+  blueprintCtx.fillStyle = blueprintColor;
+  blueprintCtx.lineWidth = 1.5;
+
+  blueprintCtx.beginPath();
+  blueprintCtx.moveTo(x1, y1);
+  blueprintCtx.lineTo(x2, y2);
+  blueprintCtx.stroke();
+
+  blueprintCtx.beginPath();
+  blueprintCtx.moveTo(x1 + px * tickLen, y1 + py * tickLen);
+  blueprintCtx.lineTo(x1 - px * tickLen, y1 - py * tickLen);
+  blueprintCtx.moveTo(x2 + px * tickLen, y2 + py * tickLen);
+  blueprintCtx.lineTo(x2 - px * tickLen, y2 - py * tickLen);
+  blueprintCtx.stroke();
+
+  if (labelText) {
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+
+    blueprintCtx.font = "bold 12px monospace";
+    blueprintCtx.textAlign = "center";
+    blueprintCtx.textBaseline = "middle";
+
+    const textWidth = blueprintCtx.measureText(labelText).width;
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+
+    blueprintCtx.fillStyle = isDark ? "#1e293b" : "#ffffff";
+    blueprintCtx.fillRect(midX - (textWidth / 2) - 6, midY - 9, textWidth + 12, 18);
+    blueprintCtx.strokeStyle = blueprintColor;
+    blueprintCtx.lineWidth = 1;
+    blueprintCtx.strokeRect(midX - (textWidth / 2) - 6, midY - 9, textWidth + 12, 18);
+
+    blueprintCtx.fillStyle = blueprintColor;
+    blueprintCtx.fillText(labelText, midX, midY);
+  }
+
+  blueprintCtx.restore();
+}
+
+function setBlueprintTool(tool) {
+  blueprintTool = tool;
+  $$(".blueprint-tool-btn[data-tool]").forEach(b => b.classList.toggle("active", b.dataset.tool === tool));
+}
+
+function setBlueprintGrid(grid) {
+  blueprintGrid = grid;
+  $$(".blueprint-tool-btn[data-grid]").forEach(b => b.classList.toggle("active", b.dataset.grid === grid));
+  redrawBlueprintGrid();
+}
+
+function setBlueprintColor(color) {
+  blueprintColor = color;
+  $$(".blueprint-color-circle").forEach(c => c.classList.toggle("active", c.dataset.color === color));
+}
+
+async function saveBlueprintToProject() {
+  if (!activeBlueprintProjectId || !blueprintCanvas) return;
+  const project = state.projects.find(p => p.id === activeBlueprintProjectId);
+  if (!project) return;
+
+  try {
+    blueprintCanvas.toBlob(async blob => {
+      if (!blob) {
+        showToast("Could not generate blueprint image.");
+        return;
+      }
+      project.folders = project.folders || [];
+      let folder = project.folders.find(f => f.name.toLowerCase() === "blueprints");
+      if (!folder) {
+        folder = { id: uid(), name: "Blueprints", images: [] };
+        project.folders.push(folder);
+      }
+      folder.images = folder.images || [];
+      folder.images.push({
+        id: uid(),
+        name: `Blueprint ${new Date().toLocaleDateString()}`,
+        type: "image/png",
+        blob: blob,
+        addedAt: new Date().toISOString()
+      });
+
+      project.updatedAt = new Date().toISOString();
+      makeActivity("photo", `Drafted new 2D blueprint for ${project.title}`);
+
+      await persistState();
+      render();
+      if ($("#detail-dialog").open) renderProjectDetail(project.id);
+      $("#blueprint-dialog")?.close();
+      showToast("💾 Blueprint saved to project photos in 'Blueprints'!");
+    }, "image/png");
+  } catch (e) {
+    console.error(e);
+    showToast("Could not save blueprint.");
+  }
+}
+
 $("#goal-form")?.addEventListener("submit", event => void handleGoalSubmit(event));
+$("#maintenance-form")?.addEventListener("submit", event => void handleMaintenanceSubmit(event));
+$("#soundscape-volume")?.addEventListener("input", event => setSoundscapeVolume(event.target.value));
+$("#tool-cut-stock")?.addEventListener("input", () => runCutOptimizer());
+$("#tool-cut-kerf")?.addEventListener("input", () => runCutOptimizer());
 $("#detail-dialog").addEventListener("close", () => { activeProjectId = null; });
 void initialize();

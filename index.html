@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f3ed">
     <title>Workbench — your project journal</title>
-    <link rel="stylesheet" href="styles.css?v=2.5.0">
+    <link rel="stylesheet" href="styles.css?v=2.6.0">
     <link rel="manifest" href="manifest.json">
     <script>
       (function(){
@@ -23,7 +23,7 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="app.js?v=2.5.0" defer></script>
+    <script src="app.js?v=2.6.0" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -69,6 +69,7 @@
             <button type="button" class="button button-outline button-small" data-action="open-invite-modal" title="Invite makers to your shop">👥 Invite</button>
             <button type="button" class="button button-outline button-small" data-action="open-tools" title="Workshop Reference &amp; Conversion Tools">📐 Tools</button>
             <button type="button" class="button button-outline button-small" id="topbar-timer-btn" data-action="open-timer" title="Practice Session &amp; Focus Timer">⏱️ Focus</button>
+            <button type="button" class="button button-outline button-small" id="topbar-soundscape-btn" data-action="toggle-soundscape-panel" title="Ambient Workshop Focus Sounds">🎧 Sounds</button>
             <button type="button" class="notification-btn" id="notification-btn" data-action="open-notifications" title="Notifications" aria-label="Notifications">
               <span class="notification-icon">🔔</span>
               <span class="notification-badge" id="notification-badge" style="display:none">0</span>
@@ -346,6 +347,7 @@
               <span class="result-count" id="inventory-result-count"></span>
             </div>
             <div class="inventory-grid" id="inventory-grid"></div>
+            <div id="inventory-maintenance-section" class="maintenance-container"></div>
           </section>
 
           <!-- Admin Console View -->
@@ -580,6 +582,16 @@
             <span class="pomodoro-dot" title="Cycle 4"></span>
           </div>
           <button type="button" class="timer-sound-pill active" id="timer-sound-toggle" data-action="toggle-timer-sound" title="Toggle audio chime">🔔 Chime: ON</button>
+        </div>
+
+        <div class="soundscape-strip">
+          <span style="font-size:11px;font-weight:700;color:var(--muted)">🎧 AMBIENT:</span>
+          <button type="button" class="soundscape-btn active" data-action="toggle-soundscape" data-track="off">Off</button>
+          <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="rain">🌧️ Rain</button>
+          <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="fire">🪵 Hearth</button>
+          <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="hum">📻 Workshop</button>
+          <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="brown">🌊 Brown Noise</button>
+          <input type="range" class="soundscape-vol-slider" id="soundscape-volume" min="0" max="1" step="0.05" value="0.5" title="Soundscape volume" aria-label="Soundscape volume">
         </div>
 
         <div class="form-row" style="margin-bottom:12px">
@@ -1232,6 +1244,106 @@
           <button class="button button-primary" type="submit">Save Goal <span>→</span></button>
         </div>
       </form>
+    </dialog>
+
+    <!-- 🏷️ Project Pricing & Labor Value Dialog -->
+    <dialog class="app-dialog compact-dialog" id="price-dialog" aria-label="Labor Cost &amp; Pricing Calculator">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">CRAFT &amp; COMMISSION VALUATION</div>
+          <h2>Labor &amp; Selling Price</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="pricing-dialog-body" id="pricing-dialog-body"></div>
+      <div class="dialog-actions" style="margin-top:14px">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Done</button>
+      </div>
+    </dialog>
+
+    <!-- 🧰 Tool Maintenance Dialog -->
+    <dialog class="app-dialog compact-dialog" id="maintenance-dialog" aria-label="Tool Maintenance Schedule">
+      <form id="maintenance-form" method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <div class="eyebrow">EQUIPMENT CARE &amp; SAFETY</div>
+            <h2 id="maintenance-dialog-title">Tool Maintenance</h2>
+          </div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        <input type="hidden" name="id">
+        <label class="field-label">Tool / Machine Name<input name="toolName" required maxlength="80" placeholder="e.g. DeWalt Table Saw, 3D Printer, Hand Plane #4"></label>
+        <label class="field-label">Service / Maintenance Operation<input name="task" required maxlength="120" placeholder="e.g. Sharpen carbide blade, clean &amp; lube Z lead screw"></label>
+        <div class="form-row">
+          <label class="field-label">Service Interval (days)
+            <select name="intervalDays">
+              <option value="14">Every 2 weeks (14 days)</option>
+              <option value="30" selected>Every month (30 days)</option>
+              <option value="60">Every 2 months (60 days)</option>
+              <option value="90">Quarterly (90 days)</option>
+              <option value="180">Twice a year (180 days)</option>
+              <option value="365">Annual (365 days)</option>
+            </select>
+          </label>
+          <label class="field-label">Last Serviced Date<input name="lastServiced" type="date" required></label>
+        </div>
+        <label class="field-label">Safety Notes / Standard Operating Procedure <span class="optional">(optional)</span>
+          <textarea name="notes" rows="2" maxlength="300" placeholder="e.g. Unplug power source before maintenance. Wear eye protection and 3M respirator."></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="danger-button hidden" id="delete-maintenance-btn" data-action="delete-maintenance">Delete</button>
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button class="button button-primary" type="submit">Save Schedule <span>→</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- 📐 2D Blueprint & Dimensioned Sketchpad Dialog -->
+    <dialog class="app-dialog blueprint-dialog" id="blueprint-dialog" aria-label="2D Blueprint &amp; Sketchpad">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">WORKSHOP DRAFTING &amp; BLUEPRINTS</div>
+          <h2 id="blueprint-dialog-title">Project Blueprint Sketchpad</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="blueprint-body">
+        <div class="blueprint-toolbar">
+          <div style="display:flex;gap:4px">
+            <button type="button" class="blueprint-tool-btn active" data-action="set-blueprint-tool" data-tool="pencil" title="Freehand pencil">✏️ Pencil</button>
+            <button type="button" class="blueprint-tool-btn" data-action="set-blueprint-tool" data-tool="line" title="Straight line">📏 Line</button>
+            <button type="button" class="blueprint-tool-btn" data-action="set-blueprint-tool" data-tool="dimension" title="Dimension with measurement label">↔️ Dimension</button>
+            <button type="button" class="blueprint-tool-btn" data-action="set-blueprint-tool" data-tool="rect" title="Rectangle / Box">⬜ Box</button>
+            <button type="button" class="blueprint-tool-btn" data-action="set-blueprint-tool" data-tool="circle" title="Circle">⭕ Circle</button>
+            <button type="button" class="blueprint-tool-btn" data-action="set-blueprint-tool" data-tool="eraser" title="Eraser">🧽 Eraser</button>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center;margin-left:6px">
+            <span style="font-size:11px;font-weight:600;color:var(--muted)">GRID:</span>
+            <button type="button" class="blueprint-tool-btn active" data-action="set-blueprint-grid" data-grid="square" title="Square Grid">Square</button>
+            <button type="button" class="blueprint-tool-btn" data-action="set-blueprint-grid" data-grid="isometric" title="Isometric 3D Grid">Isometric</button>
+            <button type="button" class="blueprint-tool-btn" data-action="set-blueprint-grid" data-grid="none" title="Blank Canvas">None</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;margin-left:6px">
+            <span class="blueprint-color-circle active" data-action="set-blueprint-color" data-color="#1e40af" style="background:#1e40af" title="Blueprint Blue"></span>
+            <span class="blueprint-color-circle" data-action="set-blueprint-color" data-color="#374151" style="background:#374151" title="Graphite Pencil"></span>
+            <span class="blueprint-color-circle" data-action="set-blueprint-color" data-color="#dc2626" style="background:#dc2626" title="Safety Red"></span>
+            <span class="blueprint-color-circle" data-action="set-blueprint-color" data-color="#16a34a" style="background:#16a34a" title="Forest Green"></span>
+            <span class="blueprint-color-circle" data-action="set-blueprint-color" data-color="#ffffff" style="background:#ffffff;border:1px solid #ccc" title="White Chalk"></span>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:6px">
+            <button type="button" class="button button-outline button-small" data-action="blueprint-undo">↶ Undo</button>
+            <button type="button" class="button button-outline button-small" data-action="blueprint-clear">Clear</button>
+          </div>
+        </div>
+
+        <div class="blueprint-canvas-wrap" id="blueprint-canvas-wrap">
+          <canvas id="blueprint-canvas" width="880" height="480" class="blueprint-canvas"></canvas>
+        </div>
+      </div>
+      <div class="dialog-actions" style="margin-top:14px">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+        <button type="button" class="button button-primary" data-action="save-blueprint-to-project">💾 Save Blueprint to Photos <span>→</span></button>
+      </div>
     </dialog>
 
     <input type="file" id="photo-input" accept="image/*" multiple hidden>
