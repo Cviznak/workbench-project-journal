@@ -236,10 +236,8 @@ function readSavedState(overrideKey = null) {
       // ONLY the primary admin / shop owner should migrate legacy unpartitioned STATE_KEY!
       // New or non-owner users must start fresh with their own blank workspace.
       if (!request.result && key !== STATE_KEY) {
-        const session = getCloudSession();
-        const primaryAdminId = getPrimaryAdminId();
         const user = getActiveUser();
-        const isCurrentPrimary = Boolean(user?.isPrimary || (session?.user?.id && primaryAdminId && session.user.id === primaryAdminId) || (user?.email && user.email.toLowerCase().includes("rakowshik")));
+        const isCurrentPrimary = isPrimaryOwner(user);
         if (isCurrentPrimary) {
           const fallback = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
           fallback.onsuccess = () => resolve(fallback.result || null);
@@ -792,8 +790,26 @@ function getPrimaryAdminId() {
   if (cached?.is_primary) return cached.id;
   return "";
 }
+function isGenericName(name) {
+  if (!name || typeof name !== "string") return true;
+  const clean = name.trim().toLowerCase();
+  return clean.length < 2 || [
+    "maker", "studio maker", "local maker", "guest", "admin", "owner",
+    "editor", "viewer", "contributor", "user", "test", "test user", "anonymous", "null", "undefined"
+  ].includes(clean);
+}
 
-
+function isPrimaryOwner(user = null) {
+  const u = user || getActiveUser();
+  if (!u) return false;
+  const email = (u.email || "").toLowerCase().trim();
+  if (email.includes("rakowshik")) return true;
+  const name = (u.displayName || u.display_name || u.name || "").toLowerCase().trim();
+  if (name.includes("rakowshik")) return true;
+  const primaryId = getPrimaryAdminId();
+  if (u.id && primaryId && u.id === primaryId) return true;
+  return Boolean(u.isPrimary);
+}
 
 function getActiveUser() {
   const session = getCloudSession();
@@ -1321,9 +1337,7 @@ async function recoverOwnerWorkspace({ silent = false } = {}) {
   const session = getCloudSession();
   if (!session?.user?.id) return false;
   const user = getActiveUser();
-  const primaryId = getPrimaryAdminId();
-  const isOwner = Boolean(user?.isPrimary || (user && user.id === primaryId) || isCurrentUserAdmin() || (user?.email && user.email.toLowerCase().includes("rakowshik")));
-  if (!isOwner) return false;
+  if (!isPrimaryOwner(user)) return false;
 
   try {
     if (!silent) showToast("Checking local backup for owner projects…");
@@ -1698,9 +1712,7 @@ async function signInWithEmail(email, password) {
   renderCloudConnection();
 
   const curUser = getActiveUser();
-  const primaryId = getPrimaryAdminId();
-  const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
-  if (isOwner && (!Array.isArray(state.projects) || state.projects.length === 0)) {
+  if (isPrimaryOwner(curUser) && (!Array.isArray(state.projects) || state.projects.length === 0)) {
     void recoverOwnerWorkspace({ silent: true });
   }
 }
@@ -1786,12 +1798,11 @@ async function signOutUser() {
     exitInspectionMode();
   }
   resetWorkspaceStateToDefault();
-  await loadUserScopedState();
   updateUserUI();
   render();
   renderCloudConnection();
   $("#user-menu-dialog")?.close();
-  showToast("Signed out. Switched to local workbench.");
+  showToast("Signed out. Switched to clean workbench.");
 }
 
 async function sendPasswordRecovery(email) {
@@ -2246,17 +2257,20 @@ async function syncCloudWorkspace(choice = "automatic") {
         cloudMessage("Cloud workspace initialized for this account.", "connected");
       }
       await syncCloudCollaborations().catch(() => {});
+      await reconcileProjectOwnership().catch(() => {});
       return;
     }
     if (choice === "push") {
       await storeRemoteWorkspace();
       await syncCloudCollaborations().catch(() => {});
+      await reconcileProjectOwnership().catch(() => {});
       return;
     }
     if (!remote) {
       await storeRemoteWorkspace();
       cloudMessage("Cloud sync is ready. This browser’s workspace is now backed up.", "connected");
       await syncCloudCollaborations().catch(() => {});
+      await reconcileProjectOwnership().catch(() => {});
       return;
     }
     const marker = readSyncMarker(session.user.id);
@@ -2264,6 +2278,7 @@ async function syncCloudWorkspace(choice = "automatic") {
       await loadRemoteWorkspace(remote);
       cloudMessage("Cloud workspace loaded on this browser.", "connected");
       await syncCloudCollaborations().catch(() => {});
+      await reconcileProjectOwnership().catch(() => {});
       return;
     }
     if (!marker) {
@@ -8087,9 +8102,7 @@ async function initialize() {
     if (getCloudConfig() && getCloudSession()) {
       void syncCloudWorkspace().then(async () => {
         const curUser = getActiveUser();
-        const primaryId = getPrimaryAdminId();
-        const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
-        if (isOwner && (!Array.isArray(state.projects) || state.projects.length === 0)) {
+        if (isPrimaryOwner(curUser) && (!Array.isArray(state.projects) || state.projects.length === 0)) {
           await recoverOwnerWorkspace({ silent: true });
         }
       });
@@ -10423,7 +10436,8 @@ function isProjectCreator(project, user = null, includeAdmin = false) {
   if (!project) return false;
   ensureProjectCreator(project);
   const curUser = user || getActiveUser();
-  if (!curUser || curUser.id === "local-maker") return true;
+  if (!curUser) return false;
+  if (curUser.id === "local-maker" && !getCloudSession()) return true;
 
   const uId = curUser.id;
   const uEmail = (curUser.email || "").toLowerCase().trim();
@@ -10433,15 +10447,27 @@ function isProjectCreator(project, user = null, includeAdmin = false) {
   const cEmail = (project.creator?.email || "").toLowerCase().trim();
   const cName = (project.creator?.name || project.creator?.displayName || (cEmail ? cEmail.split("@")[0] : "")).toLowerCase().trim();
 
-  const idMatch = Boolean(cId && uId && cId === uId);
+  const idMatch = Boolean(cId && uId && cId === uId && cId !== "local-maker");
   const emailMatch = Boolean(cEmail && uEmail && cEmail === uEmail);
-  const nameMatch = Boolean(cName && uName && (cName === uName || cName.replace(/\s+/g, "") === uName.replace(/\s+/g, "")));
+  const nameMatch = Boolean(
+    !isGenericName(cName) &&
+    !isGenericName(uName) &&
+    (cName === uName || cName.replace(/\s+/g, "") === uName.replace(/\s+/g, ""))
+  );
 
-  if (uId && (emailMatch || nameMatch) && (!cId || cId !== uId)) {
+  // If project creator was generic or local-maker, primary owner claims it
+  const primaryOwnerFallback = Boolean(
+    isPrimaryOwner(curUser) &&
+    (!cId || cId === "local-maker" || isGenericName(cName)) &&
+    (!cEmail || cEmail === "local@workbench.maker" || cEmail.includes("rakowshik"))
+  );
+
+  if (uId && (emailMatch || nameMatch || primaryOwnerFallback) && (!cId || cId !== uId || cId === "local-maker")) {
     project.creator.id = uId;
+    if (uEmail && !project.creator.email) project.creator.email = uEmail;
   }
 
-  return Boolean(idMatch || emailMatch || nameMatch || (includeAdmin && (curUser.isAdmin || isCurrentUserAdmin())));
+  return Boolean(idMatch || emailMatch || nameMatch || primaryOwnerFallback || (includeAdmin && (curUser.isAdmin || isCurrentUserAdmin())));
 }
 
 function isCollaborativeProject(project) {
@@ -10453,6 +10479,7 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
   ensureProjectCreator(project);
   const curUser = user || getActiveUser();
   if (!curUser) return false;
+  if (curUser.id === "local-maker" && !getCloudSession()) return true;
 
   const uId = curUser.id;
   const uEmail = (curUser.email || "").toLowerCase().trim();
@@ -10461,29 +10488,29 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
   const matchesUser = (member) => {
     if (!member) return false;
     const mId = member.id || member.user_id;
-    if (mId && uId && mId === uId) return true;
+    if (mId && uId && mId === uId && mId !== "local-maker") return true;
 
     const mEmail = (member.email || "").toLowerCase().trim();
     if (mEmail && uEmail && mEmail === uEmail) return true;
 
     const mName = (member.displayName || member.display_name || member.name || (mEmail ? mEmail.split("@")[0] : "")).toLowerCase().trim();
-    if (mName && uName && (mName === uName || mName.replace(/\s+/g, "") === uName.replace(/\s+/g, ""))) return true;
+    if (!isGenericName(mName) && !isGenericName(uName) && (mName === uName || mName.replace(/\s+/g, "") === uName.replace(/\s+/g, ""))) return true;
 
     return false;
   };
 
-  const isCreator = matchesUser(project.creator);
+  const isCreator = isProjectCreator(project, curUser, false);
   const isCoCreator = Array.isArray(project.coCreators) && project.coCreators.some(matchesUser);
 
   // Self-heal real Supabase UID onto member object if matched by name or email
   if (uId && (isCreator || isCoCreator)) {
-    if (isCreator && (!project.creator.id || project.creator.id !== uId)) {
+    if (isCreator && (!project.creator.id || project.creator.id !== uId || project.creator.id === "local-maker")) {
       project.creator.id = uId;
       if (uEmail && !project.creator.email) project.creator.email = uEmail;
     }
     if (Array.isArray(project.coCreators)) {
       for (const c of project.coCreators) {
-        if (matchesUser(c) && (!c.id || c.id !== uId)) {
+        if (matchesUser(c) && (!c.id || c.id !== uId || c.id === "local-maker")) {
           c.id = uId;
           if (uEmail && !c.email) c.email = uEmail;
         }
@@ -10543,6 +10570,9 @@ async function syncCloudCollaborations() {
     }
 
     if (hasChanges) {
+      const remainingProjectIds = new Set(state.projects.map(p => p.id));
+      state.activity = (state.activity || []).filter(a => !a.projectId || remainingProjectIds.has(a.projectId));
+      state.practiceLog = (state.practiceLog || []).filter(l => !l.projectId || remainingProjectIds.has(l.projectId));
       syncSharedCollaborations();
       await persistState({ syncCloud: true });
       render();
@@ -10933,10 +10963,10 @@ async function pushProjectToCollaboratorWorkspaces(project) {
 
     const addTarget = (m) => {
       if (!m) return;
-      if (m.id) memberIds.add(m.id);
+      if (m.id && m.id !== "local-maker") memberIds.add(m.id);
       if (m.email) memberEmails.add(m.email.toLowerCase().trim());
       const name = (m.name || m.displayName || m.display_name || "").toLowerCase().trim();
-      if (name) {
+      if (name && !isGenericName(name)) {
         memberNames.add(name);
         memberNames.add(name.replace(/\s+/g, ""));
       }
@@ -10959,8 +10989,8 @@ async function pushProjectToCollaboratorWorkspaces(project) {
 
       const isMember = memberIds.has(rowId) ||
                        (rowEmail && memberEmails.has(rowEmail)) ||
-                       (rawName && memberNames.has(rawName)) ||
-                       (normName && memberNames.has(normName));
+                       (!isGenericName(rawName) && memberNames.has(rawName)) ||
+                       (!isGenericName(normName) && memberNames.has(normName));
 
       if (isMember) {
         row.data = row.data || {};
@@ -10972,11 +11002,43 @@ async function pushProjectToCollaboratorWorkspaces(project) {
           remoteProjects.unshift(structuredClone(project));
         }
         row.data.projects = remoteProjects;
+
+        // Also ensure target user has any skills linked to this project
+        const projectSkills = (state.skills || []).filter(s => (project.skillIds || []).includes(s.id));
+        if (projectSkills.length > 0) {
+          row.data.skills = Array.isArray(row.data.skills) ? row.data.skills : [];
+          for (const ps of projectSkills) {
+            const hasSkill = row.data.skills.some(s => s.id === ps.id || s.name.toLowerCase() === ps.name.toLowerCase());
+            if (!hasSkill) {
+              row.data.skills.push({
+                id: ps.id,
+                name: ps.name,
+                category: ps.category || "General",
+                xp: 0,
+                createdAt: new Date().toISOString()
+              });
+            }
+          }
+        }
+
         await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(row.user_id)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ data: row.data, updated_at: new Date().toISOString() })
         }).catch(() => {});
+      } else {
+        // If this user is NOT a member of this project, but has it in their remote workspace, remove it!
+        if (row.data && Array.isArray(row.data.projects)) {
+          const idx = row.data.projects.findIndex(p => p.id === project.id);
+          if (idx >= 0) {
+            row.data.projects.splice(idx, 1);
+            await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(row.user_id)}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ data: row.data, updated_at: new Date().toISOString() })
+            }).catch(() => {});
+          }
+        }
       }
     }
   } catch (err) {
@@ -11022,29 +11084,199 @@ async function reconcileProjectOwnership() {
   const curUser = getActiveUser();
   if (!session?.access_token || !curUser || adminInspectionActive) return;
 
-  const toRemoveIds = [];
-  const projectsToPush = [];
+  const isPrimary = isPrimaryOwner(curUser);
 
-  for (const p of state.projects) {
-    if (!p || !p.id) continue;
-    ensureProjectCreator(p);
+  // 1. Client-side sanitization for current user (collaborators / non-primary owners)
+  if (!isPrimary) {
+    let localChanged = false;
+    const validProjects = [];
+    const removedProjects = [];
 
-    const isCollaborator = isUserCollaborator(p, curUser);
-    if (!isCollaborator) {
-      // Current user is neither creator nor co-creator on this project!
-      toRemoveIds.push(p.id);
-      projectsToPush.push(p);
+    for (const p of state.projects) {
+      if (!p || !p.id) continue;
+      ensureProjectCreator(p);
+      if (isUserCollaborator(p, curUser)) {
+        validProjects.push(p);
+      } else {
+        removedProjects.push(p);
+      }
+    }
+
+    if (removedProjects.length > 0) {
+      state.projects = validProjects;
+      localChanged = true;
+
+      const removedProjectIds = new Set(removedProjects.map(p => p.id));
+      const validSkillIds = new Set();
+      validProjects.forEach(p => (p.skillIds || []).forEach(sid => validSkillIds.add(sid)));
+
+      // Scrub activity entries referencing removed/leaked projects
+      const origActCount = (state.activity || []).length;
+      state.activity = (state.activity || []).filter(a => !a.projectId || !removedProjectIds.has(a.projectId));
+      if (state.activity.length !== origActCount) localChanged = true;
+
+      // Scrub practice log entries referencing removed/leaked projects
+      const origLogCount = (state.practiceLog || []).length;
+      state.practiceLog = (state.practiceLog || []).filter(l => !l.projectId || !removedProjectIds.has(l.projectId));
+      if ((state.practiceLog || []).length !== origLogCount) localChanged = true;
+
+      // Scrub skills that belonged only to leaked projects
+      const origSkillCount = (state.skills || []).length;
+      state.skills = (state.skills || []).filter(s => {
+        const usedInValidLog = (state.practiceLog || []).some(l => l.skillId === s.id);
+        return validSkillIds.has(s.id) || usedInValidLog;
+      });
+      if (state.skills.length !== origSkillCount) localChanged = true;
+
+      // Recalculate XP on remaining skills from legitimate practice logs
+      state.skills.forEach(s => {
+        const earnedXp = (state.practiceLog || [])
+          .filter(l => l.skillId === s.id && Number.isFinite(l.xp))
+          .reduce((sum, l) => sum + (l.xp || 0), 0);
+        s.xp = earnedXp;
+      });
+
+      console.warn(`Purged ${removedProjects.length} leaked project(s) and associated data from collaborator workspace.`);
+    }
+
+    if (localChanged) {
+      await persistState({ syncCloud: true });
+      render();
     }
   }
 
-  if (projectsToPush.length > 0) {
-    for (const p of projectsToPush) {
+  // 2. Transferred project push:
+  // If the current user has projects in their local workspace that they transferred to someone else
+  // and are no longer a collaborator on, push them to the new creator/collaborators and remove locally.
+  const transferredProjects = [];
+  for (const p of state.projects) {
+    if (!p || !p.id) continue;
+    ensureProjectCreator(p);
+    if (!isUserCollaborator(p, curUser)) {
+      transferredProjects.push(p);
+    }
+  }
+  if (transferredProjects.length > 0) {
+    for (const p of transferredProjects) {
       await pushProjectToCollaboratorWorkspaces(p);
     }
-    state.projects = state.projects.filter(p => !toRemoveIds.includes(p.id));
+    const transferredIds = new Set(transferredProjects.map(p => p.id));
+    state.projects = state.projects.filter(p => !transferredIds.includes(p.id));
     await persistState({ syncCloud: true });
     render();
-    console.log(`Reconciled ${projectsToPush.length} transferred project(s) to respective creators.`);
+    console.log(`Reconciled and pushed ${transferredProjects.length} transferred project(s) to respective creators.`);
+  }
+
+  // 3. Remote cloud sanitization (Primary Owner scans Supabase to scrub any leaked data in collaborator rows):
+  try {
+    const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`).catch(() => []);
+    if (!Array.isArray(rows) || rows.length === 0) return;
+
+    const profiles = await cloudRequest(`/rest/v1/workbench_profiles?select=*`).catch(() => []);
+    const profileByUserId = new Map();
+    if (Array.isArray(profiles)) {
+      for (const prof of profiles) {
+        if (prof?.id) profileByUserId.set(prof.id, prof);
+      }
+    }
+
+    for (const row of rows) {
+      if (row.user_id === curUser.id) continue;
+      const prof = profileByUserId.get(row.user_id) || {};
+      const owner = row.data?.owner || {};
+
+      const targetUser = {
+        id: row.user_id,
+        email: prof.email || owner.email || "",
+        displayName: prof.display_name || owner.displayName || owner.name || ""
+      };
+
+      if (isPrimaryOwner(targetUser)) continue;
+
+      const remoteProjects = Array.isArray(row.data?.projects) ? row.data.projects : [];
+      if (remoteProjects.length === 0) continue;
+
+      let remoteChanged = false;
+      const validRemoteProjects = [];
+      const removedRemoteProjectIds = new Set();
+
+      for (const p of remoteProjects) {
+        if (!p || !p.id) continue;
+        ensureProjectCreator(p);
+        if (isUserCollaborator(p, targetUser)) {
+          validRemoteProjects.push(p);
+        } else {
+          removedRemoteProjectIds.add(p.id);
+          remoteChanged = true;
+        }
+      }
+
+      if (remoteChanged) {
+        row.data = row.data || {};
+        row.data.projects = validRemoteProjects;
+
+        const validSkillIds = new Set();
+        validRemoteProjects.forEach(p => (p.skillIds || []).forEach(sid => validSkillIds.add(sid)));
+
+        // Scrub activities belonging to removed projects
+        if (Array.isArray(row.data.activity)) {
+          row.data.activity = row.data.activity.filter(a => !a.projectId || !removedRemoteProjectIds.has(a.projectId));
+        }
+
+        // Scrub practice logs belonging to removed projects
+        if (Array.isArray(row.data.practiceLog)) {
+          row.data.practiceLog = row.data.practiceLog.filter(l => !l.projectId || !removedRemoteProjectIds.has(l.projectId));
+        }
+
+        // Scrub skills belonging only to removed projects
+        if (Array.isArray(row.data.skills)) {
+          row.data.skills = row.data.skills.filter(s => {
+            const usedInValidLog = Array.isArray(row.data.practiceLog) && row.data.practiceLog.some(l => l.skillId === s.id);
+            return validSkillIds.has(s.id) || usedInValidLog;
+          });
+
+          // Reset/recalculate XP from legitimate logs
+          row.data.skills.forEach(s => {
+            const earnedXp = (row.data.practiceLog || [])
+              .filter(l => l.skillId === s.id && Number.isFinite(l.xp))
+              .reduce((sum, l) => sum + (l.xp || 0), 0);
+            s.xp = earnedXp;
+          });
+        }
+
+        // PATCH cleaned row back to Supabase
+        await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(row.user_id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: row.data, updated_at: new Date().toISOString() })
+        }).catch(err => {
+          console.warn("Could not patch cleaned remote workspace for user:", row.user_id, err);
+        });
+
+        // Clean local IndexedDB partition for that user on this machine if present
+        try {
+          const db = await openDatabase();
+          const targetKey = `workbench_state_${row.user_id}`;
+          const tx = db.transaction(STORE_NAME, "readwrite");
+          const store = tx.objectStore(STORE_NAME);
+          const req = store.get(targetKey);
+          req.onsuccess = () => {
+            if (req.result) {
+              const localData = req.result;
+              localData.projects = validRemoteProjects;
+              localData.activity = row.data.activity;
+              localData.practiceLog = row.data.practiceLog;
+              localData.skills = row.data.skills;
+              store.put(localData, targetKey);
+            }
+          };
+        } catch {}
+
+        console.log(`Cleaned leaked projects and data from collaborator ${row.user_id}: preserved ${validRemoteProjects.length} projects, removed ${removedRemoteProjectIds.size} leaked.`);
+      }
+    }
+  } catch (err) {
+    console.warn("Remote project ownership reconciliation error:", err);
   }
 }
 
