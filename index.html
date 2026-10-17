@@ -1430,6 +1430,21 @@
       </div>
     </dialog>
 
+    <!-- 📅 Day Activities Summary Dialog -->
+    <dialog class="app-dialog compact-dialog" id="day-summary-dialog" aria-label="Day activities summary">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">DAILY PLANNER SUMMARY</div>
+          <h2 id="day-summary-title">Daily Summary</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div id="day-summary-body" style="padding:10px 0;display:flex;flex-direction:column;gap:12px;max-height:65vh;overflow-y:auto"></div>
+      <div class="dialog-actions" style="margin-top:14px">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+    </dialog>
+
     <input type="file" id="photo-input" accept="image/*" multiple hidden>
     <input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
     <input type="file" id="backup-input" accept="application/json,.json" hidden>

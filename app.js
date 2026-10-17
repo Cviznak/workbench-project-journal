@@ -793,52 +793,7 @@ function getPrimaryAdminId() {
   return "";
 }
 
-async function getOwnerProjectIds() {
-  const ids = new Set();
-  const primaryId = getPrimaryAdminId();
-  const user = getActiveUser();
 
-  // If current active session is the primary admin / shop owner
-  if (user && (user.isPrimary || user.id === primaryId) && Array.isArray(state?.projects)) {
-    for (const p of state.projects) {
-      if (p?.id) ids.add(p.id);
-    }
-  }
-
-  // From legacy unpartitioned STATE_KEY ("main") in IndexedDB
-  if (database) {
-    try {
-      const legacy = await new Promise(resolve => {
-        const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(STATE_KEY);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => resolve(null);
-      });
-      if (legacy && Array.isArray(legacy.projects)) {
-        for (const p of legacy.projects) {
-          if (p?.id) ids.add(p.id);
-        }
-      }
-    } catch {}
-  }
-
-  // From primary admin's IndexedDB state
-  if (primaryId && database) {
-    try {
-      const primaryRec = await new Promise(resolve => {
-        const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(`workbench_state_${primaryId}`);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => resolve(null);
-      });
-      if (primaryRec && Array.isArray(primaryRec.projects)) {
-        for (const p of primaryRec.projects) {
-          if (p?.id) ids.add(p.id);
-        }
-      }
-    } catch {}
-  }
-
-  return ids;
-}
 
 function getActiveUser() {
   const session = getCloudSession();
@@ -1552,7 +1507,6 @@ async function getLocallyKnownUsers() {
   // 2. From IndexedDB keys
   if (database) {
     try {
-      const ownerIds = await getOwnerProjectIds();
       const primaryId = getPrimaryAdminId();
       const keys = await new Promise((resolve) => {
         const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAllKeys();
@@ -1574,23 +1528,6 @@ async function getLocallyKnownUsers() {
               const isPrimary = existing.isPrimary || Boolean(owner?.isPrimary || owner?.is_primary) || (uid === primaryId);
               let projects = Array.isArray(uState?.projects) ? uState.projects : (existing.projects || []);
               let practiceLog = Array.isArray(uState?.practiceLog) ? uState.practiceLog : (existing.practiceLog || []);
-
-              // If this maker is NOT the primary owner, cleanse any accidentally inherited owner projects
-              if (!isPrimary && ownerIds.size > 0 && projects.length > 0) {
-                const hasCloned = projects.some(p => ownerIds.has(p?.id));
-                if (hasCloned) {
-                  projects = projects.filter(p => !ownerIds.has(p?.id));
-                  if (projects.length === 0) practiceLog = [];
-                  if (uState) {
-                    uState.projects = projects;
-                    uState.practiceLog = practiceLog;
-                    try {
-                      const writeTx = database.transaction(STORE_NAME, "readwrite");
-                      writeTx.objectStore(STORE_NAME).put(uState, k);
-                    } catch {}
-                  }
-                }
-              }
 
               users.set(uid, {
                 id: uid,
@@ -2350,6 +2287,7 @@ async function syncCloudWorkspace(choice = "automatic") {
       cloudMessage("Everything is up to date.", "connected");
     }
     await syncCloudCollaborations().catch(() => {});
+    await reconcileProjectOwnership().catch(() => {});
   } catch (error) {
     console.error("Cloud sync failed.", error);
     cloudMessage(error.message || "Cloud sync failed. Check your connection and setup.", "error");
@@ -2772,79 +2710,94 @@ function renderCalendar() {
     }
   }
 
-  // Group all activities by local date string
-  const eventsByDate = new Map();
-  const addEvent = (dStr, evt) => {
-    if (!dStr) return;
-    if (!eventsByDate.has(dStr)) eventsByDate.set(dStr, []);
-    eventsByDate.get(dStr).push(evt);
-  };
-
-  // Practice log items
+  // Practice log items grouped by date
+  const practicesByDate = new Map();
   for (const log of (state.practiceLog || [])) {
     if (log.at) {
       const d = localDateString(new Date(log.at));
-      addEvent(d, {
-        id: log.id,
-        kind: "practice",
-        badgeClass: "calendar-badge-practice",
-        icon: "⏱",
-        label: log.text.replace(/^[^+]+/, "") || log.text,
-        tooltip: `${log.text} · ${new Date(log.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-      });
+      if (!practicesByDate.has(d)) practicesByDate.set(d, []);
+      practicesByDate.get(d).push(log);
     }
   }
 
-  // Activity items (status changes, project creations, milestones)
+  // Activities grouped by date
+  const activitiesByDate = new Map();
   for (const act of (state.activity || [])) {
     if (act.at) {
       const d = localDateString(new Date(act.at));
-      addEvent(d, {
-        id: act.id,
-        kind: "activity",
-        badgeClass: "calendar-badge-activity",
-        icon: "⚡",
-        label: act.text,
-        tooltip: `${act.text} · ${new Date(act.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-      });
+      if (!activitiesByDate.has(d)) activitiesByDate.set(d, []);
+      activitiesByDate.get(d).push(act);
     }
   }
 
-  // Project tasks completed on dates
+  // Project tasks completed on date
+  const tasksByDate = new Map();
   for (const p of state.projects) {
     for (const t of (p.tasks || [])) {
       if (t.done && t.completedAt) {
         const d = localDateString(new Date(t.completedAt));
-        addEvent(d, {
-          id: p.id,
-          kind: "task",
-          badgeClass: "calendar-badge-task",
-          icon: "✓",
-          label: `${t.text} (${p.title})`,
-          tooltip: `Completed step: ${t.text} in ${p.title}`,
-          isProjectAction: true
-        });
+        if (!tasksByDate.has(d)) tasksByDate.set(d, []);
+        tasksByDate.get(d).push({ ...t, projectTitle: p.title, projectId: p.id });
       }
     }
   }
 
   const renderCellBadges = (dateStr) => {
     const dayProjects = projectsByDate.get(dateStr) || [];
-    const dayEvents = eventsByDate.get(dateStr) || [];
-    return `
-      ${dayProjects.map(p => {
-        const isOverdue = p.targetDate < today && p.status !== "completed";
-        return `
-          <div class="calendar-badge ${isOverdue ? "calendar-badge-overdue" : "calendar-badge-project"}" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)} · ${STATUS_LABELS[safeStatus(p.status)]}">
-            ${isOverdue ? "⌛ " : "✳ "}${escapeHTML(p.title)}
-          </div>
-        `;
-      }).join("")}
-      ${dayEvents.map(e => `
-        <div class="calendar-badge ${e.badgeClass}" data-action="${e.isProjectAction ? "open-project-detail" : "open-activity-detail"}" data-id="${e.id}" title="${escapeHTML(e.tooltip || e.label)}">
-          ${e.icon} ${escapeHTML(e.label)}
+    const dayPractices = practicesByDate.get(dateStr) || [];
+    const dayTasks = tasksByDate.get(dateStr) || [];
+    const dayActs = activitiesByDate.get(dateStr) || [];
+
+    const badgeItems = [];
+
+    // 1. Projects due on this date
+    for (const p of dayProjects) {
+      const isOverdue = p.targetDate < today && p.status !== "completed";
+      badgeItems.push(`
+        <div class="calendar-badge ${isOverdue ? "calendar-badge-overdue" : "calendar-badge-project"}" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)} · ${STATUS_LABELS[safeStatus(p.status)]}">
+          ${isOverdue ? "⌛ " : "✳ "}${escapeHTML(p.title)}
         </div>
-      `).join("")}
+      `);
+    }
+
+    // 2. Practice sessions
+    for (const log of dayPractices) {
+      badgeItems.push(`
+        <div class="calendar-badge calendar-badge-practice" data-action="open-activity-detail" data-id="${log.id}" title="${escapeHTML(log.text)}">
+          ⏱ ${escapeHTML(log.text.replace(/^[^+]+/, "") || log.text)}
+        </div>
+      `);
+    }
+
+    // 3. Completed checklist tasks
+    for (const t of dayTasks) {
+      badgeItems.push(`
+        <div class="calendar-badge calendar-badge-task" data-action="open-project-detail" data-id="${t.projectId}" title="Completed: ${escapeHTML(t.text)} (${escapeHTML(t.projectTitle)})">
+          ✓ ${escapeHTML(t.text)}
+        </div>
+      `);
+    }
+
+    // 4. Minor activities summary badge if any activities exist
+    if (dayActs.length > 0) {
+      badgeItems.push(`
+        <div class="calendar-badge calendar-badge-summary" data-action="open-day-summary" data-date="${dateStr}" title="Click to view all ${dayActs.length} actions logged">
+          ⚡ ${dayActs.length} action${dayActs.length === 1 ? "" : "s"} logged
+        </div>
+      `);
+    }
+
+    // Show up to 3 badges; if more, show 2 plus "+N more…"
+    const MAX_VISIBLE = 3;
+    if (badgeItems.length <= MAX_VISIBLE) {
+      return badgeItems.join("");
+    }
+
+    const visible = badgeItems.slice(0, 2);
+    const hiddenCount = badgeItems.length - 2;
+    return `
+      ${visible.join("")}
+      <button type="button" class="calendar-badge-more" data-action="open-day-summary" data-date="${dateStr}">+${hiddenCount} more…</button>
     `;
   };
 
@@ -2856,7 +2809,7 @@ function renderCalendar() {
     const prevMonthDate = new Date(year, month - 1, dayNum);
     const dateStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
     cellsHtml += `
-      <div class="calendar-cell is-other-month">
+      <div class="calendar-cell is-other-month" data-action="open-day-summary" data-date="${dateStr}" title="Click to inspect day">
         <div class="calendar-cell-header"><span class="calendar-cell-num">${dayNum}</span></div>
         <div class="calendar-events-list">
           ${renderCellBadges(dateStr)}
@@ -2870,7 +2823,7 @@ function renderCalendar() {
     const isToday = dateStr === today;
 
     cellsHtml += `
-      <div class="calendar-cell ${isToday ? "is-today" : ""}">
+      <div class="calendar-cell ${isToday ? "is-today" : ""}" data-action="open-day-summary" data-date="${dateStr}" title="Click to inspect day">
         <div class="calendar-cell-header">
           <span class="calendar-cell-num">${day}</span>
           ${isToday ? '<span class="status-pill status-in-progress" style="font-size:9px;padding:1px 4px">Today</span>' : ""}
@@ -2888,7 +2841,7 @@ function renderCalendar() {
     const nextMonthDate = new Date(year, month + 1, nextDay);
     const dateStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-${String(nextDay).padStart(2, "0")}`;
     cellsHtml += `
-      <div class="calendar-cell is-other-month">
+      <div class="calendar-cell is-other-month" data-action="open-day-summary" data-date="${dateStr}" title="Click to inspect day">
         <div class="calendar-cell-header"><span class="calendar-cell-num">${nextDay}</span></div>
         <div class="calendar-events-list">
           ${renderCellBadges(dateStr)}
@@ -2914,6 +2867,150 @@ function renderCalendar() {
     </div>
   `;
 }
+
+function openDaySummaryDialog(dateStr) {
+  if (!dateStr) return;
+  const dialog = $("#day-summary-dialog");
+  const titleEl = $("#day-summary-title");
+  const bodyEl = $("#day-summary-body");
+  if (!dialog || !bodyEl) return;
+
+  const dateObj = new Date(`${dateStr}T12:00:00`);
+  const formattedDate = isNaN(dateObj.getTime()) ? dateStr : dateObj.toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
+
+  if (titleEl) {
+    titleEl.textContent = `📅 ${formattedDate}`;
+  }
+
+  const today = localDateString();
+  const dayProjects = state.projects.filter(p => p.targetDate === dateStr);
+  const dayPractices = (state.practiceLog || []).filter(l => l.at && localDateString(new Date(l.at)) === dateStr);
+  const dayActivities = (state.activity || []).filter(a => a.at && localDateString(new Date(a.at)) === dateStr);
+
+  const dayTasks = [];
+  for (const p of state.projects) {
+    for (const t of (p.tasks || [])) {
+      if (t.done && t.completedAt && localDateString(new Date(t.completedAt)) === dateStr) {
+        dayTasks.push({ ...t, projectTitle: p.title, projectId: p.id });
+      }
+    }
+  }
+
+  const hasAny = dayProjects.length > 0 || dayPractices.length > 0 || dayTasks.length > 0 || dayActivities.length > 0;
+
+  if (!hasAny) {
+    bodyEl.innerHTML = `
+      <div class="empty-inline" style="padding:24px;text-align:center">
+        No projects due, practice sessions, or activity logs recorded on this day.
+      </div>
+    `;
+    dialog.showModal();
+    return;
+  }
+
+  let html = "";
+
+  // 1. Projects Due Section
+  if (dayProjects.length > 0) {
+    html += `
+      <div>
+        <h3 style="font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:0 0 8px 0">📌 Target Deadlines (${dayProjects.length})</h3>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${dayProjects.map(p => {
+            const isOverdue = p.targetDate < today && p.status !== "completed";
+            return `
+              <div class="day-summary-card clickable" data-action="open-project-detail" data-id="${p.id}">
+                <div>
+                  <strong style="color:var(--ink)">${escapeHTML(p.title)}</strong>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px">${priorityLabel(p.priority)} priority · ${STATUS_LABELS[safeStatus(p.status)]}</div>
+                </div>
+                <span class="status-pill status-${isOverdue ? "blocked" : safeStatus(p.status)}">${isOverdue ? "Overdue" : STATUS_LABELS[safeStatus(p.status)]}</span>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Practice Sessions
+  if (dayPractices.length > 0) {
+    html += `
+      <div>
+        <h3 style="font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:10px 0 8px 0">⏱ Practice & XP Log (${dayPractices.length})</h3>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${dayPractices.map(l => {
+            const timeStr = l.at ? new Date(l.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+            return `
+              <div class="day-summary-card clickable" data-action="open-activity-detail" data-id="${l.id}">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:var(--ink)">${escapeHTML(l.text)}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px">Logged at ${timeStr}</div>
+                </div>
+                ${l.xp ? `<span style="font-size:12px;font-weight:700;color:var(--accent)">+${l.xp} XP</span>` : ""}
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // 3. Completed Checklist Tasks
+  if (dayTasks.length > 0) {
+    html += `
+      <div>
+        <h3 style="font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:10px 0 8px 0">✓ Completed Checklist Steps (${dayTasks.length})</h3>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${dayTasks.map(t => {
+            const timeStr = t.completedAt ? new Date(t.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+            return `
+              <div class="day-summary-card clickable" data-action="open-project-detail" data-id="${t.projectId}">
+                <div>
+                  <div style="font-weight:600;font-size:13px;color:var(--ink)">${escapeHTML(t.text)}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px">Project: ${escapeHTML(t.projectTitle)} · ${timeStr}</div>
+                </div>
+                <span class="status-pill status-completed">Completed</span>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // 4. Activity Timeline
+  if (dayActivities.length > 0) {
+    html += `
+      <div>
+        <h3 style="font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:10px 0 8px 0">⚡ Activity Timeline (${dayActivities.length})</h3>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${dayActivities.map(a => {
+            const timeStr = a.at ? new Date(a.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+            return `
+              <div class="day-summary-card clickable" data-action="open-activity-detail" data-id="${a.id}">
+                <div>
+                  <div style="font-size:12.5px;color:var(--ink);line-height:1.35">${escapeHTML(a.text)}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px">Recorded at ${timeStr}</div>
+                </div>
+                <span style="font-size:11px;color:var(--muted)">View ›</span>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  bodyEl.innerHTML = html;
+  dialog.showModal();
+}
+
 
 function renderSkills() {
   const totalXp = state.skills.reduce((sum, skill) => sum + skill.xp, 0);
@@ -3276,6 +3373,7 @@ function openXpDialog(skillId, xp = "25", note = "") {
 }
 
 function openProjectDetail(id) {
+  $("#day-summary-dialog")?.close();
   activeProjectId = id;
   renderProjectDetail(id);
   $("#detail-dialog").showModal();
@@ -6623,8 +6721,6 @@ async function renderAdminHub() {
     const now = Date.now();
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
-    const ownerIds = await getOwnerProjectIds();
-
     makers = Array.from(allUserIds).map(uid => {
       const p = profileMap.get(uid);
       const ws = workspaceMap.get(uid);
@@ -6640,15 +6736,6 @@ async function renderAdminHub() {
       let projects = ws?.data?.projects || loc?.projects || (uid === user.id ? state.projects : []);
       let skills = ws?.data?.skills || loc?.skills || (uid === user.id ? state.skills : []);
 
-      // If this maker is NOT the primary owner, strip any accidentally inherited owner projects and leaked skills
-      if (!isPrimaryUser) {
-        if (ownerIds.size > 0 && Array.isArray(projects) && projects.length > 0) {
-          projects = projects.filter(pr => !ownerIds.has(pr?.id));
-        }
-        if (Array.isArray(skills) && skills.some(s => (s.xp || 0) > 0) && (!ws?.data?.practiceLog || ws.data.practiceLog.length === 0)) {
-          skills = [];
-        }
-      }
 
       const totalMinutes = projects.reduce((sum, pr) => sum + (pr.timeSpent || 0), 0);
       const hours = Math.round((totalMinutes / 60) * 10) / 10;
@@ -6807,16 +6894,6 @@ async function inspectUserWorkbench(targetUserId, targetUserName) {
       return;
     }
 
-    const isTargetPrimary = targetUserId === getPrimaryAdminId();
-    if (!isTargetPrimary) {
-      const ownerIds = await getOwnerProjectIds();
-      if (ownerIds.size > 0 && Array.isArray(remote.data.projects)) {
-        remote.data.projects = remote.data.projects.filter(p => !ownerIds.has(p?.id));
-        if (remote.data.projects.length === 0) {
-          remote.data.practiceLog = [];
-        }
-      }
-    }
 
     if (!adminInspectionActive) {
       adminInspectionBackup = structuredClone(state);
@@ -6943,6 +7020,14 @@ async function handleAction(action, target) {
   const id = target.dataset.id;
   if (action === "open-activity-detail") {
     openActivityDetail(id || target.dataset.id);
+    return;
+  }
+  if (action === "open-day-summary") {
+    openDaySummaryDialog(target.dataset.date);
+    return;
+  }
+  if (action === "return-project-to-creator") {
+    void returnProjectToCreator(target.dataset.project || id);
     return;
   }
   if (adminInspectionActive) {
@@ -10339,11 +10424,24 @@ function isProjectCreator(project, user = null, includeAdmin = false) {
   ensureProjectCreator(project);
   const curUser = user || getActiveUser();
   if (!curUser || curUser.id === "local-maker") return true;
-  return Boolean(
-    (project.creator.id && project.creator.id === curUser.id) ||
-    (project.creator.email && curUser.email && project.creator.email.toLowerCase() === curUser.email.toLowerCase()) ||
-    (includeAdmin && curUser.isAdmin)
-  );
+
+  const uId = curUser.id;
+  const uEmail = (curUser.email || "").toLowerCase().trim();
+  const uName = (curUser.displayName || curUser.display_name || curUser.name || (uEmail ? uEmail.split("@")[0] : "")).toLowerCase().trim();
+
+  const cId = project.creator?.id;
+  const cEmail = (project.creator?.email || "").toLowerCase().trim();
+  const cName = (project.creator?.name || project.creator?.displayName || (cEmail ? cEmail.split("@")[0] : "")).toLowerCase().trim();
+
+  const idMatch = Boolean(cId && uId && cId === uId);
+  const emailMatch = Boolean(cEmail && uEmail && cEmail === uEmail);
+  const nameMatch = Boolean(cName && uName && (cName === uName || cName.replace(/\s+/g, "") === uName.replace(/\s+/g, "")));
+
+  if (uId && (emailMatch || nameMatch) && (!cId || cId !== uId)) {
+    project.creator.id = uId;
+  }
+
+  return Boolean(idMatch || emailMatch || nameMatch || (includeAdmin && (curUser.isAdmin || isCurrentUserAdmin())));
 }
 
 function isCollaborativeProject(project) {
@@ -10355,16 +10453,45 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
   ensureProjectCreator(project);
   const curUser = user || getActiveUser();
   if (!curUser) return false;
+
   const uId = curUser.id;
   const uEmail = (curUser.email || "").toLowerCase().trim();
+  const uName = (curUser.displayName || curUser.display_name || curUser.name || (uEmail ? uEmail.split("@")[0] : "")).toLowerCase().trim();
 
-  const isCreator = (project.creator?.id && project.creator.id === uId) ||
-                    (uEmail && project.creator?.email && project.creator.email.toLowerCase().trim() === uEmail);
-  const isCoCreator = Array.isArray(project.coCreators) && project.coCreators.some(c =>
-    (c.id && c.id === uId) ||
-    (uEmail && c.email && c.email.toLowerCase().trim() === uEmail)
-  );
-  return Boolean(isCreator || isCoCreator || (includeAdmin && curUser.isAdmin));
+  const matchesUser = (member) => {
+    if (!member) return false;
+    const mId = member.id || member.user_id;
+    if (mId && uId && mId === uId) return true;
+
+    const mEmail = (member.email || "").toLowerCase().trim();
+    if (mEmail && uEmail && mEmail === uEmail) return true;
+
+    const mName = (member.displayName || member.display_name || member.name || (mEmail ? mEmail.split("@")[0] : "")).toLowerCase().trim();
+    if (mName && uName && (mName === uName || mName.replace(/\s+/g, "") === uName.replace(/\s+/g, ""))) return true;
+
+    return false;
+  };
+
+  const isCreator = matchesUser(project.creator);
+  const isCoCreator = Array.isArray(project.coCreators) && project.coCreators.some(matchesUser);
+
+  // Self-heal real Supabase UID onto member object if matched by name or email
+  if (uId && (isCreator || isCoCreator)) {
+    if (isCreator && (!project.creator.id || project.creator.id !== uId)) {
+      project.creator.id = uId;
+      if (uEmail && !project.creator.email) project.creator.email = uEmail;
+    }
+    if (Array.isArray(project.coCreators)) {
+      for (const c of project.coCreators) {
+        if (matchesUser(c) && (!c.id || c.id !== uId)) {
+          c.id = uId;
+          if (uEmail && !c.email) c.email = uEmail;
+        }
+      }
+    }
+  }
+
+  return Boolean(isCreator || isCoCreator || (includeAdmin && (curUser.isAdmin || isCurrentUserAdmin())));
 }
 
 async function syncCloudCollaborations() {
@@ -10378,7 +10505,6 @@ async function syncCloudCollaborations() {
 
     let hasChanges = false;
     const myId = curUser.id;
-    const myEmail = (curUser.email || "").toLowerCase().trim();
 
     for (const row of rows) {
       if (row.user_id === myId) continue;
@@ -10388,15 +10514,10 @@ async function syncCloudCollaborations() {
         if (!rp || !rp.id) continue;
         ensureProjectCreator(rp);
 
-        const isCreator = (rp.creator?.id && rp.creator.id === myId) ||
-                          (myEmail && rp.creator?.email && rp.creator.email.toLowerCase().trim() === myEmail);
-        const isCoCreator = Array.isArray(rp.coCreators) && rp.coCreators.some(c =>
-          (c.id && c.id === myId) ||
-          (myEmail && c.email && c.email.toLowerCase().trim() === myEmail)
-        );
+        const isCollaborator = isUserCollaborator(rp, curUser);
 
-        if (!isCreator && !isCoCreator) {
-          // If we had this project in our workbench, but remote confirms we are no longer creator or co-creator, remove it!
+        if (!isCollaborator) {
+          // If we had this project in our workbench, but remote confirms we are NOT creator or co-creator, remove it!
           const existingIdx = state.projects.findIndex(p => p.id === rp.id);
           if (existingIdx !== -1) {
             state.projects.splice(existingIdx, 1);
@@ -10423,7 +10544,7 @@ async function syncCloudCollaborations() {
 
     if (hasChanges) {
       syncSharedCollaborations();
-      await persistState({ syncCloud: false });
+      await persistState({ syncCloud: true });
       render();
       if (activeProjectId && $("#detail-dialog")?.open) {
         renderProjectDetail(activeProjectId);
@@ -10436,6 +10557,7 @@ async function syncCloudCollaborations() {
 
 function openActivityDetail(activityId) {
   if (!activityId) return;
+  $("#day-summary-dialog")?.close();
   let item = (state.practiceLog || []).find(l => l.id === activityId) ||
              (state.activity || []).find(a => a.id === activityId);
   if (!item) {
@@ -10616,7 +10738,10 @@ async function renderCollaboratorsDialog(project) {
   ensureProjectCreator(project);
 
   const curUser = getActiveUser();
-  const canManage = isProjectCreator(project, curUser);
+  const isAdmin = isCurrentUserAdmin();
+  const isCreator = isProjectCreator(project, curUser);
+  const isCollaborator = isUserCollaborator(project, curUser);
+  const canManage = isCreator || isAdmin;
   const coCreators = project.coCreators || [];
 
   let knownMakers = [];
@@ -10624,14 +10749,26 @@ async function renderCollaboratorsDialog(project) {
     const localMap = await getLocallyKnownUsers();
     knownMakers = Array.from(localMap.values()).filter(m => {
       const mId = m.id;
-      const mEmail = (m.email || "").toLowerCase();
-      if (project.creator?.id === mId || (project.creator?.email && project.creator.email.toLowerCase() === mEmail)) return false;
-      if (coCreators.some(c => c.id === mId || (c.email && c.email.toLowerCase() === mEmail))) return false;
+      const mEmail = (m.email || "").toLowerCase().trim();
+      const mName = (m.displayName || "").toLowerCase().trim();
+      if (project.creator?.id === mId || (project.creator?.email && project.creator.email.toLowerCase().trim() === mEmail) || (project.creator?.name && project.creator.name.toLowerCase().trim() === mName)) return false;
+      if (coCreators.some(c => c.id === mId || (c.email && c.email.toLowerCase().trim() === mEmail) || (c.name && c.name.toLowerCase().trim() === mName))) return false;
       return true;
     });
   } catch {}
 
   body.innerHTML = `
+    ${!isCollaborator ? `
+      <div style="background:var(--warning-soft, #fef3c7);border:1px solid var(--warning, #f59e0b);color:#92400e;padding:12px;border-radius:8px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <div>
+          <strong>Transferred Project</strong>: This project's creator is <strong>${escapeHTML(project.creator?.name || "another maker")}</strong> and you are not listed on the team.
+        </div>
+        <button type="button" class="button button-primary button-small" data-action="return-project-to-creator" data-project="${project.id}">
+          ↩ Push to Creator & Remove from My Workbench
+        </button>
+      </div>
+    ` : ""}
+
     <div style="background:var(--surface-hover);padding:12px;border-radius:8px;border-left:4px solid var(--accent);font-size:13px;color:var(--ink)">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
@@ -10782,21 +10919,48 @@ async function pushProjectToCollaboratorWorkspaces(project) {
     const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`).catch(() => []);
     if (!Array.isArray(rows) || rows.length === 0) return;
 
+    const profiles = await cloudRequest(`/rest/v1/workbench_profiles?select=*`).catch(() => []);
+    const profileByUserId = new Map();
+    if (Array.isArray(profiles)) {
+      for (const prof of profiles) {
+        if (prof?.id) profileByUserId.set(prof.id, prof);
+      }
+    }
+
     const memberIds = new Set();
     const memberEmails = new Set();
+    const memberNames = new Set();
 
-    if (project.creator?.id) memberIds.add(project.creator.id);
-    if (project.creator?.email) memberEmails.add(project.creator.email.toLowerCase().trim());
+    const addTarget = (m) => {
+      if (!m) return;
+      if (m.id) memberIds.add(m.id);
+      if (m.email) memberEmails.add(m.email.toLowerCase().trim());
+      const name = (m.name || m.displayName || m.display_name || "").toLowerCase().trim();
+      if (name) {
+        memberNames.add(name);
+        memberNames.add(name.replace(/\s+/g, ""));
+      }
+    };
 
+    addTarget(project.creator);
     for (const c of (project.coCreators || [])) {
-      if (c.id) memberIds.add(c.id);
-      if (c.email) memberEmails.add(c.email.toLowerCase().trim());
+      addTarget(c);
     }
 
     for (const row of rows) {
       if (row.user_id === curUser.id) continue;
-      const ownerEmail = (row.data?.owner?.email || "").toLowerCase().trim();
-      const isMember = memberIds.has(row.user_id) || (ownerEmail && memberEmails.has(ownerEmail));
+      const owner = row.data?.owner || {};
+      const prof = profileByUserId.get(row.user_id) || {};
+
+      const rowId = row.user_id;
+      const rowEmail = (owner.email || prof.email || "").toLowerCase().trim();
+      const rawName = (owner.displayName || owner.display_name || owner.name || prof.display_name || (rowEmail ? rowEmail.split("@")[0] : "")).toLowerCase().trim();
+      const normName = rawName.replace(/\s+/g, "");
+
+      const isMember = memberIds.has(rowId) ||
+                       (rowEmail && memberEmails.has(rowEmail)) ||
+                       (rawName && memberNames.has(rawName)) ||
+                       (normName && memberNames.has(normName));
 
       if (isMember) {
         row.data = row.data || {};
@@ -10817,6 +10981,70 @@ async function pushProjectToCollaboratorWorkspaces(project) {
     }
   } catch (err) {
     console.warn("Could not push project to collaborator workspaces:", err);
+  }
+}
+
+async function returnProjectToCreator(projectId) {
+  const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
+  if (!project) return;
+  ensureProjectCreator(project);
+
+  const curUser = getActiveUser();
+  const creatorName = project.creator?.name || "the creator";
+
+  const confirmed = window.confirm(
+    `Push “${project.title}” directly to ${creatorName}'s workbench and remove it from your workbench?`
+  );
+  if (!confirmed) return;
+
+  showToast(`Pushing project to ${creatorName}...`);
+  await pushProjectToCollaboratorWorkspaces(project);
+
+  // If current user is not a member, remove from local projects
+  const isCollaborator = isUserCollaborator(project, curUser);
+  if (!isCollaborator) {
+    state.projects = state.projects.filter(p => p.id !== project.id);
+    activeCollabProjectId = null;
+    $("#collaborators-dialog")?.close();
+    if (activeProjectId === project.id) {
+      $("#detail-dialog")?.close();
+      activeProjectId = null;
+    }
+  }
+
+  await persistState({ syncCloud: true });
+  render();
+  showToast(`✓ Successfully sent “${project.title}” to ${creatorName}!`);
+}
+
+async function reconcileProjectOwnership() {
+  const session = getCloudSession();
+  const curUser = getActiveUser();
+  if (!session?.access_token || !curUser || adminInspectionActive) return;
+
+  const toRemoveIds = [];
+  const projectsToPush = [];
+
+  for (const p of state.projects) {
+    if (!p || !p.id) continue;
+    ensureProjectCreator(p);
+
+    const isCollaborator = isUserCollaborator(p, curUser);
+    if (!isCollaborator) {
+      // Current user is neither creator nor co-creator on this project!
+      toRemoveIds.push(p.id);
+      projectsToPush.push(p);
+    }
+  }
+
+  if (projectsToPush.length > 0) {
+    for (const p of projectsToPush) {
+      await pushProjectToCollaboratorWorkspaces(p);
+    }
+    state.projects = state.projects.filter(p => !toRemoveIds.includes(p.id));
+    await persistState({ syncCloud: true });
+    render();
+    console.log(`Reconciled ${projectsToPush.length} transferred project(s) to respective creators.`);
   }
 }
 
@@ -10875,9 +11103,21 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
   // Match known maker to get real Supabase user_id if available
   try {
     const known = await getLocallyKnownUsers();
+    const profiles = await cloudRequest(`/rest/v1/workbench_profiles?select=*`).catch(() => []);
+    if (Array.isArray(profiles)) {
+      for (const p of profiles) {
+        if (p?.id && !known.has(p.id)) {
+          known.set(p.id, { id: p.id, email: p.email, displayName: p.display_name });
+        }
+      }
+    }
+    const cleanNewName = (newMember.name || "").toLowerCase().replace(/\s+/g, "");
+    const cleanNewEmail = (newMember.email || "").toLowerCase().trim();
     for (const m of known.values()) {
-      if ((m.email && newMember.email && m.email.toLowerCase() === newMember.email.toLowerCase()) ||
-          (m.displayName && newMember.name && m.displayName.toLowerCase() === newMember.name.toLowerCase())) {
+      const mEmail = (m.email || "").toLowerCase().trim();
+      const mName = (m.displayName || "").toLowerCase().replace(/\s+/g, "");
+      if ((mEmail && cleanNewEmail && mEmail === cleanNewEmail) ||
+          (mName && cleanNewName && mName === cleanNewName)) {
         newMember.id = m.id;
         if (!newMember.email && m.email) newMember.email = m.email;
         if (m.displayName) newMember.name = m.displayName;
@@ -10886,7 +11126,11 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
     }
   } catch {}
 
-  const exists = project.coCreators.some(c => (c.email && newMember.email && c.email.toLowerCase() === newMember.email.toLowerCase()) || (c.name.toLowerCase() === newMember.name.toLowerCase()));
+  const exists = project.coCreators.some(c =>
+    (c.id && newMember.id && c.id === newMember.id) ||
+    (c.email && newMember.email && c.email.toLowerCase().trim() === newMember.email.toLowerCase().trim()) ||
+    (c.name && newMember.name && c.name.toLowerCase().replace(/\s+/g, "") === newMember.name.toLowerCase().replace(/\s+/g, ""))
+  );
   if (exists) {
     showToast(`${newMember.name} is already a co-creator on this project.`);
     return;
