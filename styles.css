@@ -3213,3 +3213,499 @@ body.theme-dark .version-tag {
   }
 }
 
+/* ==========================================================================
+   FEATURE SUITE: 5 Advanced Maker Modules
+   ========================================================================== */
+
+/* 1. Pomodoro Focus Timer & Circular Progress Ring */
+.timer-ring-container {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  margin: 16px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.timer-ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.timer-ring-bg {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 8;
+}
+.timer-ring-progress {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease, stroke 0.3s ease;
+}
+.timer-ring-center {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.timer-ring-time {
+  font-size: 42px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+  color: var(--ink);
+  line-height: 1;
+}
+.timer-ring-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+.pomodoro-modes {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.pomodoro-cycle-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.pomodoro-dots-strip {
+  display: flex;
+  gap: 6px;
+}
+.pomodoro-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background 0.2s, transform 0.2s;
+}
+.pomodoro-dot.filled {
+  background: #e11d48;
+  transform: scale(1.15);
+}
+.pomodoro-dot.current {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-bg, rgba(59,130,246,0.3));
+}
+.timer-sound-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.timer-sound-pill.active {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+@keyframes pulseFocusGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+}
+.topbar-focus-running {
+  background: #ffe4e6 !important;
+  color: #9f1239 !important;
+  border-color: #f43f5e !important;
+  animation: pulseFocusGlow 2s infinite ease-in-out;
+}
+[data-theme="dark"] .topbar-focus-running {
+  background: #4c0519 !important;
+  color: #fecdd3 !important;
+  border-color: #be123c !important;
+}
+
+/* 2. Project Cost & Budget Tracker */
+.project-budget-card {
+  margin: 16px 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.budget-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.budget-stat-item {
+  display: flex;
+  flex-direction: column;
+}
+.budget-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.budget-stat-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.budget-stat-val.under { color: #16a34a; }
+.budget-stat-val.over { color: #dc2626; }
+.budget-meter-track {
+  height: 8px;
+  background: var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+}
+.budget-meter-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.budget-meter-fill.over-budget {
+  background: #dc2626;
+}
+.shopping-cart-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--surface-hover);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* 3. Interactive Calendar & Visual Timeline */
+.planner-view-toggles {
+  display: flex;
+  gap: 6px;
+}
+.calendar-container {
+  margin-top: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+.calendar-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.calendar-month-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.calendar-nav-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.calendar-day-label {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding: 6px 0;
+  letter-spacing: 0.5px;
+}
+.calendar-cell {
+  min-height: 96px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
+}
+.calendar-cell:hover {
+  background: var(--surface-hover);
+}
+.calendar-cell.is-today {
+  border-color: var(--accent);
+  background: var(--accent-bg, rgba(59,130,246,0.06));
+}
+.calendar-cell.is-other-month {
+  opacity: 0.45;
+}
+.calendar-cell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.calendar-cell-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.calendar-cell.is-today .calendar-cell-num {
+  color: var(--accent);
+}
+.calendar-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  max-height: 80px;
+}
+.calendar-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  line-height: 1.25;
+  transition: transform 0.1s;
+}
+.calendar-badge:hover {
+  transform: scale(1.02);
+}
+.calendar-badge-project {
+  background: var(--surface-hover);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.calendar-badge-practice {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+[data-theme="dark"] .calendar-badge-practice {
+  background: #78350f;
+  color: #fef3c7;
+  border-color: #92400e;
+}
+.calendar-badge-overdue {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+[data-theme="dark"] .calendar-badge-overdue {
+  background: #7f1d1d;
+  color: #fee2e2;
+  border-color: #991b1b;
+}
+
+/* 4. Shareable Project Showcase & Before/After Comparison */
+.showcase-dialog {
+  max-width: 760px;
+  width: 95vw;
+}
+.showcase-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.showcase-hero {
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.showcase-metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--surface-hover);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.showcase-metric-box {
+  display: flex;
+  flex-direction: column;
+}
+.showcase-metric-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.showcase-metric-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 2px;
+}
+.showcase-markdown-preview {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: monospace;
+  font-size: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  color: var(--ink);
+}
+
+/* 5. Maker Goals & Visual Milestone Roadmaps */
+.goals-section-container {
+  margin: 24px 0;
+}
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+.goal-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.goal-card:hover {
+  border-color: var(--accent);
+}
+.goal-card.completed {
+  border-color: #10b981;
+  background: var(--surface);
+}
+.goal-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.goal-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--ink);
+}
+.goal-card-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.roadmap-container {
+  position: relative;
+  padding: 16px 6px 28px;
+}
+.roadmap-line-track {
+  position: absolute;
+  top: 28px;
+  left: 20px;
+  right: 20px;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  z-index: 1;
+}
+.roadmap-line-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+.goal-card.completed .roadmap-line-fill {
+  background: #10b981;
+}
+.roadmap-nodes-row {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  z-index: 2;
+}
+.roadmap-node-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+}
+.roadmap-node-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: all 0.2s;
+}
+.roadmap-node-wrap.done .roadmap-node-circle {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  transform: scale(1.1);
+}
+.goal-card.completed .roadmap-node-wrap.done .roadmap-node-circle {
+  background: #10b981;
+  border-color: #10b981;
+}
+.roadmap-node-text {
+  position: absolute;
+  top: 32px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  font-weight: 500;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+.roadmap-node-wrap.done .roadmap-node-text {
+  color: var(--ink);
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .calendar-cell { min-height: 70px; }
+  .calendar-badge { font-size: 9px; }
+  .goals-grid { grid-template-columns: 1fr; }
+}
+

@@ -123,6 +123,7 @@ const state = {
   practiceLog: [],
   inventory: [],
   customTemplates: [],
+  makerGoals: [],
   weeklyGoal: 60,
   starterSkillsAdded: false,
   hasUserChanges: false
@@ -132,6 +133,8 @@ let activeProjectId = null;
 let activePhotoTarget = null;
 let practiceLogLimit = 12;
 let projectViewMode = localStorage.getItem("workbench-project-mode") || "grid";
+let plannerMode = "calendar";
+let calendarDate = new Date();
 let toastTimer;
 let syncTimer;
 let cloudWorking = false;
@@ -173,6 +176,7 @@ function resetWorkspaceStateToDefault() {
   state.practiceLog = [];
   state.inventory = [];
   state.customTemplates = [];
+  state.makerGoals = [];
   state.weeklyGoal = 60;
   state.updatedAt = "";
   state.hasUserChanges = false;
@@ -1860,6 +1864,7 @@ async function loadUserScopedState() {
     state.practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
     state.inventory = Array.isArray(saved.inventory) ? saved.inventory : [];
     state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
+    state.makerGoals = Array.isArray(saved.makerGoals) ? saved.makerGoals : [];
     state.weeklyGoal = Number.isFinite(saved.weeklyGoal) ? saved.weeklyGoal : 60;
 
     // Guard: Non-owner makers must NEVER retain the owner's leaked signature projects or skills
@@ -2401,6 +2406,7 @@ async function importBackup(file) {
   state.practiceLog = restored.practiceLog;
   state.inventory = Array.isArray(restored.inventory) ? restored.inventory : [];
   state.customTemplates = Array.isArray(restored.customTemplates) ? restored.customTemplates : [];
+  state.makerGoals = Array.isArray(restored.makerGoals) ? restored.makerGoals : [];
   state.weeklyGoal = Number.isFinite(restored.weeklyGoal) ? restored.weeklyGoal : 60;
   state.starterSkillsAdded = true;
   try {
@@ -2495,6 +2501,7 @@ function renderOverview() {
 
   const overviewStreak = $("#overview-streak-container");
   if (overviewStreak) overviewStreak.innerHTML = renderStreakWidget();
+  renderMakerGoals();
 }
 
 function emptyState(title, description, action, buttonText = "Get started") {
@@ -2605,6 +2612,148 @@ function renderPlanner() {
     return days === 0 ? "Due today" : days === 1 ? "Due tomorrow" : `Due ${formatDate(project.targetDate)}`;
   });
   $("#undated-projects").innerHTML = renderRows(undated.slice(0, 6), "No undated active projects. Create a project or remove its target date to keep it flexible.", project => `${STATUS_LABELS[safeStatus(project.status)]} · no target date`);
+
+  $("#planner-toggle-calendar")?.classList.toggle("active", plannerMode === "calendar");
+  $("#planner-toggle-list")?.classList.toggle("active", plannerMode === "list");
+  const calContainer = $("#planner-calendar-container");
+  const listContainer = $("#planner-list-container");
+  if (calContainer) calContainer.style.display = plannerMode === "calendar" ? "" : "none";
+  if (listContainer) listContainer.style.display = plannerMode === "list" ? "" : "none";
+  if (plannerMode === "calendar") renderCalendar();
+}
+
+function switchPlannerMode(mode) {
+  plannerMode = mode;
+  $("#planner-toggle-calendar")?.classList.toggle("active", mode === "calendar");
+  $("#planner-toggle-list")?.classList.toggle("active", mode === "list");
+  const calContainer = $("#planner-calendar-container");
+  const listContainer = $("#planner-list-container");
+  if (calContainer) calContainer.style.display = mode === "calendar" ? "" : "none";
+  if (listContainer) listContainer.style.display = mode === "list" ? "" : "none";
+  if (mode === "calendar") renderCalendar();
+}
+
+function navCalendar(delta) {
+  if (delta === 0) {
+    calendarDate = new Date();
+  } else {
+    calendarDate.setMonth(calendarDate.getMonth() + delta);
+  }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const container = $("#planner-calendar-container");
+  if (!container) return;
+
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const monthName = calendarDate.toLocaleString("default", { month: "long" });
+
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevDaysInMonth = new Date(year, month, 0).getDate();
+
+  const today = localDateString();
+
+  const projectsByDate = new Map();
+  for (const p of state.projects) {
+    if (p.targetDate) {
+      if (!projectsByDate.has(p.targetDate)) projectsByDate.set(p.targetDate, []);
+      projectsByDate.get(p.targetDate).push(p);
+    }
+  }
+
+  const practiceByDate = new Map();
+  for (const log of (state.practiceLog || [])) {
+    if (log.at) {
+      const d = log.at.slice(0, 10);
+      if (!practiceByDate.has(d)) practiceByDate.set(d, []);
+      practiceByDate.get(d).push(log);
+    }
+  }
+
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  let cellsHtml = "";
+
+  for (let i = firstDayIndex - 1; i >= 0; i--) {
+    const dayNum = prevDaysInMonth - i;
+    const prevMonthDate = new Date(year, month - 1, dayNum);
+    const dateStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+    const dayProjects = projectsByDate.get(dateStr) || [];
+    cellsHtml += `
+      <div class="calendar-cell is-other-month">
+        <div class="calendar-cell-header"><span class="calendar-cell-num">${dayNum}</span></div>
+        <div class="calendar-events-list">
+          ${dayProjects.map(p => `<div class="calendar-badge calendar-badge-project" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)}">✳ ${escapeHTML(p.title)}</div>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const isToday = dateStr === today;
+    const dayProjects = projectsByDate.get(dateStr) || [];
+    const dayPractice = practiceByDate.get(dateStr) || [];
+
+    cellsHtml += `
+      <div class="calendar-cell ${isToday ? "is-today" : ""}">
+        <div class="calendar-cell-header">
+          <span class="calendar-cell-num">${day}</span>
+          ${isToday ? '<span class="status-pill status-in-progress" style="font-size:9px;padding:1px 4px">Today</span>' : ""}
+        </div>
+        <div class="calendar-events-list">
+          ${dayProjects.map(p => {
+            const isOverdue = p.targetDate < today && p.status !== "completed";
+            return `
+              <div class="calendar-badge ${isOverdue ? "calendar-badge-overdue" : "calendar-badge-project"}" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)} · ${STATUS_LABELS[safeStatus(p.status)]}">
+                ${isOverdue ? "⌛ " : "✳ "}${escapeHTML(p.title)}
+              </div>
+            `;
+          }).join("")}
+          ${dayPractice.map(l => `
+            <div class="calendar-badge calendar-badge-practice" title="${escapeHTML(l.text)}">
+              ⏱ ${escapeHTML(l.text.replace(/^[^+]+/, ""))}
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  const totalCellsSoFar = firstDayIndex + daysInMonth;
+  const trailingCells = (7 - (totalCellsSoFar % 7)) % 7;
+  for (let nextDay = 1; nextDay <= trailingCells; nextDay++) {
+    const nextMonthDate = new Date(year, month + 1, nextDay);
+    const dateStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-${String(nextDay).padStart(2, "0")}`;
+    const dayProjects = projectsByDate.get(dateStr) || [];
+    cellsHtml += `
+      <div class="calendar-cell is-other-month">
+        <div class="calendar-cell-header"><span class="calendar-cell-num">${nextDay}</span></div>
+        <div class="calendar-events-list">
+          ${dayProjects.map(p => `<div class="calendar-badge calendar-badge-project" data-action="open-project-detail" data-id="${p.id}" title="${escapeHTML(p.title)}">✳ ${escapeHTML(p.title)}</div>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="calendar-topbar">
+      <div class="calendar-month-heading">
+        <span>📅 ${monthName} ${year}</span>
+      </div>
+      <div class="calendar-nav-buttons">
+        <button type="button" class="button button-outline button-small" data-action="calendar-prev">← Prev</button>
+        <button type="button" class="button button-outline button-small" data-action="calendar-today">Today</button>
+        <button type="button" class="button button-outline button-small" data-action="calendar-next">Next →</button>
+      </div>
+    </div>
+    <div class="calendar-grid">
+      ${dayLabels.map(lbl => `<div class="calendar-day-label">${lbl}</div>`).join("")}
+      ${cellsHtml}
+    </div>
+  `;
 }
 
 function renderSkills() {
@@ -2677,6 +2826,39 @@ function renderProjectDetail(projectId) {
   const totalCost = materials.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
   const spentCost = materials.filter(m => m.status === "have" || m.status === "ordered").reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
   const haveCount = materials.filter(m => m.status === "have").length;
+  const budget = Number(project.budget) || 0;
+  const budgetRemaining = budget ? budget - totalCost : 0;
+  const budgetPercent = budget > 0 ? Math.min(100, Math.round((totalCost / budget) * 100)) : 0;
+  const isOverBudget = budget > 0 && totalCost > budget;
+
+  const budgetCardHtml = (budget > 0 || materials.length > 0) ? `
+    <div class="project-budget-card">
+      <div class="budget-stats-grid">
+        <div class="budget-stat-item">
+          <span class="budget-stat-label">Target Budget</span>
+          <span class="budget-stat-val">${budget > 0 ? `$${budget.toFixed(2)}` : "Not set"}</span>
+        </div>
+        <div class="budget-stat-item">
+          <span class="budget-stat-label">Acquired / Spent</span>
+          <span class="budget-stat-val">$${spentCost.toFixed(2)}</span>
+        </div>
+        <div class="budget-stat-item">
+          <span class="budget-stat-label">Est. Total</span>
+          <span class="budget-stat-val ${isOverBudget ? "over" : budget > 0 ? "under" : ""}">$${totalCost.toFixed(2)}</span>
+        </div>
+        <div class="budget-stat-item">
+          <span class="budget-stat-label">Remaining</span>
+          <span class="budget-stat-val ${isOverBudget ? "over" : "under"}">${budget > 0 ? (budgetRemaining >= 0 ? `$${budgetRemaining.toFixed(2)}` : `-$${Math.abs(budgetRemaining).toFixed(2)}`) : "—"}</span>
+        </div>
+      </div>
+      ${budget > 0 ? `
+        <div class="budget-meter-track" title="${budgetPercent}% of target budget">
+          <div class="budget-meter-fill ${isOverBudget ? "over-budget" : ""}" style="width:${budgetPercent}%"></div>
+        </div>
+      ` : ""}
+    </div>
+  ` : "";
+
   const progress = projectTaskProgress(project);
   const isComplete = project.status === "completed" || (progress.total > 0 && progress.completed === progress.total);
   const completionBannerHtml = isComplete ? `
@@ -2698,6 +2880,7 @@ function renderProjectDetail(projectId) {
             <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
             <button type="button" class="small-action" data-action="open-time-dialog" data-id="${project.id}" title="Log time on this project">⏱ Log time</button>
             <button type="button" class="small-action" data-action="open-timer" data-project="${project.id}" title="Start focused practice timer for this project">⏱ Timer</button>
+            <button type="button" class="small-action" data-action="open-showcase" data-id="${project.id}" title="Shareable project showcase & build story">🌟 Showcase</button>
             <button type="button" class="small-action" data-action="open-project-qr" data-id="${project.id}" title="Workshop QR bin label">🏷️ QR Label</button>
             <button type="button" class="small-action" data-action="save-project-template" data-id="${project.id}" title="Save as reusable template">💾 Template</button>
             <button type="button" class="small-action" data-action="open-compare-photos" data-project="${project.id}" title="Compare photos side-by-side">↔️ Compare</button>
@@ -2718,6 +2901,7 @@ function renderProjectDetail(projectId) {
     ${progress.total ? `<div class="detail-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.percent}%</span></div>` : ""}
     <form class="inline-add-form task-add-form" data-project="${project.id}"><input name="taskText" required maxlength="140" placeholder="Add a next step..." aria-label="New checklist step"><button type="button" class="small-action mic-btn" data-action="dictate-task" data-project="${project.id}" title="Voice dictate next step">🎙 Dictate</button><button class="button button-outline" type="submit">＋ Add step</button></form>
     ${tasks.length ? `<ul class="task-list">${tasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span></label><div class="task-item-actions">${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < tasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
+    ${budgetCardHtml}
     <div class="detail-section-heading">
       <div>
         <h3>Materials &amp; Supplies</h3>
@@ -2837,6 +3021,7 @@ function openProjectForm(project = null) {
   form.elements.status.value = project ? safeStatus(project.status) : "planned";
   form.elements.targetDate.value = project?.targetDate || "";
   form.elements.priority.value = project?.priority || "normal";
+  if (form.elements.budget) form.elements.budget.value = project?.budget ?? "";
   form.elements.tags.value = (project?.tags || []).join(", ");
   const templateWrap = $("#project-template-wrap");
   if (templateWrap) {
@@ -2981,6 +3166,7 @@ async function handleProjectSubmit(event) {
     status: safeStatus(form.elements.status.value),
     targetDate: form.elements.targetDate.value,
     priority: ["high", "normal", "low"].includes(form.elements.priority.value) ? form.elements.priority.value : "normal",
+    budget: form.elements.budget?.value ? Number(form.elements.budget.value) : (existing?.budget || null),
     tags: [...new Set(form.elements.tags.value.split(",").map(tag => tag.trim()).filter(Boolean))],
     skillIds,
     folders: existing?.folders || [{ id: uid(), name: "General", images: [] }],
@@ -3167,16 +3353,21 @@ async function handleTaskToggle(input) {
   }
 }
 
-/* Practice Timer State and Controls */
+/* Practice & Pomodoro Focus Timer State and Controls */
 const timer = {
+  mode: "focus",
   durationSeconds: 25 * 60,
   secondsLeft: 25 * 60,
   intervalId: null,
   isRunning: false,
-  isStopwatch: false
+  isStopwatch: false,
+  cycle: 1,
+  soundEnabled: true,
+  completedCycles: parseInt(localStorage.getItem("workbench-pomodoro-cycles") || "0", 10)
 };
 
 function playTimerChime() {
+  if (!timer.soundEnabled) return;
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
@@ -3202,14 +3393,95 @@ function playTimerChime() {
 
 function updateTimerDisplay() {
   const display = $("#timer-display");
-  if (!display) return;
   const s = timer.isStopwatch ? timer.secondsLeft : Math.max(0, timer.secondsLeft);
   const mins = Math.floor(s / 60);
   const secs = s % 60;
-  display.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  const timeText = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  if (display) display.textContent = timeText;
+
+  // Ring SVG progress (circumference = 2 * PI * 88 = 552.92)
+  const ring = $("#timer-ring-progress");
+  if (ring) {
+    const circumference = 552.92;
+    if (timer.isStopwatch) {
+      ring.style.strokeDashoffset = "0";
+      ring.style.stroke = "var(--accent)";
+    } else {
+      const fraction = timer.durationSeconds > 0 ? (timer.secondsLeft / timer.durationSeconds) : 0;
+      const offset = circumference * (1 - fraction);
+      ring.style.strokeDashoffset = String(offset);
+      ring.style.stroke = timer.mode.includes("break") ? "#10b981" : "#e11d48";
+    }
+  }
+
+  // Mode label
+  const modeLabel = $("#timer-mode-label");
+  if (modeLabel) {
+    const labels = {
+      "focus": "Focus Session (25m)",
+      "short-break": "Short Break (5m)",
+      "long-break": "Long Break (15m)",
+      "deep-focus": "Deep Focus (50m)",
+      "stopwatch": "Stopwatch Flow"
+    };
+    modeLabel.textContent = labels[timer.mode] || "Focus Session";
+  }
+
+  // Topbar timer button state
+  const topbarBtn = $("#topbar-timer-btn");
+  if (topbarBtn) {
+    if (timer.isRunning) {
+      topbarBtn.classList.add("topbar-focus-running");
+      topbarBtn.textContent = `⏱️ ${timeText}`;
+    } else {
+      topbarBtn.classList.remove("topbar-focus-running");
+      topbarBtn.textContent = "⏱️ Focus";
+    }
+  }
+
+  // Start button text
   const startBtn = $("#timer-start-btn");
   if (startBtn) {
-    startBtn.textContent = timer.isRunning ? "Pause" : "Start";
+    startBtn.textContent = timer.isRunning ? "Pause" : (timer.isStopwatch ? "Start Stopwatch" : "Start Focus");
+  }
+
+  // Cycle dots
+  const dotsContainer = $("#pomodoro-cycle-dots");
+  if (dotsContainer) {
+    dotsContainer.innerHTML = [1, 2, 3, 4].map(c => `
+      <span class="pomodoro-dot ${c < timer.cycle ? "filled" : c === timer.cycle ? "filled current" : ""}" title="Cycle ${c}"></span>
+    `).join("");
+  }
+}
+
+function setPomodoroMode(mode, minutes) {
+  if (timer.intervalId) {
+    clearInterval(timer.intervalId);
+    timer.intervalId = null;
+    timer.isRunning = false;
+  }
+  timer.mode = mode;
+  if (minutes === 0 || mode === "stopwatch") {
+    timer.isStopwatch = true;
+    timer.durationSeconds = 0;
+    timer.secondsLeft = 0;
+  } else {
+    timer.isStopwatch = false;
+    timer.durationSeconds = minutes * 60;
+    timer.secondsLeft = minutes * 60;
+  }
+  $$("#timer-dialog [data-action='set-pomodoro-mode']").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+  updateTimerDisplay();
+}
+
+function toggleTimerSound() {
+  timer.soundEnabled = !timer.soundEnabled;
+  const btn = $("#timer-sound-toggle");
+  if (btn) {
+    btn.classList.toggle("active", timer.soundEnabled);
+    btn.textContent = timer.soundEnabled ? "🔔 Chime: ON" : "🔕 Chime: OFF";
   }
 }
 
@@ -3253,24 +3525,7 @@ function openTimerDialog(arg = null) {
 }
 
 function setTimerPreset(minutes) {
-  if (timer.intervalId) {
-    clearInterval(timer.intervalId);
-    timer.intervalId = null;
-    timer.isRunning = false;
-  }
-  if (minutes === 0) {
-    timer.isStopwatch = true;
-    timer.durationSeconds = 0;
-    timer.secondsLeft = 0;
-  } else {
-    timer.isStopwatch = false;
-    timer.durationSeconds = minutes * 60;
-    timer.secondsLeft = minutes * 60;
-  }
-  $$("#timer-dialog [data-action='set-timer']").forEach(btn => {
-    btn.classList.toggle("active", Number(btn.dataset.minutes) === minutes);
-  });
-  updateTimerDisplay();
+  setPomodoroMode(minutes === 0 ? "stopwatch" : minutes === 5 ? "short-break" : minutes === 15 ? "long-break" : minutes === 50 ? "deep-focus" : "focus", minutes);
 }
 
 function toggleTimer() {
@@ -3296,7 +3551,22 @@ function toggleTimer() {
             timer.isRunning = false;
             updateTimerDisplay();
             playTimerChime();
-            showToast("Practice session finished! Ready to log your XP.");
+            if (timer.mode === "focus" || timer.mode === "deep-focus") {
+              timer.completedCycles = (timer.completedCycles || 0) + 1;
+              localStorage.setItem("workbench-pomodoro-cycles", String(timer.completedCycles));
+              if (timer.cycle < 4) {
+                timer.cycle++;
+                showToast("🍅 Focus session complete! Take a 5-minute break.");
+                setPomodoroMode("short-break", 5);
+              } else {
+                timer.cycle = 1;
+                showToast("🏆 4 Pomodoro cycles finished! Take a 15-minute restorative break.");
+                setPomodoroMode("long-break", 15);
+              }
+            } else {
+              showToast("☕ Break finished! Ready for your next focus session.");
+              setPomodoroMode("focus", 25);
+            }
           }
         }
       }
@@ -4575,14 +4845,17 @@ function renderShoppingList() {
 
   const totalNeedCost = allMaterials.filter(m => m.status === "need").reduce((s, m) => s + (Number(m.cost) || 0), 0);
   const totalNeedCount = allMaterials.filter(m => m.status === "need").length;
+  const orderedCost = allMaterials.filter(m => m.status === "ordered").reduce((s, m) => s + (Number(m.cost) || 0), 0);
   const orderedCount = allMaterials.filter(m => m.status === "ordered").length;
+  const acquiredCost = allMaterials.filter(m => m.status === "have").reduce((s, m) => s + (Number(m.cost) || 0), 0);
 
   const summaryBar = $("#shopping-summary-bar");
   if (summaryBar) {
     summaryBar.innerHTML = `
       <div class="shopping-stat"><strong>${totalNeedCount}</strong> <span>To Buy</span></div>
-      <div class="shopping-stat"><strong>$${totalNeedCost.toFixed(2)}</strong> <span>Est. Cost</span></div>
-      <div class="shopping-stat"><strong>${orderedCount}</strong> <span>On Order</span></div>
+      <div class="shopping-stat"><strong>$${totalNeedCost.toFixed(2)}</strong> <span>Est. Cart Total</span></div>
+      <div class="shopping-stat"><strong>${orderedCount}</strong> <span>On Order ($${orderedCost.toFixed(2)})</span></div>
+      <div class="shopping-stat"><strong>$${acquiredCost.toFixed(2)}</strong> <span>Acquired In Shop</span></div>
     `;
   }
 
@@ -4689,7 +4962,8 @@ function renderInventory() {
   });
 
   const countEl = $("#inventory-result-count");
-  if (countEl) countEl.textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}`;
+  const totalValue = filtered.reduce((s, i) => s + ((i.quantity || 0) * (i.price || 0)), 0);
+  if (countEl) countEl.textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}${totalValue > 0 ? ` · Est. Value: $${totalValue.toFixed(2)}` : ""}`;
 
   const grid = $("#inventory-grid");
   if (!grid) return;
@@ -4709,7 +4983,9 @@ function renderInventory() {
       <div class="inventory-card">
         <div class="inventory-card-top">
           <span class="inventory-category-badge">${escapeHTML(item.category || "General")}</span>
+          ${item.price > 0 ? `<span class="inventory-category-badge" style="background:var(--surface-hover);border:1px solid var(--line);font-weight:600">$${item.price.toFixed(2)}${item.unit ? ` / ${escapeHTML(item.unit)}` : ""}</span>` : ""}
           ${item.location ? `<span class="inventory-location-badge">📍 ${escapeHTML(item.location)}</span>` : ""}
+          ${item.supplier ? `<span class="inventory-location-badge">🏷️ ${escapeHTML(item.supplier)}</span>` : ""}
         </div>
         <h3 class="inventory-card-title">${escapeHTML(item.name)}</h3>
         ${item.notes ? `<p class="inventory-card-notes">${escapeHTML(item.notes)}</p>` : ""}
@@ -4748,12 +5024,16 @@ function openInventoryDialog(item = null) {
     form.elements.location.value = item.location || "";
     form.elements.quantity.value = item.quantity ?? 1;
     form.elements.unit.value = item.unit || "";
+    if (form.elements.price) form.elements.price.value = item.price ?? "";
+    if (form.elements.supplier) form.elements.supplier.value = item.supplier || "";
     form.elements.notes.value = item.notes || "";
     if (delBtn) delBtn.classList.toggle("hidden", !item.id);
   } else {
     $("#inventory-dialog-title").textContent = "Add supply item";
     form.elements.id.value = "";
     form.elements.quantity.value = "1";
+    if (form.elements.price) form.elements.price.value = "";
+    if (form.elements.supplier) form.elements.supplier.value = "";
     if (delBtn) delBtn.classList.add("hidden");
   }
 
@@ -4773,6 +5053,8 @@ async function handleInventorySubmit(event) {
     location: form.elements.location.value.trim(),
     quantity: parseFloat(form.elements.quantity.value) || 0,
     unit: form.elements.unit.value.trim(),
+    price: parseFloat(form.elements.price?.value) || 0,
+    supplier: (form.elements.supplier?.value || "").trim(),
     notes: form.elements.notes.value.trim(),
     updatedAt: new Date().toISOString()
   };
@@ -5834,6 +6116,30 @@ function computeAchievements() {
       desc: "Written 5 or more progress journal notes",
       unlocked: totalNotes >= 5,
       progress: `${Math.min(totalNotes, 5)}/5`
+    },
+    {
+      id: "deep_flow",
+      title: "Deep Flow",
+      icon: "🍅",
+      desc: "Completed 4 or more Pomodoro focus sessions",
+      unlocked: (timer.completedCycles || 0) >= 4,
+      progress: `${Math.min(timer.completedCycles || 0, 4)}/4`
+    },
+    {
+      id: "goal_crusher",
+      title: "Milestone Master",
+      icon: "🎖️",
+      desc: "Completed all roadmap steps of a maker goal challenge",
+      unlocked: (state.makerGoals || []).some(g => (g.milestones || []).length > 0 && g.milestones.every(m => m.done)),
+      progress: (state.makerGoals || []).some(g => (g.milestones || []).length > 0 && g.milestones.every(m => m.done)) ? "1/1" : "0/1"
+    },
+    {
+      id: "budget_master",
+      title: "Budget Master",
+      icon: "💰",
+      desc: "Completed a project with a set target budget",
+      unlocked: state.projects.some(p => p.status === "completed" && Number(p.budget) > 0),
+      progress: state.projects.some(p => p.status === "completed" && Number(p.budget) > 0) ? "1/1" : "0/1"
     }
   ];
 }
@@ -6231,6 +6537,7 @@ async function exitInspectionMode() {
     state.practiceLog = adminInspectionBackup.practiceLog || [];
     state.inventory = adminInspectionBackup.inventory || [];
     state.customTemplates = adminInspectionBackup.customTemplates || [];
+    state.makerGoals = adminInspectionBackup.makerGoals || [];
     state.weeklyGoal = adminInspectionBackup.weeklyGoal || 60;
     state.updatedAt = adminInspectionBackup.updatedAt || "";
     adminInspectionBackup = null;
@@ -6768,6 +7075,14 @@ async function handleAction(action, target) {
     setTimerPreset(Number(target.dataset.minutes || 0));
     return;
   }
+  if (action === "set-pomodoro-mode") {
+    setPomodoroMode(target.dataset.mode, Number(target.dataset.minutes || 0));
+    return;
+  }
+  if (action === "toggle-timer-sound") {
+    toggleTimerSound();
+    return;
+  }
   if (action === "timer-toggle") {
     toggleTimer();
     return;
@@ -6778,6 +7093,54 @@ async function handleAction(action, target) {
   }
   if (action === "timer-finish") {
     finishTimer();
+    return;
+  }
+  if (action === "switch-planner-mode") {
+    switchPlannerMode(target.dataset.mode);
+    return;
+  }
+  if (action === "calendar-prev") {
+    navCalendar(-1);
+    return;
+  }
+  if (action === "calendar-next") {
+    navCalendar(1);
+    return;
+  }
+  if (action === "calendar-today") {
+    navCalendar(0);
+    return;
+  }
+  if (action === "open-showcase") {
+    openProjectShowcase(id || target.dataset.id || target.dataset.project);
+    return;
+  }
+  if (action === "copy-showcase-markdown") {
+    copyShowcaseMarkdown();
+    return;
+  }
+  if (action === "print-showcase") {
+    printShowcase();
+    return;
+  }
+  if (action === "open-goal-dialog") {
+    openGoalDialog();
+    return;
+  }
+  if (action === "edit-goal") {
+    const goal = (state.makerGoals || []).find(g => g.id === (id || target.dataset.id));
+    if (goal) openGoalDialog(goal);
+    return;
+  }
+  if (action === "delete-goal") {
+    const goalId = id || target.dataset.id || $("#goal-form input[name='id']")?.value;
+    if (goalId) void deleteGoal(goalId);
+    return;
+  }
+  if (action === "toggle-goal-milestone") {
+    const goalId = target.dataset.goal;
+    const idx = parseInt(target.dataset.index, 10);
+    if (goalId && !isNaN(idx)) void toggleGoalMilestone(goalId, idx);
     return;
   }
   if (action === "export-markdown") {
@@ -7147,6 +7510,7 @@ async function initialize() {
     });
     state.inventory = Array.isArray(saved?.inventory) ? saved.inventory : [];
     state.customTemplates = Array.isArray(saved?.customTemplates) ? saved.customTemplates : [];
+    state.makerGoals = Array.isArray(saved?.makerGoals) ? saved.makerGoals : [];
     state.weeklyGoal = Number.isFinite(saved?.weeklyGoal) ? saved.weeklyGoal : 60;
 
     if (!saved?.starterSkillsAdded) {
@@ -7708,9 +8072,409 @@ $("#admin-user-search")?.addEventListener("input", () => {
   void renderAdminHub();
 });
 
-$("#admin-role-filter")?.addEventListener("change", () => {
-  void renderAdminHub();
-});
+/* ==========================================================================
+   4. Shareable Project Showcase & Before/After Comparison
+   ========================================================================== */
+let activeShowcaseProjectId = null;
 
+function generateProjectMarkdown(project) {
+  if (!project) return "";
+  const progress = projectTaskProgress(project);
+  const skills = projectSkillNames(project).map(s => s.name);
+  const materials = project.materials || [];
+  const totalCost = materials.reduce((s, m) => s + (Number(m.cost) || 0), 0);
+  const spentCost = materials.filter(m => m.status === "have" || m.status === "ordered").reduce((s, m) => s + (Number(m.cost) || 0), 0);
+
+  const lines = [
+    `# 🛠️ ${project.title}`,
+    `> **Status:** ${STATUS_LABELS[safeStatus(project.status)]} | **Priority:** ${priorityLabel(project.priority)}`,
+    project.targetDate ? `> **Target Date:** ${formatDate(project.targetDate)}` : "",
+    project.timeSpent ? `> **Time Invested:** ${formatMinutes(project.timeSpent)}` : "",
+    materials.length ? `> **Supplies Budget:** $${totalCost.toFixed(2)} ($${spentCost.toFixed(2)} acquired)` : "",
+    skills.length ? `> **Skills Involved:** ${skills.join(", ")}` : "",
+    "",
+    project.description ? `### About this build\n${project.description}\n` : "",
+    project.tasks?.length ? `### Checklist & Process\n` + project.tasks.map(t => `- [${t.done ? "x" : " "}] ${t.text}`).join("\n") + "\n" : "",
+    materials.length ? `### Materials & Supplies\n` + materials.map(m => `- ${m.name}${m.qty ? ` (${m.qty})` : ""}${Number(m.cost) > 0 ? ` — $${Number(m.cost).toFixed(2)}` : ""} [${m.status === "have" ? "In hand" : m.status === "ordered" ? "Ordered" : "To buy"}]`).join("\n") + "\n" : "",
+    project.notes?.length ? `### Progress Journal Notes\n` + [...project.notes].sort((a,b) => new Date(b.at) - new Date(a.at)).map(n => `- **${formatDate(n.at)}:** ${n.text}`).join("\n") + "\n" : "",
+    `---\n*Created with [Workbench](https://github.com) — Maker Project Journal*`
+  ];
+  return lines.filter(line => line !== null).join("\n");
+}
+
+function openProjectShowcase(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  activeShowcaseProjectId = project.id;
+
+  const dialog = $("#showcase-dialog");
+  const sheet = $("#showcase-sheet");
+  const titleEl = $("#showcase-title");
+  if (!dialog || !sheet) return;
+
+  if (titleEl) titleEl.textContent = `🌟 ${project.title} — Showcase`;
+
+  const materials = project.materials || [];
+  const totalCost = materials.reduce((s, m) => s + (Number(m.cost) || 0), 0);
+  const spentCost = materials.filter(m => m.status === "have" || m.status === "ordered").reduce((s, m) => s + (Number(m.cost) || 0), 0);
+  const progress = projectTaskProgress(project);
+  const skills = projectSkillNames(project);
+  const images = (project.folders || []).flatMap(f => f.images || []);
+
+  sheet.innerHTML = `
+    <div class="showcase-sheet">
+      <div class="showcase-hero" style="padding:20px;background:var(--surface);border-radius:8px;border:1px solid var(--line)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <div>
+            <div class="eyebrow">${safeStatus(project.status).toUpperCase()} · ${priorityLabel(project.priority).toUpperCase()} PRIORITY</div>
+            <h1 style="font-size:24px;font-weight:700;margin:4px 0 8px;color:var(--ink)">${escapeHTML(project.title)}</h1>
+            <p style="font-size:14px;color:var(--muted);line-height:1.5;max-width:600px">${escapeHTML(project.description || "A custom crafted project documented in Workbench.")}</p>
+          </div>
+          <span class="status-pill status-${safeStatus(project.status)}" style="font-size:13px;padding:6px 12px">${STATUS_LABELS[safeStatus(project.status)]}</span>
+        </div>
+        ${skills.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">${skills.map(s => `<span class="mini-tag">${escapeHTML(s.name)} · Level ${skillLevel(s.xp)}</span>`).join("")}</div>` : ""}
+      </div>
+
+      <div class="showcase-metrics-bar">
+        <div class="showcase-metric-box">
+          <span class="showcase-metric-label">Time Invested</span>
+          <span class="showcase-metric-val">⏱ ${formatMinutes(project.timeSpent || 0)}</span>
+        </div>
+        <div class="showcase-metric-box">
+          <span class="showcase-metric-label">Total Cost</span>
+          <span class="showcase-metric-val">$${totalCost.toFixed(2)}</span>
+        </div>
+        <div class="showcase-metric-box">
+          <span class="showcase-metric-label">Checklist Steps</span>
+          <span class="showcase-metric-val">${progress.completed} of ${progress.total || project.tasks?.length || 0}</span>
+        </div>
+        <div class="showcase-metric-box">
+          <span class="showcase-metric-label">Build Photos</span>
+          <span class="showcase-metric-val">▧ ${images.length}</span>
+        </div>
+      </div>
+
+      ${images.length >= 2 ? `
+        <div style="margin:8px 0">
+          <div class="panel-heading" style="margin-bottom:8px">
+            <div>
+              <div class="eyebrow">VISUAL PROGRESSION</div>
+              <h3 style="font-size:15px;font-weight:700">Before &amp; After Photo Comparison</h3>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--surface)">
+              <span style="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;z-index:2">BEFORE / RAW</span>
+              <img src="${imageUrl(images[0])}" alt="Before" style="width:100%;height:220px;object-fit:cover;display:block">
+              <div style="padding:6px 10px;font-size:11px;color:var(--muted)">${escapeHTML(images[0].name)}</div>
+            </div>
+            <div style="position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--surface)">
+              <span style="position:absolute;top:8px;left:8px;background:rgba(16,185,129,0.9);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;z-index:2">AFTER / FINISHED</span>
+              <img src="${imageUrl(images[images.length - 1])}" alt="After" style="width:100%;height:220px;object-fit:cover;display:block">
+              <div style="padding:6px 10px;font-size:11px;color:var(--muted)">${escapeHTML(images[images.length - 1].name)}</div>
+            </div>
+          </div>
+        </div>
+      ` : images.length === 1 ? `
+        <div style="border-radius:8px;overflow:hidden;border:1px solid var(--line);max-height:300px">
+          <img src="${imageUrl(images[0])}" alt="${escapeHTML(images[0].name)}" style="width:100%;height:300px;object-fit:cover;display:block">
+        </div>
+      ` : ""}
+
+      ${project.tasks?.length ? `
+        <div>
+          <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-bottom:8px">Build Steps &amp; Process</h4>
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px">
+            ${project.tasks.map(t => `
+              <li style="display:flex;align-items:center;gap:8px;font-size:13px">
+                <span style="color:${t.done ? "#10b981" : "var(--muted)"};font-weight:700">${t.done ? "✓" : "○"}</span>
+                <span style="${t.done ? "" : "color:var(--muted)"}">${escapeHTML(t.text)}</span>
+              </li>
+            `).join("")}
+          </ul>
+        </div>
+      ` : ""}
+
+      ${materials.length ? `
+        <div>
+          <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-bottom:8px">Materials &amp; Supplies Used</h4>
+          <div class="materials-table-wrap">
+            <table class="materials-table">
+              <thead>
+                <tr><th>Item</th><th>Qty</th><th>Cost</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                ${materials.map(m => `
+                  <tr>
+                    <td><strong>${escapeHTML(m.name)}</strong></td>
+                    <td>${escapeHTML(m.qty || "-")}</td>
+                    <td>${Number(m.cost) > 0 ? `$${Number(m.cost).toFixed(2)}` : "-"}</td>
+                    <td>${m.status === "have" ? "Acquired" : m.status === "ordered" ? "Ordered" : "Planned"}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ` : ""}
+
+      <div>
+        <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-bottom:8px">Shareable Markdown Summary (for forums &amp; GitHub)</h4>
+        <pre class="showcase-markdown-preview" id="showcase-md-content">${escapeHTML(generateProjectMarkdown(project))}</pre>
+      </div>
+    </div>
+  `;
+
+  dialog.showModal();
+}
+
+async function copyShowcaseMarkdown() {
+  const project = state.projects.find(p => p.id === activeShowcaseProjectId);
+  if (!project) return;
+  const md = generateProjectMarkdown(project);
+  try {
+    await navigator.clipboard.writeText(md);
+    showToast("Showcase markdown copied to clipboard!");
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = md;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    showToast("Showcase markdown copied to clipboard!");
+  }
+}
+
+function printShowcase() {
+  window.print();
+}
+
+/* ==========================================================================
+   5. Maker Goals & Visual Milestone Roadmaps
+   ========================================================================== */
+function renderMakerGoals() {
+  const container = $("#overview-goals-section");
+  if (!container) return;
+
+  const goals = state.makerGoals || [];
+  const isCollapsed = isPanelCollapsed("goals");
+
+  if (goals.length === 0) {
+    container.innerHTML = `
+      <section class="panel goals-section-container" id="panel-goals">
+        <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span> TARGETS &amp; MILESTONES</div>
+            <h2>Maker Goals &amp; Visual Roadmaps</h2>
+          </div>
+          <button class="button button-outline button-small" data-action="open-goal-dialog">＋ Set Goal</button>
+        </div>
+        <div class="goal-card" style="text-align:center;padding:26px 16px;border-style:dashed;margin-top:12px">
+          <div style="font-size:26px;margin-bottom:6px">🎯</div>
+          <strong style="font-size:15px;color:var(--ink)">No active maker challenges yet</strong>
+          <p style="font-size:13px;color:var(--muted);max-width:440px;margin:6px auto 16px;line-height:1.5">
+            Set a multi-step milestone roadmap (e.g. "Build Custom Coffee Table", "30 Days of Daily Turning", "Build 5 Synthesizers") and track each step node-by-node.
+          </p>
+          <div><button type="button" class="button button-primary button-small" data-action="open-goal-dialog">＋ Set Your First Goal</button></div>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <section class="panel goals-section-container ${isCollapsed ? "is-collapsed" : ""}" id="panel-goals">
+      <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-line"></span> TARGETS &amp; MILESTONES</div>
+          <h2>Maker Goals &amp; Visual Roadmaps (${goals.filter(g => (g.milestones || []).length > 0 && g.milestones.every(m => m.done)).length}/${goals.length}) ${isCollapsed ? `<span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:6px">(Minimized)</span>` : ""}</h2>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="button button-outline button-small" data-action="open-goal-dialog">＋ Set Goal</button>
+          <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="goals" title="${isCollapsed ? "Expand panel" : "Minimize panel"}">
+            ${isCollapsed ? "＋ Expand" : "− Minimize"}
+          </button>
+        </div>
+      </div>
+      ${!isCollapsed ? `
+        <div class="goals-grid">
+          ${goals.map(goal => {
+            const milestones = goal.milestones || [];
+            const doneCount = milestones.filter(m => m.done).length;
+            const totalCount = milestones.length;
+            const percent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+            const isCompleted = totalCount > 0 && doneCount === totalCount;
+
+            return `
+              <div class="goal-card ${isCompleted ? "completed" : ""}" data-goal-id="${goal.id}">
+                <div class="goal-card-header">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <h3 class="goal-card-title">${escapeHTML(goal.title)}</h3>
+                      ${isCompleted ? '<span class="status-pill status-completed" style="font-size:10px;padding:2px 6px">🏆 Achieved!</span>' : ""}
+                    </div>
+                    <div class="goal-card-meta">
+                      ${goal.category ? `<span>🏷️ ${escapeHTML(goal.category)} · </span>` : ""}
+                      <span>${doneCount}/${totalCount} milestones (${percent}%)</span>
+                      ${goal.deadline ? ` · <span>Target: ${formatDate(goal.deadline)}</span>` : ""}
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:4px">
+                    <button type="button" class="icon-link-btn" data-action="edit-goal" data-id="${goal.id}" title="Edit goal">✎</button>
+                    <button type="button" class="icon-link-btn danger-hover" data-action="delete-goal" data-id="${goal.id}" title="Delete goal">×</button>
+                  </div>
+                </div>
+
+                <div class="roadmap-container">
+                  <div class="roadmap-line-track">
+                    <div class="roadmap-line-fill" style="width:${percent}%"></div>
+                  </div>
+                  <div class="roadmap-nodes-row">
+                    ${milestones.map((m, idx) => `
+                      <div class="roadmap-node-wrap ${m.done ? "done" : ""}" data-action="toggle-goal-milestone" data-goal="${goal.id}" data-index="${idx}" title="${escapeHTML(m.title)} (Click to toggle)">
+                        <div class="roadmap-node-circle">${m.done ? "✓" : idx + 1}</div>
+                        <div class="roadmap-node-text" title="${escapeHTML(m.title)}">${escapeHTML(m.title)}</div>
+                      </div>
+                    `).join("")}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
+function openGoalDialog(goal = null) {
+  const dialog = $("#goal-dialog");
+  const form = $("#goal-form");
+  const delBtn = $("#delete-goal-btn");
+  if (!dialog || !form) return;
+
+  form.reset();
+  if (goal && typeof goal === "object") {
+    $("#goal-dialog-title").textContent = "Edit Maker Goal";
+    form.elements.id.value = goal.id || "";
+    form.elements.title.value = goal.title || "";
+    form.elements.category.value = goal.category || "";
+    form.elements.deadline.value = goal.deadline || "";
+    form.elements.milestones.value = (goal.milestones || []).map(m => m.title).join("\n");
+    if (delBtn) delBtn.classList.toggle("hidden", !goal.id);
+  } else {
+    $("#goal-dialog-title").textContent = "Set a Maker Goal";
+    form.elements.id.value = "";
+    if (delBtn) delBtn.classList.add("hidden");
+  }
+
+  dialog.showModal();
+}
+
+async function handleGoalSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const id = form.elements.id.value;
+  const existing = (state.makerGoals || []).find(g => g.id === id);
+
+  const rawLines = (form.elements.milestones.value || "")
+    .split("\n")
+    .map(line => line.trim().replace(/^\d+[\.\)]\s*/, ""))
+    .filter(Boolean);
+
+  if (rawLines.length === 0) {
+    showToast("Please provide at least one milestone step.");
+    return;
+  }
+
+  const milestones = rawLines.map((title, idx) => {
+    const prevMatch = existing?.milestones?.find(m => m.title.toLowerCase() === title.toLowerCase()) || existing?.milestones?.[idx];
+    return {
+      id: prevMatch?.id || uid(),
+      title,
+      done: Boolean(prevMatch?.done)
+    };
+  });
+
+  const goal = {
+    id: existing?.id || uid(),
+    title: form.elements.title.value.trim(),
+    category: form.elements.category.value.trim(),
+    deadline: form.elements.deadline.value || "",
+    milestones,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (!goal.title) return;
+
+  state.makerGoals = state.makerGoals || [];
+  if (existing) {
+    Object.assign(existing, goal);
+  } else {
+    state.makerGoals.unshift(goal);
+  }
+
+  makeActivity("project", `${existing ? "Updated" : "Set"} Maker Goal: ${goal.title}`);
+
+  try {
+    await persistState();
+    $("#goal-dialog")?.close();
+    render();
+    showToast(`Saved goal “${goal.title}”!`);
+  } catch (e) {
+    console.error(e);
+    showToast("Could not save maker goal.");
+  }
+}
+
+async function deleteGoal(id) {
+  const goal = (state.makerGoals || []).find(g => g.id === id);
+  if (!goal) return;
+  if (!window.confirm(`Delete the goal “${goal.title}”?`)) return;
+
+  state.makerGoals = (state.makerGoals || []).filter(g => g.id !== id);
+  try {
+    await persistState();
+    $("#goal-dialog")?.close();
+    render();
+    showToast("Goal removed.");
+  } catch (e) {
+    console.error(e);
+    showToast("Could not remove goal.");
+  }
+}
+
+async function toggleGoalMilestone(goalId, index) {
+  const goal = (state.makerGoals || []).find(g => g.id === goalId);
+  if (!goal || !goal.milestones || !goal.milestones[index]) return;
+
+  const milestone = goal.milestones[index];
+  milestone.done = !milestone.done;
+  goal.updatedAt = new Date().toISOString();
+
+  const allDone = goal.milestones.every(m => m.done);
+  if (allDone && milestone.done) {
+    showToast(`🏆 Goal Completed: “${goal.title}”! Fantastic work!`);
+    makeActivity("project", `Achieved Maker Goal: ${goal.title}`);
+    addNotification({
+      title: "🏆 Maker Goal Achieved!",
+      message: `You reached all milestones for “${goal.title}”!`,
+      icon: "🎖️",
+      type: "achievement"
+    });
+  } else {
+    showToast(milestone.done ? `✓ Milestone reached: ${milestone.title}` : `Step unchecked: ${milestone.title}`);
+  }
+
+  try {
+    await persistState();
+    render();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+$("#goal-form")?.addEventListener("submit", event => void handleGoalSubmit(event));
 $("#detail-dialog").addEventListener("close", () => { activeProjectId = null; });
 void initialize();
