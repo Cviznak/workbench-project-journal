@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f3ed">
     <title>Workbench — your project journal</title>
-    <link rel="stylesheet" href="styles.css?v=2.6.0">
+    <link rel="stylesheet" href="styles.css?v=2.7.0">
     <link rel="manifest" href="manifest.json">
     <script>
       (function(){
@@ -23,7 +23,7 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="app.js?v=2.6.0" defer></script>
+    <script src="app.js?v=2.7.0" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -70,6 +70,7 @@
             <button type="button" class="button button-outline button-small" data-action="open-tools" title="Workshop Reference &amp; Conversion Tools">📐 Tools</button>
             <button type="button" class="button button-outline button-small" id="topbar-timer-btn" data-action="open-timer" title="Practice Session &amp; Focus Timer">⏱️ Focus</button>
             <button type="button" class="button button-outline button-small" id="topbar-soundscape-btn" data-action="toggle-soundscape-panel" title="Ambient Workshop Focus Sounds">🎧 Sounds</button>
+            <button type="button" class="button button-outline button-small" id="topbar-units-btn" data-action="open-units-modal" title="Currency &amp; Measurement Units">💱 <span id="topbar-units-label">$ USD · in</span></button>
             <button type="button" class="notification-btn" id="notification-btn" data-action="open-notifications" title="Notifications" aria-label="Notifications">
               <span class="notification-icon">🔔</span>
               <span class="notification-badge" id="notification-badge" style="display:none">0</span>
@@ -140,7 +141,7 @@
             </div>
             <div class="toolbar">
               <label class="search-box"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="Find a project..." aria-label="Search projects"></label>
-              <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="pinned">★ Pinned only</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
+              <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="collaborative">👥 Collaborative only</option><option value="pinned">★ Pinned only</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
               <label class="select-wrap"><span class="sr-only">Filter by priority</span><select id="project-priority-filter"><option value="all">All priorities</option><option value="high">High priority</option><option value="normal">Normal priority</option><option value="low">Low priority</option></select></label>
               <label class="select-wrap"><span class="sr-only">Sort projects</span><select id="project-sort"><option value="updated">Recently updated</option><option value="due-soon">Due date</option><option value="priority">Priority</option><option value="name">Name</option></select></label>
               <span class="result-count" id="project-result-count"></span>
@@ -1343,6 +1344,72 @@
       <div class="dialog-actions" style="margin-top:14px">
         <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
         <button type="button" class="button button-primary" data-action="save-blueprint-to-project">💾 Save Blueprint to Photos <span>→</span></button>
+      </div>
+    </dialog>
+    <!-- 💱 Currency & Measurement Units Dialog -->
+    <dialog class="app-dialog compact-dialog" id="units-dialog" aria-label="Currency &amp; Measurement Units">
+      <form id="units-form" method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <div class="eyebrow">PREFERENCES &amp; STANDARDS</div>
+            <h2>Currency &amp; Units</h2>
+          </div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        
+        <div class="form-row">
+          <label class="field-label">Shop Currency
+            <select id="units-currency-select" name="currency">
+              <option value="USD">USD ($) — US Dollar</option>
+              <option value="EUR">EUR (€) — Euro</option>
+              <option value="GBP">GBP (£) — British Pound</option>
+              <option value="CAD">CAD (CA$) — Canadian Dollar</option>
+              <option value="AUD">AUD (AU$) — Australian Dollar</option>
+              <option value="JPY">JPY (¥) — Japanese Yen</option>
+              <option value="CHF">CHF (CHF) — Swiss Franc</option>
+            </select>
+          </label>
+        </div>
+        
+        <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;font-size:13px;margin:8px 0 14px 0;cursor:pointer">
+          <input type="checkbox" id="units-auto-convert-currency" checked>
+          <span>Automatically convert existing prices &amp; budgets using exchange rate</span>
+        </label>
+
+        <div class="form-row">
+          <label class="field-label">Measurement System
+            <select id="units-system-select" name="unitSystem">
+              <option value="in">Inches (in / ″) — Fractional &amp; Decimal</option>
+              <option value="cm">Centimeters (cm) — Metric</option>
+              <option value="mm">Millimeters (mm) — Precision Metric</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;font-size:13px;margin:8px 0 14px 0;cursor:pointer">
+          <input type="checkbox" id="units-auto-convert-measurements" checked>
+          <span>Automatically convert cut lists, lumber &amp; blueprint dimensions</span>
+        </label>
+
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button type="button" class="button button-primary" id="save-units-btn" data-action="save-units">Apply &amp; Save <span>→</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- 👥 Project Co-Creators & Ownership Dialog -->
+    <dialog class="app-dialog" id="collaborators-dialog" aria-label="Project Collaborators &amp; Co-Creators" style="max-width:540px;width:95vw">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">PROJECT TEAM &amp; CO-CREATORS</div>
+          <h2 id="collaborators-dialog-title">Project Collaborators</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div id="collaborators-dialog-body" style="padding:10px 0;display:flex;flex-direction:column;gap:14px"></div>
+      <div class="dialog-actions" style="margin-top:14px">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
       </div>
     </dialog>
 

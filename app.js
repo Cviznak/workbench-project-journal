@@ -125,10 +125,44 @@ const state = {
   customTemplates: [],
   makerGoals: [],
   maintenance: [],
+  currency: "USD",
+  unitSystem: "in",
   weeklyGoal: 60,
   starterSkillsAdded: false,
   hasUserChanges: false
 };
+
+const CURRENCIES = {
+  USD: { code: "USD", symbol: "$", name: "US Dollar ($)", rate: 1.0 },
+  EUR: { code: "EUR", symbol: "€", name: "Euro (€)", rate: 0.92 },
+  GBP: { code: "GBP", symbol: "£", name: "British Pound (£)", rate: 0.79 },
+  CAD: { code: "CAD", symbol: "CA$", name: "Canadian Dollar (CA$)", rate: 1.36 },
+  AUD: { code: "AUD", symbol: "AU$", name: "Australian Dollar (AU$)", rate: 1.52 },
+  JPY: { code: "JPY", symbol: "¥", name: "Japanese Yen (¥)", rate: 155.0 },
+  CHF: { code: "CHF", symbol: "CHF ", name: "Swiss Franc (CHF)", rate: 0.90 }
+};
+
+function formatMoney(amount) {
+  const curr = CURRENCIES[state.currency] || CURRENCIES.USD;
+  const num = Number(amount) || 0;
+  if (curr.code === "JPY") {
+    return `${curr.symbol}${Math.round(num).toLocaleString()}`;
+  }
+  return `${curr.symbol}${num.toFixed(2)}`;
+}
+
+function getCurrencySymbol() {
+  return (CURRENCIES[state.currency] || CURRENCIES.USD).symbol;
+}
+
+function updateTopbarUnitsPill() {
+  const label = $("#topbar-units-label");
+  if (label) {
+    const curr = CURRENCIES[state.currency] || CURRENCIES.USD;
+    label.textContent = `${curr.symbol} ${curr.code} · ${state.unitSystem || "in"}`;
+  }
+}
+
 let database;
 let activeProjectId = null;
 let activePhotoTarget = null;
@@ -179,6 +213,8 @@ function resetWorkspaceStateToDefault() {
   state.customTemplates = [];
   state.makerGoals = [];
   state.maintenance = [];
+  state.currency = "USD";
+  state.unitSystem = "in";
   state.weeklyGoal = 60;
   state.updatedAt = "";
   state.hasUserChanges = false;
@@ -1868,14 +1904,24 @@ async function loadUserScopedState() {
     state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved.makerGoals) ? saved.makerGoals : [];
     state.maintenance = Array.isArray(saved.maintenance) ? saved.maintenance : [];
+    state.currency = saved.currency || "USD";
+    state.unitSystem = saved.unitSystem || "in";
     state.weeklyGoal = Number.isFinite(saved.weeklyGoal) ? saved.weeklyGoal : 60;
 
-    // Guard: Non-owner makers must NEVER retain the owner's leaked signature projects or skills
+    for (const p of state.projects) {
+      ensureProjectCreator(p);
+    }
+
+    // Guard: Non-owner makers must NEVER retain the owner's leaked signature projects (unless explicitly shared as co-creators)
     const curUser = getActiveUser();
     const primaryId = getPrimaryAdminId();
     const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
     if (!isOwner) {
       const isOwnerProject = p => {
+        // If this user is an authorized co-creator, keep the collaborative project!
+        if (curUser && (p.coCreators || []).some(c => c.id === curUser.id || (c.email && c.email.toLowerCase() === curUser.email.toLowerCase()))) {
+          return false;
+        }
         const t = (p?.title || p?.name || "").toLowerCase();
         return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
       };
@@ -1890,8 +1936,14 @@ async function loadUserScopedState() {
         await persistState({ syncCloud: true });
       }
     }
+
+    loadSharedCollaborationsIntoState();
+    syncSharedCollaborations();
+    updateTopbarUnitsPill();
   } else {
     resetWorkspaceStateToDefault();
+    loadSharedCollaborationsIntoState();
+    updateTopbarUnitsPill();
     await persistState({ syncCloud: false });
   }
 }
@@ -2411,9 +2463,12 @@ async function importBackup(file) {
   state.customTemplates = Array.isArray(restored.customTemplates) ? restored.customTemplates : [];
   state.makerGoals = Array.isArray(restored.makerGoals) ? restored.makerGoals : [];
   state.maintenance = Array.isArray(restored.maintenance) ? restored.maintenance : [];
+  state.currency = restored.currency || "USD";
+  state.unitSystem = restored.unitSystem || "in";
   state.weeklyGoal = Number.isFinite(restored.weeklyGoal) ? restored.weeklyGoal : 60;
   state.starterSkillsAdded = true;
   try {
+    updateTopbarUnitsPill();
     await persistState();
     render();
     showToast("Workspace backup imported.");
@@ -2523,6 +2578,7 @@ function renderProjects() {
     .filter(project => {
       if (filter === "all") return true;
       if (filter === "pinned") return project.pinned === true;
+      if (filter === "collaborative") return isCollaborativeProject(project);
       return safeStatus(project.status) === filter;
     })
     .filter(project => {
@@ -2537,7 +2593,16 @@ function renderProjects() {
       if (selectedTagFilters.size === 0) return true;
       return (project.tags || []).some(tag => selectedTagFilters.has(tag));
     })
-    .filter(project => `${project.title} ${project.description} ${(project.tags || []).join(" ")} ${projectSkillNames(project).map(skill => skill.name).join(" ")}`.toLowerCase().includes(query))
+    .filter(project => {
+      if (!query) return true;
+      const skillsStr = projectSkillNames(project).map(skill => skill.name).join(" ");
+      const tagsStr = (project.tags || []).join(" ");
+      const creatorStr = project.creator ? `${project.creator.name || ""} ${project.creator.email || ""}` : "";
+      const collabStr = (project.coCreators || []).map(c => `${c.name || ""} ${c.email || ""} ${c.role || ""}`).join(" ");
+      const isCollabKeyword = isCollaborativeProject(project) && (query.includes("collab") || query.includes("shared") || query.includes("team"));
+      const combined = `${project.title} ${project.description} ${tagsStr} ${skillsStr} ${creatorStr} ${collabStr}`.toLowerCase();
+      return combined.includes(query) || isCollabKeyword;
+    })
     .sort((a, b) => {
       if (Boolean(b.pinned) !== Boolean(a.pinned)) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
       if (sort === "due-soon") return (a.targetDate || "9999").localeCompare(b.targetDate || "9999");
@@ -2571,7 +2636,8 @@ function renderProjects() {
         return `<article class="project-card ${project.pinned ? "is-pinned" : ""}" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
           <div class="project-card-head">
             <div class="project-card-mark">${["✳", "⌘", "◈", "✿"][index % 4]}</div>
-            <div style="display:flex;align-items:center;gap:6px">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              ${isCollaborativeProject(project) ? `<span class="collab-badge" title="Collaborative project with ${(project.coCreators || []).length + 1} members">👥 Team (${(project.coCreators || []).length + 1})</span>` : ""}
               ${project.pinned ? `<span class="pin-badge">★ Pinned</span>` : ""}
               <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
               <span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span>
@@ -2840,19 +2906,19 @@ function renderProjectDetail(projectId) {
       <div class="budget-stats-grid">
         <div class="budget-stat-item">
           <span class="budget-stat-label">Target Budget</span>
-          <span class="budget-stat-val">${budget > 0 ? `$${budget.toFixed(2)}` : "Not set"}</span>
+          <span class="budget-stat-val">${budget > 0 ? formatMoney(budget) : "Not set"}</span>
         </div>
         <div class="budget-stat-item">
           <span class="budget-stat-label">Acquired / Spent</span>
-          <span class="budget-stat-val">$${spentCost.toFixed(2)}</span>
+          <span class="budget-stat-val">${formatMoney(spentCost)}</span>
         </div>
         <div class="budget-stat-item">
           <span class="budget-stat-label">Est. Total</span>
-          <span class="budget-stat-val ${isOverBudget ? "over" : budget > 0 ? "under" : ""}">$${totalCost.toFixed(2)}</span>
+          <span class="budget-stat-val ${isOverBudget ? "over" : budget > 0 ? "under" : ""}">${formatMoney(totalCost)}</span>
         </div>
         <div class="budget-stat-item">
           <span class="budget-stat-label">Remaining</span>
-          <span class="budget-stat-val ${isOverBudget ? "over" : "under"}">${budget > 0 ? (budgetRemaining >= 0 ? `$${budgetRemaining.toFixed(2)}` : `-$${Math.abs(budgetRemaining).toFixed(2)}`) : "—"}</span>
+          <span class="budget-stat-val ${isOverBudget ? "over" : "under"}">${budget > 0 ? (budgetRemaining >= 0 ? formatMoney(budgetRemaining) : `-${formatMoney(Math.abs(budgetRemaining))}`) : "—"}</span>
         </div>
       </div>
       ${budget > 0 ? `
@@ -2870,9 +2936,12 @@ function renderProjectDetail(projectId) {
       <div class="completion-banner-icon">🎉</div>
       <div class="completion-banner-text">
         <strong>${project.status === "completed" ? "Project Complete!" : "All checklist steps complete!"}</strong>
-        <span>${progress.completed} of ${progress.total || tasks.length} steps finished · ${formatMinutes(project.timeSpent || 0)} invested${materials.length ? ` · $${totalCost.toFixed(2)} in parts` : ""}.</span>
+        <span>${progress.completed} of ${progress.total || tasks.length} steps finished · ${formatMinutes(project.timeSpent || 0)} invested${materials.length ? ` · ${formatMoney(totalCost)} in parts` : ""}.</span>
       </div>
     </div>` : "";
+
+  ensureProjectCreator(project);
+  const isCollab = (project.coCreators || []).length > 0;
 
   $("#project-detail").innerHTML = `<div class="detail-content">
     <div class="detail-top">
@@ -2885,6 +2954,7 @@ function renderProjectDetail(projectId) {
             <button type="button" class="small-action" data-action="open-time-dialog" data-id="${project.id}" title="Log time on this project">⏱ Log time</button>
             <button type="button" class="small-action" data-action="open-timer" data-project="${project.id}" title="Start focused practice timer for this project">⏱ Timer</button>
             <button type="button" class="small-action" data-action="open-showcase" data-id="${project.id}" title="Shareable project showcase & build story">🌟 Showcase</button>
+            <button type="button" class="small-action" data-action="open-collaborators-dialog" data-id="${project.id}" title="Manage co-creators & transfer creator ownership">👥 Team (${(project.coCreators || []).length + 1})</button>
             <button type="button" class="small-action" data-action="open-project-pricing" data-id="${project.id}" title="Labor cost & selling price calculator">🏷️ Price & Profit</button>
             <button type="button" class="small-action" data-action="open-project-blueprint" data-id="${project.id}" title="2D Blueprint & dimensioned sketchpad">📐 Blueprint</button>
             <button type="button" class="small-action" data-action="open-project-qr" data-id="${project.id}" title="Workshop QR bin label">🏷️ QR Label</button>
@@ -2894,24 +2964,36 @@ function renderProjectDetail(projectId) {
             <button type="button" class="small-action" data-action="copy-project-summary" data-id="${project.id}" title="Copy project summary to clipboard">📋 Copy summary</button>
             <button type="button" class="small-action print-keep" data-action="print-project" data-id="${project.id}" title="Print workshop sheet">🖶 Print sheet</button>
           </div>
-          <div class="detail-subtitle">Updated ${relativeTime(project.updatedAt)}${project.targetDate ? ` · Target ${formatDate(project.targetDate)}` : ""}${project.timeSpent ? ` · ⏱ ${formatMinutes(project.timeSpent)} invested` : ""}</div>
+          <div class="detail-subtitle">
+            Updated ${relativeTime(project.updatedAt)}${project.targetDate ? ` · Target ${formatDate(project.targetDate)}` : ""}${project.timeSpent ? ` · ⏱ ${formatMinutes(project.timeSpent)} invested` : ""}
+            ${isCollab ? ` · <span class="collab-badge">👥 👑 ${escapeHTML(project.creator?.name || "Creator")} + ${(project.coCreators || []).map(c => escapeHTML(c.name || c.email)).join(", ")}</span>` : ""}
+            ${project.lastStatusChange ? ` · <span style="color:var(--muted)">Status changed by ${escapeHTML(project.lastStatusChange.by)}</span>` : ""}
+          </div>
         </div>
       </div>
       <button class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
     </div>
     ${completionBannerHtml}
     <p class="detail-description">${escapeHTML(project.description || "No description yet.")}</p>
-    <div class="detail-top"><div class="project-card-labels"><span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)} priority</span>${(project.tags || []).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}</div><button class="small-action" data-action="edit-project" data-id="${project.id}">Edit project</button></div>
+    <div class="detail-top">
+      <div class="project-card-labels">
+        <span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span>
+        <span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)} priority</span>
+        ${isCollab ? `<span class="collab-badge">👥 Collaborative</span>` : ""}
+        ${(project.tags || []).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}
+      </div>
+      <button class="small-action" data-action="edit-project" data-id="${project.id}">Edit project</button>
+    </div>
     ${skills.length ? `<div class="detail-skills">${skills.map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)} · Level ${skillLevel(skill.xp)}</span>`).join("")}</div>` : ""}
     <div class="detail-section-heading"><h3>Project checklist <span class="subtle-count">${progress.total ? `${progress.completed}/${progress.total} complete` : "Break it into steps"}</span></h3></div>
     ${progress.total ? `<div class="detail-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.percent}%</span></div>` : ""}
     <form class="inline-add-form task-add-form" data-project="${project.id}"><input name="taskText" required maxlength="140" placeholder="Add a next step..." aria-label="New checklist step"><button type="button" class="small-action mic-btn" data-action="dictate-task" data-project="${project.id}" title="Voice dictate next step">🎙 Dictate</button><button class="button button-outline" type="submit">＋ Add step</button></form>
-    ${tasks.length ? `<ul class="task-list">${tasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span></label><div class="task-item-actions">${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < tasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
+    ${tasks.length ? `<ul class="task-list">${tasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span>${task.completedBy ? `<span class="activity-author-tag">✓ ${escapeHTML(task.completedBy.name)}</span>` : ""}</label><div class="task-item-actions">${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < tasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
     ${budgetCardHtml}
     <div class="detail-section-heading">
       <div>
         <h3>Materials &amp; Supplies</h3>
-        <span class="subtle-count">${materials.length ? `${materials.length} items · $${totalCost.toFixed(2)} total` : "Track parts & build budget"}</span>
+        <span class="subtle-count">${materials.length ? `${materials.length} items · ${formatMoney(totalCost)} total` : "Track parts & build budget"}</span>
       </div>
       <div>
         <button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}">📥 Add from inventory</button>
@@ -3165,6 +3247,7 @@ async function handleProjectSubmit(event) {
   const skillIds = $$('input[name="skillIds"]:checked', form).map(input => input.value);
   const templateTasks = form.dataset.templateTasks ? JSON.parse(form.dataset.templateTasks) : [];
   const templateMaterials = form.dataset.templateMaterials ? JSON.parse(form.dataset.templateMaterials) : [];
+  const maker = getCurrentMakerIdentity();
   const project = {
     id: existing?.id || uid(),
     title: form.elements.title.value.trim(),
@@ -3175,6 +3258,8 @@ async function handleProjectSubmit(event) {
     budget: form.elements.budget?.value ? Number(form.elements.budget.value) : (existing?.budget || null),
     tags: [...new Set(form.elements.tags.value.split(",").map(tag => tag.trim()).filter(Boolean))],
     skillIds,
+    creator: existing?.creator || { id: maker.id, name: maker.name, email: maker.email },
+    coCreators: existing?.coCreators || [],
     folders: existing?.folders || [{ id: uid(), name: "General", images: [] }],
     tasks: existing?.tasks || (templateTasks.length > 0 ? templateTasks.map(t => ({ id: uid(), text: t, done: false, createdAt: new Date().toISOString() })) : []),
     notes: existing?.notes || [],
@@ -3184,12 +3269,25 @@ async function handleProjectSubmit(event) {
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
+
+  if (existing && existing.status !== project.status) {
+    project.lastStatusChange = {
+      from: STATUS_LABELS[existing.status] || existing.status,
+      to: STATUS_LABELS[project.status] || project.status,
+      by: maker,
+      at: new Date().toISOString()
+    };
+  } else if (existing?.lastStatusChange) {
+    project.lastStatusChange = existing.lastStatusChange;
+  }
+
   delete form.dataset.templateTasks;
   delete form.dataset.templateMaterials;
   if (!project.title) return;
   if (existing) Object.assign(existing, project);
   else state.projects.unshift(project);
-  makeActivity("project", `${existing ? "Updated" : "Started"} ${project.title}`);
+  makeActivity("project", `${existing ? `${maker.name} updated` : `${maker.name} started`} ${project.title}`);
+  syncSharedCollaborations();
   try {
     await persistState();
     $("#project-dialog").close();
@@ -3316,15 +3414,17 @@ async function handleProjectEntrySubmit(event) {
   const isTask = form.matches(".task-add-form");
   const text = form.elements[isTask ? "taskText" : "journalText"].value.trim();
   if (!text) return;
+  const maker = getCurrentMakerIdentity();
   if (isTask) {
-    project.tasks.push({ id: uid(), text, done: false, createdAt: new Date().toISOString() });
-    makeActivity("task", `Added a step to ${project.title}`);
+    project.tasks.push({ id: uid(), text, done: false, createdAt: new Date().toISOString(), createdBy: maker });
+    makeActivity("task", `${maker.name} added a step to ${project.title}`);
   } else {
     const at = new Date().toISOString();
-    project.notes.push({ id: uid(), text, at });
-    makeActivity("note", `Added a progress note to ${project.title}`);
+    project.notes.push({ id: uid(), text, at, author: maker });
+    makeActivity("note", `${maker.name} added a progress note to ${project.title}`);
   }
   project.updatedAt = new Date().toISOString();
+  syncSharedCollaborations();
   try {
     await persistState();
     form.reset();
@@ -3342,8 +3442,22 @@ async function handleTaskToggle(input) {
   const task = project?.tasks.find(item => item.id === input.dataset.id);
   if (!project || !task) return;
   task.done = input.checked;
-  task.completedAt = input.checked ? new Date().toISOString() : null;
+  const maker = getCurrentMakerIdentity();
+  if (input.checked) {
+    task.completedBy = {
+      id: maker.id,
+      name: maker.name,
+      email: maker.email,
+      at: new Date().toISOString()
+    };
+    task.completedAt = task.completedBy.at;
+    makeActivity("project", `${maker.name} completed "${task.text}" on ${project.title}`);
+  } else {
+    delete task.completedBy;
+    task.completedAt = null;
+  }
   project.updatedAt = new Date().toISOString();
+  syncSharedCollaborations();
   try {
     await persistState();
     render();
@@ -4299,8 +4413,9 @@ function renderKanban(projects) {
             return `
               <div class="kanban-card ${project.pinned ? "is-pinned" : ""}" draggable="true" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
                 <div class="kanban-card-top">
-                  <div style="display:flex;align-items:center;gap:6px">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                     <span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>
+                    ${isCollaborativeProject(project) ? `<span class="collab-badge" style="font-size:10px;padding:1px 5px">👥 Team</span>` : ""}
                     ${project.pinned ? `<span class="pin-badge">📌</span>` : ""}
                   </div>
                   <div class="kanban-card-quickshift" onclick="event.stopPropagation()">
@@ -4390,12 +4505,18 @@ function setupKanbanDragDrop(kanban) {
       const pid = event.dataTransfer.getData("text/plain") || draggedProjectId;
       if (!pid || !status) return;
 
-      const project = state.projects.find(p => p.id === pid);
-      if (!project || project.status === status) return;
-
+      const oldStatus = project.status;
       project.status = status;
+      const maker = getCurrentMakerIdentity();
+      project.lastStatusChange = {
+        from: STATUS_LABELS[oldStatus] || oldStatus,
+        to: STATUS_LABELS[status] || status,
+        by: maker,
+        at: new Date().toISOString()
+      };
       project.updatedAt = new Date().toISOString();
-      makeActivity("project", `Moved ${project.title} to ${STATUS_LABELS[status] || status}`);
+      syncSharedCollaborations();
+      makeActivity("project", `${maker.name} moved ${project.title} to ${STATUS_LABELS[status] || status}`);
       if (status === "completed") {
         addNotification({
           title: `Project Complete: ${project.title}`,
@@ -4423,9 +4544,18 @@ function setupKanbanDragDrop(kanban) {
       const project = state.projects.find(p => p.id === pid);
       if (!project || project.status === targetStatus) return;
 
+      const oldStatus = project.status;
       project.status = targetStatus;
+      const maker = getCurrentMakerIdentity();
+      project.lastStatusChange = {
+        from: STATUS_LABELS[oldStatus] || oldStatus,
+        to: STATUS_LABELS[targetStatus] || targetStatus,
+        by: maker,
+        at: new Date().toISOString()
+      };
       project.updatedAt = new Date().toISOString();
-      makeActivity("project", `Moved ${project.title} to ${STATUS_LABELS[targetStatus] || targetStatus}`);
+      syncSharedCollaborations();
+      makeActivity("project", `${maker.name} moved ${project.title} to ${STATUS_LABELS[targetStatus] || targetStatus}`);
       if (targetStatus === "completed") {
         addNotification({
           title: `Project Complete: ${project.title}`,
@@ -4774,27 +4904,44 @@ function openProjectQR(projectId) {
 
   let qrSvg = "";
   if (window.QR && typeof window.QR.toSVG === "function") {
-    qrSvg = window.QR.toSVG(url, { cellSize: 4, margin: 2 });
+    qrSvg = window.QR.toSVG(url, { cellSize: 4, margin: 1 });
   } else {
     qrSvg = `<div style="padding:20px;text-align:center;color:#888;">Generating QR...</div>`;
   }
 
+  const tasks = project.tasks || [];
+  const completedTasks = tasks.filter(t => t.done).length;
+  const isCollab = (project.coCreators || []).length > 0;
+
   body.innerHTML = `
     <div class="qr-bin-label" id="printable-qr-label">
-      <div class="qr-label-header">
-        <div class="qr-label-title">${escapeHTML(project.title)}</div>
-        <div class="qr-label-meta"><span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span></div>
+      <div class="qr-label-qr-side">
+        <div class="qr-label-code-wrap">
+          ${qrSvg}
+        </div>
+        <span class="qr-label-scan-tip">Scan for Steps &amp; Journal</span>
       </div>
-      <div class="qr-label-code-wrap">
-        ${qrSvg}
-      </div>
-      <div class="qr-label-footer">
-        <span class="qr-label-link">${escapeHTML(url)}</span>
-        <span class="qr-label-sub">Scan in workshop to open project journal</span>
+      <div class="qr-label-info-side">
+        <div>
+          <div class="qr-label-eyebrow">WORKBENCH · PROJECT BIN</div>
+          <h2 class="qr-label-title">${escapeHTML(project.title)}</h2>
+          <div class="qr-label-badges">
+            <span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span>
+            <span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>
+            ${isCollab ? `<span class="collab-badge">👥 Team (${(project.coCreators || []).length + 1})</span>` : ""}
+          </div>
+          <div style="font-size:11px;color:#4b5563;margin-bottom:6px">
+            ${tasks.length ? `${completedTasks}/${tasks.length} steps complete` : "Break into steps"} · ⏱ ${formatMinutes(project.timeSpent || 0)}
+          </div>
+        </div>
+        <div class="qr-label-url">
+          ID: ${project.id.slice(0, 8)} · ${escapeHTML(url)}
+        </div>
       </div>
     </div>
-    <div style="margin-top:14px;display:flex;gap:8px;justify-content:center">
-      <button type="button" class="button button-small button-outline" id="copy-qr-url-btn">📋 Copy Link</button>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button type="button" class="button button-small button-outline" id="copy-qr-url-btn">📋 Copy Project Link</button>
+      <button type="button" class="button button-small button-primary" data-action="print-qr-label">🖶 Print Bin Label</button>
     </div>
   `;
 
@@ -7220,6 +7367,38 @@ async function handleAction(action, target) {
     void saveBlueprintToProject();
     return;
   }
+  if (action === "open-units-modal") {
+    openUnitsModal();
+    return;
+  }
+  if (action === "save-units") {
+    void saveUnitsSettings();
+    return;
+  }
+  if (action === "print-formatted-markdown") {
+    printFormattedMarkdown(id || target.dataset.id || activeShowcaseProjectId);
+    return;
+  }
+  if (action === "open-collaborators-dialog") {
+    openCollaboratorsDialog(id || target.dataset.id || target.dataset.project);
+    return;
+  }
+  if (action === "pass-creator-status") {
+    void passCreatorStatus(target.dataset.project, target.dataset.id);
+    return;
+  }
+  if (action === "toggle-co-creator-role") {
+    void toggleCoCreatorRole(target.dataset.project, target.dataset.id);
+    return;
+  }
+  if (action === "remove-co-creator") {
+    void removeCoCreator(target.dataset.project, target.dataset.id);
+    return;
+  }
+  if (action === "add-co-creator") {
+    void handleAddCoCreator(target.dataset.project);
+    return;
+  }
   if (action === "export-markdown") {
     exportMarkdownJournal();
     return;
@@ -8220,7 +8399,7 @@ function openProjectShowcase(projectId) {
         </div>
         <div class="showcase-metric-box">
           <span class="showcase-metric-label">Total Cost</span>
-          <span class="showcase-metric-val">$${totalCost.toFixed(2)}</span>
+          <span class="showcase-metric-val">${formatMoney(totalCost)}</span>
         </div>
         <div class="showcase-metric-box">
           <span class="showcase-metric-label">Checklist Steps</span>
@@ -8286,7 +8465,7 @@ function openProjectShowcase(projectId) {
                   <tr>
                     <td><strong>${escapeHTML(m.name)}</strong></td>
                     <td>${escapeHTML(m.qty || "-")}</td>
-                    <td>${Number(m.cost) > 0 ? `$${Number(m.cost).toFixed(2)}` : "-"}</td>
+                    <td>${Number(m.cost) > 0 ? formatMoney(m.cost) : "-"}</td>
                     <td>${m.status === "have" ? "Acquired" : m.status === "ordered" ? "Ordered" : "Planned"}</td>
                   </tr>
                 `).join("")}
@@ -8296,8 +8475,11 @@ function openProjectShowcase(projectId) {
         </div>
       ` : ""}
 
-      <div>
-        <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-bottom:8px">Shareable Markdown Summary (for forums &amp; GitHub)</h4>
+      <div class="no-print showcase-markdown-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:0">Shareable Markdown Summary (for forums &amp; GitHub)</h4>
+          <button type="button" class="button button-outline button-small" data-action="print-formatted-markdown" data-id="${project.id}" title="Print as formatted document">🖶 Print Markdown Document</button>
+        </div>
         <pre class="showcase-markdown-preview" id="showcase-md-content">${escapeHTML(generateProjectMarkdown(project))}</pre>
       </div>
     </div>
@@ -9563,8 +9745,806 @@ async function saveBlueprintToProject() {
   }
 }
 
+/* ============================================================
+   FEATURE 6: Currency & Measurement System Standards
+   ============================================================ */
+function getCurrentMakerIdentity() {
+  const user = getActiveUser();
+  if (user) {
+    return {
+      id: user.id,
+      name: user.displayName || (user.email ? user.email.split("@")[0] : "Maker"),
+      email: user.email || ""
+    };
+  }
+  return {
+    id: "local-maker",
+    name: "Studio Maker",
+    email: "local@workbench.maker"
+  };
+}
+
+function openUnitsModal() {
+  const dialog = $("#units-dialog");
+  if (!dialog) return;
+  const currSelect = $("#units-currency-select");
+  const unitSelect = $("#units-system-select");
+  if (currSelect) currSelect.value = state.currency || "USD";
+  if (unitSelect) unitSelect.value = state.unitSystem || "in";
+  dialog.showModal();
+}
+
+async function saveUnitsSettings() {
+  const oldCurr = state.currency || "USD";
+  const newCurr = $("#units-currency-select")?.value || "USD";
+  const autoConvertCurr = $("#units-auto-convert-currency")?.checked;
+
+  const oldUnit = state.unitSystem || "in";
+  const newUnit = $("#units-system-select")?.value || "in";
+  const autoConvertUnits = $("#units-auto-convert-measurements")?.checked;
+
+  let convertedPricesCount = 0;
+  if (autoConvertCurr && oldCurr !== newCurr && CURRENCIES[oldCurr] && CURRENCIES[newCurr]) {
+    const oldRate = CURRENCIES[oldCurr].rate;
+    const newRate = CURRENCIES[newCurr].rate;
+    const ratio = newRate / oldRate;
+
+    for (const p of state.projects) {
+      if (Number.isFinite(p.budget) && p.budget > 0) {
+        p.budget = Math.round(p.budget * ratio * 100) / 100;
+        convertedPricesCount++;
+      }
+      if (Number.isFinite(p.laborRate) && p.laborRate > 0) {
+        p.laborRate = Math.round(p.laborRate * ratio * 100) / 100;
+      }
+      for (const m of (p.materials || [])) {
+        if (Number.isFinite(Number(m.cost)) && Number(m.cost) > 0) {
+          m.cost = Math.round(Number(m.cost) * ratio * 100) / 100;
+          convertedPricesCount++;
+        }
+      }
+    }
+    for (const item of (state.inventory || [])) {
+      if (Number.isFinite(Number(item.cost)) && Number(item.cost) > 0) {
+        item.cost = Math.round(Number(item.cost) * ratio * 100) / 100;
+        convertedPricesCount++;
+      }
+    }
+  }
+  state.currency = newCurr;
+
+  const UNIT_FACTORS = { in: 1, cm: 2.54, mm: 25.4 };
+  let convertedUnitsCount = 0;
+  if (autoConvertUnits && oldUnit !== newUnit && UNIT_FACTORS[oldUnit] && UNIT_FACTORS[newUnit]) {
+    const unitRatio = UNIT_FACTORS[newUnit] / UNIT_FACTORS[oldUnit];
+
+    const stockInput = $("#tool-cut-stock");
+    if (stockInput && stockInput.value) {
+      const val = parseFloat(stockInput.value);
+      if (Number.isFinite(val) && val > 0) {
+        stockInput.value = (val * unitRatio).toFixed(1).replace(/\.0$/, "");
+      }
+    }
+    const kerfInput = $("#tool-cut-kerf");
+    if (kerfInput && kerfInput.value) {
+      const kval = parseFloat(kerfInput.value);
+      if (Number.isFinite(kval) && kval > 0) {
+        kerfInput.value = (kval * unitRatio).toFixed(2).replace(/0$/, "").replace(/\.0$/, "");
+      }
+    }
+    const piecesInput = $("#tool-cut-pieces");
+    if (piecesInput && piecesInput.value) {
+      piecesInput.value = piecesInput.value.split("\n").map(line => {
+        const m = line.match(/^([0-9.]+)(\s*(?:[xX*]|qty|count)?\s*[0-9]+)?(.*)$/);
+        if (m) {
+          const len = parseFloat(m[1]);
+          const newLen = (len * unitRatio).toFixed(1).replace(/\.0$/, "");
+          return `${newLen}${m[2] || ""}${m[3] || ""}`;
+        }
+        return line;
+      }).join("\n");
+    }
+
+    for (const p of state.projects) {
+      for (const m of (p.materials || [])) {
+        if (m.qty && typeof m.qty === "string") {
+          m.qty = m.qty.replace(/([0-9.]+)\s*(in|inch|inches|"|cm|mm)\b/gi, (match, num, unit) => {
+            const u = (unit === '"' || unit.toLowerCase().startsWith("in")) ? "in" : unit.toLowerCase();
+            const factor = UNIT_FACTORS[newUnit] / (UNIT_FACTORS[u] || 1);
+            const converted = (parseFloat(num) * factor).toFixed(1).replace(/\.0$/, "");
+            convertedUnitsCount++;
+            return `${converted} ${newUnit}`;
+          });
+        }
+      }
+    }
+  }
+  state.unitSystem = newUnit;
+
+  updateTopbarUnitsPill();
+  try {
+    await persistState();
+    $("#units-dialog")?.close();
+    render();
+    if ($("#detail-dialog").open && activeProjectId) {
+      renderProjectDetail(activeProjectId);
+    }
+    let msg = `Preferences updated: ${CURRENCIES[newCurr].name} · ${newUnit.toUpperCase()}`;
+    if (convertedPricesCount > 0 || convertedUnitsCount > 0) {
+      msg += ` (Converted ${convertedPricesCount} sums & ${convertedUnitsCount} dimensions)`;
+    }
+    showToast(msg);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not save unit preferences.");
+  }
+}
+
+/* ============================================================
+   FEATURE 7: Formatted Markdown Document Printing
+   ============================================================ */
+function formatInlineMarkdown(str) {
+  let s = escapeHTML(str);
+  s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  return s;
+}
+
+function renderMarkdownToHTML(md) {
+  if (!md) return "";
+  const lines = md.split("\n");
+  const output = [];
+  let inList = false;
+  let inCodeBlock = false;
+  let codeBlockBuffer = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+
+    if (rawLine.trim().startsWith("```")) {
+      if (inCodeBlock) {
+        output.push(`<pre><code>${escapeHTML(codeBlockBuffer.join("\n"))}</code></pre>`);
+        codeBlockBuffer = [];
+        inCodeBlock = false;
+      } else {
+        if (inList) { output.push("</ul>"); inList = false; }
+        inCodeBlock = true;
+      }
+      continue;
+    }
+
+    if (inCodeBlock) {
+      codeBlockBuffer.push(rawLine);
+      continue;
+    }
+
+    const trimmed = rawLine.trim();
+
+    if (!trimmed) {
+      if (inList) { output.push("</ul>"); inList = false; }
+      continue;
+    }
+
+    if (trimmed.startsWith("# ")) {
+      if (inList) { output.push("</ul>"); inList = false; }
+      output.push(`<h1>${formatInlineMarkdown(trimmed.slice(2))}</h1>`);
+      continue;
+    }
+    if (trimmed.startsWith("## ")) {
+      if (inList) { output.push("</ul>"); inList = false; }
+      output.push(`<h2>${formatInlineMarkdown(trimmed.slice(3))}</h2>`);
+      continue;
+    }
+    if (trimmed.startsWith("### ")) {
+      if (inList) { output.push("</ul>"); inList = false; }
+      output.push(`<h3>${formatInlineMarkdown(trimmed.slice(4))}</h3>`);
+      continue;
+    }
+    if (trimmed.startsWith("#### ")) {
+      if (inList) { output.push("</ul>"); inList = false; }
+      output.push(`<h4>${formatInlineMarkdown(trimmed.slice(5))}</h4>`);
+      continue;
+    }
+
+    if (trimmed.startsWith("> ")) {
+      if (inList) { output.push("</ul>"); inList = false; }
+      output.push(`<blockquote>${formatInlineMarkdown(trimmed.slice(2))}</blockquote>`);
+      continue;
+    }
+
+    if (/^(\-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      if (inList) { output.push("</ul>"); inList = false; }
+      output.push("<hr>");
+      continue;
+    }
+
+    if (/^[-*]\s+\[([ xX])\]\s+(.*)/.test(trimmed)) {
+      if (!inList) { output.push('<ul class="markdown-checklist">'); inList = true; }
+      const match = trimmed.match(/^[-*]\s+\[([ xX])\]\s+(.*)/);
+      const isChecked = match[1].toLowerCase() === "x";
+      output.push(`<li class="checklist-item ${isChecked ? "checklist-checked" : "checklist-unchecked"}">${isChecked ? "☑" : "☐"} ${formatInlineMarkdown(match[2])}</li>`);
+      continue;
+    }
+
+    if (/^[-*]\s+(.*)/.test(trimmed)) {
+      if (!inList) { output.push("<ul>"); inList = true; }
+      const match = trimmed.match(/^[-*]\s+(.*)/);
+      output.push(`<li>${formatInlineMarkdown(match[1])}</li>`);
+      continue;
+    }
+
+    if (inList) { output.push("</ul>"); inList = false; }
+    output.push(`<p>${formatInlineMarkdown(trimmed)}</p>`);
+  }
+
+  if (inCodeBlock) {
+    output.push(`<pre><code>${escapeHTML(codeBlockBuffer.join("\n"))}</code></pre>`);
+  }
+  if (inList) {
+    output.push("</ul>");
+  }
+
+  return output.join("\n");
+}
+
+function printFormattedMarkdown(projectId) {
+  const project = state.projects.find(p => p.id === (projectId || activeShowcaseProjectId));
+  if (!project) return;
+  const md = generateProjectMarkdown(project);
+  const html = renderMarkdownToHTML(md);
+
+  const printWin = window.open("", "_blank", "width=850,height=900");
+  if (!printWin) {
+    window.print();
+    return;
+  }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHTML(project.title)} — Markdown Document</title>
+        <style>
+          @page { margin: 18mm 16mm; size: auto; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #111827;
+            background: #fff;
+            line-height: 1.6;
+            margin: 0;
+            padding: 32px;
+            max-width: 820px;
+            margin-left: auto;
+            margin-right: auto;
+          }
+          .formatted-markdown-doc {
+            font-size: 14px;
+          }
+          h1, h2, h3, h4 {
+            color: #111827;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-top: 1.4em;
+            margin-bottom: 0.5em;
+          }
+          h1 {
+            font-size: 26px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 8px;
+            margin-top: 0;
+          }
+          h2 {
+            font-size: 19px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 5px;
+          }
+          h3 {
+            font-size: 16px;
+          }
+          p {
+            margin: 0.7em 0;
+          }
+          ul, ol {
+            padding-left: 24px;
+            margin: 0.6em 0;
+          }
+          li {
+            margin: 0.3em 0;
+          }
+          .markdown-checklist {
+            list-style: none;
+            padding-left: 4px;
+          }
+          .checklist-item {
+            margin: 0.35em 0;
+          }
+          .checklist-checked {
+            color: #4b5563;
+            text-decoration: line-through;
+          }
+          blockquote {
+            border-left: 3px solid #2563eb;
+            padding-left: 14px;
+            margin: 14px 0;
+            color: #4b5563;
+            font-style: italic;
+          }
+          code {
+            background: #f3f4f6;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+          }
+          pre {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.45;
+          }
+          hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 20px 0;
+          }
+          .doc-header-tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #2563eb;
+            margin-bottom: 6px;
+          }
+          @media print {
+            body { padding: 0; }
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="doc-header-tag">WORKBENCH JOURNAL · FORMATTED DOCUMENT</div>
+        <div class="formatted-markdown-doc">
+          ${html}
+        </div>
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 300);
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+/* ============================================================
+   FEATURE 8: Project Co-Creators & Immutable Creator Ownership
+   ============================================================ */
+const SHARED_COLLAB_STORAGE_KEY = "workbench_shared_collab_projects";
+
+function ensureProjectCreator(project) {
+  if (!project) return;
+  if (!project.creator || !project.creator.id) {
+    const maker = getCurrentMakerIdentity();
+    project.creator = {
+      id: maker.id,
+      name: maker.name,
+      email: maker.email
+    };
+  }
+  if (!Array.isArray(project.coCreators)) {
+    project.coCreators = [];
+  }
+}
+
+function isProjectCreator(project, user = null) {
+  if (!project) return false;
+  ensureProjectCreator(project);
+  const curUser = user || getActiveUser();
+  if (!curUser || curUser.id === "local-maker") return true;
+  return Boolean(
+    (project.creator.id && project.creator.id === curUser.id) ||
+    (project.creator.email && curUser.email && project.creator.email.toLowerCase() === curUser.email.toLowerCase()) ||
+    curUser.isAdmin
+  );
+}
+
+function isCollaborativeProject(project) {
+  return Boolean(project && Array.isArray(project.coCreators) && project.coCreators.length > 0);
+}
+
+function getSharedCollaborations() {
+  try {
+    const raw = localStorage.getItem(SHARED_COLLAB_STORAGE_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSharedCollaborations(list) {
+  try {
+    localStorage.setItem(SHARED_COLLAB_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.warn("Could not save shared collaborations:", e);
+  }
+}
+
+function syncSharedCollaborations() {
+  const sharedMap = new Map();
+  for (const sp of getSharedCollaborations()) {
+    if (sp?.id) sharedMap.set(sp.id, sp);
+  }
+
+  for (const p of state.projects) {
+    if (isCollaborativeProject(p)) {
+      const existing = sharedMap.get(p.id);
+      if (!existing || new Date(p.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+        sharedMap.set(p.id, JSON.parse(JSON.stringify(p)));
+      }
+    }
+  }
+
+  saveSharedCollaborations(Array.from(sharedMap.values()));
+}
+
+function loadSharedCollaborationsIntoState() {
+  const shared = getSharedCollaborations();
+  if (!shared || shared.length === 0) return;
+
+  for (const sp of shared) {
+    if (!sp || !sp.id) continue;
+    ensureProjectCreator(sp);
+
+    const existing = state.projects.find(p => p.id === sp.id);
+    if (!existing) {
+      state.projects.unshift(sp);
+    } else {
+      const spTime = new Date(sp.updatedAt || 0).getTime();
+      const exTime = new Date(existing.updatedAt || 0).getTime();
+      if (spTime > exTime) {
+        Object.assign(existing, sp);
+      }
+    }
+  }
+}
+
+let activeCollabProjectId = null;
+
+async function openCollaboratorsDialog(projectId) {
+  const project = state.projects.find(p => p.id === (projectId || activeProjectId));
+  if (!project) return;
+  activeCollabProjectId = project.id;
+  ensureProjectCreator(project);
+
+  const title = $("#collaborators-dialog-title");
+  if (title) title.textContent = `Project Team · ${project.title}`;
+
+  await renderCollaboratorsDialog(project);
+  $("#collaborators-dialog")?.showModal();
+}
+
+async function renderCollaboratorsDialog(project) {
+  const body = $("#collaborators-dialog-body");
+  if (!body || !project) return;
+  ensureProjectCreator(project);
+
+  const curUser = getActiveUser();
+  const canManage = isProjectCreator(project, curUser);
+  const coCreators = project.coCreators || [];
+
+  let knownMakers = [];
+  try {
+    const localMap = await getLocallyKnownUsers();
+    knownMakers = Array.from(localMap.values()).filter(m => {
+      const mId = m.id;
+      const mEmail = (m.email || "").toLowerCase();
+      if (project.creator?.id === mId || (project.creator?.email && project.creator.email.toLowerCase() === mEmail)) return false;
+      if (coCreators.some(c => c.id === mId || (c.email && c.email.toLowerCase() === mEmail))) return false;
+      return true;
+    });
+  } catch {}
+
+  body.innerHTML = `
+    <div style="background:var(--surface-hover);padding:12px;border-radius:8px;border-left:4px solid var(--accent);font-size:13px;color:var(--ink)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <strong>${escapeHTML(project.title)}</strong>
+          <span style="color:var(--muted)"> · ${coCreators.length + 1} project member${coCreators.length === 0 ? "" : "s"}</span>
+        </div>
+        <span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span>
+      </div>
+      <p style="margin:6px 0 0 0;font-size:12px;color:var(--muted);line-height:1.4">
+        Collaborative projects are shared across team members. Every checklist step, journal note, and status change records the member who made it.
+      </p>
+    </div>
+
+    <div>
+      <h3 style="font-size:13px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:10px 0 6px 0">Project Creator (Immutable)</h3>
+      <div class="collab-member-card">
+        <div class="collab-avatar">👑</div>
+        <div class="collab-member-info">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="collab-member-name">${escapeHTML(project.creator?.name || "Project Creator")}</span>
+            <span class="collab-creator-badge">👑 Primary Creator</span>
+          </div>
+          <span class="collab-member-email">${escapeHTML(project.creator?.email || "Lead owner")}</span>
+        </div>
+        <div class="collab-member-actions">
+          <span style="font-size:11px;color:var(--muted);font-weight:600">Immutable Owner</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px 6px">
+        🔒 Project Creator status is permanent and immutable, but can be passed/transferred to another team member below.
+      </div>
+    </div>
+
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <h3 style="font-size:13px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:0">Co-Creators (${coCreators.length})</h3>
+      </div>
+
+      ${coCreators.length === 0 ? `
+        <div class="empty-inline" style="padding:14px;background:var(--surface-subtle);border-radius:6px;text-align:center">
+          No co-creators added yet. Add another maker or collaborator below to make this project collaborative.
+        </div>
+      ` : `
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${coCreators.map(c => `
+            <div class="collab-member-card">
+              <div class="collab-avatar">${(c.name || c.email || "M").slice(0, 1).toUpperCase()}</div>
+              <div class="collab-member-info">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="collab-member-name">${escapeHTML(c.name || c.email)}</span>
+                  <span class="collab-badge">${escapeHTML(c.role || "Editor")}</span>
+                </div>
+                <span class="collab-member-email">${escapeHTML(c.email || "Co-creator")}</span>
+              </div>
+              <div class="collab-member-actions">
+                ${canManage ? `
+                  <button type="button" class="button button-outline button-small" data-action="toggle-co-creator-role" data-project="${project.id}" data-id="${c.id}" title="Toggle between Editor and Viewer">Role: ${c.role || "Editor"}</button>
+                  <button type="button" class="button button-outline button-small" data-action="pass-creator-status" data-project="${project.id}" data-id="${c.id}" title="Pass immutable creator role to this member">👑 Transfer Creator</button>
+                  <button type="button" class="danger-button" style="padding:4px 8px;font-size:11px" data-action="remove-co-creator" data-project="${project.id}" data-id="${c.id}" title="Remove co-creator">×</button>
+                ` : `
+                  <span style="font-size:12px;color:var(--muted)">${escapeHTML(c.role || "Editor")}</span>
+                `}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `}
+    </div>
+
+    ${canManage ? `
+      <div style="margin-top:12px;padding-top:14px;border-top:1px solid var(--line)">
+        <h3 style="font-size:13px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin:0 0 8px 0">Add Co-Creator</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="text" id="new-collab-input" placeholder="Maker name or email (e.g. sarah@maker.org)" style="flex:2;min-width:180px">
+          <select id="new-collab-role" style="flex:1;min-width:110px">
+            <option value="Editor">Editor</option>
+            <option value="Viewer">Viewer</option>
+            <option value="Contributor">Contributor</option>
+          </select>
+          <button type="button" class="button button-primary button-small" data-action="add-co-creator" data-project="${project.id}">＋ Add</button>
+        </div>
+        ${knownMakers.length > 0 ? `
+          <div style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
+            <span>Quick add known makers:</span>
+            ${knownMakers.slice(0, 4).map(m => `
+              <button type="button" class="mini-tag clickable" data-action="quick-add-collab" data-project="${project.id}" data-name="${escapeHTML(m.displayName || m.email)}" data-email="${escapeHTML(m.email || "")}" data-id="${escapeHTML(m.id)}">＋ ${escapeHTML(m.displayName || m.email)}</button>
+            `).join("")}
+          </div>
+        ` : ""}
+      </div>
+    ` : ""}
+  `;
+
+  body.querySelectorAll('button[data-action="quick-add-collab"]').forEach(btn => {
+    btn.addEventListener("click", () => {
+      void addCoCreator(btn.dataset.project, {
+        id: btn.dataset.id,
+        name: btn.dataset.name,
+        email: btn.dataset.email
+      }, "Editor");
+    });
+  });
+
+  const collabInput = $("#new-collab-input");
+  if (collabInput) {
+    collabInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void handleAddCoCreator(project.id);
+      }
+    });
+  }
+}
+
+async function handleAddCoCreator(projectId) {
+  const input = $("#new-collab-input");
+  const roleSelect = $("#new-collab-role");
+  if (!input || !input.value.trim()) {
+    showToast("Please enter an email or username for the co-creator.");
+    return;
+  }
+  const text = input.value.trim();
+  const role = roleSelect ? roleSelect.value : "Editor";
+  await addCoCreator(projectId, text, role);
+  input.value = "";
+}
+
+async function addCoCreator(projectId, identityOrString, role = "Editor") {
+  const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
+  if (!project) return;
+  ensureProjectCreator(project);
+
+  let newMember;
+  if (typeof identityOrString === "object" && identityOrString !== null) {
+    newMember = {
+      id: identityOrString.id || uid(),
+      name: identityOrString.name || identityOrString.email || "Maker",
+      email: identityOrString.email || "",
+      role: role || "Editor",
+      addedAt: new Date().toISOString()
+    };
+  } else {
+    const raw = String(identityOrString).trim();
+    const isEmail = raw.includes("@");
+    newMember = {
+      id: uid(),
+      name: isEmail ? raw.split("@")[0] : raw,
+      email: isEmail ? raw : "",
+      role: role || "Editor",
+      addedAt: new Date().toISOString()
+    };
+  }
+
+  const exists = project.coCreators.some(c => (c.email && newMember.email && c.email.toLowerCase() === newMember.email.toLowerCase()) || (c.name.toLowerCase() === newMember.name.toLowerCase()));
+  if (exists) {
+    showToast(`${newMember.name} is already a co-creator on this project.`);
+    return;
+  }
+
+  project.coCreators.push(newMember);
+  project.updatedAt = new Date().toISOString();
+
+  const maker = getCurrentMakerIdentity();
+  makeActivity("project", `${maker.name} added ${newMember.name} as co-creator on ${project.title}`);
+
+  syncSharedCollaborations();
+  try {
+    await persistState();
+    render();
+    if ($("#detail-dialog").open && activeProjectId === project.id) {
+      renderProjectDetail(project.id);
+    }
+    await renderCollaboratorsDialog(project);
+    showToast(`👥 Added ${newMember.name} as a co-creator!`);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not save co-creator.");
+  }
+}
+
+async function passCreatorStatus(projectId, targetId) {
+  const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
+  if (!project) return;
+  ensureProjectCreator(project);
+
+  const curUser = getActiveUser();
+  if (!isProjectCreator(project, curUser)) {
+    showToast("Only the current Project Creator can pass immutable creator ownership.");
+    return;
+  }
+
+  const target = project.coCreators.find(c => c.id === targetId);
+  if (!target) return;
+
+  const confirmed = window.confirm(
+    `Transfer immutable Project Creator ownership to “${target.name}”?\n\nYou will step down to a Co-Creator (Editor) role.`
+  );
+  if (!confirmed) return;
+
+  const previousCreator = {
+    id: project.creator.id || uid(),
+    name: project.creator.name || "Previous Creator",
+    email: project.creator.email || "",
+    role: "Editor",
+    addedAt: new Date().toISOString()
+  };
+
+  project.creator = {
+    id: target.id,
+    name: target.name,
+    email: target.email
+  };
+
+  project.coCreators = project.coCreators.filter(c => c.id !== target.id);
+  project.coCreators.unshift(previousCreator);
+  project.updatedAt = new Date().toISOString();
+
+  const maker = getCurrentMakerIdentity();
+  makeActivity("project", `${maker.name} transferred Project Creator ownership of ${project.title} to ${target.name}`);
+
+  syncSharedCollaborations();
+  try {
+    await persistState();
+    render();
+    if ($("#detail-dialog").open && activeProjectId === project.id) {
+      renderProjectDetail(project.id);
+    }
+    await renderCollaboratorsDialog(project);
+    showToast(`👑 Project creator ownership successfully passed to ${target.name}!`);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not transfer creator status.");
+  }
+}
+
+async function toggleCoCreatorRole(projectId, targetId) {
+  const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
+  if (!project) return;
+
+  const target = project.coCreators.find(c => c.id === targetId);
+  if (!target) return;
+
+  target.role = target.role === "Editor" ? "Viewer" : target.role === "Viewer" ? "Contributor" : "Editor";
+  project.updatedAt = new Date().toISOString();
+
+  syncSharedCollaborations();
+  try {
+    await persistState();
+    await renderCollaboratorsDialog(project);
+    showToast(`Updated role for ${target.name} to ${target.role}.`);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function removeCoCreator(projectId, targetId) {
+  const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
+  if (!project) return;
+
+  const target = project.coCreators.find(c => c.id === targetId);
+  if (!target) return;
+
+  if (!window.confirm(`Remove ${target.name} from co-creators of “${project.title}”?`)) return;
+
+  project.coCreators = project.coCreators.filter(c => c.id !== targetId);
+  project.updatedAt = new Date().toISOString();
+
+  const maker = getCurrentMakerIdentity();
+  makeActivity("project", `${maker.name} removed ${target.name} from ${project.title}`);
+
+  syncSharedCollaborations();
+  try {
+    await persistState();
+    render();
+    if ($("#detail-dialog").open && activeProjectId === project.id) {
+      renderProjectDetail(project.id);
+    }
+    await renderCollaboratorsDialog(project);
+    showToast(`Removed ${target.name} from project team.`);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not remove co-creator.");
+  }
+}
+
 $("#goal-form")?.addEventListener("submit", event => void handleGoalSubmit(event));
 $("#maintenance-form")?.addEventListener("submit", event => void handleMaintenanceSubmit(event));
+$("#units-form")?.addEventListener("submit", event => { event.preventDefault(); void saveUnitsSettings(); });
 $("#soundscape-volume")?.addEventListener("input", event => setSoundscapeVolume(event.target.value));
 $("#tool-cut-stock")?.addEventListener("input", () => runCutOptimizer());
 $("#tool-cut-kerf")?.addEventListener("input", () => runCutOptimizer());
