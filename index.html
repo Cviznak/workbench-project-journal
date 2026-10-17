@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f3ed">
     <title>Workbench — your project journal</title>
-    <link rel="stylesheet" href="styles.css?v=2.4.2">
+    <link rel="stylesheet" href="styles.css?v=2.4.3">
     <link rel="manifest" href="manifest.json">
     <script>
       (function(){
@@ -23,7 +23,7 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="app.js?v=2.4.2" defer></script>
+    <script src="app.js?v=2.4.3" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -488,7 +488,20 @@
       <form id="skill-form" method="dialog">
         <div class="dialog-heading"><div><div class="eyebrow">A NEW THING TO LEARN</div><h2 id="skill-dialog-title">Add a skill</h2></div><button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button></div>
         <input type="hidden" name="id">
-        <label class="field-label">Skill name<input name="name" required maxlength="60" placeholder="e.g. Crocheting"></label>
+        <label class="field-label">Skill name<input name="name" required maxlength="60" placeholder="e.g. Woodworking, Calligraphy, Crochet" list="skill-suggestions" autocomplete="off"></label>
+        <datalist id="skill-suggestions">
+          <option value="Woodworking">
+          <option value="Electronics">
+          <option value="Programming">
+          <option value="Crochet">
+          <option value="Knitting">
+          <option value="Sewing">
+          <option value="Drawing">
+          <option value="Photography">
+          <option value="Leathercraft">
+          <option value="Ceramics">
+          <option value="3D Modeling">
+        </datalist>
         <label class="field-label">Category <span class="optional">(optional)</span><input name="category" maxlength="40" placeholder="e.g. Textiles, Digital, Workshop"></label>
         <div class="dialog-actions">
           <button type="button" class="danger-button hidden" id="delete-skill-btn" data-action="delete-skill">Delete skill</button>

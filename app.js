@@ -176,9 +176,6 @@ function resetWorkspaceStateToDefault() {
   state.weeklyGoal = 60;
   state.updatedAt = "";
   state.hasUserChanges = false;
-  for (const [name, category] of STARTER_SKILLS) {
-    state.skills.push({ id: uid(), name, category, xp: 0, createdAt: new Date().toISOString() });
-  }
   state.starterSkillsAdded = true;
 }
 
@@ -1299,15 +1296,9 @@ async function recoverOwnerWorkspace({ silent = false } = {}) {
   if (!isOwner) return false;
 
   try {
-    if (!silent) showToast("Checking cloud for owner projects…");
+    if (!silent) showToast("Checking cloud for owner projects & cleaning workspaces…");
     const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`);
     if (!Array.isArray(rows) || rows.length === 0) return false;
-
-    // Check if current user already has projects in state
-    if (Array.isArray(state?.projects) && state.projects.length > 0) {
-      if (!silent) showToast("Your workbench already has active projects.");
-      return true;
-    }
 
     // Find the row holding the owner's projects (e.g. Bulbasaur Magnet, Board game Holiday Shopping, etc.)
     const isOwnerProjectList = (list) => Array.isArray(list) && list.some(p => {
@@ -1317,6 +1308,38 @@ async function recoverOwnerWorkspace({ silent = false } = {}) {
 
     const rowWithProjects = rows.find(r => isOwnerProjectList(r?.data?.projects))
       || rows.find(r => Array.isArray(r?.data?.projects) && r.data.projects.length > 0);
+
+    // Clean any other users in Supabase that received leaked owner projects or leaked skills
+    for (const r of rows) {
+      if (r.user_id && r.user_id !== session.user.id) {
+        const hasOwnerProjects = isOwnerProjectList(r?.data?.projects);
+        const hasLeakedSkills = Array.isArray(r?.data?.skills) && r.data.skills.some(s => (s.xp || 0) > 0) && (!Array.isArray(r?.data?.practiceLog) || r.data.practiceLog.length === 0);
+        if (hasOwnerProjects || hasLeakedSkills) {
+          const cleanDonor = {
+            projects: [],
+            skills: [],
+            activity: [],
+            practiceLog: [],
+            inventory: [],
+            customTemplates: [],
+            weeklyGoal: 60,
+            updatedAt: new Date().toISOString(),
+            owner: r.data?.owner || null
+          };
+          await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(r.user_id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data: cleanDonor, updated_at: new Date().toISOString() })
+          }).catch(e => console.warn("Could not patch donor row:", e));
+        }
+      }
+    }
+
+    // Check if current user already has projects in state
+    if (Array.isArray(state?.projects) && state.projects.length > 0) {
+      if (!silent) showToast("✓ Owner workbench verified & other workbenches partitioned.");
+      return true;
+    }
 
     if (!rowWithProjects || !rowWithProjects.data) {
       // Check legacy IndexedDB STATE_KEY as well
@@ -1336,7 +1359,7 @@ async function recoverOwnerWorkspace({ silent = false } = {}) {
         state.hasUserChanges = true;
         await persistState();
         render();
-        showToast("✓ Restored projects to your workbench! 🎯");
+        showToast("✓ Restored projects & skills to your workbench! 🎯");
         return true;
       }
       if (!silent) showToast("No projects found to restore.");
@@ -1363,25 +1386,6 @@ async function recoverOwnerWorkspace({ silent = false } = {}) {
       headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify([{ user_id: session.user.id, data: ownerPayload, updated_at: new Date().toISOString() }])
     });
-
-    // If the projects were found on another user (e.g. test user), clean that user's row so they don't have owner's data
-    if (rowWithProjects.user_id !== session.user.id) {
-      const cleanDonor = {
-        projects: [],
-        practiceLog: [],
-        activity: [],
-        inventory: [],
-        customTemplates: [],
-        weeklyGoal: 60,
-        skills: STARTER_SKILLS.map(([name, category]) => ({ id: uid(), name, category, xp: 0 })),
-        owner: rowWithProjects.data.owner || null
-      };
-      await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(rowWithProjects.user_id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: cleanDonor, updated_at: new Date().toISOString() })
-      }).catch(() => {});
-    }
 
     // Apply to owner active state
     state.projects = projectsToRestore;
@@ -1858,26 +1862,24 @@ async function loadUserScopedState() {
     state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
     state.weeklyGoal = Number.isFinite(saved.weeklyGoal) ? saved.weeklyGoal : 60;
 
-    // Guard: Non-owner makers must NEVER retain the owner's leaked signature projects
+    // Guard: Non-owner makers must NEVER retain the owner's leaked signature projects or skills
     const curUser = getActiveUser();
     const primaryId = getPrimaryAdminId();
     const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
-    if (!isOwner && state.projects.length > 0) {
+    if (!isOwner) {
       const isOwnerProject = p => {
         const t = (p?.title || p?.name || "").toLowerCase();
         return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
       };
-      if (state.projects.some(isOwnerProject)) {
+      const hasContaminatedProjects = Array.isArray(state.projects) && state.projects.some(isOwnerProject);
+      const hasContaminatedSkills = (state.projects.length === 0 || hasContaminatedProjects) && (state.practiceLog || []).length === 0 && Array.isArray(state.skills) && state.skills.some(s => (s.xp || 0) > 0);
+
+      if (hasContaminatedProjects || hasContaminatedSkills) {
         state.projects = state.projects.filter(p => !isOwnerProject(p));
+        state.skills = [];
         state.practiceLog = [];
         state.activity = [];
-        await persistState({ syncCloud: false });
-      }
-    }
-
-    if (state.skills.length === 0) {
-      for (const [name, category] of STARTER_SKILLS) {
-        state.skills.push({ id: uid(), name, category, xp: 0, createdAt: new Date().toISOString() });
+        await persistState({ syncCloud: true });
       }
     }
   } else {
@@ -2070,7 +2072,7 @@ function writeSyncMarker(userId, remoteUpdatedAt) {
 }
 
 function hasWorkspaceContent() {
-  return state.hasUserChanges || state.projects.length > 0 || state.skills.some(skill => skill.xp > 0 || !STARTER_SKILLS.some(([name]) => name.toLocaleLowerCase() === skill.name.toLocaleLowerCase()));
+  return state.hasUserChanges || state.projects.length > 0 || state.skills.length > 0 || (state.practiceLog || []).length > 0;
 }
 
 function cloudWorkspacePayload() {
@@ -2152,13 +2154,17 @@ async function loadRemoteWorkspace(remote) {
   const curUser = getActiveUser();
   const primaryId = getPrimaryAdminId();
   const isOwner = Boolean(curUser?.isPrimary || (curUser && curUser.id === primaryId) || isCurrentUserAdmin() || (curUser?.email && curUser.email.toLowerCase().includes("rakowshik")));
-  if (!isOwner && remoteState.projects.length > 0) {
+  if (!isOwner) {
     const isOwnerProject = p => {
       const t = (p?.title || p?.name || "").toLowerCase();
       return t.includes("bulbasaur") || t.includes("holiday") || t.includes("sheep game");
     };
-    if (remoteState.projects.some(isOwnerProject)) {
+    const hasContaminatedProjects = Array.isArray(remoteState.projects) && remoteState.projects.some(isOwnerProject);
+    const hasContaminatedSkills = (remoteState.projects.length === 0 || hasContaminatedProjects) && (remoteState.practiceLog || []).length === 0 && Array.isArray(remoteState.skills) && remoteState.skills.some(s => (s.xp || 0) > 0);
+
+    if (hasContaminatedProjects || hasContaminatedSkills) {
       remoteState.projects = remoteState.projects.filter(p => !isOwnerProject(p));
+      remoteState.skills = [];
       remoteState.practiceLog = [];
       remoteState.activity = [];
     }
@@ -2184,9 +2190,11 @@ async function loadRemoteWorkspace(remote) {
   Object.assign(state, remoteState, { updatedAt: remote.updated_at });
   state.starterSkillsAdded = true;
   state.hasUserChanges = remoteState.hasUserChanges === true;
-  await persistState({ syncCloud: false, preserveTimestamp: true });
-  const session = await ensureCloudSession();
-  writeSyncMarker(session.user.id, remote.updated_at);
+  if (!adminInspectionActive) {
+    await persistState({ syncCloud: false, preserveTimestamp: true });
+    const session = await ensureCloudSession();
+    writeSyncMarker(session.user.id, remote.updated_at);
+  }
   cloudConflict = null;
   render();
   renderCloudConnection();
@@ -2203,6 +2211,7 @@ async function cloudDownloadPhoto(path) {
 }
 
 async function syncCloudWorkspace(choice = "automatic") {
+  if (adminInspectionActive) return;
   if (cloudWorking) {
     cloudSyncPending = true;
     return;
@@ -6013,9 +6022,14 @@ async function renderAdminHub() {
       let projects = ws?.data?.projects || loc?.projects || (uid === user.id ? state.projects : []);
       let skills = ws?.data?.skills || loc?.skills || (uid === user.id ? state.skills : []);
 
-      // If this maker is NOT the primary owner, strip any accidentally inherited owner projects
-      if (!isPrimaryUser && ownerIds.size > 0 && Array.isArray(projects) && projects.length > 0) {
-        projects = projects.filter(pr => !ownerIds.has(pr?.id));
+      // If this maker is NOT the primary owner, strip any accidentally inherited owner projects and leaked skills
+      if (!isPrimaryUser) {
+        if (ownerIds.size > 0 && Array.isArray(projects) && projects.length > 0) {
+          projects = projects.filter(pr => !ownerIds.has(pr?.id));
+        }
+        if (Array.isArray(skills) && skills.some(s => (s.xp || 0) > 0) && (!ws?.data?.practiceLog || ws.data.practiceLog.length === 0)) {
+          skills = [];
+        }
       }
 
       const totalMinutes = projects.reduce((sum, pr) => sum + (pr.timeSpent || 0), 0);
@@ -6190,9 +6204,9 @@ async function inspectUserWorkbench(targetUserId, targetUserName) {
       adminInspectionBackup = structuredClone(state);
     }
 
-    await loadRemoteWorkspace(remote);
     adminInspectionActive = true;
     adminInspectedUserName = targetUserName || "Maker";
+    await loadRemoteWorkspace(remote);
 
     const banner = $("#admin-inspect-banner");
     if (banner) {
@@ -7136,13 +7150,15 @@ async function initialize() {
     state.weeklyGoal = Number.isFinite(saved?.weeklyGoal) ? saved.weeklyGoal : 60;
 
     if (!saved?.starterSkillsAdded) {
-      const existingNames = new Set(state.skills.map(skill => skill.name.trim().toLocaleLowerCase()));
-      for (const [name, category] of STARTER_SKILLS) {
-        if (existingNames.has(name.toLocaleLowerCase())) continue;
-        state.skills.push({ id: uid(), name, category, xp: 0, createdAt: new Date().toISOString() });
-      }
-      makeActivity("skill", "Added a starter collection of skills to explore");
       state.starterSkillsAdded = true;
+      if (!getActiveUser() && (!Array.isArray(state.skills) || state.skills.length === 0)) {
+        const existingNames = new Set(state.skills.map(skill => skill.name.trim().toLocaleLowerCase()));
+        for (const [name, category] of STARTER_SKILLS) {
+          if (existingNames.has(name.toLocaleLowerCase())) continue;
+          state.skills.push({ id: uid(), name, category, xp: 0, createdAt: new Date().toISOString() });
+        }
+        makeActivity("skill", "Added a starter collection of skills to explore");
+      }
     }
     await persistState({ syncCloud: false, preserveTimestamp: Boolean(state.updatedAt) });
     applyTheme(getSavedTheme());
@@ -7650,7 +7666,7 @@ $("#admin-create-user-form")?.addEventListener("submit", async event => {
       try {
         const initialWs = {
           projects: [],
-          skills: STARTER_SKILLS.map(([sname, scat]) => ({ id: uid(), name: sname, category: scat, xp: 0 })),
+          skills: [],
           activity: [],
           practiceLog: [],
           inventory: [],
