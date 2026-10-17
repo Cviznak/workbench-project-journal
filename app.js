@@ -742,6 +742,14 @@ async function syncUserProfile(userId) {
           body: JSON.stringify({ role: "admin", is_primary: true, updated_at: new Date().toISOString() })
         }).catch(() => {});
       }
+      if (!getPrimaryAdminId()) {
+        try {
+          const ownerRows = await cloudRequest("/rest/v1/workbench_profiles?is_primary=eq.true&select=id");
+          if (Array.isArray(ownerRows) && ownerRows.length > 0 && ownerRows[0]?.id) {
+            localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, ownerRows[0].id);
+          }
+        } catch {}
+      }
       updateUserUI();
       return profile;
     }
@@ -765,6 +773,12 @@ async function claimPrimaryAdmin() {
   const user = getActiveUser();
   if (!user?.id) {
     showToast("Please sign in first.");
+    return;
+  }
+
+  const existingPrimary = getPrimaryAdminId();
+  if (existingPrimary && existingPrimary !== user.id) {
+    showToast("The Shop Owner role is permanently assigned and immutable.");
     return;
   }
 
@@ -962,12 +976,6 @@ function renderProfileModalContent() {
           <strong style="font-size:13px;display:block">Workshop Role: ${roleLabel}</strong>
           <span style="font-size:11px;color:var(--muted)">${isOwner ? "You have full owner access to inspect maker workbenches, create accounts, and manage permissions." : (isAdmin ? "You have administrator access to the workshop console." : "You have a personal maker workbench. Only admins can inspect other workbenches.")}</span>
         </div>
-        ${!isOwner ? `
-          <button type="button" class="button button-outline" data-action="claim-primary-admin" style="border-color:#d69e2e;color:#b7791f;font-weight:600;background:rgba(214,158,46,0.06);margin-top:6px">
-            👑 Claim Shop Owner (Make me Admin)
-          </button>
-          <span style="font-size:11px;color:var(--muted)">Project owner? Claim the Shop Owner role to permanently unlock the Admin Hub and manage all makers.</span>
-        ` : ''}
         ${isAdmin ? `
           <button type="button" class="button button-outline" data-action="go-to-admin" style="margin-top:6px">
             👑 Open Admin Hub
@@ -1192,59 +1200,171 @@ async function profileSendRecovery() {
   }
 }
 
+function recordKnownMaker(user) {
+  if (!user?.id) return;
+  try {
+    const raw = localStorage.getItem("workbench_known_makers");
+    const list = raw ? JSON.parse(raw) : [];
+    const idx = list.findIndex(m => m.id === user.id);
+    const email = user.email || "";
+    const displayName = user.displayName || user.display_name || (email ? email.split("@")[0] : "Maker");
+    const isPrimary = Boolean(user.isPrimary || user.is_primary || (user.id === getPrimaryAdminId()));
+    const role = isPrimary ? "admin" : (user.role || "maker");
+    const item = {
+      id: user.id,
+      email,
+      displayName,
+      role,
+      isPrimary,
+      updatedAt: new Date().toISOString()
+    };
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...item };
+    } else {
+      list.push(item);
+    }
+    localStorage.setItem("workbench_known_makers", JSON.stringify(list));
+  } catch {}
+}
+
+async function getLocallyKnownUsers() {
+  const users = new Map();
+  // 1. From localStorage known makers
+  try {
+    const list = JSON.parse(localStorage.getItem("workbench_known_makers") || "[]");
+    if (Array.isArray(list)) {
+      for (const u of list) {
+        if (u?.id) users.set(u.id, u);
+      }
+    }
+  } catch {}
+
+  // 2. From IndexedDB keys
+  if (database) {
+    try {
+      const keys = await new Promise((resolve) => {
+        const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAllKeys();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+      for (const k of keys) {
+        if (typeof k === "string" && k.startsWith("workbench_state_")) {
+          const uid = k.replace("workbench_state_", "");
+          if (uid) {
+            try {
+              const uState = await new Promise(res => {
+                const req = database.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(k);
+                req.onsuccess = () => res(req.result);
+                req.onerror = () => res(null);
+              });
+              const owner = uState?.owner;
+              const existing = users.get(uid) || {};
+              users.set(uid, {
+                id: uid,
+                email: existing.email || owner?.email || "",
+                displayName: existing.displayName || owner?.displayName || owner?.display_name || (existing.email ? existing.email.split("@")[0] : "Maker"),
+                role: existing.role || owner?.role || "maker",
+                isPrimary: existing.isPrimary || Boolean(owner?.isPrimary || owner?.is_primary),
+                updatedAt: uState?.updatedAt || existing.updatedAt || null,
+                projects: Array.isArray(uState?.projects) ? uState.projects : (existing.projects || []),
+                skills: Array.isArray(uState?.skills) ? uState.skills : (existing.skills || [])
+              });
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 3. From localStorage sync keys
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("workbench-cloud-last-sync:")) {
+        const uid = key.replace("workbench-cloud-last-sync:", "");
+        if (uid && !users.has(uid)) {
+          users.set(uid, {
+            id: uid,
+            email: "",
+            displayName: "Maker",
+            role: "maker"
+          });
+        }
+      }
+    }
+  } catch {}
+
+  return users;
+}
+
 async function upsertUserProfile(user, desiredRole = null) {
   try {
-    let existingRole = null;
-    let existingPrimary = false;
+    let existingRow = null;
     try {
-      const rows = await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(user.id)}&select=role,is_primary`);
+      const rows = await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(user.id)}&select=role,is_primary,display_name,email`);
       if (Array.isArray(rows) && rows.length > 0) {
-        existingRole = rows[0]?.role || null;
-        existingPrimary = Boolean(rows[0]?.is_primary);
+        existingRow = rows[0];
       }
     } catch {}
 
     const meta = user.user_metadata || {};
-    const finalRole = desiredRole || existingRole || meta.role || "maker";
-    const isPrimary = existingPrimary || Boolean(meta.is_primary) || (user.id === getPrimaryAdminId());
-    const displayName = meta.display_name || (user.email ? user.email.split("@")[0] : "Maker");
+    const finalRole = desiredRole || existingRow?.role || meta.role || "maker";
+    const isPrimary = Boolean(existingRow?.is_primary) || Boolean(meta.is_primary) || (user.id === getPrimaryAdminId());
+    const displayName = meta.display_name || existingRow?.display_name || (user.email ? user.email.split("@")[0] : "Maker");
+    const email = user.email || existingRow?.email || "";
 
-    try {
-      await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Prefer: "resolution=merge-duplicates,return=representation"
-        },
-        body: JSON.stringify([{
-          id: user.id,
-          email: user.email,
-          display_name: displayName,
-          role: finalRole,
-          is_primary: isPrimary,
-          updated_at: new Date().toISOString()
-        }])
-      });
-    } catch {
-      await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Prefer: "resolution=merge-duplicates,return=representation"
-        },
-        body: JSON.stringify([{
-          id: user.id,
-          email: user.email,
-          display_name: displayName,
-          role: finalRole,
-          updated_at: new Date().toISOString()
-        }])
-      });
+    recordKnownMaker({ id: user.id, email, displayName, role: finalRole, isPrimary });
+
+    const profileData = {
+      id: user.id,
+      email,
+      display_name: displayName,
+      role: finalRole,
+      is_primary: isPrimary,
+      updated_at: new Date().toISOString()
+    };
+
+    if (existingRow) {
+      try {
+        await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(user.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(profileData)
+        });
+      } catch {
+        const { is_primary, ...rest } = profileData;
+        await cloudRequest(`/rest/v1/workbench_profiles?id=eq.${encodeURIComponent(user.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(rest)
+        }).catch(() => {});
+      }
+    } else {
+      try {
+        await cloudRequest("/rest/v1/workbench_profiles", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=representation"
+          },
+          body: JSON.stringify([profileData])
+        });
+      } catch {
+        const { is_primary, ...rest } = profileData;
+        await cloudRequest("/rest/v1/workbench_profiles", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=representation"
+          },
+          body: JSON.stringify([rest])
+        }).catch(() => {});
+      }
     }
 
     const cached = {
       id: user.id,
-      email: user.email,
+      email,
       display_name: displayName,
       role: finalRole,
       is_primary: isPrimary,
@@ -1280,6 +1400,13 @@ async function signInWithEmail(email, password) {
   setCloudSession({
     ...session,
     expires_at: session.expires_at || Math.floor(Date.now() / 1000) + (session.expires_in || 3600)
+  });
+
+  recordKnownMaker({
+    id: session.user.id,
+    email: session.user.email,
+    displayName: session.user.user_metadata?.display_name || (session.user.email ? session.user.email.split("@")[0] : "Maker"),
+    role: session.user.user_metadata?.role || "maker"
   });
 
   await syncUserProfile(session.user.id);
@@ -1325,10 +1452,21 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
         ...res,
         expires_at: res.expires_at || Math.floor(Date.now() / 1000) + (res.expires_in || 3600)
       });
+      recordKnownMaker({
+        id: res.user.id,
+        email: res.user.email,
+        displayName,
+        role
+      });
       ensurePrimaryAdmin(res.user);
-      upsertUserProfile(res.user).catch(() => {});
+      await upsertUserProfile(res.user);
       await loadUserScopedState();
       await persistState();
+      try {
+        await storeRemoteWorkspace();
+      } catch (e) {
+        console.warn("Could not push initial workspace on signup:", e);
+      }
       updateUserUI();
       render();
       renderCloudConnection();
@@ -1727,8 +1865,10 @@ async function syncCloudWorkspace(choice = "automatic") {
       if (remote) {
         await loadRemoteWorkspace(remote);
         cloudMessage("Cloud copy loaded on this browser.", "connected");
+      } else {
+        await storeRemoteWorkspace();
+        cloudMessage("Cloud workspace initialized for this account.", "connected");
       }
-      else cloudMessage("There is no cloud copy yet. Choose “Use this browser’s copy” to upload it.", "conflict");
       return;
     }
     if (choice === "push") {
@@ -4909,7 +5049,8 @@ async function renderAdminHub() {
       // profiles table might not be created yet
     }
 
-    const allUserIds = new Set([...workspaceMap.keys(), ...profileMap.keys()]);
+    const localMap = await getLocallyKnownUsers();
+    const allUserIds = new Set([...workspaceMap.keys(), ...profileMap.keys(), ...localMap.keys()]);
     if (user.id) allUserIds.add(user.id);
 
     const now = Date.now();
@@ -4918,23 +5059,28 @@ async function renderAdminHub() {
     makers = Array.from(allUserIds).map(uid => {
       const p = profileMap.get(uid);
       const ws = workspaceMap.get(uid);
+      const loc = localMap.get(uid);
       const wsOwner = ws?.data?.owner;
-      const email = p?.email || wsOwner?.email || (uid === user.id ? user.email : "Unknown maker");
-      const displayName = p?.display_name || wsOwner?.displayName || (uid === user.id ? user.displayName : (email ? email.split("@")[0] : "Maker"));
-      const role = p?.role || wsOwner?.role || (uid === user.id ? user.role : "maker");
 
-      const projects = ws?.data?.projects || (uid === user.id ? state.projects : []);
-      const skills = ws?.data?.skills || (uid === user.id ? state.skills : []);
+      const email = p?.email || wsOwner?.email || loc?.email || (uid === user.id ? user.email : "");
+      const displayName = p?.display_name || wsOwner?.displayName || wsOwner?.display_name || loc?.displayName || (uid === user.id ? user.displayName : (email ? email.split("@")[0] : "Maker"));
+      const isPrimaryUser = (uid === getPrimaryAdminId()) || Boolean(p?.is_primary || wsOwner?.is_primary || loc?.isPrimary);
+      let role = p?.role || wsOwner?.role || loc?.role || (uid === user.id ? user.role : "maker");
+      if (isPrimaryUser) role = "admin";
+
+      const projects = ws?.data?.projects || loc?.projects || (uid === user.id ? state.projects : []);
+      const skills = ws?.data?.skills || loc?.skills || (uid === user.id ? state.skills : []);
       const totalMinutes = projects.reduce((sum, pr) => sum + (pr.timeSpent || 0), 0);
       const hours = Math.round((totalMinutes / 60) * 10) / 10;
-      const updatedAt = ws?.updated_at || p?.updated_at || (uid === user.id ? state.updatedAt : null);
+      const updatedAt = ws?.updated_at || p?.updated_at || loc?.updatedAt || (uid === user.id ? state.updatedAt : null);
       const isActiveWeek = updatedAt ? (now - new Date(updatedAt).getTime() < sevenDaysMs) : (uid === user.id);
 
       return {
         id: uid,
         displayName,
-        email,
+        email: email || "Registered Maker",
         role,
+        isPrimary: isPrimaryUser,
         projectCount: projects.length,
         hours,
         skillCount: skills.length,
@@ -5063,9 +5209,21 @@ async function inspectUserWorkbench(targetUserId, targetUserName) {
 
   try {
     showToast(`Loading ${targetUserName}'s workbench…`);
-    const remote = await getRemoteWorkspace(targetUserId);
+    let remote = null;
+    try {
+      remote = await getRemoteWorkspace(targetUserId);
+    } catch {}
+
     if (!remote || !remote.data) {
-      showToast(`No cloud workbench data found for ${targetUserName} yet.`);
+      // Check local IndexedDB fallback
+      const localState = await readSavedState(`workbench_state_${targetUserId}`).catch(() => null);
+      if (localState) {
+        remote = { data: localState, updated_at: localState.updatedAt || new Date().toISOString() };
+      }
+    }
+
+    if (!remote || !remote.data) {
+      showToast(`No workbench data found for ${targetUserName} yet.`);
       return;
     }
 
@@ -5142,6 +5300,30 @@ async function adminToggleUserRole(userId, currentRole) {
     } catch (e) {
       console.warn("Could not patch workbench_profiles table directly", e);
     }
+
+    try {
+      const wsRow = await getRemoteWorkspace(userId);
+      if (wsRow?.data?.owner) {
+        wsRow.data.owner.role = nextRole;
+        await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(userId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ data: wsRow.data, updated_at: new Date().toISOString() })
+        });
+      }
+    } catch {}
+
+    try {
+      const raw = localStorage.getItem("workbench_known_makers");
+      if (raw) {
+        const list = JSON.parse(raw);
+        const targetMaker = list.find(m => m.id === userId);
+        if (targetMaker) {
+          targetMaker.role = nextRole;
+          localStorage.setItem("workbench_known_makers", JSON.stringify(list));
+        }
+      }
+    } catch {}
 
     if (userId === user.id) {
       const session = getCloudSession();
@@ -6409,6 +6591,13 @@ $("#admin-create-user-form")?.addEventListener("submit", async event => {
 
     const newUid = res?.user?.id || res?.id;
     if (newUid) {
+      recordKnownMaker({
+        id: newUid,
+        email: email.trim(),
+        displayName: name.trim(),
+        role
+      });
+
       try {
         await cloudRequest("/rest/v1/workbench_profiles?on_conflict=id", {
           method: "POST",
@@ -6426,6 +6615,27 @@ $("#admin-create-user-form")?.addEventListener("submit", async event => {
         });
       } catch (pe) {
         console.warn("Could not insert profile for new user:", pe);
+      }
+
+      try {
+        const initialWs = {
+          projects: [],
+          skills: STARTER_SKILLS.map(([sname, scat]) => ({ id: uid(), name: sname, category: scat, xp: 0 })),
+          activity: [],
+          practiceLog: [],
+          inventory: [],
+          customTemplates: [],
+          weeklyGoal: 60,
+          updatedAt: new Date().toISOString(),
+          owner: { id: newUid, email: email.trim(), displayName: name.trim(), role }
+        };
+        await cloudRequest(`/rest/v1/${CLOUD_TABLE}?on_conflict=user_id`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
+          body: JSON.stringify([{ user_id: newUid, data: initialWs }])
+        });
+      } catch (wse) {
+        console.warn("Could not seed workspace for new user:", wse);
       }
     }
 

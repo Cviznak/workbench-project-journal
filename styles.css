@@ -11,10 +11,40 @@
   --orange: #d47f4c;
   --purple: #82729a;
   --shadow: 0 16px 40px rgba(39, 41, 32, .07);
+  --scrollbar-thumb: rgba(137, 138, 127, 0.38);
+  --scrollbar-thumb-hover: rgba(137, 138, 127, 0.65);
+  --scrollbar-track: transparent;
   font-family: "Segoe UI", sans-serif;
   font-synthesis: none;
 }
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Custom sleek scrollbars across all browsers and dialogs */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 1.5px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--paper); color: var(--ink); font-size: 14px; }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
@@ -231,7 +261,7 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
 .practice-entry-copy { min-width: 0; }
 .practice-entry-copy p { margin: 1px 0 0; color: #62645b; font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
 .practice-entry-copy time { display: block; margin-top: 5px; color: #a0a095; font-size: 8px; }
-.app-dialog { width: min(540px, calc(100% - 28px)); max-height: min(90vh, 760px); padding: 25px; overflow-y: auto; border: 1px solid #e8e6de; border-radius: 11px; background: #fffefa; color: var(--ink); box-shadow: 0 24px 80px rgba(36, 39, 32, .2); }
+.app-dialog { width: min(540px, calc(100% - 28px)); max-height: min(90vh, 760px); padding: 25px; overflow-y: auto; scrollbar-gutter: stable; border: 1px solid #e8e6de; border-radius: 11px; background: #fffefa; color: var(--ink); box-shadow: 0 24px 80px rgba(36, 39, 32, .2); }
 .app-dialog::backdrop { background: rgba(36, 39, 32, .39); backdrop-filter: blur(2px); }
 .app-dialog form { display: grid; gap: 15px; }
 .compact-dialog { width: min(430px, calc(100% - 28px)); }
@@ -508,6 +538,7 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
 
 /* --- Dark Theme Support --- */
 [data-theme="dark"] {
+  color-scheme: dark;
   --paper: #161814;
   --white: #20231d;
   --ink: #e5e4dc;
@@ -519,6 +550,9 @@ h1, h2, h3 { font-family: "Segoe UI", sans-serif; }
   --orange: #e09467;
   --purple: #aa98c2;
   --shadow: 0 16px 40px rgba(0, 0, 0, .45);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.45);
+  --scrollbar-track: transparent;
 }
 
 [data-theme="dark"] .sidebar {
@@ -2543,6 +2577,7 @@ body.auth-locked .auth-locked-banner {
   width: min(520px, calc(100% - 28px));
   max-height: min(88vh, 720px);
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .profile-tabs-nav {
