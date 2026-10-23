@@ -824,6 +824,66 @@
                   </div>
                   <div class="tool-result-box" id="music-scale-result"></div>
                 </div>
+
+                <!-- 🎸 Interactive String Instrument Fretboard Studio -->
+                <div class="panel music-card-panel" id="panel-music-fretboard" style="grid-column: 1 / -1">
+                  <div class="eyebrow">STRING INSTRUMENTS &amp; FRETBOARD ANATOMY</div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+                    <h3 style="font-size:16px;margin:0">🎸 Interactive Fretboard Studio</h3>
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <button type="button" class="button button-small button-outline" data-action="strum-fretboard-tuning" title="Strum all open strings">🔊 Strum Open Tuning</button>
+                      <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-music-fretboard" title="Minimize panel">— Minimize</button>
+                    </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-bottom:12px">
+                    <label class="field-label" style="font-size:11px;margin:0">Instrument &amp; Tuning
+                      <select id="fretboard-instrument-select">
+                        <option value="guitar_standard" selected>🎸 Guitar · Standard (E A D G B E)</option>
+                        <option value="guitar_dropd">🎸 Guitar · Drop D (D A D G B E)</option>
+                        <option value="guitar_dadgad">🎸 Guitar · Celtic DADGAD (D A D G A D)</option>
+                        <option value="guitar_opend">🎸 Guitar · Open D (D A D F# A D)</option>
+                        <option value="guitar_openg">🎸 Guitar · Open G (D G D G B D)</option>
+                        <option value="guitar_halfstep">🎸 Guitar · Eb Standard (Eb Ab Db Gb Bb Eb)</option>
+                        <option value="bass_standard">🎸 4-String Bass · Standard (E A D G)</option>
+                        <option value="bass_dropd">🎸 4-String Bass · Drop D (D A D G)</option>
+                        <option value="bass_5string">🎸 5-String Bass · Standard (B E A D G)</option>
+                        <option value="ukulele_standard">🪕 Ukulele · High-G Standard (G C E A)</option>
+                        <option value="ukulele_lowg">🪕 Ukulele · Low-G Concert (G C E A)</option>
+                        <option value="ukulele_baritone">🪕 Ukulele · Baritone (D G B E)</option>
+                        <option value="banjo_openg">🪕 5-String Banjo · Bluegrass Open G (g D G B D)</option>
+                        <option value="mandolin_standard">🎻 Mandolin · Standard (G D A E)</option>
+                      </select>
+                    </label>
+
+                    <label class="field-label" style="font-size:11px;margin:0">Note Labels Display
+                      <select id="fretboard-display-mode">
+                        <option value="notes" selected>Note Names (C, D, E...)</option>
+                        <option value="intervals">Scale Intervals (Root, 3rd, 5th...)</option>
+                        <option value="dots">Minimal Dots</option>
+                      </select>
+                    </label>
+
+                    <label class="field-label" style="font-size:11px;margin:0">Scale Highlighting
+                      <select id="fretboard-highlight-mode">
+                        <option value="scale" selected>Highlight Active Scale Explorer Notes</option>
+                        <option value="all">Show All Fretboard Notes</option>
+                        <option value="roots">Highlight Root Notes Only</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <!-- Visual Fretboard -->
+                  <div class="fretboard-container" id="fretboard-container">
+                    <div class="fretboard-neck" id="fretboard-neck">
+                      <!-- Rendered dynamically -->
+                    </div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;gap:6px">
+                    <span>💡 <em>Click any fret to play note. Root notes are highlighted in red; scale notes in green.</em></span>
+                    <span id="fretboard-info-label">Active: C Major / Guitar Standard</span>
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -1051,6 +1111,29 @@
                   </label>
                 </div>
                 <div class="tool-result-box" id="wood-sand-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🥽 Workshop Safety, PPE & Chemical Guide -->
+              <div class="panel" id="panel-wood-safety">
+                <div class="eyebrow">OCCUPATIONAL SAFETY &amp; PPE PROTOCOLS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px">
+                  <h3 style="font-size:16px;margin:0">🥽 Workshop Safety, PPE &amp; Chemical Guide</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-safety" title="Minimize panel">— Minimize</button>
+                </div>
+                <label class="field-label" style="font-size:11px">Workshop Operation / Material
+                  <select id="wood-safety-process-select">
+                    <option value="tablesaw" selected>Table Saw &amp; Miter Saw (Fine dust, kickback, high-speed blade)</option>
+                    <option value="router">Router Table &amp; Shaper (Ultra-high RPM, MDF respirable silica/resin)</option>
+                    <option value="sanding">Orbital Sanding &amp; Surface Prep (Micro-particle wood dust)</option>
+                    <option value="epoxy_pour">Epoxy Resin Pouring &amp; Casting (Sensitizing amines &amp; exotherm vapor)</option>
+                    <option value="spray_finish">Spray Lacquer, Polyurethane &amp; Pre-Cat (Aerosol mist &amp; VOC fumes)</option>
+                    <option value="oily_rags">Hardwax &amp; Danish Oil Finishing (Spontaneous combustion risk)</option>
+                    <option value="laser_cutting">Laser Cutter / Engraver (Acrylic cyanide, MDF formaldehyde smoke)</option>
+                    <option value="soldering">Electronics Soldering (Lead / tin alloy fumes &amp; rosin acid aerosol)</option>
+                    <option value="metal_grind">Angle Grinder &amp; Metal Cutting (High-velocity incandescent sparks)</option>
+                  </select>
+                </label>
+                <div class="tool-result-box" id="wood-safety-result" style="margin-top:10px"></div>
               </div>
 
             </div>
@@ -1412,6 +1495,40 @@
                 <div class="tool-result-box" id="textiles-needle-convert-result" style="margin-top:10px"></div>
               </div>
 
+              <!-- 🧺 Textile Fiber Properties & International Laundry Care Symbol Guide -->
+              <div class="panel" id="panel-textiles-fiber">
+                <div class="eyebrow">FIBER ANATOMY &amp; GARMENT CARE</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px">
+                  <h3 style="font-size:16px;margin:0">🧺 Textile Fiber Guide &amp; Care Symbols</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-textiles-fiber" title="Minimize panel">— Minimize</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Fiber Type
+                    <select id="textiles-fiber-select">
+                      <option value="merino_wool" selected>Merino Wool (High memory, warmth, natural crimp)</option>
+                      <option value="alpaca">Alpaca (Hollow core, hypoallergenic, silky drape, no lanolin)</option>
+                      <option value="cashmere">Cashmere (Ultra-fine undercoat, lofty insulation, delicate)</option>
+                      <option value="silk">Mulberry Silk (Protein filament, high tensile strength, luxury sheen)</option>
+                      <option value="cotton">Pima Cotton (Plant cellulose, cool, absorbent, zero elasticity)</option>
+                      <option value="linen">Belgian Linen / Flax (Breezy, stiff initially, softens with wear)</option>
+                      <option value="bamboo">Bamboo Rayon / Viscose (Heavy liquid drape, cool touch, weak wet)</option>
+                      <option value="acrylic">Acrylic (Petroleum synthetic, machine washable, mothproof, pills)</option>
+                      <option value="nylon_blend">Sock Wool/Nylon Blend (75/25 reinforce high-abrasion wear)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Garment / Item Category
+                    <select id="textiles-garment-select">
+                      <option value="sweater" selected>Heirloom Knit/Crochet Sweater</option>
+                      <option value="socks">Handknit Socks / Footwear</option>
+                      <option value="shawl">Lace Shawl / Cowl</option>
+                      <option value="baby">Baby Blanket / Clothing</option>
+                      <option value="quilt">Sewn Cotton / Linen Quilt</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="textiles-fiber-result" style="margin-top:10px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -1681,6 +1798,42 @@
                   </label>
                 </div>
                 <div class="tool-result-box" id="elec-555-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🧮 Passive RC Filter & Audio Signal Designer -->
+              <div class="panel" id="panel-elec-filter">
+                <div class="eyebrow">ANALOG SIGNAL PROCESSING &amp; PWM FILTERING</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px">
+                  <h3 style="font-size:16px;margin:0">🧮 Passive RC Filter Designer</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-elec-filter" title="Minimize panel">— Minimize</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Filter Configuration
+                    <select id="elec-filter-type">
+                      <option value="lowpass" selected>Low-Pass RC Filter (Smooths PWM, cuts high-frequency noise)</option>
+                      <option value="highpass">High-Pass RC Filter (Blocks DC offset, passes audio AC)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Quick Preset
+                    <select id="elec-filter-preset">
+                      <option value="custom" selected>Custom R &amp; C Values</option>
+                      <option value="arduino_pwm">Arduino PWM to Audio (10kΩ + 100nF · 159 Hz)</option>
+                      <option value="subwoofer">Subwoofer / Bass Cutoff (15kΩ + 100nF · 106 Hz)</option>
+                      <option value="mic_rumble">Microphone Low Rumble Cut (100kΩ + 22nF · 72 Hz)</option>
+                      <option value="debounce">Hardware Button Debounce (10kΩ + 10μF · 1.6 Hz)</option>
+                      <option value="ultrasonic">Audio Band Limit (3.3kΩ + 2.2nF · 21.9 kHz)</option>
+                    </select>
+                  </label>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+                  <label class="field-label" style="font-size:11px">Resistor R (kΩ)
+                    <input type="number" step="any" id="elec-filter-r" value="10" placeholder="e.g. 10">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Capacitor C (nF)
+                    <input type="number" step="any" id="elec-filter-c" value="100" placeholder="e.g. 100">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="elec-filter-result" style="margin-top:10px"></div>
               </div>
 
             </div>

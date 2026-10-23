@@ -7137,3 +7137,190 @@ body.theme-dark .version-tag {
   font-family: monospace;
   background: var(--surface);
 }
+
+/* ==========================================================================
+   🎸 Fretboard Studio, 🥽 Workshop Safety, 🧺 Fibers & 🧮 Filter Styles
+   ========================================================================== */
+
+/* 🎸 Interactive String Instrument Fretboard Studio */
+.fretboard-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #1c1917;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 8px 10px;
+  user-select: none;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.fretboard-neck {
+  display: flex;
+  flex-direction: column;
+  min-width: 720px;
+  position: relative;
+}
+.fretboard-string-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 30px;
+}
+.fretboard-string-row::before {
+  content: "";
+  position: absolute;
+  left: 36px;
+  right: 0;
+  height: var(--string-gauge, 1.8px);
+  background: linear-gradient(180deg, #e5e7eb 0%, #9ca3af 50%, #4b5563 100%);
+  z-index: 1;
+  pointer-events: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.fretboard-string-name {
+  width: 36px;
+  min-width: 36px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fbbf24;
+  text-align: center;
+  z-index: 2;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.fretboard-string-name:hover {
+  transform: scale(1.2);
+  color: #f59e0b;
+}
+.fretboard-fret-cell {
+  flex: 1;
+  min-width: 44px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 2px solid #78716c;
+  position: relative;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.1s ease;
+}
+.fretboard-fret-cell:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.fretboard-fret-cell.nut-fret {
+  border-right: 5px solid #fef3c7;
+  min-width: 36px;
+  background: rgba(0, 0, 0, 0.2);
+}
+.fretboard-note-pill {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #1c1917;
+  background: rgba(255, 255, 255, 0.15);
+  transition: all 0.12s ease;
+  pointer-events: none;
+}
+.fretboard-note-pill.scale-root {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px #ef4444;
+  transform: scale(1.15);
+}
+.fretboard-note-pill.scale-note {
+  background: var(--green) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 6px var(--green);
+}
+.fretboard-note-pill.active-hit {
+  background: #38bdf8 !important;
+  color: #0f172a !important;
+  transform: scale(1.35) !important;
+  box-shadow: 0 0 14px #38bdf8 !important;
+}
+.fretboard-markers-bar {
+  display: flex;
+  margin-left: 36px;
+  min-width: calc(720px - 36px);
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.fretboard-marker-fret {
+  flex: 1;
+  min-width: 44px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #a8a29e;
+}
+
+/* 🥽 Workshop Safety & PPE Component */
+.safety-ppe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+.safety-ppe-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+.safety-ppe-icon {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+.safety-ppe-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.safety-ppe-val {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+/* 🧺 Fiber Guide & Care Symbols */
+.fiber-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 11.5px;
+  border-bottom: 1px dashed var(--line-subtle);
+}
+.fiber-stat-bar {
+  width: 90px;
+  height: 7px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  display: inline-block;
+  margin-left: 8px;
+}
+.fiber-stat-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 4px;
+}
+
+/* 🧮 RC Filter Bode Curve SVG Container */
+.filter-curve-wrap {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  margin: 8px 0;
+  display: flex;
+  justify-content: center;
+}

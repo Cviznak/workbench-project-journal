@@ -9511,6 +9511,22 @@ async function handleAction(action, target) {
     playPianoKeyNote(note, midi);
     return;
   }
+  if (action === "hit-fretboard-note") {
+    const midi = parseInt(target.dataset.midi, 10);
+    if (!isNaN(midi)) {
+      playGuitarStringTone(midi);
+      const pill = target.querySelector(".fretboard-note-pill");
+      if (pill) {
+        pill.classList.add("active-hit");
+        setTimeout(() => pill.classList.remove("active-hit"), 280);
+      }
+    }
+    return;
+  }
+  if (action === "strum-fretboard-tuning") {
+    strumFretboardTuning();
+    return;
+  }
   if (action === "set-res-band-mode") {
     setResistorBandMode(target.dataset.mode);
     return;
@@ -15099,6 +15115,304 @@ function tapMetronomeTempo() {
   }
 }
 
+/* ============================================================
+   🎸 Fretboard Studio Engine & Scale Database
+   ============================================================ */
+const MUSIC_SCALES_DB = {
+  ionian: { name: "Major (Ionian)", formula: "W - W - H - W - W - W - H", intervals: [0, 2, 4, 5, 7, 9, 11], mood: "Uplifting, resolute, bright, joyous", chords: "I, ii, iii, IV, V, vi, vii°" },
+  aeolian: { name: "Natural Minor (Aeolian)", formula: "W - H - W - W - H - W - W", intervals: [0, 2, 3, 5, 7, 8, 10], mood: "Melancholic, contemplative, tragic, deep", chords: "i, ii°, III, iv, v, VI, VII" },
+  dorian: { name: "Dorian Mode", formula: "W - H - W - W - W - H - W", intervals: [0, 2, 3, 5, 7, 9, 10], mood: "Bittersweet, jazzy, funky (Natural 6th lifts the minor darkness)", chords: "i, ii, ♭III, IV, v, vi°, ♭VII" },
+  mixolydian: { name: "Mixolydian Mode", formula: "W - W - H - W - W - H - W", intervals: [0, 2, 4, 5, 7, 9, 10], mood: "Classic rock, bluesy, jam-band warmth (Dominant flat 7th)", chords: "I, ii, iii°, IV, v, vi, ♭VII" },
+  lydian: { name: "Lydian Mode", formula: "W - W - W - H - W - W - H", intervals: [0, 2, 4, 6, 7, 9, 11], mood: "Dreamy, mystical, cinematic (Raised #4th creates floating sensation)", chords: "I, II, iii, #iv°, V, vi, vii" },
+  pentatonic_minor: { name: "Minor Pentatonic", formula: "3H - W - W - 3H - W (5 notes)", intervals: [0, 3, 5, 7, 10], mood: "Rock, blues, zero sour notes, expressive guitar bends", chords: "Universal blues/rock framework" },
+  blues: { name: "Blues Scale", formula: "3H - W - H - H - 3H - W (6 notes)", intervals: [0, 3, 5, 6, 7, 10], mood: "Soulful, guttural grit with iconic flat-5th blue note", chords: "I7, IV7, V7 dominant progression" },
+  harmonic_minor: { name: "Harmonic Minor", formula: "W - H - W - W - H - 3H - H", intervals: [0, 2, 3, 5, 7, 8, 11], mood: "Neoclassical, dramatic, exotic Mediterranean tension", chords: "i, ii°, ♭III+, iv, V, ♭VI, vii°" }
+};
+const SCALE_PRESETS = MUSIC_SCALES_DB;
+
+const FRETBOARD_INSTRUMENTS_DB = {
+  guitar_standard: {
+    name: "Guitar (Standard)",
+    strings: [
+      { name: "e", midi: 64, gauge: 1.2 },
+      { name: "B", midi: 59, gauge: 1.5 },
+      { name: "G", midi: 55, gauge: 2.0 },
+      { name: "D", midi: 50, gauge: 2.6 },
+      { name: "A", midi: 45, gauge: 3.2 },
+      { name: "E", midi: 40, gauge: 3.8 }
+    ]
+  },
+  guitar_dropd: {
+    name: "Guitar (Drop D)",
+    strings: [
+      { name: "e", midi: 64, gauge: 1.2 },
+      { name: "B", midi: 59, gauge: 1.5 },
+      { name: "G", midi: 55, gauge: 2.0 },
+      { name: "D", midi: 50, gauge: 2.6 },
+      { name: "A", midi: 45, gauge: 3.2 },
+      { name: "D", midi: 38, gauge: 4.0 }
+    ]
+  },
+  guitar_dadgad: {
+    name: "Guitar (DADGAD)",
+    strings: [
+      { name: "D", midi: 62, gauge: 1.3 },
+      { name: "A", midi: 57, gauge: 1.6 },
+      { name: "G", midi: 55, gauge: 2.0 },
+      { name: "D", midi: 50, gauge: 2.6 },
+      { name: "A", midi: 45, gauge: 3.2 },
+      { name: "D", midi: 38, gauge: 4.0 }
+    ]
+  },
+  guitar_opend: {
+    name: "Guitar (Open D)",
+    strings: [
+      { name: "D", midi: 62, gauge: 1.3 },
+      { name: "A", midi: 57, gauge: 1.6 },
+      { name: "F#", midi: 54, gauge: 2.0 },
+      { name: "D", midi: 50, gauge: 2.6 },
+      { name: "A", midi: 45, gauge: 3.2 },
+      { name: "D", midi: 38, gauge: 4.0 }
+    ]
+  },
+  guitar_openg: {
+    name: "Guitar (Open G)",
+    strings: [
+      { name: "D", midi: 62, gauge: 1.3 },
+      { name: "B", midi: 59, gauge: 1.5 },
+      { name: "G", midi: 55, gauge: 2.0 },
+      { name: "D", midi: 50, gauge: 2.6 },
+      { name: "G", midi: 43, gauge: 3.4 },
+      { name: "D", midi: 38, gauge: 4.0 }
+    ]
+  },
+  guitar_halfstep: {
+    name: "Guitar (Eb Standard)",
+    strings: [
+      { name: "Eb", midi: 63, gauge: 1.2 },
+      { name: "Bb", midi: 58, gauge: 1.5 },
+      { name: "Gb", midi: 54, gauge: 2.0 },
+      { name: "Db", midi: 49, gauge: 2.6 },
+      { name: "Ab", midi: 44, gauge: 3.2 },
+      { name: "Eb", midi: 39, gauge: 3.8 }
+    ]
+  },
+  bass_standard: {
+    name: "4-String Bass (Standard)",
+    strings: [
+      { name: "G", midi: 43, gauge: 2.2 },
+      { name: "D", midi: 38, gauge: 3.0 },
+      { name: "A", midi: 33, gauge: 3.8 },
+      { name: "E", midi: 28, gauge: 4.6 }
+    ]
+  },
+  bass_dropd: {
+    name: "4-String Bass (Drop D)",
+    strings: [
+      { name: "G", midi: 43, gauge: 2.2 },
+      { name: "D", midi: 38, gauge: 3.0 },
+      { name: "A", midi: 33, gauge: 3.8 },
+      { name: "D", midi: 26, gauge: 5.0 }
+    ]
+  },
+  bass_5string: {
+    name: "5-String Bass",
+    strings: [
+      { name: "G", midi: 43, gauge: 2.0 },
+      { name: "D", midi: 38, gauge: 2.8 },
+      { name: "A", midi: 33, gauge: 3.6 },
+      { name: "E", midi: 28, gauge: 4.4 },
+      { name: "B", midi: 23, gauge: 5.4 }
+    ]
+  },
+  ukulele_standard: {
+    name: "Ukulele (High-G GCEA)",
+    strings: [
+      { name: "A", midi: 69, gauge: 1.4 },
+      { name: "E", midi: 64, gauge: 1.6 },
+      { name: "C", midi: 60, gauge: 1.8 },
+      { name: "G", midi: 67, gauge: 1.3 }
+    ]
+  },
+  ukulele_lowg: {
+    name: "Ukulele (Low-G GCEA)",
+    strings: [
+      { name: "A", midi: 69, gauge: 1.4 },
+      { name: "E", midi: 64, gauge: 1.6 },
+      { name: "C", midi: 60, gauge: 1.8 },
+      { name: "G", midi: 55, gauge: 2.2 }
+    ]
+  },
+  ukulele_baritone: {
+    name: "Ukulele (Baritone DGBE)",
+    strings: [
+      { name: "E", midi: 64, gauge: 1.3 },
+      { name: "B", midi: 59, gauge: 1.6 },
+      { name: "G", midi: 55, gauge: 2.0 },
+      { name: "D", midi: 50, gauge: 2.6 }
+    ]
+  },
+  banjo_openg: {
+    name: "Banjo (5-String Open G)",
+    strings: [
+      { name: "D", midi: 62, gauge: 1.2 },
+      { name: "B", midi: 59, gauge: 1.4 },
+      { name: "G", midi: 55, gauge: 1.8 },
+      { name: "D", midi: 50, gauge: 2.4 },
+      { name: "g", midi: 67, gauge: 1.1 }
+    ]
+  },
+  mandolin_standard: {
+    name: "Mandolin (Standard GDAE)",
+    strings: [
+      { name: "E", midi: 64, gauge: 1.2 },
+      { name: "A", midi: 57, gauge: 1.8 },
+      { name: "D", midi: 50, gauge: 2.4 },
+      { name: "G", midi: 43, gauge: 3.2 }
+    ]
+  }
+};
+
+const NOTE_NAME_LIST = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+function midiToNoteName(midi) {
+  const norm = ((midi % 12) + 12) % 12;
+  return NOTE_NAME_LIST[norm];
+}
+
+function playGuitarStringTone(midi, gauge = 2) {
+  try {
+    const ctx = (typeof getMusicAudioCtx === "function") ? getMusicAudioCtx() : new (window.AudioContext || window.webkitAudioContext)();
+    if (!ctx) return;
+    if (ctx.state === "suspended") void ctx.resume();
+
+    const now = ctx.currentTime;
+    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+
+    osc1.type = "sawtooth";
+    osc1.frequency.setValueAtTime(freq, now);
+
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(freq * 1.002, now);
+
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(Math.min(6000, freq * 7), now);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(120, freq * 1.5), now + 1.2);
+
+    const duration = Math.min(2.8, Math.max(0.6, 2.2 - (midi - 40) * 0.03));
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.25, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + duration + 0.05);
+    osc2.stop(now + duration + 0.05);
+  } catch {}
+}
+
+function renderFretboardUI() {
+  const neck = $("#fretboard-neck");
+  if (!neck) return;
+
+  const instKey = $("#fretboard-instrument-select")?.value || "guitar_standard";
+  const inst = FRETBOARD_INSTRUMENTS_DB[instKey] || FRETBOARD_INSTRUMENTS_DB.guitar_standard;
+  const dispMode = $("#fretboard-display-mode")?.value || "notes";
+  const hlMode = $("#fretboard-highlight-mode")?.value || "scale";
+
+  const rootKey = $("#music-scale-key")?.value || "C";
+  const modeKey = $("#music-scale-mode")?.value || "ionian";
+  const scale = SCALE_PRESETS[modeKey] || SCALE_PRESETS.ionian;
+  const rootIdx = NOTE_NAME_LIST.indexOf(rootKey);
+  const scaleNotes = new Set(scale.intervals.map(iv => NOTE_NAME_LIST[(rootIdx + iv) % 12]));
+
+  const numFrets = 12;
+  let html = "";
+
+  inst.strings.forEach((str) => {
+    html += `<div class="fretboard-string-row" style="--string-gauge:${str.gauge}px">`;
+    html += `<div class="fretboard-string-name" data-action="hit-fretboard-note" data-midi="${str.midi}">${str.name}</div>`;
+
+    for (let f = 0; f <= numFrets; f++) {
+      const fretMidi = str.midi + f;
+      const noteName = midiToNoteName(fretMidi);
+      const isRoot = noteName === rootKey;
+      const inScale = scaleNotes.has(noteName);
+
+      let badgeClass = "fretboard-note-pill";
+      if (isRoot) badgeClass += " scale-root";
+      else if (inScale && hlMode !== "roots") badgeClass += " scale-note";
+
+      let labelText = noteName;
+      if (dispMode === "intervals") {
+        if (isRoot) labelText = "R";
+        else if (inScale) {
+          const semitonesFromRoot = ((NOTE_NAME_LIST.indexOf(noteName) - rootIdx) + 12) % 12;
+          const intervalMap = { 1: "♭2", 2: "2", 3: "♭3", 4: "3", 5: "4", 6: "♭5", 7: "5", 8: "♭6", 9: "6", 10: "♭7", 11: "7" };
+          labelText = intervalMap[semitonesFromRoot] || noteName;
+        } else {
+          labelText = "";
+        }
+      } else if (dispMode === "dots") {
+        labelText = isRoot ? "●" : (inScale ? "•" : "");
+      }
+
+      const showBadge = hlMode === "all" || (hlMode === "scale" && inScale) || (hlMode === "roots" && isRoot);
+      const isNut = f === 0;
+
+      html += `
+        <div class="fretboard-fret-cell ${isNut ? "nut-fret" : ""}" data-action="hit-fretboard-note" data-midi="${fretMidi}" title="${noteName} (Fret ${f})">
+          ${showBadge ? `<span class="${badgeClass}">${labelText}</span>` : ""}
+        </div>
+      `;
+    }
+    html += `</div>`;
+  });
+
+  // Markers row below neck
+  html += `<div class="fretboard-markers-bar">`;
+  for (let f = 0; f <= numFrets; f++) {
+    const isSingleMarker = [3, 5, 7, 9].includes(f);
+    const isDoubleMarker = f === 12;
+    const marker = isDoubleMarker ? "●●" : isSingleMarker ? "●" : "";
+    html += `<div class="fretboard-marker-fret">${f} ${marker ? `<br><span style="font-size:7px;color:#fbbf24">${marker}</span>` : ""}</div>`;
+  }
+  html += `</div>`;
+
+  neck.innerHTML = html;
+
+  const info = $("#fretboard-info-label");
+  if (info) {
+    info.textContent = `Active Scale: ${rootKey} ${scale.name.split("·")[0].trim()} · ${inst.name}`;
+  }
+}
+
+function strumFretboardTuning() {
+  const instKey = $("#fretboard-instrument-select")?.value || "guitar_standard";
+  const inst = FRETBOARD_INSTRUMENTS_DB[instKey] || FRETBOARD_INSTRUMENTS_DB.guitar_standard;
+  const strings = [...inst.strings].reverse();
+  strings.forEach((str, i) => {
+    setTimeout(() => {
+      playGuitarStringTone(str.midi, str.gauge);
+      const nameEl = Array.from(document.querySelectorAll(".fretboard-string-name")).find(el => el.textContent === str.name);
+      if (nameEl) {
+        nameEl.style.transform = "scale(1.3)";
+        setTimeout(() => nameEl.style.transform = "", 200);
+      }
+    }, i * 65);
+  });
+}
+
 function renderMusicStudioView() {
   renderChordSlotsUI();
   renderDiatonicChordsUI();
@@ -15108,6 +15422,7 @@ function renderMusicStudioView() {
   renderPianoKeyboardUI();
   updateMusicScaleView();
   renderMetronomeDots();
+  renderFretboardUI();
 }
 
 function initChordStudio() {
@@ -18123,8 +18438,146 @@ function updateWoodSandingGuide() {
   }
 }
 
+/* ============================================================
+   🥽 Workshop Safety, PPE & Chemical Compatibility Guide
+   ============================================================ */
+const WOOD_SAFETY_DB = {
+  tablesaw: {
+    title: "Table Saw & Miter Saw",
+    hazards: "High-velocity blade contact, projectile kickback, fine inhalable sawdust (respirable particles <10μm).",
+    eye: "ANSI Z87.1+ impact-resistant safety glasses with side shields.",
+    resp: "N95 or P100 particulate half-mask respirator.",
+    hearing: "NRR 28–32 dB earmuffs or foam earplugs (Table saws operate at 95–102 dB).",
+    hands: "⚠️ NEVER WEAR GLOVES! Gloves can snag into the high-speed blade and pull hands in.",
+    vent: "Dedicated dust collection at blade shroud (minimum 450 CFM) + riving knife installed.",
+    tips: "Always stand outside the kickback trajectory path. Use push sticks and featherboards for rips under 6 inches."
+  },
+  router: {
+    title: "Router Table & Handheld Router",
+    hazards: "Extreme spindle speed (10,000–24,000 RPM), high-volume fine dust, chip ejection, resin binder fumes in MDF/plywood.",
+    eye: "Full polycarbonate face shield over ANSI Z87+ safety glasses.",
+    resp: "N95 or P100 dust mask (MDF contains urea-formaldehyde resins).",
+    hearing: "NRR 30+ dB hearing protection (Routers produce ear-damaging high-pitch screaming >100 dB).",
+    hands: "NO GLOVES near spinning collet. Use gripper pads and push blocks.",
+    vent: "Dual-port dust collection (fence port + router under-table cabinet suction).",
+    tips: "Always feed against the bit rotation (climb-cutting can violently wrench the board from your grasp)."
+  },
+  sanding: {
+    title: "Random Orbital Sanding & Surface Prep",
+    hazards: "Microscopic airborne wood dust; sensitization to exotic hardwoods (e.g. cocobolo, rosewood, walnut).",
+    eye: "Sealed dust goggles or close-fitting safety glasses.",
+    resp: "P100 HEPA half-mask respirator (filters 99.97% of airborne particulates down to 0.3μm).",
+    hearing: "NRR 24–28 dB earmuffs.",
+    hands: "Vibration-dampening gloves or bare hands. Nitrile gloves when wiping with mineral spirits.",
+    vent: "Sander vacuum extraction hose + ambient ceiling air cleaner running.",
+    tips: "Exotic hardwoods cause allergic respiratory reactions. Clean work surfaces with vacuum, never compressed air blowing!"
+  },
+  epoxy_pour: {
+    title: "Epoxy Resin Pouring & Deep Casting",
+    hazards: "Sensitizing amine hardener vapor, thermal runaway (exotherm boiling), toxic dermatitis upon skin contact.",
+    eye: "Chemical splash goggles.",
+    resp: "Half-face respirator with Organic Vapor (OV) cartridges (e.g., 3M 6001). Dust masks provide ZERO vapor protection!",
+    hearing: "None needed.",
+    hands: "Nitrile gloves (Latex breaks down quickly in contact with epoxy resins).",
+    vent: "Cross-ventilation with active exhaust fan or dedicated fume extractor.",
+    tips: "Never use acetone or solvents to wash epoxy off skin; solvents open skin pores and carry toxic amines deeper. Wash with warm water and citrus soap or vinegar!"
+  },
+  spray_finish: {
+    title: "Spray Lacquer, Polyurethane & Paint",
+    hazards: "Explosive aerosol solvent mist, toluene/xylene neurotoxins, isocyanates in 2K urethane.",
+    eye: "Sealed chemical goggles or full-face respirator.",
+    resp: "Half-face or full-face respirator with Organic Vapor (OV) + P100 Particulate pre-filters (3M 60921).",
+    hearing: "NRR 22–26 dB for compressor and HVLP spray roar.",
+    hands: "Nitrile or chemical-resistant butyl gloves.",
+    vent: "Dedicated spray booth with explosion-proof exhaust fan. No open flames, pilot lights, or sparks within 30 feet!",
+    tips: "Allow cured overspray filters to off-gas outdoors before disposal."
+  },
+  oily_rags: {
+    title: "Hardwax Oil & Danish Oil (Spontaneous Combustion)",
+    hazards: "🚨 CRITICAL FIRE HAZARD: Linseed oil & tung oil cure via exothermic oxidation. Crumpled oil rags generate heat and self-ignite!",
+    eye: "Safety glasses.",
+    resp: "Organic vapor respirator during wipe-down.",
+    hearing: "None needed.",
+    hands: "Heavy-duty nitrile gloves.",
+    vent: "Good shop airflow until topcoat cures.",
+    tips: "🔥 NEVER throw oil-soaked rags into trash cans! Immediately immerse rags in a sealed metal can filled with water, or lay them flat individually on concrete outdoors to fully dry and harden before disposal."
+  },
+  laser_cutting: {
+    title: "Laser Cutting & Engraving (CO2 / Diode)",
+    hazards: "Laser optical radiation (permanent retinal burn), toxic hydrogen cyanide from acrylic/leather, formaldehyde from MDF.",
+    eye: "Wavelength-certified laser safety glasses (OD 5+ matching laser nm wavelength, e.g. 450nm diode or 10,600nm CO2). Regular glasses offer ZERO laser protection!",
+    resp: "Fume extractor with activated carbon + HEPA filter.",
+    hearing: "None needed.",
+    hands: "Heat-resistant gloves when handling freshly cut acrylic or metal.",
+    vent: "Dedicated sealed exhaust duct vented directly outside with inline blower.",
+    tips: "NEVER cut PVC, vinyl, or faux leather with chlorine content; heating creates hydrochloric acid gas that destroys lungs and corrodes machine rails!"
+  },
+  soldering: {
+    title: "Electronics Soldering & Assembly",
+    hazards: "Lead particulate from solder alloy, vaporized colophony (rosin acid) smoke causing occupational asthma, hot iron burns (350°C).",
+    eye: "Safety glasses (protects against popping solder flux droplets).",
+    resp: "Activated carbon fume absorber or ducted smoke trap.",
+    hearing: "None needed.",
+    hands: "Wash hands thoroughly with soap after handling leaded solder before eating or drinking.",
+    vent: "Position fume extractor 4–6 inches from workpiece.",
+    tips: "Use lead-free solder (SAC305) for toys, food-contact items, and wearable electronics."
+  },
+  metal_grind: {
+    title: "Angle Grinder & Metal Cutting",
+    hazards: "Exploding abrasive disc shrapnel, incandescent hot iron sparks (1200°C), metal fume fever.",
+    eye: "Full face shield over ANSI Z87+ safety glasses.",
+    resp: "P100 particulate respirator for metal dust and abrasive wheel binders.",
+    hearing: "NRR 28–32 dB earmuffs (Grinders reach 105+ dB).",
+    hands: "Heavy-duty split-cowhide leather welding/grinding gloves.",
+    vent: "Ensure no flammable liquids, sawdust bins, or solvent rags are in the spark shower zone (minimum 25-foot radius).",
+    tips: "Never use an angle grinder without the manufacturer's steel wheel guard securely in place."
+  }
+};
+
+function updateWoodSafetyGuide() {
+  const key = $("#wood-safety-process-select")?.value || "tablesaw";
+  const s = WOOD_SAFETY_DB[key] || WOOD_SAFETY_DB.tablesaw;
+  const res = $("#wood-safety-result");
+  if (!res) return;
+
+  res.innerHTML = `
+    <div style="font-size:12px;color:var(--ink);line-height:1.45">
+      <div style="margin-bottom:6px">
+        <strong style="color:#ef4444">⚠️ Primary Hazards:</strong> ${s.hazards}
+      </div>
+      <div class="safety-ppe-grid">
+        <div class="safety-ppe-card">
+          <div class="safety-ppe-icon">🥽</div>
+          <div class="safety-ppe-title">Eye &amp; Face</div>
+          <div class="safety-ppe-val">${s.eye}</div>
+        </div>
+        <div class="safety-ppe-card">
+          <div class="safety-ppe-icon">😷</div>
+          <div class="safety-ppe-title">Respiratory</div>
+          <div class="safety-ppe-val">${s.resp}</div>
+        </div>
+        <div class="safety-ppe-card">
+          <div class="safety-ppe-icon">🎧</div>
+          <div class="safety-ppe-title">Hearing</div>
+          <div class="safety-ppe-val">${s.hearing}</div>
+        </div>
+        <div class="safety-ppe-card">
+          <div class="safety-ppe-icon">🧤</div>
+          <div class="safety-ppe-title">Hand &amp; Skin</div>
+          <div class="safety-ppe-val">${s.hands}</div>
+        </div>
+      </div>
+      <div style="margin-top:6px">
+        • <strong>Ventilation Requirement:</strong> ${s.vent}<br>
+        • 💡 <em>Craftsman Safety Rule:</em> <span style="color:#0284c7;font-weight:700">${s.tips}</span>
+      </div>
+    </div>
+  `;
+}
+
 function renderWoodworkingView() {
   updateWoodworkingStudio();
+  updateWoodSafetyGuide();
 }
 
 // --- 🧶 Textiles & Yarn Studio ---
@@ -18533,6 +18986,150 @@ async function copyStitchInstructions() {
   }
 }
 
+/* ============================================================
+   🧺 Textile Fiber Properties & International Care Symbols
+   ============================================================ */
+const TEXTILES_FIBER_DB = {
+  merino_wool: {
+    name: "Merino Wool",
+    warmth: "⭐⭐⭐⭐⭐ Excellent",
+    elasticity: "⭐⭐⭐⭐⭐ High (crimp memory)",
+    breathability: "⭐⭐⭐⭐⭐ Moisture wicking",
+    drape: "Lofty & resilient",
+    felting: "High (unless superwash treated)",
+    wash: "Hand wash cold (max 30°C / 85°F), wool detergent, dry flat in shade. Do not tumble dry.",
+    symbols: ["🧺 30°C Hand", "🚫 No Bleach", "🧺 Dry Flat", "熨 Low 110°C", "🚫 No Tumble"],
+    bestFor: "Heirloom sweaters, winter beanies, warm scarves, colorwork jumpers."
+  },
+  alpaca: {
+    name: "Alpaca",
+    warmth: "⭐⭐⭐⭐⭐ 3x warmer than sheep wool",
+    elasticity: "⭐⭐ Moderate (lacks natural crimp)",
+    breathability: "⭐⭐⭐⭐ High",
+    drape: "Heavy silky liquid drape",
+    felting: "High",
+    wash: "Hand wash lukewarm, gentle wool wash, never wring or twist. Dry flat supported.",
+    symbols: ["🧺 Hand Wash", "🚫 No Bleach", "🧺 Dry Flat", "熨 Low Iron", "🚫 No Tumble"],
+    bestFor: "Flowing cowls, shawls, winter outerwear, luxury accessories."
+  },
+  cashmere: {
+    name: "Cashmere",
+    warmth: "⭐⭐⭐⭐⭐ Supreme loft",
+    elasticity: "⭐⭐⭐ Moderate",
+    breathability: "⭐⭐⭐⭐⭐ Superb",
+    drape: "Cloud-soft velvety drape",
+    felting: "Very High",
+    wash: "Hand wash cold with baby shampoo or gentle wool wash, press between towels, dry flat.",
+    symbols: ["🧺 Hand Wash Cold", "🚫 No Bleach", "🧺 Dry Flat", "熨 Very Low", "🧴 Delicate Dry Clean"],
+    bestFor: "Ultra-luxury next-to-skin scarves, baby heirlooms, fine knitwear."
+  },
+  silk: {
+    name: "Mulberry Silk",
+    warmth: "⭐⭐⭐⭐ Good thermal regulator",
+    elasticity: "⭐ Low stretch",
+    breathability: "⭐⭐⭐⭐⭐ High",
+    drape: "Extremely fluid luxury sheen",
+    felting: "None",
+    wash: "Hand wash cool with pH-neutral silk wash. Roll in towel, dry in shade away from direct sunlight.",
+    symbols: ["🧺 Cool Hand Wash", "🚫 No Bleach", "🧺 Drip Dry Shade", "熨 Silk Setting", "🧴 Dry Clean Safe"],
+    bestFor: "Luxury lace shawls, woven scarves, embroidery accents, summer tanks."
+  },
+  cotton: {
+    name: "Pima Cotton",
+    warmth: "⭐⭐ Cool & crisp",
+    elasticity: "⭐ Zero stretch (requires ribbed stitches)",
+    breathability: "⭐⭐⭐⭐⭐ Maximum",
+    drape: "Structured & defined stitch crispness",
+    felting: "None",
+    wash: "Machine wash warm (40°C), tumble dry low/medium. Warm iron while slightly damp.",
+    symbols: ["🧺 40°C Machine", "🧺 Tumble Dry", "熨 Medium 150°C", "🧺 Machine Washable"],
+    bestFor: "Summer apparel, dishcloths, market tote bags, amigurumi stuffed toys."
+  },
+  linen: {
+    name: "Belgian Linen / Flax",
+    warmth: "⭐ Very cool",
+    elasticity: "⭐ Zero elasticity",
+    breathability: "⭐⭐⭐⭐⭐ Highest natural breathability",
+    drape: "Stiff at first; softens wonderfully with each wash",
+    felting: "None",
+    wash: "Machine wash warm, tumble dry gentle to break in fibers. Steam iron while damp.",
+    symbols: ["🧺 40°C Machine", "🧺 Tumble Dry Gentle", "熨 High Steam 200°C"],
+    bestFor: "Breezy summer tops, structured bags, tea towels, heirloom garments."
+  },
+  bamboo: {
+    name: "Bamboo Rayon / Viscose",
+    warmth: "⭐⭐ Cool touch",
+    elasticity: "⭐⭐ Low (heavy stitch growth)",
+    breathability: "⭐⭐⭐⭐ High",
+    drape: "Very heavy fluid drape (grows when wet)",
+    felting: "None",
+    wash: "Hand wash cool or delicate cycle inside mesh bag. Support while drying flat to prevent elongation.",
+    symbols: ["🧺 30°C Delicate", "🚫 No Bleach", "🧺 Dry Flat Supported", "熨 Low 110°C"],
+    bestFor: "Baby blankets, summer cardigans, slouchy cowls, lightweight wraps."
+  },
+  acrylic: {
+    name: "Acrylic",
+    warmth: "⭐⭐⭐⭐ Good synthetic insulation",
+    elasticity: "⭐⭐⭐ Moderate",
+    breathability: "⭐⭐ Low (synthetic trap)",
+    drape: "Moderate (can 'kill' acrylic with steam)",
+    felting: "None (100% synthetic)",
+    wash: "Machine wash warm, tumble dry low. Never touch direct hot iron (melts fibers!).",
+    symbols: ["🧺 40°C Machine", "🧺 Tumble Dry Low", "🚫 Do NOT Iron Hot", "🧺 Colorfast"],
+    bestFor: "Everyday blankets, school scarves, beginner practice projects, charity knits."
+  },
+  nylon_blend: {
+    name: "Sock Wool / Nylon Blend (75/25)",
+    warmth: "⭐⭐⭐⭐ Warm",
+    elasticity: "⭐⭐⭐⭐⭐ High memory",
+    breathability: "⭐⭐⭐⭐ High",
+    drape: "Springy & durable",
+    felting: "Low to Moderate (superwash treated)",
+    wash: "Machine wash gentle cold or hand wash. Lay flat to dry or hang by toe.",
+    symbols: ["🧺 30°C Machine Wool", "🚫 No Bleach", "🧺 Dry Flat", "熨 Low Iron"],
+    bestFor: "Hard-wearing socks, gloves, mittens, high-friction boot liners."
+  }
+};
+
+function updateTextilesFiberGuide() {
+  const fiberKey = $("#textiles-fiber-select")?.value || "merino_wool";
+  const garmentType = $("#textiles-garment-select")?.value || "sweater";
+  const f = TEXTILES_FIBER_DB[fiberKey] || TEXTILES_FIBER_DB.merino_wool;
+  const res = $("#textiles-fiber-result");
+  if (!res) return;
+
+  res.innerHTML = `
+    <div style="font-size:12px;color:var(--ink);line-height:1.45">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:6px;margin-bottom:8px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+          <div style="font-size:9.5px;font-weight:700;color:var(--muted)">THERMAL WARMTH</div>
+          <div style="font-size:11px;font-weight:800;color:var(--green)">${f.warmth}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+          <div style="font-size:9.5px;font-weight:700;color:var(--muted)">STRETCH &amp; MEMORY</div>
+          <div style="font-size:11px;font-weight:800;color:#0284c7">${f.elasticity}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+          <div style="font-size:9.5px;font-weight:700;color:var(--muted)">DRAPE &amp; FEEL</div>
+          <div style="font-size:11px;font-weight:800;color:#8b5cf6">${f.drape}</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:6px">
+        • <strong>Recommended Project Applications:</strong> <span style="color:var(--ink);font-weight:700">${f.bestFor}</span><br>
+        • <strong>Washing &amp; Care Protocol:</strong> ${f.wash}
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;margin-top:6px">
+        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">GARMENT TAG CARE SYMBOLS:</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+          ${f.symbols.map(s => `<span style="background:var(--surface-subtle);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700">${s}</span>`).join("")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderTextilesView() {
   updateTextilesRowDisplay();
   updateTextilesYarnWeightView();
@@ -18542,6 +19139,7 @@ function renderTextilesView() {
   updateSewingCuttingCalc();
   updateSewingNeedleGuide();
   updateNeedleHookConverter();
+  updateTextilesFiberGuide();
   syncStitchViewUI();
 }
 
@@ -18787,6 +19385,11 @@ function renderElectronicsView() {
   updateOhmsLawStudio();
   updateLedResistorView();
   updateBatteryRuntimeView();
+  if (typeof updateVoltageDividerCalc === "function") updateVoltageDividerCalc();
+  if (typeof updateCapacitorCodeView === "function") updateCapacitorCodeView();
+  if (typeof updateWireAwgView === "function") updateWireAwgView();
+  if (typeof update555TimerCalc === "function") update555TimerCalc();
+  if (typeof updatePassiveFilterCalc === "function") updatePassiveFilterCalc();
 }
 
 // --- 💻 Programming & Microcontrollers Studio ---
@@ -19704,16 +20307,7 @@ function highlightPianoKeysForChord(chordName, duration = 1.0) {
   });
 }
 
-const MUSIC_SCALES_DB = {
-  ionian: { name: "Major (Ionian)", formula: "W - W - H - W - W - W - H", intervals: [0, 2, 4, 5, 7, 9, 11], mood: "Uplifting, resolute, bright, joyous", chords: "I, ii, iii, IV, V, vi, vii°" },
-  aeolian: { name: "Natural Minor (Aeolian)", formula: "W - H - W - W - H - W - W", intervals: [0, 2, 3, 5, 7, 8, 10], mood: "Melancholic, contemplative, tragic, deep", chords: "i, ii°, III, iv, v, VI, VII" },
-  dorian: { name: "Dorian Mode", formula: "W - H - W - W - W - H - W", intervals: [0, 2, 3, 5, 7, 9, 10], mood: "Bittersweet, jazzy, funky (Natural 6th lifts the minor darkness)", chords: "i, ii, ♭III, IV, v, vi°, ♭VII" },
-  mixolydian: { name: "Mixolydian Mode", formula: "W - W - H - W - W - H - W", intervals: [0, 2, 4, 5, 7, 9, 10], mood: "Classic rock, bluesy, jam-band warmth (Dominant flat 7th)", chords: "I, ii, iii°, IV, v, vi, ♭VII" },
-  lydian: { name: "Lydian Mode", formula: "W - W - W - H - W - W - H", intervals: [0, 2, 4, 6, 7, 9, 11], mood: "Dreamy, mystical, cinematic (Raised #4th creates floating sensation)", chords: "I, II, iii, #iv°, V, vi, vii" },
-  pentatonic_minor: { name: "Minor Pentatonic", formula: "3H - W - W - 3H - W (5 notes)", intervals: [0, 3, 5, 7, 10], mood: "Rock, blues, zero sour notes, expressive guitar bends", chords: "Universal blues/rock framework" },
-  blues: { name: "Blues Scale", formula: "3H - W - H - H - 3H - W (6 notes)", intervals: [0, 3, 5, 6, 7, 10], mood: "Soulful, guttural grit with iconic flat-5th blue note", chords: "I7, IV7, V7 dominant progression" },
-  harmonic_minor: { name: "Harmonic Minor", formula: "W - H - W - W - H - 3H - H", intervals: [0, 2, 3, 5, 7, 8, 11], mood: "Neoclassical, dramatic, exotic Mediterranean tension", chords: "i, ii°, ♭III+, iv, V, ♭VI, vii°" }
-};
+// Note: MUSIC_SCALES_DB and SCALE_PRESETS are defined above in the Fretboard & Music Engine section.
 
 function updateMusicScaleView() {
   const root = $("#music-scale-key")?.value || "C";
@@ -19922,6 +20516,69 @@ function update555TimerCalc() {
     <div class="duty-cycle-visualizer">
       <div class="duty-high-bar" style="width:${dutyPct.toFixed(1)}%">HIGH ${dutyPct.toFixed(0)}%</div>
       <div class="duty-low-bar" style="width:${(100 - dutyPct).toFixed(1)}%">LOW ${(100 - dutyPct).toFixed(0)}%</div>
+    </div>
+  `;
+}
+
+function updatePassiveFilterCalc() {
+  const type = $("#elec-filter-type")?.value || "lowpass";
+  const rK = parseFloat($("#elec-filter-r")?.value);
+  const cN = parseFloat($("#elec-filter-c")?.value);
+  const res = $("#elec-filter-result");
+  if (!res) return;
+
+  if (isNaN(rK) || isNaN(cN) || rK <= 0 || cN <= 0) {
+    res.innerHTML = '<span style="font-size:12px;color:var(--muted)">Enter valid positive numbers for R (kΩ) and C (nF).</span>';
+    return;
+  }
+
+  const rOhms = rK * 1000;
+  const cFarads = cN * 1e-9;
+  const cutoffHz = 1 / (2 * Math.PI * rOhms * cFarads);
+  const timeConstSec = rOhms * cFarads;
+
+  function fmtFreq(hz) {
+    if (hz >= 1000000) return (hz / 1000000).toFixed(3) + " MHz";
+    if (hz >= 1000) return (hz / 1000).toFixed(2) + " kHz";
+    return hz.toFixed(1) + " Hz";
+  }
+  function fmtTime(s) {
+    if (s >= 1) return s.toFixed(3) + " s";
+    if (s >= 0.001) return (s * 1000).toFixed(2) + " ms";
+    return (s * 1000000).toFixed(1) + " µs";
+  }
+
+  const refFreqs = [
+    { label: "60 Hz AC Hum", f: 60 },
+    { label: "490 Hz Arduino PWM", f: 490 },
+    { label: "1.0 kHz Audio Tone", f: 1000 },
+    { label: "10 kHz Treble", f: 10000 }
+  ];
+  const attenuationList = refFreqs.map(item => {
+    const gainFrac = type === "lowpass"
+      ? 1 / Math.sqrt(1 + Math.pow(item.f / cutoffHz, 2))
+      : (item.f / cutoffHz) / Math.sqrt(1 + Math.pow(item.f / cutoffHz, 2));
+    const db = 20 * Math.log10(gainFrac);
+    return `<span style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:10.5px">
+      ${item.label}: <strong style="color:${db > -3 ? 'var(--green)' : '#ef4444'}">${db.toFixed(1)} dB</strong> (${(gainFrac * 100).toFixed(0)}%)
+    </span>`;
+  }).join(" ");
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">-3dB CUTOFF FREQUENCY (f<sub>c</sub>):</span>
+      <strong style="font-size:18px;color:var(--green)">${fmtFreq(cutoffHz)}</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.45">
+      • <strong>Time Constant (τ = R·C):</strong> ${fmtTime(timeConstSec)}<br>
+      • <strong>Rise Time (10% to 90%):</strong> ${fmtTime(2.2 * timeConstSec)}<br>
+      • <strong>Filter Action:</strong> ${type === "lowpass" ? "Passes frequencies below " + fmtFreq(cutoffHz) + "; rolls off high frequencies at -20 dB/decade (-6 dB/octave)." : "Blocks DC offset and frequencies below " + fmtFreq(cutoffHz) + "; passes higher frequencies."}<br>
+      <div style="margin-top:8px">
+        <strong style="font-size:11px;color:var(--muted)">ATTENUATION AT REFERENCE FREQUENCIES:</strong>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+          ${attenuationList}
+        </div>
+      </div>
     </div>
   `;
 }
@@ -20373,11 +21030,15 @@ function updateArtCvdView() {
 }
 
 function initCraftStudios() {
-  // Piano keyboard & Music Theory
+  // Piano keyboard & Music Theory & Fretboard Studio
   renderPianoKeyboardUI();
   updateMusicScaleView();
-  $("#music-scale-key")?.addEventListener("change", updateMusicScaleView);
-  $("#music-scale-mode")?.addEventListener("change", updateMusicScaleView);
+  renderFretboardUI();
+  $("#music-scale-key")?.addEventListener("change", () => { updateMusicScaleView(); renderFretboardUI(); });
+  $("#music-scale-mode")?.addEventListener("change", () => { updateMusicScaleView(); renderFretboardUI(); });
+  $("#fretboard-instrument-select")?.addEventListener("change", renderFretboardUI);
+  $("#fretboard-display-mode")?.addEventListener("change", renderFretboardUI);
+  $("#fretboard-highlight-mode")?.addEventListener("change", renderFretboardUI);
 
   // Studio Metronome
   renderMetronomeDots();
@@ -20387,12 +21048,13 @@ function initCraftStudios() {
     renderMetronomeDots();
   });
 
-  // Woodworking Cutlist & Dust
+  // Woodworking Cutlist, Dust, Finishes, Joinery, Sanding & Safety
   runWoodCutOptimizer();
   updateWoodDustCalc();
   updateWoodFinishView();
   updateWoodJoineryGuide();
   updateWoodSandingGuide();
+  updateWoodSafetyGuide();
   ["#wood-cut-stock", "#wood-cut-kerf"].forEach(s => $(s)?.addEventListener("input", runWoodCutOptimizer));
   $("#wood-cut-pieces")?.addEventListener("input", runWoodCutOptimizer);
   $("#wood-dust-machine")?.addEventListener("change", updateWoodDustCalc);
@@ -20401,19 +21063,24 @@ function initCraftStudios() {
   $("#wood-joinery-select")?.addEventListener("change", updateWoodJoineryGuide);
   $("#wood-sand-starting")?.addEventListener("change", updateWoodSandingGuide);
   $("#wood-sand-finish-type")?.addEventListener("change", updateWoodSandingGuide);
+  $("#wood-safety-process-select")?.addEventListener("change", updateWoodSafetyGuide);
 
-  // Textiles Yardage & Gauge
+  // Textiles Yardage, Gauge & Fiber Guide
   updateTextilesYardageEstimator();
   updateTextilesGaugeCalc();
+  updateTextilesFiberGuide();
   $("#textiles-est-project")?.addEventListener("change", updateTextilesYardageEstimator);
   $("#textiles-est-yarn-wt")?.addEventListener("change", updateTextilesYardageEstimator);
   ["#textiles-gauge-pattern", "#textiles-gauge-actual", "#textiles-gauge-target-w"].forEach(s => $(s)?.addEventListener("input", updateTextilesGaugeCalc));
+  $("#textiles-fiber-select")?.addEventListener("change", updateTextilesFiberGuide);
+  $("#textiles-garment-select")?.addEventListener("change", updateTextilesFiberGuide);
 
-  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer
+  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer & Passive RC Filter
   updateVoltageDividerCalc();
   updateCapacitorCodeView();
   updateWireAwgView();
   update555TimerCalc();
+  updatePassiveFilterCalc();
   ["#elec-div-vin", "#elec-div-r1", "#elec-div-r2"].forEach(s => $(s)?.addEventListener("input", updateVoltageDividerCalc));
   $("#elec-cap-code")?.addEventListener("input", updateCapacitorCodeView);
   $("#elec-cap-preset")?.addEventListener("change", (e) => {
@@ -20435,6 +21102,19 @@ function initCraftStudios() {
     update555TimerCalc();
   });
   $("#elec-res-band3")?.addEventListener("change", updateResistorColorView);
+  ["#elec-filter-r", "#elec-filter-c"].forEach(s => $(s)?.addEventListener("input", updatePassiveFilterCalc));
+  $("#elec-filter-type")?.addEventListener("change", updatePassiveFilterCalc);
+  $("#elec-filter-preset")?.addEventListener("change", (e) => {
+    const val = e.target.value;
+    const r = $("#elec-filter-r");
+    const c = $("#elec-filter-c");
+    if (val === "arduino_pwm") { if (r) r.value = 10; if (c) c.value = 100; }
+    else if (val === "subwoofer") { if (r) r.value = 15; if (c) c.value = 100; }
+    else if (val === "mic_rumble") { if (r) r.value = 100; if (c) c.value = 22; }
+    else if (val === "debounce") { if (r) r.value = 10; if (c) c.value = 10000; }
+    else if (val === "ultrasonic") { if (r) r.value = 3.3; if (c) c.value = 2.2; }
+    updatePassiveFilterCalc();
+  });
 
   // Programming ALU, ASCII, Array Formatter, Baud, CRC
   updateProgAluCalc();
@@ -20575,10 +21255,12 @@ function initCraftStudios() {
   $("#art-laser-spot")?.addEventListener("input", updateArtLaserKerfView);
 
   updateWoodworkingStudio();
+  updateWoodSafetyGuide();
   updateTextilesRowDisplay();
   updateTextilesYarnWeightView();
   if (typeof updateTextilesYardageCalc === "function") updateTextilesYardageCalc();
   if (typeof updateTextilesGaugeCalc === "function") updateTextilesGaugeCalc();
+  updateTextilesFiberGuide();
   updateAmigurumiGenerator();
   updateSewingCuttingCalc();
   updateSewingNeedleGuide();
@@ -20587,6 +21269,8 @@ function initCraftStudios() {
   updateOhmsLawStudio();
   updateLedResistorView();
   updateBatteryRuntimeView();
+  updatePassiveFilterCalc();
+  renderFretboardUI();
   updateProgBaseFromValue(progRegisterValue, "init");
   updateMcuBoardView();
   updateProgSnippetView();
