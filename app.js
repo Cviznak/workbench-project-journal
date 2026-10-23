@@ -9247,11 +9247,13 @@ async function handleAction(action, target) {
   }
   if (action === "select-stitch-color") {
     stitchStudioState.activeColor = target.dataset.color || "#ef4444";
+    stitchStudioState.isMouseDown = false;
     renderStitchPalette();
     return;
   }
   if (action === "set-stitch-tool") {
     stitchStudioState.activeTool = target.dataset.tool || "pencil";
+    stitchStudioState.isMouseDown = false;
     $$(".stitch-tool-btn").forEach(b => {
       b.classList.toggle("button-primary", b.dataset.tool === target.dataset.tool);
       b.classList.toggle("button-outline", b.dataset.tool !== target.dataset.tool);
@@ -10591,34 +10593,18 @@ $("#music-view-note")?.addEventListener("change", updateMusicViewNoteResult);
 $("#music-view-tuning")?.addEventListener("change", updateMusicViewNoteResult);
 
 // 🧵 Pixel & Stitch Studio listeners
-$("#stitch-preset-select")?.addEventListener("change", (e) => {
-  loadStitchPreset(e.target.value);
+$("#stitch-preset-select, #stitch-view-preset")?.addEventListener("change", (e) => {
+  if (typeof loadStitchPreset === "function") loadStitchPreset(e.target.value);
 });
-$("#stitch-custom-color")?.addEventListener("input", (e) => {
-  stitchStudioState.activeColor = e.target.value;
-  renderStitchPalette();
+$("#stitch-custom-color, #stitch-view-custom-color")?.addEventListener("input", (e) => {
+  if (typeof stitchStudioState !== "undefined") {
+    stitchStudioState.activeColor = e.target.value;
+    if (typeof renderStitchPalette === "function") renderStitchPalette();
+  }
 });
-$("#stitch-show-symbols")?.addEventListener("change", renderStitchGrid);
-
-// Pixel Art Board Drag-Draw listener
-const stitchBoard = $("#stitch-grid-board");
-if (stitchBoard) {
-  stitchBoard.addEventListener("mousedown", (e) => {
-    stitchStudioState.isMouseDown = true;
-    const cell = e.target.closest(".stitch-grid-cell");
-    if (cell) applyStitchTool(parseInt(cell.dataset.index, 10));
-  });
-  window.addEventListener("mouseup", () => {
-    stitchStudioState.isMouseDown = false;
-  });
-  stitchBoard.addEventListener("mouseover", (e) => {
-    if (!stitchStudioState.isMouseDown) return;
-    const cell = e.target.closest(".stitch-grid-cell");
-    if (cell && stitchStudioState.activeTool !== "fill") {
-      applyStitchTool(parseInt(cell.dataset.index, 10));
-    }
-  });
-}
+$("#stitch-show-symbols, #stitch-view-symbols")?.addEventListener("change", () => {
+  if (typeof renderStitchGrid === "function") renderStitchGrid();
+});
 
 // 📦 Papercraft & Packaging listeners
 $("#tool-paper-gsm")?.addEventListener("input", updatePapercraftView);
@@ -12980,19 +12966,23 @@ function renderStitchGrid() {
   }).join("");
   boards.forEach(b => b.innerHTML = html);
   updateStitchInstructions();
+  initStitchBoardInteraction();
 }
 
 function applyStitchTool(idx) {
   if (idx < 0 || idx >= stitchStudioState.grid.length) return;
   const tool = stitchStudioState.activeTool;
+  const curColor = stitchStudioState.grid[idx];
   if (tool === "eraser") {
+    if (curColor === "#ffffff") return;
     stitchStudioState.grid[idx] = "#ffffff";
   } else if (tool === "pencil") {
+    if (curColor.toLowerCase() === stitchStudioState.activeColor.toLowerCase()) return;
     stitchStudioState.grid[idx] = stitchStudioState.activeColor;
   } else if (tool === "fill") {
     const targetColor = stitchStudioState.grid[idx];
     const fillColor = stitchStudioState.activeColor;
-    if (targetColor === fillColor) return;
+    if (targetColor.toLowerCase() === fillColor.toLowerCase()) return;
     const queue = [idx];
     const visited = new Set();
     while (queue.length > 0) {
@@ -13051,6 +13041,105 @@ function loadStitchPreset(presetKey) {
 function updatePixelArtView() {
   renderStitchPalette();
   renderStitchGrid();
+  initStitchBoardInteraction();
+}
+
+function initStitchBoardInteraction() {
+  const boards = $$("#stitch-grid-board, #stitch-view-board");
+  if (!boards.length) return;
+
+  if (!window._stitchListenersAttached) {
+    window._stitchListenersAttached = true;
+    window.addEventListener("mouseup", () => {
+      if (typeof stitchStudioState !== "undefined") {
+        stitchStudioState.isMouseDown = false;
+      }
+    });
+    window.addEventListener("pointerup", () => {
+      if (typeof stitchStudioState !== "undefined") {
+        stitchStudioState.isMouseDown = false;
+      }
+    });
+    window.addEventListener("blur", () => {
+      if (typeof stitchStudioState !== "undefined") {
+        stitchStudioState.isMouseDown = false;
+      }
+    });
+  }
+
+  boards.forEach(board => {
+    if (board.dataset.stitchEventsInitialized) return;
+    board.dataset.stitchEventsInitialized = "true";
+
+    board.addEventListener("dragstart", (e) => e.preventDefault());
+
+    board.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      if (typeof stitchStudioState !== "undefined") {
+        stitchStudioState.isMouseDown = true;
+        const cell = e.target.closest(".stitch-grid-cell");
+        if (cell && typeof applyStitchTool === "function") {
+          applyStitchTool(parseInt(cell.dataset.index, 10));
+        }
+      }
+    });
+
+    board.addEventListener("mouseover", (e) => {
+      if (typeof stitchStudioState === "undefined") return;
+      if (!stitchStudioState.isMouseDown || (e.buttons !== undefined && e.buttons !== 1)) {
+        stitchStudioState.isMouseDown = false;
+        return;
+      }
+      if (stitchStudioState.activeTool === "fill") return;
+      const cell = e.target.closest(".stitch-grid-cell");
+      if (cell && typeof applyStitchTool === "function") {
+        applyStitchTool(parseInt(cell.dataset.index, 10));
+      }
+    });
+
+    board.addEventListener("mouseleave", (e) => {
+      if (typeof stitchStudioState !== "undefined" && e.buttons !== 1) {
+        stitchStudioState.isMouseDown = false;
+      }
+    });
+
+    board.addEventListener("touchstart", (e) => {
+      if (typeof stitchStudioState === "undefined") return;
+      stitchStudioState.isMouseDown = true;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+      const cell = targetEl?.closest(".stitch-grid-cell");
+      if (cell && typeof applyStitchTool === "function") {
+        applyStitchTool(parseInt(cell.dataset.index, 10));
+      }
+    }, { passive: true });
+
+    board.addEventListener("touchmove", (e) => {
+      if (typeof stitchStudioState === "undefined" || !stitchStudioState.isMouseDown) return;
+      if (stitchStudioState.activeTool === "fill") return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+      const cell = targetEl?.closest(".stitch-grid-cell");
+      if (cell && typeof applyStitchTool === "function") {
+        applyStitchTool(parseInt(cell.dataset.index, 10));
+      }
+    }, { passive: true });
+
+    board.addEventListener("touchend", () => {
+      if (typeof stitchStudioState !== "undefined") {
+        stitchStudioState.isMouseDown = false;
+      }
+    });
+
+    board.addEventListener("touchcancel", () => {
+      if (typeof stitchStudioState !== "undefined") {
+        stitchStudioState.isMouseDown = false;
+      }
+    });
+  });
 }
 
 /* ============================================================
@@ -19136,28 +19225,7 @@ function initCraftStudios() {
   });
   $("#stitch-view-symbols")?.addEventListener("change", syncStitchViewUI);
 
-  const stitchViewBoard = $("#stitch-view-board");
-  if (stitchViewBoard) {
-    stitchViewBoard.addEventListener("mousedown", (e) => {
-      if (typeof stitchStudioState !== "undefined") {
-        stitchStudioState.isMouseDown = true;
-        const cell = e.target.closest(".stitch-grid-cell");
-        if (cell && typeof applyStitchTool === "function") {
-          applyStitchTool(parseInt(cell.dataset.index, 10));
-          syncStitchViewUI();
-        }
-      }
-    });
-    stitchViewBoard.addEventListener("mouseover", (e) => {
-      if (typeof stitchStudioState !== "undefined" && stitchStudioState.isMouseDown) {
-        const cell = e.target.closest(".stitch-grid-cell");
-        if (cell && stitchStudioState.activeTool !== "fill" && typeof applyStitchTool === "function") {
-          applyStitchTool(parseInt(cell.dataset.index, 10));
-          syncStitchViewUI();
-        }
-      }
-    });
-  }
+  initStitchBoardInteraction();
 
   ["#elec-res-band1", "#elec-res-band2", "#elec-res-mult", "#elec-res-tol"].forEach(sel => {
     $(sel)?.addEventListener("change", updateResistorColorView);

@@ -6172,6 +6172,7 @@ body.theme-dark .version-tag {
   border: 1px solid var(--border);
   border-radius: 6px;
   user-select: none;
+  touch-action: none;
   width: max-content;
 }
 .stitch-grid-cell {
