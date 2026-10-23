@@ -416,6 +416,7 @@ function escapeHTML(value = "") {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   })[character]);
 }
+const escapeHtml = escapeHTML;
 
 function formatDate(value) {
   if (!value) return "";
@@ -12953,8 +12954,8 @@ function renderChordSlotsUI() {
     return `
       <div class="chord-slot-card ${isSelected ? "active-slot" : ""}" data-action="select-chord-slot" data-slot-index="${index}" id="chord-slot-${index}">
         <div class="chord-slot-bar-num">Bar ${index + 1}</div>
-        <div class="chord-slot-name">${escapeHtml(slot.chord)}</div>
-        <div class="chord-slot-degree">${escapeHtml(slot.degree)}</div>
+        <div class="chord-slot-name">${escapeHTML(slot.chord)}</div>
+        <div class="chord-slot-degree">${escapeHTML(slot.degree)}</div>
       </div>
     `;
   }).join("");
@@ -12973,10 +12974,10 @@ function renderDiatonicChordsUI() {
   let html = "";
   keyData.chords.forEach((chord, i) => {
     const deg = keyData.degrees[i];
-    html += `<button type="button" class="diatonic-chord-pill" data-action="set-diatonic-chord" data-chord="${escapeHtml(chord)}" data-degree="${escapeHtml(deg)}">${escapeHtml(chord)} <span>${escapeHtml(deg)}</span></button>`;
+    html += `<button type="button" class="diatonic-chord-pill" data-action="set-diatonic-chord" data-chord="${escapeHTML(chord)}" data-degree="${escapeHTML(deg)}">${escapeHTML(chord)} <span>${escapeHTML(deg)}</span></button>`;
   });
   keyData.extra.forEach(chord => {
-    html += `<button type="button" class="diatonic-chord-pill" data-action="set-diatonic-chord" data-chord="${escapeHtml(chord)}" data-degree="ext">${escapeHtml(chord)} <span>7th</span></button>`;
+    html += `<button type="button" class="diatonic-chord-pill" data-action="set-diatonic-chord" data-chord="${escapeHTML(chord)}" data-degree="ext">${escapeHTML(chord)} <span>7th</span></button>`;
   });
   wrap.innerHTML = html;
 }
