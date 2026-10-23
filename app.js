@@ -8222,7 +8222,11 @@ function setBlueprintSheetTheme(theme) {
   });
 }
 
+let workshopBlueprintOptionsInited = false;
 function initWorkshopBlueprintOptions() {
+  if (workshopBlueprintOptionsInited) return;
+  workshopBlueprintOptionsInited = true;
+
   const optDiagram = $("#blueprint-opt-diagram");
   const optRuler = $("#blueprint-opt-ruler");
   const optGrid = $("#blueprint-opt-grid");
@@ -8242,14 +8246,23 @@ function initWorkshopBlueprintOptions() {
 }
 
 function printWorkshopBlueprint() {
+  const project = state.projects.find(p => p.id === activeWorkshopBlueprintProjectId);
+  if (!project) {
+    showToast("Open a project to generate and print its workshop blueprint.");
+    return;
+  }
   window.print();
 }
 
 function downloadWorkshopBlueprintHTML() {
   const project = state.projects.find(p => p.id === activeWorkshopBlueprintProjectId);
   const sheet = $("#workshop-blueprint-sheet");
-  if (!project || !sheet) return;
+  if (!project || !sheet) {
+    showToast("Open a project to generate its workshop blueprint.");
+    return;
+  }
 
+  const safeTitle = (project.title || "Project").replace(/[^a-zA-Z0-9_-]/g, "_") || "Project";
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8309,7 +8322,7 @@ function downloadWorkshopBlueprintHTML() {
   const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `Workshop_Blueprint_${project.title.replace(/[^a-zA-Z0-9_-]/g, "_")}_${project.id.slice(0, 8)}.html`;
+  a.download = `Workshop_Blueprint_${safeTitle}_${project.id.slice(0, 8)}.html`;
   a.click();
   URL.revokeObjectURL(a.href);
   showToast("Downloaded offline Workshop Blueprint HTML file!");
@@ -17912,13 +17925,16 @@ function attachBlueprintEvents() {
 
   const getCanvasCoords = e => {
     const rect = blueprintCanvas.getBoundingClientRect();
+    const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    const clientX = touch ? touch.clientX : e.clientX;
+    const clientY = touch ? touch.clientY : e.clientY;
     return {
-      x: (e.clientX - rect.left) * (blueprintCanvas.width / rect.width),
-      y: (e.clientY - rect.top) * (blueprintCanvas.height / rect.height)
+      x: (clientX - rect.left) * (blueprintCanvas.width / rect.width),
+      y: (clientY - rect.top) * (blueprintCanvas.height / rect.height)
     };
   };
 
-  blueprintCanvas.addEventListener("mousedown", e => {
+  const handleStart = e => {
     blueprintIsDrawing = true;
     const pos = getCanvasCoords(e);
     blueprintStartX = pos.x;
@@ -17932,10 +17948,11 @@ function attachBlueprintEvents() {
       blueprintCtx.lineCap = "round";
       blueprintCtx.strokeStyle = blueprintTool === "eraser" ? (document.documentElement.getAttribute("data-theme") === "dark" ? "#0f172a" : "#ffffff") : blueprintColor;
     }
-  });
+  };
 
-  window.addEventListener("mousemove", e => {
+  const handleMove = e => {
     if (!blueprintIsDrawing || !blueprintCtx) return;
+    if (e.cancelable && e.type && e.type.startsWith("touch")) e.preventDefault();
     const pos = getCanvasCoords(e);
 
     if (blueprintTool === "pencil" || blueprintTool === "eraser") {
@@ -17962,9 +17979,9 @@ function attachBlueprintEvents() {
         drawDimensionLine(blueprintStartX, blueprintStartY, pos.x, pos.y, false);
       }
     }
-  });
+  };
 
-  window.addEventListener("mouseup", e => {
+  const handleEnd = e => {
     if (!blueprintIsDrawing || !blueprintCtx) return;
     blueprintIsDrawing = false;
     const pos = getCanvasCoords(e);
@@ -17982,7 +17999,16 @@ function attachBlueprintEvents() {
     }
 
     pushBlueprintSnapshot();
-  });
+  };
+
+  blueprintCanvas.addEventListener("mousedown", handleStart);
+  window.addEventListener("mousemove", handleMove);
+  window.addEventListener("mouseup", handleEnd);
+
+  blueprintCanvas.addEventListener("touchstart", handleStart, { passive: false });
+  window.addEventListener("touchmove", handleMove, { passive: false });
+  window.addEventListener("touchend", handleEnd);
+  window.addEventListener("touchcancel", handleEnd);
 }
 
 function drawDimensionLine(x1, y1, x2, y2, commit, labelText = "") {
