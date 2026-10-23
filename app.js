@@ -830,8 +830,7 @@ function isGenericName(name) {
   if (!name || typeof name !== "string") return true;
   const clean = name.trim().toLowerCase();
   return clean.length < 2 || [
-    "maker", "studio maker", "local maker", "guest", "admin", "owner",
-    "editor", "viewer", "contributor", "user", "test", "test user", "anonymous", "null", "undefined"
+    "studio maker", "local maker", "guest", "anonymous", "null", "undefined"
   ].includes(clean);
 }
 
@@ -2323,6 +2322,12 @@ async function loadRemoteWorkspace(remote) {
   state.currency = remoteState.currency || state.currency || localStorage.getItem("workbench_currency") || "USD";
   state.unitSystem = remoteState.unitSystem || state.unitSystem || localStorage.getItem("workbench_unitSystem") || "in";
   updateTopbarUnitsPill();
+
+  for (const p of state.projects) {
+    ensureProjectCreator(p);
+  }
+  loadSharedCollaborationsIntoState();
+  syncSharedCollaborations();
 
   const curUser = getActiveUser();
   if (!isPrimaryOwner(curUser) && !adminInspectionActive) {
@@ -9489,6 +9494,12 @@ async function initialize() {
     state.weeklyGoal = Number.isFinite(saved?.weeklyGoal) ? saved.weeklyGoal : 60;
     updateTopbarUnitsPill();
 
+    for (const p of state.projects) {
+      ensureProjectCreator(p);
+    }
+    loadSharedCollaborationsIntoState();
+    syncSharedCollaborations();
+
     if (!saved?.starterSkillsAdded) {
       state.starterSkillsAdded = true;
       if (!getActiveUser() && (!Array.isArray(state.skills) || state.skills.length === 0)) {
@@ -11979,6 +11990,10 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
   const uEmail = (curUser.email || "").toLowerCase().trim();
   const uName = (curUser.displayName || curUser.display_name || curUser.name || (uEmail ? uEmail.split("@")[0] : "")).toLowerCase().trim();
 
+  const normalize = s => (s || "").toLowerCase().replace(/[\s._-]+/g, "");
+  const uNorm = normalize(uName);
+  const uPrefix = uEmail ? normalize(uEmail.split("@")[0]) : "";
+
   const matchesUser = (member) => {
     if (!member) return false;
     const mId = member.id || member.user_id;
@@ -11987,8 +12002,21 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
     const mEmail = (member.email || "").toLowerCase().trim();
     if (mEmail && uEmail && mEmail === uEmail) return true;
 
-    const mName = (member.displayName || member.display_name || member.name || (mEmail ? mEmail.split("@")[0] : "")).toLowerCase().trim();
-    if (!isGenericName(mName) && !isGenericName(uName) && (mName === uName || mName.replace(/\s+/g, "") === uName.replace(/\s+/g, ""))) return true;
+    const mName = (member.displayName || member.display_name || member.name || "").toLowerCase().trim();
+    const mNorm = normalize(mName);
+    const mPrefix = mEmail ? normalize(mEmail.split("@")[0]) : "";
+
+    // 1. Direct name match (e.g. "Editor User" === "Editor User" or "test" === "test")
+    if (!isGenericName(mName) && !isGenericName(uName) && mNorm && mNorm === uNorm) return true;
+
+    // 2. Member name matches user's email prefix (e.g. member entered as "editor" and user is "editor@xyz.com")
+    if (!isGenericName(mName) && mNorm && uPrefix && mNorm === uPrefix) return true;
+
+    // 3. User name matches member's email prefix (e.g. member entered as "editor@xyz.com" and user display name is "Editor")
+    if (!isGenericName(uName) && uNorm && mPrefix && uNorm === mPrefix) return true;
+
+    // 4. Both email prefixes match
+    if (mPrefix && uPrefix && mPrefix === uPrefix) return true;
 
     return false;
   };
@@ -12004,9 +12032,10 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
     }
     if (Array.isArray(project.coCreators)) {
       for (const c of project.coCreators) {
-        if (matchesUser(c) && (!c.id || c.id !== uId || c.id === "local-maker")) {
-          c.id = uId;
+        if (matchesUser(c)) {
+          if (!c.id || c.id !== uId || c.id === "local-maker") c.id = uId;
           if (uEmail && !c.email) c.email = uEmail;
+          if (uName && (!c.name || isGenericName(c.name))) c.name = curUser.displayName || curUser.name || uName;
         }
       }
     }
@@ -12054,11 +12083,14 @@ async function syncCloudCollaborations() {
         const isCollaborator = isUserCollaborator(rp, curUser);
 
         if (!isCollaborator) {
-          // If we had this project in our workbench, but remote confirms we are NOT creator or co-creator, remove it!
-          const existingIdx = state.projects.findIndex(p => p.id === rp.id);
-          if (existingIdx !== -1) {
-            state.projects.splice(existingIdx, 1);
-            hasChanges = true;
+          // Only remove if this remote row belongs to the actual project creator revoking access
+          const isCreatorRow = isProjectCreator(rp, { id: row.user_id });
+          if (isCreatorRow) {
+            const existingIdx = state.projects.findIndex(p => p.id === rp.id);
+            if (existingIdx !== -1) {
+              state.projects.splice(existingIdx, 1);
+              hasChanges = true;
+            }
           }
           continue;
         }
@@ -12076,8 +12108,23 @@ async function syncCloudCollaborations() {
             hasChanges = true;
           }
         }
+
+        // Also ensure collaborator has skills linked to this project
+        const remoteSkills = Array.isArray(row.data?.skills) ? row.data.skills : [];
+        for (const sid of (rp.skillIds || [])) {
+          const hasSkill = (state.skills || []).some(s => s.id === sid);
+          if (!hasSkill) {
+            const matchedRemote = remoteSkills.find(s => s.id === sid);
+            if (matchedRemote) {
+              state.skills.push({ ...matchedRemote, xp: 0 });
+              hasChanges = true;
+            }
+          }
+        }
       }
     }
+
+    loadSharedCollaborationsIntoState();
 
     if (hasChanges) {
       const remainingProjectIds = new Set(state.projects.map(p => p.id));
@@ -12473,6 +12520,7 @@ async function pushProjectToCollaboratorWorkspaces(project) {
       }
     }
 
+    const normalize = s => (s || "").toLowerCase().replace(/[\s._-]+/g, "");
     const memberIds = new Set();
     const memberEmails = new Set();
     const memberNames = new Set();
@@ -12480,11 +12528,17 @@ async function pushProjectToCollaboratorWorkspaces(project) {
     const addTarget = (m) => {
       if (!m) return;
       if (m.id && m.id !== "local-maker") memberIds.add(m.id);
-      if (m.email) memberEmails.add(m.email.toLowerCase().trim());
+      if (m.email) {
+        const em = m.email.toLowerCase().trim();
+        memberEmails.add(em);
+        if (em.includes("@")) {
+          memberNames.add(normalize(em.split("@")[0]));
+        }
+      }
       const name = (m.name || m.displayName || m.display_name || "").toLowerCase().trim();
       if (name && !isGenericName(name)) {
         memberNames.add(name);
-        memberNames.add(name.replace(/\s+/g, ""));
+        memberNames.add(normalize(name));
       }
     };
 
@@ -12501,10 +12555,12 @@ async function pushProjectToCollaboratorWorkspaces(project) {
       const rowId = row.user_id;
       const rowEmail = (owner.email || prof.email || "").toLowerCase().trim();
       const rawName = (owner.displayName || owner.display_name || owner.name || prof.display_name || (rowEmail ? rowEmail.split("@")[0] : "")).toLowerCase().trim();
-      const normName = rawName.replace(/\s+/g, "");
+      const normName = normalize(rawName);
+      const rowPrefix = rowEmail ? normalize(rowEmail.split("@")[0]) : "";
 
       const isMember = memberIds.has(rowId) ||
                        (rowEmail && memberEmails.has(rowEmail)) ||
+                       (rowPrefix && memberNames.has(rowPrefix)) ||
                        (!isGenericName(rawName) && memberNames.has(rawName)) ||
                        (!isGenericName(normName) && memberNames.has(normName));
 
@@ -12677,7 +12733,7 @@ async function reconcileProjectOwnership() {
       await pushProjectToCollaboratorWorkspaces(p);
     }
     const transferredIds = new Set(transferredProjects.map(p => p.id));
-    state.projects = state.projects.filter(p => !transferredIds.includes(p.id));
+    state.projects = state.projects.filter(p => !transferredIds.has(p.id));
     await persistState({ syncCloud: true });
     render();
     console.log(`Reconciled and pushed ${transferredProjects.length} transferred project(s) to respective creators.`);
@@ -12826,6 +12882,7 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
   const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
   if (!project) return;
   ensureProjectCreator(project);
+  const normalize = s => (s || "").toLowerCase().replace(/[\s._-]+/g, "");
 
   let newMember;
   if (typeof identityOrString === "object" && identityOrString !== null) {
@@ -12859,25 +12916,40 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
         }
       }
     }
-    const cleanNewName = (newMember.name || "").toLowerCase().replace(/\s+/g, "");
-    const cleanNewEmail = (newMember.email || "").toLowerCase().trim();
+    const normNewName = normalize(newMember.name);
+    const normNewEmail = (newMember.email || "").toLowerCase().trim();
+    const newPrefix = normNewEmail ? normalize(normNewEmail.split("@")[0]) : normNewName;
+
     for (const m of known.values()) {
       const mEmail = (m.email || "").toLowerCase().trim();
-      const mName = (m.displayName || "").toLowerCase().replace(/\s+/g, "");
-      if ((mEmail && cleanNewEmail && mEmail === cleanNewEmail) ||
-          (mName && cleanNewName && mName === cleanNewName)) {
+      const mName = normalize(m.displayName || m.name || "");
+      const mPrefix = mEmail ? normalize(mEmail.split("@")[0]) : "";
+
+      const matchId = Boolean(newMember.id && m.id && newMember.id === m.id);
+      const matchEmail = Boolean(normNewEmail && mEmail && normNewEmail === mEmail);
+      const matchName = Boolean(normNewName && mName && normNewName === mName);
+      const matchPrefix = Boolean(
+        (newPrefix && mPrefix && newPrefix === mPrefix) ||
+        (normNewName && mPrefix && normNewName === mPrefix) ||
+        (normNewEmail && mName && (mName.includes(normNewName) || normNewName.includes(mName)))
+      );
+
+      if (matchId || matchEmail || matchName || matchPrefix) {
         newMember.id = m.id;
-        if (!newMember.email && m.email) newMember.email = m.email;
-        if (m.displayName) newMember.name = m.displayName;
+        if (m.email) newMember.email = m.email;
+        if (m.displayName || m.name) newMember.name = m.displayName || m.name;
         break;
       }
     }
   } catch {}
 
+  const normNewName = normalize(newMember.name);
+  const normNewEmail = (newMember.email || "").toLowerCase().trim();
+
   const exists = project.coCreators.some(c =>
     (c.id && newMember.id && c.id === newMember.id) ||
-    (c.email && newMember.email && c.email.toLowerCase().trim() === newMember.email.toLowerCase().trim()) ||
-    (c.name && newMember.name && c.name.toLowerCase().replace(/\s+/g, "") === newMember.name.toLowerCase().replace(/\s+/g, ""))
+    (c.email && normNewEmail && c.email.toLowerCase().trim() === normNewEmail) ||
+    (c.name && normNewName && normalize(c.name) === normNewName)
   );
   if (exists) {
     showToast(`${newMember.name} is already a co-creator on this project.`);
