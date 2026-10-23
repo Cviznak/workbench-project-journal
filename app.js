@@ -9261,8 +9261,43 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "clear-stitch-grid") {
-    stitchStudioState.grid = Array.from({ length: 16 * 16 }, () => "#ffffff");
+    const total = (stitchStudioState.cols || 16) * (stitchStudioState.rows || 16);
+    stitchStudioState.grid = Array.from({ length: total }, () => "#ffffff");
     renderStitchGrid();
+    return;
+  }
+  if (action === "stitch-apply-dimensions") {
+    const c = parseInt($("#stitch-matrix-cols")?.value, 10) || 16;
+    const r = parseInt($("#stitch-matrix-rows")?.value, 10) || 16;
+    resizeStitchMatrix(c, r);
+    return;
+  }
+  if (action === "stitch-flip-h") {
+    flipStitchMatrixH();
+    return;
+  }
+  if (action === "stitch-flip-v") {
+    flipStitchMatrixV();
+    return;
+  }
+  if (action === "stitch-rotate") {
+    rotateStitchMatrix();
+    return;
+  }
+  if (action === "stitch-shift") {
+    shiftStitchMatrix(target.dataset.dir || "up");
+    return;
+  }
+  if (action === "stitch-invert") {
+    invertStitchMatrix();
+    return;
+  }
+  if (action === "textiles-repeat-reset") {
+    resetTextilesRepeat();
+    return;
+  }
+  if (action === "crochet-copy-pattern") {
+    void copyAmigurumiPattern();
     return;
   }
   if (action === "paint-stitch-cell") {
@@ -9271,11 +9306,7 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "copy-stitch-instructions") {
-    const box = $("#stitch-instructions-box");
-    if (box) {
-      void navigator.clipboard.writeText(box.textContent);
-      showToast("Copied stitch pattern instructions to clipboard!");
-    }
+    void copyStitchInstructions();
     return;
   }
   if (action === "play-both-groove") {
@@ -12854,10 +12885,14 @@ const STITCH_PALETTE = [
 ];
 
 const stitchStudioState = {
+  cols: 16,
+  rows: 16,
   activeColor: "#ef4444",
   activeTool: "pencil",
   grid: Array.from({ length: 16 * 16 }, () => "#ffffff"),
-  isMouseDown: false
+  isMouseDown: false,
+  displayMode: "pixel",
+  patternType: "flat"
 };
 
 const STITCH_PRESETS = {
@@ -12932,6 +12967,78 @@ const STITCH_PRESETS = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  ],
+  cat: [
+    0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,
+    1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,
+    1,0,1,1,0,0,0,0,0,0,0,0,1,1,0,1,
+    1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,
+    1,0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,
+    0,1,1,1,0,1,1,1,1,1,1,0,1,1,1,0,
+    0,0,1,1,0,1,1,1,1,1,1,0,1,1,0,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+    0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,0,
+    0,0,0,1,1,1,0,1,1,0,1,1,1,0,0,0,
+    0,1,1,0,1,1,1,0,0,1,1,1,0,1,1,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,
+    0,0,0,1,1,0,1,1,1,1,0,1,1,0,0,0,
+    0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,
+    0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0
+  ],
+  tree: [
+    0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,
+    0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,
+    0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,
+    0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+    0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0
+  ],
+  flower: [
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,0,
+    0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,
+    0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0
+  ],
+  mug: [
+    0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,
+    0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,
+    0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,
+    0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,0,0,1,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,
+    0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
   ]
 };
 
@@ -12948,29 +13055,213 @@ function renderStitchPalette() {
   wraps.forEach(w => w.innerHTML = html);
 }
 
+function resizeStitchMatrix(newCols, newRows) {
+  newCols = Math.max(4, Math.min(64, parseInt(newCols, 10) || 16));
+  newRows = Math.max(4, Math.min(64, parseInt(newRows, 10) || 16));
+  const oldCols = stitchStudioState.cols || 16;
+  const oldRows = stitchStudioState.rows || 16;
+  const oldGrid = stitchStudioState.grid || [];
+
+  if (oldCols === newCols && oldRows === newRows && oldGrid.length === newCols * newRows) return;
+
+  const newGrid = Array.from({ length: newCols * newRows }, () => "#ffffff");
+  const minR = Math.min(oldRows, newRows);
+  const minC = Math.min(oldCols, newCols);
+
+  for (let r = 0; r < minR; r++) {
+    for (let c = 0; c < minC; c++) {
+      newGrid[r * newCols + c] = oldGrid[r * oldCols + c] || "#ffffff";
+    }
+  }
+
+  stitchStudioState.cols = newCols;
+  stitchStudioState.rows = newRows;
+  stitchStudioState.grid = newGrid;
+
+  const colInput = $("#stitch-matrix-cols");
+  const rowInput = $("#stitch-matrix-rows");
+  if (colInput) colInput.value = newCols;
+  if (rowInput) rowInput.value = newRows;
+
+  const presetSel = $("#stitch-matrix-preset");
+  if (presetSel) {
+    const key = `${newCols}x${newRows}`;
+    const matchingOption = Array.from(presetSel.options).find(o => o.value === key);
+    presetSel.value = matchingOption ? key : "custom";
+    const customWrap = $("#stitch-custom-dim-wrap");
+    if (customWrap) customWrap.style.display = presetSel.value === "custom" ? "inline-flex" : "none";
+  }
+
+  renderStitchGrid();
+  showToast(`Matrix resized to ${newCols} × ${newRows}`);
+}
+
+function flipStitchMatrixH() {
+  const cols = stitchStudioState.cols || 16;
+  const rows = stitchStudioState.rows || 16;
+  const grid = stitchStudioState.grid;
+  const newGrid = [...grid];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      newGrid[r * cols + c] = grid[r * cols + (cols - 1 - c)];
+    }
+  }
+  stitchStudioState.grid = newGrid;
+  renderStitchGrid();
+  showToast("Flipped horizontally ↔");
+}
+
+function flipStitchMatrixV() {
+  const cols = stitchStudioState.cols || 16;
+  const rows = stitchStudioState.rows || 16;
+  const grid = stitchStudioState.grid;
+  const newGrid = [...grid];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      newGrid[r * cols + c] = grid[(rows - 1 - r) * cols + c];
+    }
+  }
+  stitchStudioState.grid = newGrid;
+  renderStitchGrid();
+  showToast("Flipped vertically ↕");
+}
+
+function rotateStitchMatrix() {
+  const cols = stitchStudioState.cols || 16;
+  const rows = stitchStudioState.rows || 16;
+  const grid = stitchStudioState.grid;
+  const newCols = rows;
+  const newRows = cols;
+  const newGrid = Array.from({ length: newCols * newRows }, () => "#ffffff");
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      newGrid[c * newCols + (rows - 1 - r)] = grid[r * cols + c];
+    }
+  }
+  stitchStudioState.cols = newCols;
+  stitchStudioState.rows = newRows;
+  stitchStudioState.grid = newGrid;
+
+  const colInput = $("#stitch-matrix-cols");
+  const rowInput = $("#stitch-matrix-rows");
+  if (colInput) colInput.value = newCols;
+  if (rowInput) rowInput.value = newRows;
+
+  const presetSel = $("#stitch-matrix-preset");
+  if (presetSel) {
+    const key = `${newCols}x${newRows}`;
+    const matchingOption = Array.from(presetSel.options).find(o => o.value === key);
+    presetSel.value = matchingOption ? key : "custom";
+    const customWrap = $("#stitch-custom-dim-wrap");
+    if (customWrap) customWrap.style.display = presetSel.value === "custom" ? "inline-flex" : "none";
+  }
+
+  renderStitchGrid();
+  showToast("Rotated 90° clockwise ↶");
+}
+
+function shiftStitchMatrix(dir) {
+  const cols = stitchStudioState.cols || 16;
+  const rows = stitchStudioState.rows || 16;
+  const grid = stitchStudioState.grid;
+  const newGrid = Array.from({ length: cols * rows }, () => "#ffffff");
+
+  let dr = 0;
+  let dc = 0;
+  if (dir === "up") dr = -1;
+  else if (dir === "down") dr = 1;
+  else if (dir === "left") dc = -1;
+  else if (dir === "right") dc = 1;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+        newGrid[nr * cols + nc] = grid[r * cols + c];
+      }
+    }
+  }
+  stitchStudioState.grid = newGrid;
+  renderStitchGrid();
+}
+
+function invertStitchMatrix() {
+  const color = stitchStudioState.activeColor || "#ef4444";
+  stitchStudioState.grid = stitchStudioState.grid.map(c => (c === "#ffffff" ? color : "#ffffff"));
+  renderStitchGrid();
+  showToast("Colors inverted ◑");
+}
+
 function renderStitchGrid() {
   const boards = $$("#stitch-grid-board, #stitch-view-board");
   if (!boards.length) return;
+  const cols = stitchStudioState.cols || 16;
+  const rows = stitchStudioState.rows || 16;
   const showSymbols = $("#stitch-show-symbols")?.checked || $("#stitch-view-symbols")?.checked;
+  const displayMode = stitchStudioState.displayMode || "pixel";
+
+  let cellW = 20;
+  let cellH = 20;
+  if (displayMode === "knit") {
+    cellW = cols > 24 ? 18 : 22;
+    cellH = cols > 24 ? 14 : 17;
+  } else if (cols > 32 || rows > 32) {
+    cellW = 12;
+    cellH = 12;
+  } else if (cols > 24 || rows > 24) {
+    cellW = 15;
+    cellH = 15;
+  } else if (cols > 18 || rows > 18) {
+    cellW = 18;
+    cellH = 18;
+  }
+
+  boards.forEach(b => {
+    b.style.display = "grid";
+    b.style.gridTemplateColumns = `repeat(${cols}, ${cellW}px)`;
+    b.style.gridTemplateRows = `repeat(${rows}, ${cellH}px)`;
+  });
+
+  const total = cols * rows;
+  if (stitchStudioState.grid.length !== total) {
+    const oldGrid = stitchStudioState.grid;
+    const newGrid = Array.from({ length: total }, () => "#ffffff");
+    for (let i = 0; i < Math.min(oldGrid.length, total); i++) {
+      newGrid[i] = oldGrid[i];
+    }
+    stitchStudioState.grid = newGrid;
+  }
+
   const html = stitchStudioState.grid.map((color, idx) => {
     const isDark = color !== "#ffffff";
-    const symbol = showSymbols && isDark ? "×" : "";
+    let symbol = "";
+    if (showSymbols && isDark) {
+      if (displayMode === "knit") symbol = "∨";
+      else if (displayMode === "cross") symbol = "×";
+      else symbol = "•";
+    }
+    const textColor = (color === '#ffffff' || color === '#f59e0b' || color === '#fbbf24') ? '#0f172a' : '#ffffff';
     return `
-      <div class="stitch-grid-cell" 
+      <div class="stitch-grid-cell ${displayMode === 'knit' ? 'knit-cell' : ''}" 
         data-action="paint-stitch-cell" 
         data-index="${idx}" 
-        style="background:${color};color:${color === '#ffffff' || color === '#f59e0b' ? '#0f172a' : '#ffffff'}">
+        style="width:${cellW}px;height:${cellH}px;background:${color};color:${textColor};font-size:${Math.max(8, Math.round(cellH * 0.55))}px">
         ${symbol}
       </div>
     `;
   }).join("");
+
   boards.forEach(b => b.innerHTML = html);
   updateStitchInstructions();
   initStitchBoardInteraction();
 }
 
 function applyStitchTool(idx) {
-  if (idx < 0 || idx >= stitchStudioState.grid.length) return;
+  const cols = stitchStudioState.cols || 16;
+  const rows = stitchStudioState.rows || 16;
+  const total = cols * rows;
+  if (idx < 0 || idx >= total) return;
   const tool = stitchStudioState.activeTool;
   const curColor = stitchStudioState.grid[idx];
   if (tool === "eraser") {
@@ -12991,12 +13282,12 @@ function applyStitchTool(idx) {
       visited.add(curr);
       if (stitchStudioState.grid[curr] === targetColor) {
         stitchStudioState.grid[curr] = fillColor;
-        const r = Math.floor(curr / 16);
-        const c = curr % 16;
-        if (r > 0) queue.push((r - 1) * 16 + c);
-        if (r < 15) queue.push((r + 1) * 16 + c);
-        if (c > 0) queue.push(r * 16 + (c - 1));
-        if (c < 15) queue.push(r * 16 + (c + 1));
+        const r = Math.floor(curr / cols);
+        const c = curr % cols;
+        if (r > 0) queue.push((r - 1) * cols + c);
+        if (r < rows - 1) queue.push((r + 1) * cols + c);
+        if (c > 0) queue.push(r * cols + (c - 1));
+        if (c < cols - 1) queue.push(r * cols + (c + 1));
       }
     }
   }
@@ -13006,25 +13297,40 @@ function applyStitchTool(idx) {
 function updateStitchInstructions() {
   const boxes = $$("#stitch-instructions-box, #stitch-view-instructions");
   if (!boxes.length) return;
-  const lines = [];
-  for (let r = 0; r < 16; r++) {
-    const rowCells = stitchStudioState.grid.slice(r * 16, (r + 1) * 16);
+  const cols = stitchStudioState.cols || 16;
+  const rows = stitchStudioState.rows || 16;
+  const patternType = stitchStudioState.patternType || "flat";
+  const displayMode = stitchStudioState.displayMode || "pixel";
+  const craftName = displayMode === "knit" ? "Knit" : displayMode === "cross" ? "Cross-Stitch" : "Colorwork";
+  const lines = [
+    `// Chart Size: ${cols} cols × ${rows} rows (${craftName}) · Reading Mode: ${patternType === "round" ? "In the Round (all RS)" : "Flat (alternating RS/WS)"}`
+  ];
+
+  for (let r = 0; r < rows; r++) {
+    const isRS = (r % 2 === 0);
+    const label = patternType === "round" 
+      ? `Rnd ${r + 1}` 
+      : `Row ${r + 1} (${isRS ? "RS →" : "WS ←"})`;
+
+    const rowCells = stitchStudioState.grid.slice(r * cols, (r + 1) * cols);
+    const cellsToRead = (patternType === "flat" && !isRS) ? [...rowCells].reverse() : rowCells;
+
     const groups = [];
-    let curColor = rowCells[0];
+    let curColor = cellsToRead[0];
     let curCount = 1;
-    for (let c = 1; c < 16; c++) {
-      if (rowCells[c] === curColor) {
+    for (let c = 1; c < cols; c++) {
+      if (cellsToRead[c] === curColor) {
         curCount++;
       } else {
-        const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || curColor;
+        const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || (curColor === "#ffffff" ? "Background" : curColor);
         groups.push(`${curCount} ${name}`);
-        curColor = rowCells[c];
+        curColor = cellsToRead[c];
         curCount = 1;
       }
     }
-    const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || curColor;
+    const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || (curColor === "#ffffff" ? "Background" : curColor);
     groups.push(`${curCount} ${name}`);
-    lines.push(`Row ${r + 1}: ${groups.join(", ")}`);
+    lines.push(`${label}: ${groups.join(", ")}`);
   }
   const text = lines.join("\n");
   boxes.forEach(b => b.textContent = text);
@@ -13034,7 +13340,33 @@ function loadStitchPreset(presetKey) {
   const p = STITCH_PRESETS[presetKey];
   if (!p) return;
   const color = stitchStudioState.activeColor;
-  stitchStudioState.grid = p.map(val => val === 1 ? color : "#ffffff");
+  let cols = stitchStudioState.cols || 16;
+  let rows = stitchStudioState.rows || 16;
+
+  if (cols < 16 || rows < 16) {
+    cols = Math.max(cols, 16);
+    rows = Math.max(rows, 16);
+    stitchStudioState.cols = cols;
+    stitchStudioState.rows = rows;
+    const colInput = $("#stitch-matrix-cols");
+    const rowInput = $("#stitch-matrix-rows");
+    if (colInput) colInput.value = cols;
+    if (rowInput) rowInput.value = rows;
+  }
+
+  const offsetR = Math.floor((rows - 16) / 2);
+  const offsetC = Math.floor((cols - 16) / 2);
+  const newGrid = Array.from({ length: cols * rows }, () => "#ffffff");
+
+  for (let r = 0; r < 16; r++) {
+    for (let c = 0; c < 16; c++) {
+      if (p[r * 16 + c] === 1) {
+        newGrid[(r + offsetR) * cols + (c + offsetC)] = color;
+      }
+    }
+  }
+
+  stitchStudioState.grid = newGrid;
   renderStitchGrid();
 }
 
@@ -17239,32 +17571,97 @@ function renderWoodworkingView() {
 }
 
 // --- 🧶 Textiles & Yarn Studio ---
+function playCounterClickSound() {
+  const soundEnabled = $("#textiles-counter-sound")?.checked;
+  if (!soundEnabled) return;
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    if (!window._counterAudioCtx) window._counterAudioCtx = new AudioContext();
+    const ctx = window._counterAudioCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.05);
+
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.05);
+  } catch {}
+}
+
 function updateTextilesRowDisplay() {
   let count = 0;
+  let repeatCount = 0;
   try {
     count = parseInt(localStorage.getItem("workbench_textiles_row") || "0", 10);
+    repeatCount = parseInt(localStorage.getItem("workbench_textiles_repeat_row") || "0", 10);
   } catch {}
+
+  const repeatLen = parseInt($("#textiles-repeat-length")?.value, 10) || 8;
   const display = $("#textiles-row-count-display");
   if (display) display.textContent = count;
+
+  const repeatDisplay = $("#textiles-repeat-display");
+  const repeatCountDisplay = $("#textiles-repeat-count-display");
+  if (repeatDisplay) {
+    if (count === 0 && repeatCount === 0) {
+      repeatDisplay.textContent = `Row 1 of ${repeatLen}`;
+      if (repeatCountDisplay) repeatCountDisplay.textContent = "Cycle #1";
+    } else {
+      const curRepeatRow = ((repeatCount - 1) % repeatLen) + 1;
+      const curCycle = Math.floor((repeatCount - 1) / repeatLen) + 1;
+      repeatDisplay.textContent = `Row ${curRepeatRow} of ${repeatLen}`;
+      if (repeatCountDisplay) repeatCountDisplay.textContent = `Cycle #${curCycle}`;
+    }
+  }
 }
 
 function incrementTextilesRow() {
   let count = parseInt(localStorage.getItem("workbench_textiles_row") || "0", 10) + 1;
-  try { localStorage.setItem("workbench_textiles_row", count.toString()); } catch {}
+  let repeatCount = parseInt(localStorage.getItem("workbench_textiles_repeat_row") || "0", 10) + 1;
+  try {
+    localStorage.setItem("workbench_textiles_row", count.toString());
+    localStorage.setItem("workbench_textiles_repeat_row", repeatCount.toString());
+  } catch {}
+  playCounterClickSound();
   updateTextilesRowDisplay();
   showToast(`Row ${count}`);
 }
 
 function decrementTextilesRow() {
   let count = Math.max(0, parseInt(localStorage.getItem("workbench_textiles_row") || "0", 10) - 1);
-  try { localStorage.setItem("workbench_textiles_row", count.toString()); } catch {}
+  let repeatCount = Math.max(0, parseInt(localStorage.getItem("workbench_textiles_repeat_row") || "0", 10) - 1);
+  try {
+    localStorage.setItem("workbench_textiles_row", count.toString());
+    localStorage.setItem("workbench_textiles_repeat_row", repeatCount.toString());
+  } catch {}
+  playCounterClickSound();
   updateTextilesRowDisplay();
 }
 
 function resetTextilesRow() {
-  try { localStorage.setItem("workbench_textiles_row", "0"); } catch {}
+  try {
+    localStorage.setItem("workbench_textiles_row", "0");
+    localStorage.setItem("workbench_textiles_repeat_row", "0");
+  } catch {}
   updateTextilesRowDisplay();
   showToast("Row counter reset to 0");
+}
+
+function resetTextilesRepeat() {
+  try {
+    localStorage.setItem("workbench_textiles_repeat_row", "0");
+  } catch {}
+  updateTextilesRowDisplay();
+  showToast("Pattern repeat cycle reset to Row 1");
 }
 
 function updateTextilesYarnWeightView() {
@@ -17282,6 +17679,278 @@ function updateTextilesYarnWeightView() {
         • <strong>Crochet Hook:</strong> ${data.hook}<br>
         • <strong>Typical Gauge:</strong> ${data.knitGauge || data.gauge || "16-20 sts / 4 in"}<br>
         • <strong>Recommended Projects:</strong> ${data.projects}
+      </div>
+    `;
+  }
+}
+
+function updateAmigurumiGenerator() {
+  const shape = $("#crochet-shape-type")?.value || "sphere";
+  const stType = $("#crochet-stitch-type")?.value || "sc";
+  const targetSts = parseInt($("#crochet-target-sts")?.value, 10) || 30;
+  const stagger = $("#crochet-stagger-inc")?.checked !== false;
+
+  const stAbbr = stType;
+  const baseInc = stType === "sc" ? 6 : stType === "hdc" ? 8 : 12;
+  const incRounds = Math.max(2, Math.round(targetSts / baseInc));
+  const actualTargetSts = incRounds * baseInc;
+
+  const roundLines = [];
+  roundLines.push(`Rnd 1: Magic Ring with ${baseInc} ${stAbbr} [${baseInc} sts]`);
+
+  for (let i = 2; i <= incRounds; i++) {
+    const stsBeforeInc = i - 2;
+    const curSts = i * baseInc;
+    if (stsBeforeInc === 0) {
+      roundLines.push(`Rnd ${i}: Inc in each st around [${curSts} sts]`);
+    } else {
+      if (stagger && stsBeforeInc % 2 === 0) {
+        const half = stsBeforeInc / 2;
+        roundLines.push(`Rnd ${i}: ${half} ${stAbbr}, inc, [${stsBeforeInc} ${stAbbr}, inc] × ${baseInc - 1}, ${half} ${stAbbr} [${curSts} sts]`);
+      } else {
+        roundLines.push(`Rnd ${i}: [${stsBeforeInc} ${stAbbr}, inc] × ${baseInc} [${curSts} sts]`);
+      }
+    }
+  }
+
+  let bodyRounds = 0;
+  let decRounds = 0;
+  if (shape === "sphere") {
+    bodyRounds = Math.max(3, incRounds);
+    for (let r = 1; r <= bodyRounds; r++) {
+      roundLines.push(`Rnd ${incRounds + r}: ${stAbbr} in each st around [${actualTargetSts} sts]`);
+    }
+    const decStart = incRounds + bodyRounds + 1;
+    for (let i = incRounds - 1; i >= 1; i--) {
+      const stsBeforeDec = i - 1;
+      const curSts = i * baseInc;
+      const rndNum = decStart + (incRounds - 1 - i);
+      if (stsBeforeDec === 0) {
+        roundLines.push(`Rnd ${rndNum}: Dec around [${curSts} sts]`);
+      } else {
+        roundLines.push(`Rnd ${rndNum}: [${stsBeforeDec} ${stAbbr}, dec] × ${baseInc} [${curSts} sts]`);
+      }
+    }
+    decRounds = incRounds - 1;
+    roundLines.push(`Fasten off, weave yarn tail through front loops of remaining ${baseInc} sts, pull tight to close.`);
+  } else if (shape === "beanie_crown") {
+    roundLines.push(`Crown complete at ${actualTargetSts} stitches (~${((actualTargetSts / (stType === 'sc' ? 4 : 3.5))).toFixed(1)}" diameter).`);
+    roundLines.push(`Work even rounds of ${stAbbr} in each st around until desired hat height is reached.`);
+  } else if (shape === "flat_circle") {
+    roundLines.push(`Sl st to first st, fasten off. Flat circle diameter: ~${((incRounds * 2 * (stType === 'sc' ? 0.35 : 0.55))).toFixed(1)}" with worsted weight.`);
+  } else if (shape === "cylinder") {
+    roundLines.push(`Work straight even rounds of ${stAbbr} in each st around for desired limb/sleeve length.`);
+  } else if (shape === "cone") {
+    roundLines.push(`Alternative gradual cone: Work 1 round even, 1 round increase for elongated point.`);
+  }
+
+  const totalRounds = incRounds + bodyRounds + decRounds;
+  const res = $("#crochet-amigurumi-result");
+  if (res) {
+    res.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+        <div>
+          <span style="font-size:11px;font-weight:700;color:var(--muted)">SHAPED PATTERN:</span>
+          <strong style="font-size:15px;color:var(--green);margin-left:6px">${actualTargetSts} max stitches · ${totalRounds} total rounds</strong>
+        </div>
+        <button type="button" class="button button-small button-outline" data-action="crochet-copy-pattern">📋 Copy Pattern</button>
+      </div>
+      ${shape === "sphere" ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">💡 <em>Safety Eyes:</em> Insert between Rnds ${incRounds + Math.floor(bodyRounds / 2)} and ${incRounds + Math.floor(bodyRounds / 2) + 1}, spaced 6-7 sts apart before stuffing.</div>` : ""}
+      <pre id="crochet-amigurumi-text" style="margin:0;font-family:monospace;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;max-height:180px;overflow-y:auto;white-space:pre-wrap;line-height:1.4">${roundLines.join("\n")}</pre>
+    `;
+  }
+}
+
+async function copyAmigurumiPattern() {
+  const box = $("#crochet-amigurumi-text");
+  if (!box || !box.textContent.trim()) {
+    showToast("No crochet pattern to copy.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(box.textContent);
+    showToast("Copied crochet shaping pattern to clipboard!");
+  } catch {
+    showToast("Crochet pattern ready.");
+  }
+}
+
+function updateSewingCuttingCalc() {
+  const w = parseFloat($("#sew-piece-w")?.value) || 18;
+  const l = parseFloat($("#sew-piece-l")?.value) || 24;
+  const qty = parseInt($("#sew-piece-qty")?.value, 10) || 2;
+  const sa = parseFloat($("#sew-sa-select")?.value) || 0.625;
+  const hem = parseFloat($("#sew-hem-select")?.value) || 1.0;
+  const yds45 = parseFloat($("#sew-convert-yds-45")?.value) || 2.5;
+
+  const cutW = (w + 2 * sa).toFixed(3);
+  const cutL = (l + sa + hem).toFixed(3);
+  const cutWFrac = toNearestFraction(w + 2 * sa);
+  const cutLFrac = toNearestFraction(l + sa + hem);
+
+  const areaSqIn = yds45 * 36 * 43;
+  const rawYds54 = (areaSqIn / (36 * 52)) * 1.05;
+  const rawYds60 = (areaSqIn / (36 * 58)) * 1.08;
+
+  const yds54 = (Math.ceil(rawYds54 * 8) / 8).toFixed(2);
+  const yds60 = (Math.ceil(rawYds60 * 8) / 8).toFixed(2);
+  const meters60 = (parseFloat(yds60) * 0.9144).toFixed(2);
+
+  const res = $("#sew-cutting-result");
+  if (res) {
+    res.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">CUTTING SPECIFICATION:</span>
+        <strong style="font-size:16px;color:var(--green)">Cut ${qty} × [ ${cutWFrac}" × ${cutLFrac}" ]</strong>
+      </div>
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • <strong>Per Piece Cut Size:</strong> ${cutW}" wide × ${cutL}" long (includes 2 × ${toNearestFraction(sa)}" SA + ${toNearestFraction(hem)}" hem)<br>
+        • <strong>Bolt Conversion:</strong> ${yds45} yds of 45" fabric = <strong style="color:#0284c7">${yds60} yds (~${meters60} m)</strong> of 60" fabric (or ${yds54} yds of 54")<br>
+        • 💡 <em>Grainline Tip:</em> Align piece length with selvage (lengthwise grain) for minimum stretch and vertical drape.
+      </div>
+    `;
+  }
+}
+
+function toNearestFraction(val) {
+  const whole = Math.floor(val);
+  const dec = val - whole;
+  if (dec < 0.0625) return whole > 0 ? `${whole}` : "0";
+  if (dec < 0.1875) return whole > 0 ? `${whole} 1/8` : "1/8";
+  if (dec < 0.3125) return whole > 0 ? `${whole} 1/4` : "1/4";
+  if (dec < 0.4375) return whole > 0 ? `${whole} 3/8` : "3/8";
+  if (dec < 0.5625) return whole > 0 ? `${whole} 1/2` : "1/2";
+  if (dec < 0.6875) return whole > 0 ? `${whole} 5/8` : "5/8";
+  if (dec < 0.8125) return whole > 0 ? `${whole} 3/4` : "3/4";
+  if (dec < 0.9375) return whole > 0 ? `${whole} 7/8` : "7/8";
+  return `${whole + 1}`;
+}
+
+const SEWING_NEEDLE_DB = {
+  light_woven: {
+    type: "Microtex / Sharp or Universal",
+    size: "60/8 to 70/10",
+    thread: "Extra-fine Cotton (50-60wt) or Fine Polyester (Gutermann Mara 120)",
+    stitch: "Straight stitch 1.8 - 2.0 mm",
+    tips: "Use sharp scissors, fine silk pins, and a straight-stitch needle plate to prevent fabric from getting sucked into the feed dogs."
+  },
+  med_woven: {
+    type: "Universal (Standard 130/705 H)",
+    size: "80/12 (or 75/11 for light poplin)",
+    thread: "100% All-Purpose Polyester 40-50wt (Gutermann, Coats Dual Duty, Mettler)",
+    stitch: "Straight stitch 2.2 - 2.5 mm",
+    tips: "The universal workhorse needle. Replace needle every 8 hours of active sewing or after each completed garment."
+  },
+  heavy_woven: {
+    type: "Jeans / Denim Needle (Reinforced blade & slender point)",
+    size: "90/14 to 110/18",
+    thread: "Heavy-Duty Polyester (Gutermann Topstitch 30wt in needle, regular 40wt in bobbin)",
+    stitch: "Straight stitch 3.0 - 3.5 mm",
+    tips: "Use a clearance hump jumper over thick flat-felled seam intersections to prevent needle deflection and broken stitches."
+  },
+  light_knit: {
+    type: "Ballpoint / Jersey (rounded point separates fibers)",
+    size: "70/10 to 80/12",
+    thread: "100% Spun Polyester 40wt (or Wooly Nylon in serger lower looper)",
+    stitch: "Narrow Zigzag (0.5 mm width, 2.5 mm length) or Lightning Stretch stitch",
+    tips: "Ballpoint prevents popped fibers and runs. Use ballpoint twin needle for professional T-shirt hems."
+  },
+  med_knit: {
+    type: "Ballpoint or Stretch Needle (deep scarf prevents skipped stitches)",
+    size: "80/12 to 90/14",
+    thread: "All-Purpose Polyester 40wt",
+    stitch: "Stretch / Lightning stitch or 4-thread overlock serger",
+    tips: "Slightly reduce presser foot pressure (or use a walking foot) to prevent wavy, stretched-out seams."
+  },
+  stretch_active: {
+    type: "Stretch Needle (special scarf & eye design)",
+    size: "75/11 to 90/14",
+    thread: "High-tenacity Polyester or Maraflex elastic thread",
+    stitch: "Triple Stretch stitch or 3-step Zigzag (width 4.0, length 1.5)",
+    tips: "Use a Stretch needle specifically (not regular ballpoint) to eliminate skipped stitches in high-spandex/swim fabrics."
+  },
+  leather_vinyl: {
+    type: "Leather / Wedge Point (chisel cutting point)",
+    size: "90/14 to 100/16",
+    thread: "Bonded Nylon or Heavy-Duty Polyester 30-40wt",
+    stitch: "Long straight stitch 3.5 - 4.5 mm (never short stitches which perforate like postage stamps!)",
+    tips: "Use a Teflon / non-stick or roller presser foot. Use wonder clips instead of pins, as pinholes in leather are permanent."
+  },
+  delicate_micro: {
+    type: "Microtex (Acute point for micro-woven fibers)",
+    size: "60/8 to 75/11",
+    thread: "Fine Polyester 50-60wt",
+    stitch: "Straight stitch 2.0 mm",
+    tips: "Acute slim point penetrates high-density microfibers cleanly without pulling threads or puckering."
+  }
+};
+
+function updateSewingNeedleGuide() {
+  const cat = $("#sew-fabric-type")?.value || "med_woven";
+  const data = SEWING_NEEDLE_DB[cat] || SEWING_NEEDLE_DB.med_woven;
+
+  const res = $("#sew-needle-result");
+  if (res) {
+    res.innerHTML = `
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • <strong>Needle System &amp; Type:</strong> <span style="color:var(--green);font-weight:800">${data.type}</span><br>
+        • <strong>Needle Size:</strong> <span style="color:#0284c7;font-weight:800">${data.size}</span> (US / European standard)<br>
+        • <strong>Recommended Thread:</strong> ${data.thread}<br>
+        • <strong>Ideal Stitch Setting:</strong> ${data.stitch}<br>
+        • 💡 <em>Pro Tip:</em> ${data.tips}
+      </div>
+    `;
+  }
+}
+
+const NEEDLE_HOOK_CONVERT_DB = {
+  "2.0": { mm: 2.0, usKnit: "US 0", usHook: "— (Steel 4)", uk: "14", jp: "—", yarn: "0 - Lace" },
+  "2.25": { mm: 2.25, usKnit: "US 1", usHook: "US B-1", uk: "13", jp: "1", yarn: "1 - Super Fine (Sock / Fingering)" },
+  "2.75": { mm: 2.75, usKnit: "US 2", usHook: "US C-2", uk: "12", jp: "2", yarn: "1 - Super Fine / Baby" },
+  "3.25": { mm: 3.25, usKnit: "US 3", usHook: "US D-3", uk: "10", jp: "4", yarn: "2 - Fine (Sport)" },
+  "3.5": { mm: 3.5, usKnit: "US 4", usHook: "US E-4", uk: "9", jp: "5", yarn: "2 - Fine / 3 - Light (DK)" },
+  "3.75": { mm: 3.75, usKnit: "US 5", usHook: "US F-5", uk: "—", jp: "5.5", yarn: "3 - Light (DK)" },
+  "4.0": { mm: 4.0, usKnit: "US 6", usHook: "US G-6", uk: "8", jp: "6", yarn: "3 - Light / 4 - Worsted" },
+  "4.5": { mm: 4.5, usKnit: "US 7", usHook: "US 7", uk: "7", jp: "8", yarn: "4 - Medium (Worsted / Aran)" },
+  "5.0": { mm: 5.0, usKnit: "US 8", usHook: "US H-8", uk: "6", jp: "10", yarn: "4 - Medium (Worsted · Most Popular)" },
+  "5.5": { mm: 5.5, usKnit: "US 9", usHook: "US I-9", uk: "5", jp: "11", yarn: "4 - Medium (Aran / Heavy Worsted)" },
+  "6.0": { mm: 6.0, usKnit: "US 10", usHook: "US J-10", uk: "4", jp: "13", yarn: "5 - Bulky (Chunky)" },
+  "6.5": { mm: 6.5, usKnit: "US 10.5", usHook: "US K-10.5", uk: "3", jp: "15", yarn: "5 - Bulky" },
+  "8.0": { mm: 8.0, usKnit: "US 11", usHook: "US L-11", uk: "0", jp: "8mm", yarn: "5 - Bulky / 6 - Super Bulky" },
+  "9.0": { mm: 9.0, usKnit: "US 13", usHook: "US M/N-13", uk: "00", jp: "9mm", yarn: "6 - Super Bulky" },
+  "10.0": { mm: 10.0, usKnit: "US 15", usHook: "US N/P-15", uk: "000", jp: "10mm", yarn: "6 - Super Bulky" },
+  "12.0": { mm: 12.0, usKnit: "US 17", usHook: "US P", uk: "—", jp: "12mm", yarn: "6 - Super Bulky" },
+  "15.0": { mm: 15.0, usKnit: "US 19", usHook: "US Q", uk: "—", jp: "15mm", yarn: "7 - Jumbo" }
+};
+
+function updateNeedleHookConverter() {
+  const key = $("#textiles-needle-convert-select")?.value || "5.0";
+  const item = NEEDLE_HOOK_CONVERT_DB[key] || NEEDLE_HOOK_CONVERT_DB["5.0"];
+
+  const res = $("#textiles-needle-convert-result");
+  if (res) {
+    res.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:6px;margin-bottom:6px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted)">METRIC DIAMETER</div>
+          <div style="font-size:16px;font-weight:800;color:var(--green)">${item.mm.toFixed(2)} mm</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted)">US KNIT NEEDLE</div>
+          <div style="font-size:16px;font-weight:800;color:#0284c7">${item.usKnit}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted)">US CROCHET HOOK</div>
+          <div style="font-size:16px;font-weight:800;color:#8b5cf6">${item.usHook}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted)">UK / CANADIAN</div>
+          <div style="font-size:16px;font-weight:800;color:var(--ink)">${item.uk}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.4">
+        • <strong>Recommended Yarn Standard:</strong> <span style="color:var(--ink);font-weight:700">${item.yarn}</span><br>
+        • Japanese Needle Gauge: ${item.jp}
       </div>
     `;
   }
@@ -17310,6 +17979,12 @@ async function copyStitchInstructions() {
 function renderTextilesView() {
   updateTextilesRowDisplay();
   updateTextilesYarnWeightView();
+  if (typeof updateTextilesYardageCalc === "function") updateTextilesYardageCalc();
+  if (typeof updateTextilesGaugeCalc === "function") updateTextilesGaugeCalc();
+  updateAmigurumiGenerator();
+  updateSewingCuttingCalc();
+  updateSewingNeedleGuide();
+  updateNeedleHookConverter();
   syncStitchViewUI();
 }
 
@@ -18223,11 +18898,14 @@ function exportStitchChartPng() {
     showToast("No pattern chart to export.");
     return;
   }
+  const cols = stitchStudioState.cols || 16;
+  const rows = stitchStudioState.rows || 16;
+  const displayMode = stitchStudioState.displayMode || "pixel";
   const canvas = document.createElement("canvas");
-  const cellSize = 28;
+  const cellSize = cols > 32 ? 18 : cols > 24 ? 22 : 28;
   const rulerSize = 24;
-  canvas.width = 16 * cellSize + rulerSize;
-  canvas.height = 16 * cellSize + rulerSize;
+  canvas.width = cols * cellSize + rulerSize;
+  canvas.height = rows * cellSize + rulerSize;
   const ctx = canvas.getContext("2d");
 
   ctx.fillStyle = "#ffffff";
@@ -18237,21 +18915,21 @@ function exportStitchChartPng() {
   ctx.fillRect(0, 0, canvas.width, rulerSize);
   ctx.fillRect(0, 0, rulerSize, canvas.height);
 
-  ctx.font = "bold 10px monospace";
+  ctx.font = "bold 9px monospace";
   ctx.fillStyle = "#64748b";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  for (let c = 0; c < 16; c++) {
+  for (let c = 0; c < cols; c++) {
     ctx.fillText((c + 1).toString(), rulerSize + c * cellSize + cellSize / 2, rulerSize / 2);
   }
-  for (let r = 0; r < 16; r++) {
+  for (let r = 0; r < rows; r++) {
     ctx.fillText((r + 1).toString(), rulerSize / 2, rulerSize + r * cellSize + cellSize / 2);
   }
 
-  for (let r = 0; r < 16; r++) {
-    for (let c = 0; c < 16; c++) {
-      const idx = r * 16 + c;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
       const color = stitchStudioState.grid[idx] || "#ffffff";
       const x = rulerSize + c * cellSize;
       const y = rulerSize + r * cellSize;
@@ -18260,14 +18938,25 @@ function exportStitchChartPng() {
       ctx.strokeStyle = "#cbd5e1";
       ctx.lineWidth = 1;
       ctx.strokeRect(x, y, cellSize, cellSize);
+
+      if (color !== "#ffffff") {
+        let sym = "";
+        if (displayMode === "knit") sym = "∨";
+        else if (displayMode === "cross") sym = "×";
+        if (sym) {
+          ctx.fillStyle = (color === "#ffffff" || color === "#f59e0b" || color === "#fbbf24") ? "#0f172a" : "#ffffff";
+          ctx.font = `bold ${Math.round(cellSize * 0.55)}px sans-serif`;
+          ctx.fillText(sym, x + cellSize / 2, y + cellSize / 2);
+        }
+      }
     }
   }
 
   const link = document.createElement("a");
-  link.download = "workbench-stitch-pattern.png";
+  link.download = `workbench-stitch-pattern-${cols}x${rows}.png`;
   link.href = canvas.toDataURL("image/png");
   link.click();
-  showToast("Downloaded chart image (workbench-stitch-pattern.png)!");
+  showToast(`Downloaded chart image (${cols}×${rows})!`);
 }
 
 // --- 🎵 Music Studio: Piano Keyboard & Scale Explorer ---
@@ -19225,6 +19914,51 @@ function initCraftStudios() {
   });
   $("#stitch-view-symbols")?.addEventListener("change", syncStitchViewUI);
 
+  $("#stitch-matrix-preset")?.addEventListener("change", (e) => {
+    const val = e.target.value;
+    const customWrap = $("#stitch-custom-dim-wrap");
+    if (val === "custom") {
+      if (customWrap) customWrap.style.display = "inline-flex";
+    } else {
+      if (customWrap) customWrap.style.display = "none";
+      const parts = val.split("x");
+      if (parts.length === 2) {
+        resizeStitchMatrix(parseInt(parts[0], 10), parseInt(parts[1], 10));
+      }
+    }
+  });
+
+  $("#stitch-display-mode")?.addEventListener("change", (e) => {
+    if (typeof stitchStudioState !== "undefined") {
+      stitchStudioState.displayMode = e.target.value;
+      renderStitchGrid();
+    }
+  });
+
+  $("#stitch-pattern-type")?.addEventListener("change", (e) => {
+    if (typeof stitchStudioState !== "undefined") {
+      stitchStudioState.patternType = e.target.value;
+      updateStitchInstructions();
+    }
+  });
+
+  $("#textiles-repeat-length")?.addEventListener("input", updateTextilesRowDisplay);
+
+  ["#crochet-shape-type", "#crochet-stitch-type", "#crochet-target-sts"].forEach(sel => {
+    $(sel)?.addEventListener("change", updateAmigurumiGenerator);
+  });
+  $("#crochet-stagger-inc")?.addEventListener("change", updateAmigurumiGenerator);
+
+  ["#sew-piece-w", "#sew-piece-l", "#sew-piece-qty", "#sew-convert-yds-45"].forEach(sel => {
+    $(sel)?.addEventListener("input", updateSewingCuttingCalc);
+  });
+  ["#sew-sa-select", "#sew-hem-select"].forEach(sel => {
+    $(sel)?.addEventListener("change", updateSewingCuttingCalc);
+  });
+
+  $("#sew-fabric-type")?.addEventListener("change", updateSewingNeedleGuide);
+  $("#textiles-needle-convert-select")?.addEventListener("change", updateNeedleHookConverter);
+
   initStitchBoardInteraction();
 
   ["#elec-res-band1", "#elec-res-band2", "#elec-res-mult", "#elec-res-tol"].forEach(sel => {
@@ -19259,6 +19993,12 @@ function initCraftStudios() {
   updateWoodworkingStudio();
   updateTextilesRowDisplay();
   updateTextilesYarnWeightView();
+  if (typeof updateTextilesYardageCalc === "function") updateTextilesYardageCalc();
+  if (typeof updateTextilesGaugeCalc === "function") updateTextilesGaugeCalc();
+  updateAmigurumiGenerator();
+  updateSewingCuttingCalc();
+  updateSewingNeedleGuide();
+  updateNeedleHookConverter();
   updateResistorColorView();
   updateOhmsLawStudio();
   updateLedResistorView();

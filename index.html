@@ -988,55 +988,128 @@
                     <button type="button" class="button button-small button-outline stitch-tool-btn" data-action="set-stitch-tool" data-tool="fill" id="stitch-view-tool-fill">🪣 Fill</button>
                     <button type="button" class="button button-small button-outline stitch-tool-btn" data-action="set-stitch-tool" data-tool="eraser" id="stitch-view-tool-eraser">🧹 Erase</button>
                   </div>
+                  <div style="display:flex;align-items:center;gap:4px">
+                    <label style="font-size:11px;font-weight:700;color:var(--muted)">MATRIX:</label>
+                    <select id="stitch-matrix-preset" style="font-size:12px;padding:3px 6px">
+                      <option value="8x8">8 × 8 (Mini Motif)</option>
+                      <option value="12x12">12 × 12 (Coaster)</option>
+                      <option value="16x16" selected>16 × 16 (Standard)</option>
+                      <option value="20x20">20 × 20 (Medium)</option>
+                      <option value="24x24">24 × 24 (Large)</option>
+                      <option value="32x32">32 × 32 (Tapestry)</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                    <span id="stitch-custom-dim-wrap" style="display:none;align-items:center;gap:3px">
+                      <input type="number" id="stitch-matrix-cols" min="4" max="64" value="16" style="width:42px;font-size:11px;padding:2px 4px" title="Width (Columns)">
+                      ×
+                      <input type="number" id="stitch-matrix-rows" min="4" max="64" value="16" style="width:42px;font-size:11px;padding:2px 4px" title="Height (Rows)">
+                      <button type="button" class="button button-small button-outline" data-action="stitch-apply-dimensions" style="padding:2px 6px;font-size:11px">Apply</button>
+                    </span>
+                  </div>
                   <select id="stitch-view-preset" style="font-size:12px;padding:4px 8px">
-                    <option value="custom">Custom Pattern</option>
+                    <option value="custom">Motif Presets...</option>
                     <option value="heart" selected>❤️ Heart</option>
                     <option value="star">⭐ Nordic Star</option>
                     <option value="snowflake">❄️ Snowflake</option>
                     <option value="invader">👾 Space Invader</option>
+                    <option value="cat">🐈 Cute Cat</option>
+                    <option value="tree">🌲 Pine Tree</option>
+                    <option value="flower">🌸 Granny Flower</option>
+                    <option value="mug">☕ Coffee Mug</option>
                   </select>
                 </div>
               </div>
 
-              <!-- Color Palette -->
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0">
+              <!-- Color Palette & Craft Display Options -->
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0;padding-bottom:10px;border-bottom:1px solid var(--border)">
                 <span style="font-size:11px;font-weight:700;color:var(--muted)">YARN PALETTE:</span>
                 <div class="stitch-palette-wrap" id="stitch-view-palette" style="display:flex;gap:6px;align-items:center"></div>
                 <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;margin-left:4px">
                   Custom: <input type="color" id="stitch-view-custom-color" value="#ef4444" style="width:28px;height:24px;border:none;cursor:pointer;padding:0;background:none">
                 </label>
-                <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-left:auto;cursor:pointer">
-                  <input type="checkbox" id="stitch-view-symbols" style="accent-color:var(--green)"> Show Stitch Symbols (×)
-                </label>
+                
+                <div style="display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap">
+                  <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)">
+                    Mode:
+                    <select id="stitch-display-mode" style="font-size:11px;padding:2px 6px">
+                      <option value="pixel" selected>⬛ Pixel Art</option>
+                      <option value="knit">∨ Knit Stockinette (V)</option>
+                      <option value="cross">× Cross-Stitch</option>
+                    </select>
+                  </label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)">
+                    Read:
+                    <select id="stitch-pattern-type" style="font-size:11px;padding:2px 6px">
+                      <option value="flat" selected>Flat (RS/WS)</option>
+                      <option value="round">Round (all RS)</option>
+                    </select>
+                  </label>
+                  <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer">
+                    <input type="checkbox" id="stitch-view-symbols" style="accent-color:var(--green)"> Show Symbols
+                  </label>
+                </div>
+              </div>
+
+              <!-- Transform Toolbar -->
+              <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:12px">
+                <span style="font-size:11px;font-weight:700;color:var(--muted)">TRANSFORM:</span>
+                <button type="button" class="button button-small button-outline" data-action="stitch-flip-h" style="padding:2px 7px;font-size:11px" title="Flip pattern horizontally">↔ Flip H</button>
+                <button type="button" class="button button-small button-outline" data-action="stitch-flip-v" style="padding:2px 7px;font-size:11px" title="Flip pattern vertically">↕ Flip V</button>
+                <button type="button" class="button button-small button-outline" data-action="stitch-rotate" style="padding:2px 7px;font-size:11px" title="Rotate 90 degrees clockwise">↶ Rotate 90°</button>
+                <div style="display:inline-flex;border:1px solid var(--border);border-radius:4px;overflow:hidden;margin:0 2px">
+                  <button type="button" class="button button-small button-outline" data-action="stitch-shift" data-dir="up" style="border:none;border-radius:0;padding:2px 7px;font-size:11px" title="Shift Up">⬆</button>
+                  <button type="button" class="button button-small button-outline" data-action="stitch-shift" data-dir="down" style="border:none;border-radius:0;border-left:1px solid var(--border);padding:2px 7px;font-size:11px" title="Shift Down">⬇</button>
+                  <button type="button" class="button button-small button-outline" data-action="stitch-shift" data-dir="left" style="border:none;border-radius:0;border-left:1px solid var(--border);padding:2px 7px;font-size:11px" title="Shift Left">⬅</button>
+                  <button type="button" class="button button-small button-outline" data-action="stitch-shift" data-dir="right" style="border:none;border-radius:0;border-left:1px solid var(--border);padding:2px 7px;font-size:11px" title="Shift Right">➡</button>
+                </div>
+                <button type="button" class="button button-small button-outline" data-action="stitch-invert" style="padding:2px 7px;font-size:11px" title="Invert background and stitch colors">◑ Invert Colors</button>
               </div>
 
               <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start">
-                <div class="stitch-canvas-container" style="overflow:auto">
+                <div class="stitch-canvas-container" style="overflow:auto;max-height:560px;max-width:100%;border:1px solid var(--border);border-radius:6px;padding:4px;background:var(--surface)">
                   <div class="stitch-grid-board" id="stitch-view-board"></div>
                 </div>
                 <div>
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
                     <strong style="font-size:12px;color:var(--ink)">🧶 Row-by-Row Written Pattern:</strong>
-                    <button type="button" class="button button-small button-outline" data-action="copy-stitch-instructions">📋 Copy</button>
+                    <button type="button" class="button button-small button-outline" data-action="copy-stitch-instructions">📋 Copy Pattern</button>
                   </div>
-                  <pre class="stitch-instructions-box" id="stitch-view-instructions" style="margin:0;font-family:monospace;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;max-height:280px;overflow-y:auto;white-space:pre-wrap;line-height:1.4"></pre>
+                  <pre class="stitch-instructions-box" id="stitch-view-instructions" style="margin:0;font-family:monospace;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;max-height:480px;overflow-y:auto;white-space:pre-wrap;line-height:1.4"></pre>
                 </div>
               </div>
             </div>
 
             <!-- Row Counter & Standards Grid -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
-              <!-- Digital Row Counter -->
+              <!-- Enhanced Dual Row & Pattern Repeat Counter -->
               <div class="panel">
                 <div class="eyebrow">PRACTICE COMPANION</div>
-                <h3 style="font-size:16px;margin:2px 0 8px">🔢 Digital Row &amp; Stitch Counter</h3>
-                <div style="text-align:center;padding:16px 0">
-                  <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase">CURRENT ROW</div>
-                  <div id="textiles-row-count-display" style="font-size:52px;font-weight:900;color:var(--green);line-height:1.1;margin:6px 0">0</div>
-                  <div style="display:flex;justify-content:center;gap:12px;margin-top:12px">
-                    <button type="button" class="button button-outline" data-action="textiles-row-minus" style="width:50px;font-size:20px;font-weight:900">−1</button>
-                    <button type="button" class="button button-primary" data-action="textiles-row-plus" style="width:110px;font-size:18px;font-weight:900">＋ ROW</button>
-                    <button type="button" class="button button-outline" data-action="textiles-row-reset" style="font-size:12px">Reset</button>
+                <h3 style="font-size:16px;margin:2px 0 8px">🔢 Dual Row &amp; Pattern Repeat Counter</h3>
+                <div style="text-align:center;padding:10px 0">
+                  <div style="display:flex;justify-content:center;gap:20px;align-items:center;flex-wrap:wrap">
+                    <div>
+                      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">TOTAL ROW / RND</div>
+                      <div id="textiles-row-count-display" style="font-size:44px;font-weight:900;color:var(--green);line-height:1;margin:4px 0">0</div>
+                    </div>
+                    <div style="border-left:1px solid var(--border);padding-left:18px;text-align:left">
+                      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">PATTERN REPEAT</div>
+                      <div id="textiles-repeat-display" style="font-size:20px;font-weight:800;color:#0284c7;line-height:1.2;margin:4px 0">Row 1 of 8</div>
+                      <div style="font-size:11px;color:var(--muted)" id="textiles-repeat-count-display">Cycle #1</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;justify-content:center;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap">
+                    <button type="button" class="button button-outline" data-action="textiles-row-minus" style="width:48px;font-size:18px;font-weight:900" title="Decrement Row">−1</button>
+                    <button type="button" class="button button-primary" data-action="textiles-row-plus" style="width:120px;font-size:16px;font-weight:900" title="Advance Row and Repeat">＋ ROW</button>
+                    <button type="button" class="button button-outline" data-action="textiles-repeat-reset" style="font-size:11px" title="Reset current repeat cycle to Row 1">Reset Repeat</button>
+                    <button type="button" class="button button-outline" data-action="textiles-row-reset" style="font-size:11px" title="Reset both total rows and repeat to 0">Reset All</button>
+                  </div>
+                  <div style="display:flex;justify-content:center;gap:12px;align-items:center;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+                    <label style="display:inline-flex;align-items:center;gap:4px">
+                      Repeat Length: <input type="number" id="textiles-repeat-length" value="8" min="1" max="99" style="width:44px;font-size:11px;padding:2px 4px"> rows
+                    </label>
+                    <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+                      <input type="checkbox" id="textiles-counter-sound" checked style="accent-color:var(--green)"> Sound Click
+                    </label>
                   </div>
                 </div>
               </div>
@@ -1106,6 +1179,140 @@
                   </label>
                 </div>
                 <div class="tool-result-box" id="textiles-gauge-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🧶 Amigurumi & Crochet Shaping Round Generator -->
+              <div class="panel">
+                <div class="eyebrow">CROCHET &amp; AMIGURUMI SHAPING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧶 Amigurumi &amp; Round Shaping Generator</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Shaped Object
+                    <select id="crochet-shape-type">
+                      <option value="sphere" selected>Sphere / Amigurumi Ball</option>
+                      <option value="flat_circle">Flat Circle (Coaster / Mandala)</option>
+                      <option value="beanie_crown">Beanie / Hat Crown Dome</option>
+                      <option value="cylinder">Cylinder / Tube (Limb / Sleeve)</option>
+                      <option value="cone">Cone / Nose / Horn</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Stitch Foundation
+                    <select id="crochet-stitch-type">
+                      <option value="sc" selected>Single Crochet (sc · 6-st inc standard)</option>
+                      <option value="hdc">Half Double (hdc · 8-st inc)</option>
+                      <option value="dc">Double Crochet (dc · 12-st inc)</option>
+                    </select>
+                  </label>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;align-items:center">
+                  <label class="field-label" style="font-size:11px">Target Max Stitch Count
+                    <select id="crochet-target-sts">
+                      <option value="18">18 sts (~1.5" miniature)</option>
+                      <option value="24">24 sts (~2.0" ornament)</option>
+                      <option value="30" selected>30 sts (~2.5" standard amigurumi)</option>
+                      <option value="36">36 sts (~3.0" medium plush)</option>
+                      <option value="42">42 sts (~3.5" large head)</option>
+                      <option value="48">48 sts (~4.0" big plush)</option>
+                      <option value="60">60 sts (~5.0" extra large)</option>
+                    </select>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink);cursor:pointer;margin-top:12px">
+                    <input type="checkbox" id="crochet-stagger-inc" checked style="accent-color:var(--green)"> Stagger increases (circular smooth)
+                  </label>
+                </div>
+                <div class="tool-result-box" id="crochet-amigurumi-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🪡 Sewing Seam Allowance, Hem & Fabric Bolt Converter -->
+              <div class="panel">
+                <div class="eyebrow">SEWING PATTERN DRAFTING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🪡 Seam Allowance &amp; Fabric Bolt Converter</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Finished Width (in)
+                    <input type="number" step="any" id="sew-piece-w" value="18">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Finished Length (in)
+                    <input type="number" step="any" id="sew-piece-l" value="24">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Quantity
+                    <input type="number" min="1" id="sew-piece-qty" value="2">
+                  </label>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+                  <label class="field-label" style="font-size:11px">Seam Allowance (SA)
+                    <select id="sew-sa-select">
+                      <option value="0.625" selected>5/8" (15 mm · Commercial Garment Std)</option>
+                      <option value="0.5">1/2" (12 mm · Home Dec / Bags)</option>
+                      <option value="0.375">3/8" (10 mm · Knits &amp; Curved Collars)</option>
+                      <option value="0.25">1/4" (6 mm · Quilting &amp; Doll Clothes)</option>
+                      <option value="0.75">3/4" (19 mm · French / Flat-Felled Seams)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Hem Depth
+                    <select id="sew-hem-select">
+                      <option value="0">None / Enclosed seam</option>
+                      <option value="0.5">1/2" (12 mm · Baby narrow hem)</option>
+                      <option value="1.0" selected>1.0" (25 mm · Shirt / Blouse hem)</option>
+                      <option value="1.5">1.5" (38 mm · Trouser / Skirt standard)</option>
+                      <option value="2.0">2.0" (50 mm · Deep tailored hem)</option>
+                    </select>
+                  </label>
+                </div>
+                <div style="margin-top:6px">
+                  <label class="field-label" style="font-size:11px">Fabric Width Yardage Conversion
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <input type="number" step="0.125" id="sew-convert-yds-45" value="2.5" style="width:72px" placeholder="yds @ 45&quot;">
+                      <span style="font-size:11px;color:var(--muted)">yds @ 45" width → converts to 54" &amp; 60"</span>
+                    </div>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="sew-cutting-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🧵 Sewing Machine Needle & Thread Guide -->
+              <div class="panel">
+                <div class="eyebrow">SEWING HARDWARE &amp; THREAD GUIDE</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧵 Sewing Machine Needle &amp; Thread Matcher</h3>
+                <label class="field-label" style="font-size:11px">Fabric Type &amp; Weave
+                  <select id="sew-fabric-type">
+                    <option value="light_woven">Light Woven (Voile, Chiffon, Lawn, Silk, Organza)</option>
+                    <option value="med_woven" selected>Medium Woven (Quilting Cotton, Poplin, Linen, Chambray)</option>
+                    <option value="heavy_woven">Heavy Woven (Denim, Canvas, Twill, Duck, Corduroy)</option>
+                    <option value="light_knit">Lightweight Knit (T-shirt Jersey, Modal, Bamboo, Ribbing)</option>
+                    <option value="med_knit">Medium Knit (French Terry, Sweatshirt Fleece, Ponte de Roma)</option>
+                    <option value="stretch_active">Activewear / High Stretch (Spandex, Swim Lycra, Dancewear)</option>
+                    <option value="leather_vinyl">Leather, Suede, Vinyl &amp; Cork (Faux Leather, Heavy Vinyl)</option>
+                    <option value="delicate_micro">Microfiber &amp; Dense Synthetic (Microtex, Satin, Taffeta, Ripstop)</option>
+                  </select>
+                </label>
+                <div class="tool-result-box" id="sew-needle-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📐 Needle & Crochet Hook International Size Converter -->
+              <div class="panel">
+                <div class="eyebrow">METRIC · US · UK / CANADIAN CONVERSION</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📐 Needle &amp; Crochet Hook International Converter</h3>
+                <label class="field-label" style="font-size:11px">Select Size (Metric mm or US Size)
+                  <select id="textiles-needle-convert-select">
+                    <option value="2.0">2.00 mm · US 0 · UK 14</option>
+                    <option value="2.25">2.25 mm · US 1 · US Hook B-1 · UK 13</option>
+                    <option value="2.75">2.75 mm · US 2 · US Hook C-2 · UK 12</option>
+                    <option value="3.25">3.25 mm · US 3 · US Hook D-3 · UK 10</option>
+                    <option value="3.5">3.50 mm · US 4 · US Hook E-4 · UK 9</option>
+                    <option value="3.75">3.75 mm · US 5 · US Hook F-5</option>
+                    <option value="4.0">4.00 mm · US 6 · US Hook G-6 · UK 8</option>
+                    <option value="4.5">4.50 mm · US 7 · US Hook 7 · UK 7</option>
+                    <option value="5.0" selected>5.00 mm · US 8 · US Hook H-8 · UK 6</option>
+                    <option value="5.5">5.50 mm · US 9 · US Hook I-9 · UK 5</option>
+                    <option value="6.0">6.00 mm · US 10 · US Hook J-10 · UK 4</option>
+                    <option value="6.5">6.50 mm · US 10.5 · US Hook K-10.5 · UK 3</option>
+                    <option value="8.0">8.00 mm · US 11 · US Hook L-11 · UK 0</option>
+                    <option value="9.0">9.00 mm · US 13 · US Hook M/N-13 · UK 00</option>
+                    <option value="10.0">10.00 mm · US 15 · US Hook N/P-15 · UK 000</option>
+                    <option value="12.0">12.00 mm · US 17 · US Hook P</option>
+                    <option value="15.0">15.00 mm · US 19 · US Hook Q</option>
+                  </select>
+                </label>
+                <div class="tool-result-box" id="textiles-needle-convert-result" style="margin-top:10px"></div>
               </div>
 
             </div>

@@ -6164,8 +6164,6 @@ body.theme-dark .version-tag {
 /* 🧵 Pixel Art & Stitch Pattern Grid */
 .stitch-grid-board {
   display: grid;
-  grid-template-columns: repeat(16, 20px);
-  grid-template-rows: repeat(16, 20px);
   gap: 1px;
   background: #cbd5e1;
   padding: 2px;
@@ -6176,16 +6174,18 @@ body.theme-dark .version-tag {
   width: max-content;
 }
 .stitch-grid-cell {
-  width: 20px;
-  height: 20px;
   background: #ffffff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
   font-weight: 800;
   transition: transform .05s ease;
+  line-height: 1;
+}
+.stitch-grid-cell.knit-cell {
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06);
 }
 .stitch-grid-cell:hover {
   filter: brightness(0.92);
