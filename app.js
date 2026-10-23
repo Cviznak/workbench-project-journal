@@ -22445,16 +22445,155 @@ async function saveSkeinToProjectMaterials() {
 }
 
 // --- 🧢 Textiles Studio: Beanie Hat & Sock Cast-On Sizing Calculator ---
-function updateTextilesHatCalc() {
+const HAT_SIZE_PRESETS = {
+  adult_m: { name: 'Adult Medium (22" / 56 cm head)', circIn: 22, circCm: 56 },
+  adult_s: { name: 'Adult Small (20.5" / 52 cm head)', circIn: 20.5, circCm: 52 },
+  adult_l: { name: 'Adult Large (23.5" / 60 cm head)', circIn: 23.5, circCm: 60 },
+  child: { name: 'Child 4-10 yrs (19.5" / 50 cm head)', circIn: 19.5, circCm: 50 },
+  toddler: { name: 'Toddler 1-3 yrs (18" / 46 cm head)', circIn: 18, circCm: 46 },
+  baby: { name: 'Baby 6-12 mos (16" / 41 cm head)', circIn: 16, circCm: 41 },
+  custom: { name: 'Custom Measurement', circIn: 22, circCm: 56 }
+};
+
+const SOCK_SIZE_PRESETS = {
+  sock_women_m: { name: "Women's US 7–8 / EU 38–39 (8.5\" circ · 9.25\" len)", circIn: 8.5, circCm: 21.5, lenIn: 9.25, lenCm: 23.5 },
+  sock_women_s: { name: "Women's US 5–6 / Youth (8.0\" circ · 8.5\" len)", circIn: 8.0, circCm: 20.3, lenIn: 8.5, lenCm: 21.5 },
+  sock_women_l: { name: "Women's US 9–10 / Men's US 7.5–8.5 (9.0\" circ · 9.75\" len)", circIn: 9.0, circCm: 22.9, lenIn: 9.75, lenCm: 24.8 },
+  sock_men_l: { name: "Men's US 10–12 / EU 43–46 (9.5\" circ · 10.5\" len)", circIn: 9.5, circCm: 24.1, lenIn: 10.5, lenCm: 26.7 },
+  sock_men_xl: { name: "Men's US 13+ / EU 47+ (10.0\" circ · 11.25\" len)", circIn: 10.0, circCm: 25.4, lenIn: 11.25, lenCm: 28.5 },
+  sock_child: { name: "Child 4–8 yrs (6.5\" circ · 7.0\" len)", circIn: 6.5, circCm: 16.5, lenIn: 7.0, lenCm: 17.8 },
+  sock_baby: { name: "Baby / Toddler Bootie (5.0\" circ · 4.5\" len)", circIn: 5.0, circCm: 12.7, lenIn: 4.5, lenCm: 11.4 },
+  custom: { name: "Custom Foot Measurement", circIn: 8.5, circCm: 21.5, lenIn: 9.25, lenCm: 23.5 }
+};
+
+function syncTextilesHatSockUI() {
   const projType = $("#textiles-hat-type")?.value || "beanie";
-  const preset = $("#textiles-hat-size-preset")?.value || "adult_m";
+  const isSock = projType === "sock";
   const circUnit = $("#textiles-hat-circ-unit")?.value || "in";
-  let circ = parseFloat($("#textiles-hat-circ")?.value) || 22;
-  const ease = parseFloat($("#textiles-hat-ease")?.value) || 0.15;
+  const titleEl = $("#textiles-hat-title");
+  const descEl = $("#textiles-hat-desc");
+  const presetSel = $("#textiles-hat-size-preset");
+  const circLabelText = $("#textiles-circ-label-text");
+  const sockLenWrap = $("#textiles-sock-len-wrap");
+  const sockLenUnitLbl = $("#textiles-sock-len-unit-lbl");
+  const easeSel = $("#textiles-hat-ease");
+  const multLabel = $("#textiles-hat-multiple-label");
+  const multSel = $("#textiles-hat-multiple");
+  const brimLabel = $("#textiles-hat-brim-label");
+  const brimSel = $("#textiles-hat-brim");
+  const circInp = $("#textiles-hat-circ");
+  const sockLenInp = $("#textiles-sock-len");
+
+  if (sockLenUnitLbl) sockLenUnitLbl.textContent = circUnit;
+
+  if (isSock) {
+    if (titleEl) titleEl.textContent = "🧦 Handknit Sock Cast-On & Construction Architect";
+    if (descEl) descEl.textContent = "Calculate exact cast-on stitches, negative ease stretch factors, and complete heel flap, heel turn, gusset pickup, and wedge toe decrease schedules for custom-fit handknit socks.";
+    if (circLabelText) circLabelText.textContent = "Foot Circumference (Around ball of foot)";
+    if (sockLenWrap) sockLenWrap.style.display = "block";
+
+    if (presetSel && presetSel.dataset.mode !== "sock") {
+      presetSel.dataset.mode = "sock";
+      presetSel.innerHTML = Object.entries(SOCK_SIZE_PRESETS).map(([k, v]) => `
+        <option value="${k}" ${k === "sock_women_m" ? "selected" : ""}>${v.name}</option>
+      `).join("");
+      if (circInp) {
+        circInp.value = (circUnit === "cm") ? SOCK_SIZE_PRESETS.sock_women_m.circCm : SOCK_SIZE_PRESETS.sock_women_m.circIn;
+      }
+      if (sockLenInp) {
+        sockLenInp.value = (circUnit === "cm") ? SOCK_SIZE_PRESETS.sock_women_m.lenCm : SOCK_SIZE_PRESETS.sock_women_m.lenIn;
+      }
+    }
+
+    if (easeSel && !easeSel.dataset.isSock) {
+      easeSel.dataset.isSock = "true";
+      easeSel.innerHTML = `
+        <option value="0.10" selected>-10% (Standard snug sock fit)</option>
+        <option value="0.15">-15% (Firm athletic fit / ribbed)</option>
+        <option value="0.05">-5% (Relaxed lounge / bed sock)</option>
+        <option value="0.0">0% (Zero ease / slipper bootie)</option>
+      `;
+    }
+
+    if (multLabel) multLabel.textContent = "Needle Setup / Stitch Multiple";
+    if (multSel && !multSel.dataset.isSock) {
+      multSel.dataset.isSock = "true";
+      multSel.innerHTML = `
+        <option value="4" selected>Multiple of 4 (Magic Loop / 4 DPNs &amp; 2x2 Ribbing)</option>
+        <option value="2">Multiple of 2 (Ideal for 1x1 Ribbing)</option>
+      `;
+    }
+
+    if (brimLabel) brimLabel.textContent = "Heel Construction Method";
+    if (brimSel && !brimSel.dataset.isSock) {
+      brimSel.dataset.isSock = "true";
+      brimSel.innerHTML = `
+        <option value="flap_gusset" selected>Traditional Heel Flap &amp; Gusset (Dutch Square Heel - Best Fit)</option>
+        <option value="short_row">German Short Row Heel (Fish Lips Kiss / Hourglass)</option>
+        <option value="afterthought">Afterthought / Peasant Tube Heel (Easiest to Replace)</option>
+      `;
+    }
+  } else {
+    // Hat mode
+    if (titleEl) titleEl.textContent = "🧢 Beanie Hat Cast-On Sizing Calculator";
+    if (descEl) descEl.textContent = "Calculate exact cast-on stitch counts and dynamic crown decrease schedules based on your gauge swatch and negative ease so your beanies fit without slouching or sliding.";
+    if (circLabelText) circLabelText.textContent = "Actual Head Circumference";
+    if (sockLenWrap) sockLenWrap.style.display = "none";
+
+    if (presetSel && presetSel.dataset.mode === "sock") {
+      presetSel.dataset.mode = "hat";
+      presetSel.innerHTML = Object.entries(HAT_SIZE_PRESETS).map(([k, v]) => `
+        <option value="${k}" ${k === "adult_m" ? "selected" : ""}>${v.name}</option>
+      `).join("");
+      if (circInp) {
+        circInp.value = (circUnit === "cm") ? HAT_SIZE_PRESETS.adult_m.circCm : HAT_SIZE_PRESETS.adult_m.circIn;
+      }
+    }
+
+    if (easeSel && easeSel.dataset.isSock) {
+      delete easeSel.dataset.isSock;
+      easeSel.innerHTML = `
+        <option value="0.15" selected>-15% (Standard snug hat fit)</option>
+        <option value="0.10">-10% (Gentle relaxed fit)</option>
+        <option value="0.20">-20% (Firm athletic fit / ribbed)</option>
+        <option value="0.0">0% (Zero ease / loose fit)</option>
+      `;
+    }
+
+    if (multLabel) multLabel.textContent = "Ribbing Stitch Multiple";
+    if (multSel && multSel.dataset.isSock) {
+      delete multSel.dataset.isSock;
+      multSel.innerHTML = `
+        <option value="4" selected>Multiple of 4 (Ideal for 2x2 Ribbing)</option>
+        <option value="2">Multiple of 2 (Ideal for 1x1 Ribbing)</option>
+        <option value="8">Multiple of 8 (8-Wedge Crown Decrease)</option>
+      `;
+    }
+
+    if (brimLabel) brimLabel.textContent = "Brim Style";
+    if (brimSel && brimSel.dataset.isSock) {
+      delete brimSel.dataset.isSock;
+      brimSel.innerHTML = `
+        <option value="folded" selected>Folded Brim (+2.5" / 6.5 cm cuff)</option>
+        <option value="single">Single Unfolded Ribbed Brim (1.5" / 4 cm)</option>
+        <option value="rolled">Rolled Stockinette Brim</option>
+      `;
+    }
+  }
+}
+
+function updateTextilesHatCalc() {
+  syncTextilesHatSockUI();
+
+  const projType = $("#textiles-hat-type")?.value || "beanie";
+  const isSock = projType === "sock";
+  const circUnit = $("#textiles-hat-circ-unit")?.value || "in";
+  let circ = parseFloat($("#textiles-hat-circ")?.value) || (isSock ? 8.5 : 22);
+  const ease = parseFloat($("#textiles-hat-ease")?.value) || (isSock ? 0.10 : 0.15);
   const gaugeSts = Math.max(4, parseFloat($("#textiles-hat-gauge-sts")?.value) || 20);
   const gaugeRows = Math.max(4, parseFloat($("#textiles-hat-gauge-rows")?.value) || 28);
   const multiple = parseInt($("#textiles-hat-multiple")?.value, 10) || 4;
-  const brimStyle = $("#textiles-hat-brim")?.value || "folded";
+  const brimStyle = $("#textiles-hat-brim")?.value || (isSock ? "flap_gusset" : "folded");
   const res = $("#textiles-hat-result");
   if (!res) return;
 
@@ -22464,13 +22603,152 @@ function updateTextilesHatCalc() {
   const rowsPerInch = gaugeRows / 4;
 
   const rawSts = targetCircInches * stsPerInch;
-  const castOn = Math.round(rawSts / multiple) * multiple;
+  const castOn = Math.max(isSock ? 24 : 32, Math.round(rawSts / multiple) * multiple);
 
   const finishedCirc = (castOn / stsPerInch);
   const finishedCircDisplay = (circUnit === "cm") ? `${(finishedCirc * 2.54).toFixed(1)} cm` : `${finishedCirc.toFixed(1)}"`;
 
-  // Crown decrease schedule (8 sections for hats, 4 for socks)
-  const sections = (projType === "sock") ? 4 : 8;
+  if (isSock) {
+    const sockLenRaw = parseFloat($("#textiles-sock-len")?.value) || (circUnit === "cm" ? 23.5 : 9.25);
+    const footLenInches = (circUnit === "cm") ? (sockLenRaw / 2.54) : sockLenRaw;
+
+    let heelSts = Math.round(castOn / 2);
+    if (heelSts % 2 !== 0) heelSts += 1;
+    const instepSts = castOn - heelSts;
+    const heelFlapRows = heelSts;
+    const gussetPickUp = Math.floor(heelFlapRows / 2) + 1;
+
+    // Heel turn calculations (Dutch/Square heel)
+    const turnCenter = Math.floor(heelSts / 3);
+    const turnSide = Math.floor((heelSts - turnCenter) / 2);
+    const turnKnitSts = turnSide + turnCenter;
+
+    // Toe length estimate (~1.75" to 2" / 4.5 - 5 cm)
+    const toeLengthInches = Math.min(2.5, Math.max(1.5, (castOn / 4) / stsPerInch * 2));
+    const knitBeforeToeInches = Math.max(1.0, footLenInches - toeLengthInches);
+    const knitBeforeToeDisplay = (circUnit === "cm") ? `${(knitBeforeToeInches * 2.54).toFixed(1)} cm` : `${knitBeforeToeInches.toFixed(1)}"`;
+    const footLenDisplay = (circUnit === "cm") ? `${(footLenInches * 2.54).toFixed(1)} cm` : `${footLenInches.toFixed(1)}"`;
+    const toeLenDisplay = (circUnit === "cm") ? `${(toeLengthInches * 2.54).toFixed(1)} cm` : `${toeLengthInches.toFixed(1)}"`;
+
+    // Toe decrease schedule (Classic Wedge Toe)
+    const toeRounds = [];
+    let curToeSts = castOn;
+    let roundNum = 1;
+    const minToeSts = Math.max(12, Math.round(castOn * 0.35 / 4) * 4);
+
+    while (curToeSts > minToeSts) {
+      toeRounds.push({
+        round: `Rnd ${roundNum}`,
+        instruction: `Instep: K1, SSK, knit to last 3 sts, K2tog, K1. Sole: repeat. (-4 sts)`,
+        rem: curToeSts - 4
+      });
+      curToeSts -= 4;
+      roundNum++;
+
+      if (curToeSts > minToeSts) {
+        toeRounds.push({
+          round: `Rnd ${roundNum}`,
+          instruction: "Knit all stitches plain (no decreases)",
+          rem: curToeSts
+        });
+        roundNum++;
+      }
+    }
+
+    // Rapid decreases every round until final Kitchener graft
+    const finalKitchenerSts = Math.max(8, Math.round(castOn * 0.22 / 2) * 2);
+    while (curToeSts > finalKitchenerSts) {
+      toeRounds.push({
+        round: `Rnd ${roundNum}`,
+        instruction: `Dec Rnd (every rnd): Instep: K1, SSK, to last 3, K2tog, K1. Sole: repeat. (-4 sts)`,
+        rem: curToeSts - 4
+      });
+      curToeSts -= 4;
+      roundNum++;
+    }
+
+    const toeTableHtml = toeRounds.slice(0, 10).map(r => `
+      <tr>
+        <td class="rnd">${r.round}</td>
+        <td>${r.instruction}</td>
+        <td class="rem">${r.rem} sts</td>
+      </tr>
+    `).join("");
+
+    res.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Recommended Sock Cast-On</div>
+          <div style="font-size:26px;font-weight:900;color:var(--green);margin:2px 0">
+            ${castOn} <span style="font-size:14px;color:var(--muted);font-weight:600">stitches</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">
+            Setup: ${instepSts} Instep / ${heelSts} Sole (or ${Math.round(castOn / 4)} sts per needle on 4 DPNs) · Relaxed Circ: ${finishedCircDisplay}
+          </div>
+        </div>
+        <div>
+          <span class="materials-group-badge" style="font-size:12px;padding:4px 10px">${(ease * 100).toFixed(0)}% Negative Ease</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px;margin-bottom:12px">
+        <div style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-align:center">
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">${knitBeforeToeDisplay}</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Foot Length Before Toe</div>
+        </div>
+        <div style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-align:center">
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">${footLenDisplay}</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Total Finished Foot</div>
+        </div>
+        <div style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-align:center">
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">${heelSts} sts × ${heelFlapRows} rows</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Heel Flap Architecture</div>
+        </div>
+        <div style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-align:center">
+          <div style="font-size:16px;font-weight:700;color:var(--ink)">${toeLenDisplay}</div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Toe Shaping Depth</div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface-subtle);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:800;color:var(--ink);margin-bottom:6px">🧦 Step-by-Step Sock Pattern Architecture</div>
+        <ol style="margin:0;padding-left:18px;font-size:11.5px;color:var(--ink);line-height:1.6">
+          <li><strong>Cuff:</strong> Cast on ${castOn} sts. Join in the round. Work (2x2 or 1x1) ribbing for ~1.5" (3.8 cm).</li>
+          <li><strong>Leg:</strong> Knit in stockinette in the round until desired leg height (~7" / 18 cm for standard crew).</li>
+          <li><strong>Heel Flap:</strong> Work back and forth over ${heelSts} sole stitches for ${heelFlapRows} rows (Row 1: *Sl 1, K1*; Row 2: Sl 1, Purl to end). Leaves ${Math.floor(heelFlapRows / 2)} slipped edge chains.</li>
+          <li><strong>Heel Turn:</strong> Row 1 (RS): Sl 1, K${turnKnitSts - 1}, SSK, K1, turn. Row 2 (WS): Sl 1, P${turnCenter}, P2tog, P1, turn. Row 3: Sl 1, knit to 1 st before gap, SSK, K1, turn. Row 4: Sl 1, purl to 1 st before gap, P2tog, P1, turn. Repeat until all side sts are worked.</li>
+          <li><strong>Gusset:</strong> Pick up ${gussetPickUp} sts along each flap selvedge (+1 at corner). Decrease 2 sts every 2nd round until back to ${castOn} sts.</li>
+          <li><strong>Foot:</strong> Knit plain stockinette until foot measures <strong>${knitBeforeToeDisplay}</strong> from back of heel.</li>
+        </ol>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Wedge Toe Decrease Schedule (Decreases to ${finalKitchenerSts} sts)</div>
+      <table class="hat-schedule-table">
+        <thead>
+          <tr>
+            <th>Round</th>
+            <th>Stitch Instruction</th>
+            <th>Remaining</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${toeTableHtml}
+        </tbody>
+      </table>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">
+        ✂️ <em>Finishing Graft:</em> Divide remaining ${finalKitchenerSts} stitches evenly (${finalKitchenerSts / 2} instep / ${finalKitchenerSts / 2} sole). Cut yarn leaving a 12" (30 cm) tail and graft closed seamlessly with Kitchener Stitch.
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button type="button" class="button button-small button-outline" data-action="copy-hat-specs">📋 Copy Sock Pattern</button>
+        <button type="button" class="button button-small button-primary" data-action="save-hat-to-materials">➕ Add Notes to Project</button>
+      </div>
+    `;
+    return;
+  }
+
+  // Hat calculation
+  const sections = 8;
   const stsPerSection = Math.floor(castOn / sections);
 
   let currentSecSts = stsPerSection;
@@ -24772,11 +25050,12 @@ function setCameraColorAsStudioBase() {
 function updateDovetailCalc() {
   const jointType = $("#wood-dt-type")?.value || "through_dt";
   const unit = $("#wood-dt-unit")?.value || "mm";
-  const width = Math.max(10, parseFloat($("#wood-dt-width")?.value) || 150);
-  const thick = Math.max(3, parseFloat($("#wood-dt-thick")?.value) || 19);
+  const isInch = unit === "in";
+  const width = Math.max(isInch ? 0.5 : 10, parseFloat($("#wood-dt-width")?.value) || (isInch ? 6 : 150));
+  const thick = Math.max(isInch ? 0.125 : 3, parseFloat($("#wood-dt-thick")?.value) || (isInch ? 0.75 : 19));
   const slopeRatio = parseFloat($("#wood-dt-slope")?.value) || 8;
   const numTails = Math.max(1, Math.min(20, parseInt($("#wood-dt-tails")?.value, 10) || 3));
-  const halfPinMargin = Math.max(1, parseFloat($("#wood-dt-halfpin")?.value) || (unit === "in" ? 0.25 : 6));
+  const halfPinMargin = Math.max(isInch ? 0.05 : 1, parseFloat($("#wood-dt-halfpin")?.value) || (isInch ? 0.25 : 6));
   const res = $("#wood-dt-result");
   if (!res) return;
 
@@ -25516,7 +25795,207 @@ function updatePigmentMixer() {
   `;
 }
 
+// --- 📐 Universal Automatic Unit Value Conversion Engine ---
+function setupAutoUnitConversions() {
+  const configs = [
+    {
+      unitId: "#textiles-hat-circ-unit",
+      inputs: ["#textiles-hat-circ", "#textiles-sock-len"],
+      convert: (val, from, to) => {
+        if (from === "in" && to === "cm") return (val * 2.54).toFixed(1);
+        if (from === "cm" && to === "in") return (val / 2.54).toFixed(1);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateTextilesHatCalc === "function") updateTextilesHatCalc();
+      }
+    },
+    {
+      unitId: "#art-frame-dim-unit",
+      inputs: ["#art-frame-art-w", "#art-frame-art-h", "#art-frame-mat-w", "#art-frame-molding-w", "#art-frame-overlap"],
+      convert: (val, from, to) => {
+        if (from === "in" && to === "cm") return (val * 2.54).toFixed(1);
+        if (from === "cm" && to === "in") return (val / 2.54).toFixed(2);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateArtFrameCalc === "function") updateArtFrameCalc();
+      }
+    },
+    {
+      unitId: "#wood-dt-unit",
+      inputs: ["#wood-dt-width", "#wood-dt-thick", "#wood-dt-halfpin"],
+      convert: (val, from, to) => {
+        if (from === "mm" && to === "in") return (val / 25.4).toFixed(2);
+        if (from === "in" && to === "mm") return Math.round(val * 25.4);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateDovetailCalc === "function") updateDovetailCalc();
+      }
+    },
+    {
+      unitId: "#wood-emc-panel-unit",
+      inputs: ["#wood-emc-panel-w"],
+      convert: (val, from, to) => {
+        if (from === "in" && to === "mm") return Math.round(val * 25.4);
+        if (from === "mm" && to === "in") return (val / 2.54).toFixed(1);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateWoodEmcCalc === "function") updateWoodEmcCalc();
+      }
+    },
+    {
+      unitId: "#wood-emc-temp-unit",
+      inputs: ["#wood-emc-temp"],
+      convert: (val, from, to) => {
+        if (from === "f" && to === "c") return Math.round((val - 32) * 5 / 9);
+        if (from === "c" && to === "f") return Math.round((val * 9 / 5) + 32);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateWoodEmcCalc === "function") updateWoodEmcCalc();
+      }
+    },
+    {
+      unitId: "#wood-sag-wt-unit",
+      inputs: ["#wood-sag-weight"],
+      convert: (val, from, to) => {
+        if (from === "lbs" && to === "kg") return (val * 0.453592).toFixed(1);
+        if (from === "kg" && to === "lbs") return (val / 0.453592).toFixed(1);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateSagulatorCalc === "function") updateSagulatorCalc();
+      }
+    },
+    {
+      unitId: "#wood-nest-unit",
+      inputs: ["#wood-nest-sheet-w", "#wood-nest-sheet-h", "#wood-nest-kerf"],
+      convert: (val, from, to, inputId) => {
+        if (inputId === "#wood-nest-kerf") {
+          if (from === "in" && to === "mm") return (val * 25.4).toFixed(1);
+          if (from === "mm" && to === "in") return (val / 25.4).toFixed(3);
+        }
+        if (from === "in" && to === "mm") return Math.round(val * 25.4);
+        if (from === "mm" && to === "in") return Math.round(val / 25.4);
+        return val;
+      },
+      custom: (from, to) => {
+        const partsEl = $("#wood-nest-parts");
+        if (!partsEl) return;
+        const text = partsEl.value;
+        const lines = text.split("\n");
+        const convertedLines = lines.map(line => {
+          return line.replace(/(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)/g, (match, wStr, hStr) => {
+            let w = parseFloat(wStr);
+            let h = parseFloat(hStr);
+            if (isNaN(w) || isNaN(h)) return match;
+            if (from === "in" && to === "mm") {
+              return `${Math.round(w * 25.4)} x ${Math.round(h * 25.4)}`;
+            } else if (from === "mm" && to === "in") {
+              return `${(w / 25.4).toFixed(1)} x ${(h / 25.4).toFixed(1)}`;
+            }
+            return match;
+          });
+        });
+        partsEl.value = convertedLines.join("\n");
+      },
+      callback: () => {
+        if (typeof run2DSheetNestingOptimizer === "function") run2DSheetNestingOptimizer();
+      }
+    },
+    {
+      unitId: "#tool-epoxy-units",
+      inputs: ["#tool-epoxy-length", "#tool-epoxy-width", "#tool-epoxy-depth", "#tool-epoxy-diameter"],
+      convert: (val, from, to) => {
+        if (from === "in" && to === "mm") return (val * 25.4).toFixed(1);
+        if (from === "mm" && to === "in") return (val / 2.54).toFixed(2);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateEpoxyCalc === "function") updateEpoxyCalc();
+      }
+    },
+    {
+      unitId: "#textiles-skein-len-unit",
+      inputs: ["#textiles-skein-full-len", "#textiles-skein-target-len"],
+      convert: (val, from, to) => {
+        if (from === "yds" && to === "m") return Math.round(val * 0.9144);
+        if (from === "m" && to === "yds") return Math.round(val / 0.9144);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateYarnSkeinCalculator === "function") updateYarnSkeinCalculator();
+      }
+    },
+    {
+      unitId: "#textiles-yarn-len-unit",
+      inputs: ["#textiles-yarn-target-len"],
+      convert: (val, from, to) => {
+        if (from === "m" && to === "yd") return Math.round(val / 0.9144);
+        if (from === "yd" && to === "m") return Math.round(val * 0.9144);
+        return val;
+      },
+      callback: () => {
+        if (typeof updateYarnHoldingCalc === "function") updateYarnHoldingCalc();
+      }
+    },
+    {
+      unitId: "#elec-trace-len-unit",
+      inputs: ["#elec-trace-len"],
+      convert: (val, from, to) => {
+        if (from === "mm" && to === "in") return (val / 25.4).toFixed(2);
+        if (from === "in" && to === "mm") return (val * 25.4).toFixed(1);
+        return val;
+      },
+      callback: () => {
+        if (typeof updatePcbTraceCalc === "function") updatePcbTraceCalc();
+      }
+    }
+  ];
+
+  configs.forEach(cfg => {
+    const sel = $(cfg.unitId);
+    if (!sel || sel.dataset.unitConvertedBound) return;
+    sel.dataset.unitConvertedBound = "true";
+    sel.dataset.prevUnit = sel.value;
+    sel.addEventListener("change", () => {
+      const from = sel.dataset.prevUnit || sel.value;
+      const to = sel.value;
+      if (from === to) return;
+
+      if (cfg.inputs && cfg.convert) {
+        cfg.inputs.forEach(inpId => {
+          const inp = $(inpId);
+          if (inp && inp.value !== "") {
+            const raw = parseFloat(inp.value);
+            if (!isNaN(raw) && raw > 0) {
+              const converted = cfg.convert(raw, from, to, inpId);
+              inp.value = converted;
+            }
+          }
+        });
+      }
+
+      if (typeof cfg.custom === "function") {
+        cfg.custom(from, to);
+      }
+
+      sel.dataset.prevUnit = to;
+
+      if (typeof cfg.callback === "function") {
+        cfg.callback();
+      }
+    });
+  });
+}
+
 function initCraftStudios() {
+  // Initialize automatic unit value conversions
+  setupAutoUnitConversions();
+
   // Piano keyboard & Music Theory & Fretboard Studio
   renderPianoKeyboardUI();
   updateMusicScaleView();
@@ -25618,16 +26097,28 @@ function initCraftStudios() {
   $("#textiles-garment-select")?.addEventListener("change", updateTextilesFiberGuide);
   ["#textiles-skein-full-wt", "#textiles-skein-full-len", "#textiles-skein-cur-wt", "#textiles-skein-target-len"].forEach(s => $(s)?.addEventListener("input", updateYarnSkeinCalculator));
   $("#textiles-skein-len-unit")?.addEventListener("change", updateYarnSkeinCalculator);
-  ["#textiles-hat-type", "#textiles-hat-ease", "#textiles-hat-multiple", "#textiles-hat-brim", "#textiles-hat-circ-unit"].forEach(s => $(s)?.addEventListener("change", updateTextilesHatCalc));
-  $("#textiles-hat-size-preset")?.addEventListener("change", (e) => {
-    const map = { adult_m: 22, adult_s: 20.5, adult_l: 23.5, child: 19.5, toddler: 18, baby: 16 };
-    const v = map[e.target.value];
-    if (v) {
-      const el = $("#textiles-hat-circ");
-      if (el) { el.value = v; updateTextilesHatCalc(); }
-    }
+  ["#textiles-hat-type", "#textiles-hat-ease", "#textiles-hat-multiple", "#textiles-hat-brim"].forEach(s => $(s)?.addEventListener("change", updateTextilesHatCalc));
+  $("#textiles-hat-type")?.addEventListener("change", () => {
+    syncTextilesHatSockUI();
+    updateTextilesHatCalc();
   });
-  ["#textiles-hat-circ", "#textiles-hat-gauge-sts", "#textiles-hat-gauge-rows"].forEach(s => $(s)?.addEventListener("input", updateTextilesHatCalc));
+  $("#textiles-hat-size-preset")?.addEventListener("change", (e) => {
+    const val = e.target.value;
+    const circUnit = $("#textiles-hat-circ-unit")?.value || "in";
+    const circEl = $("#textiles-hat-circ");
+    const lenEl = $("#textiles-sock-len");
+
+    if (SOCK_SIZE_PRESETS[val]) {
+      const p = SOCK_SIZE_PRESETS[val];
+      if (circEl) circEl.value = (circUnit === "cm") ? p.circCm : p.circIn;
+      if (lenEl) lenEl.value = (circUnit === "cm") ? p.lenCm : p.lenIn;
+    } else if (HAT_SIZE_PRESETS[val]) {
+      const p = HAT_SIZE_PRESETS[val];
+      if (circEl) circEl.value = (circUnit === "cm") ? p.circCm : p.circIn;
+    }
+    updateTextilesHatCalc();
+  });
+  ["#textiles-hat-circ", "#textiles-sock-len", "#textiles-hat-gauge-sts", "#textiles-hat-gauge-rows"].forEach(s => $(s)?.addEventListener("input", updateTextilesHatCalc));
   ["#textiles-pool-shift"].forEach(s => $(s)?.addEventListener("change", updateTextilesPooling));
   $("#textiles-pool-preset")?.addEventListener("change", (e) => {
     const p = POOLING_PRESETS[e.target.value];

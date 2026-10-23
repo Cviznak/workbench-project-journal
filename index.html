@@ -528,9 +528,9 @@
 
             <!-- Master Groove & Transport Deck -->
             <div class="music-studio-deck">
-              <div class="music-deck-row" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+              <div class="music-deck-row">
                 <!-- Instrument & Swing Controls -->
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <div class="music-sound-group">
                   <div style="display:flex;align-items:center;gap:6px">
                     <label for="music-main-instrument" style="font-size:12px;font-weight:700;color:var(--muted)">SOUND:</label>
                     <select id="music-main-instrument" style="padding:4px 8px;font-size:12px;font-weight:700">
@@ -546,8 +546,8 @@
                     <span id="music-main-swing-lbl" style="font-size:11px;font-weight:700;color:var(--muted);width:28px">0%</span>
                   </div>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                  <button type="button" class="button button-primary music-transport-play-btn" data-action="play-both-groove" id="music-btn-play-both" style="min-width:130px">
+                <div class="music-transport-group">
+                  <button type="button" class="button button-primary music-transport-play-btn" data-action="play-both-groove" id="music-btn-play-both">
                     ▶ Play Both
                   </button>
                   <button type="button" class="button button-outline music-transport-play-btn" data-action="play-chords-only" id="music-btn-play-chords">
@@ -562,8 +562,8 @@
                 </div>
 
                 <!-- Live Channel Toggles -->
-                <div class="music-channel-pills" style="display:flex;gap:6px;align-items:center">
-                  <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-right:2px">CHANNELS:</span>
+                <div class="music-channel-pills">
+                  <span class="music-channel-pills-label" style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-right:2px">CHANNELS:</span>
                   <button type="button" class="channel-toggle-pill active" data-action="toggle-channel-chords" id="music-toggle-chords" title="Toggle Chords channel sound">
                     <span class="channel-indicator">●</span> 🎹 Chords
                   </button>
@@ -576,7 +576,7 @@
                 </div>
 
                 <!-- Tempo & Controls -->
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <div class="music-tempo-group">
                   <div style="display:flex;align-items:center;gap:6px">
                     <label for="music-main-bpm" style="font-size:12px;font-weight:700;color:var(--muted)">TEMPO:</label>
                     <input type="number" id="music-main-bpm" min="40" max="260" value="105" style="width:70px;padding:5px 8px;font-size:14px;font-weight:800">
@@ -1986,10 +1986,10 @@
               <div class="panel" id="panel-textiles-hat-calc" style="grid-column: 1 / -1">
                 <div class="eyebrow">CUSTOM FIT SIZING &amp; SHAPING ARCHITECTURE</div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
-                  <h3 style="font-size:16px;margin:0">🧢 Beanie Hat &amp; Sock Cast-On Sizing Calculator</h3>
+                  <h3 style="font-size:16px;margin:0" id="textiles-hat-title">🧢 Beanie Hat &amp; Sock Cast-On Sizing Calculator</h3>
                   <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-textiles-hat-calc" title="Minimize panel">— Minimize</button>
                 </div>
-                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact cast-on stitch counts and dynamic crown decrease schedules based on your gauge swatch and negative ease so your beanies and socks fit without slouching or sliding.</p>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px" id="textiles-hat-desc">Calculate exact cast-on stitch counts, negative ease stretch factors, and step-by-step decrease schedules (crown wedges for hats or heel flap &amp; wedge toe for socks) based on your gauge swatch.</p>
 
                 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
                   <label class="field-label" style="font-size:11px">Project Type
@@ -2000,7 +2000,7 @@
                     </select>
                   </label>
 
-                  <label class="field-label" style="font-size:11px">Target Head / Foot Size Preset
+                  <label class="field-label" id="textiles-hat-size-preset-label" style="font-size:11px">Target Head / Sock Size Preset
                     <select id="textiles-hat-size-preset">
                       <option value="adult_m" selected>Adult Medium (22" / 56 cm head)</option>
                       <option value="adult_s">Adult Small (20.5" / 52 cm head)</option>
@@ -2012,9 +2012,9 @@
                     </select>
                   </label>
 
-                  <label class="field-label" style="font-size:11px">Actual Circumference
+                  <label class="field-label" id="textiles-hat-circ-label" style="font-size:11px"><span id="textiles-circ-label-text">Actual Head Circumference</span>
                     <div style="display:flex;gap:4px">
-                      <input type="number" id="textiles-hat-circ" value="22" min="10" max="30" step="any" style="flex:1">
+                      <input type="number" id="textiles-hat-circ" value="22" min="3" max="50" step="any" style="flex:1">
                       <select id="textiles-hat-circ-unit" style="width:75px">
                         <option value="in" selected>in</option>
                         <option value="cm">cm</option>
@@ -2022,7 +2022,14 @@
                     </div>
                   </label>
 
-                  <label class="field-label" style="font-size:11px">Negative Ease (Stretch Factor)
+                  <label class="field-label" id="textiles-sock-len-wrap" style="font-size:11px;display:none">Foot Length (Heel to longest toe)
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="textiles-sock-len" value="9.25" min="3" max="16" step="any" style="flex:1">
+                      <span id="textiles-sock-len-unit-lbl" style="display:flex;align-items:center;padding:0 8px;font-size:11px;font-weight:700;color:var(--muted);background:var(--surface-subtle);border:1px solid var(--border);border-radius:4px">in</span>
+                    </div>
+                  </label>
+
+                  <label class="field-label" id="textiles-hat-ease-label" style="font-size:11px">Negative Ease (Stretch Factor)
                     <select id="textiles-hat-ease">
                       <option value="0.15" selected>-15% (Standard snug hat fit)</option>
                       <option value="0.10">-10% (Gentle relaxed fit)</option>
@@ -2041,7 +2048,7 @@
                     <input type="number" id="textiles-hat-gauge-rows" value="28" min="5" max="80" step="any" placeholder="e.g. 28">
                   </label>
 
-                  <label class="field-label" style="font-size:11px">Ribbing Stitch Multiple
+                  <label class="field-label" id="textiles-hat-multiple-label" style="font-size:11px">Ribbing Stitch Multiple
                     <select id="textiles-hat-multiple">
                       <option value="4" selected>Multiple of 4 (Ideal for 2x2 Ribbing)</option>
                       <option value="2">Multiple of 2 (Ideal for 1x1 Ribbing)</option>
@@ -2049,7 +2056,7 @@
                     </select>
                   </label>
 
-                  <label class="field-label" style="font-size:11px">Brim Style
+                  <label class="field-label" id="textiles-hat-brim-label" style="font-size:11px">Brim / Heel Style
                     <select id="textiles-hat-brim">
                       <option value="folded" selected>Folded Brim (+2.5" / 6.5 cm cuff)</option>
                       <option value="single">Single Unfolded Ribbed Brim (1.5" / 4 cm)</option>
