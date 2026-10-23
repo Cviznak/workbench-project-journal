@@ -4345,8 +4345,8 @@ function openToolsDialog() {
 }
 
 function switchToolTab(tab) {
-  $(".tool-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.toolTab === tab));
-  $(".tool-tab-panel").forEach(panel => {
+  $$(".tool-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.toolTab === tab));
+  $$(".tool-tab-panel").forEach(panel => {
     panel.style.display = panel.id === ("tool-panel-" + tab) ? "block" : "none";
   });
   if (tab === "epoxy") updateEpoxyCalc();
@@ -9153,7 +9153,49 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "scroll-to-wood-bf") {
-    $("#wood-view-bf-result")?.scrollIntoView({ behavior: "smooth" });
+    ($("#wood-bf-panel") || $("#wood-view-bf-result"))?.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  if (action === "wood-add-to-shopping") {
+    const t = parseFloat($("#wood-view-t")?.value) || 1;
+    const w = parseFloat($("#wood-view-w")?.value) || 6;
+    const l = parseFloat($("#wood-view-l")?.value) || 8;
+    const qty = parseInt($("#wood-view-qty")?.value, 10) || 1;
+    const price = parseFloat($("#wood-view-price")?.value) || 0;
+    const totalBf = ((t * w * l) / 12) * qty;
+    const totalCost = totalBf * price;
+    const speciesSel = $("#wood-view-species");
+    const species = speciesSel ? speciesSel.selectedOptions[0]?.text.split("(")[0].trim() : "Hardwood";
+    void addMaterialToProjectShopping(`${species} Lumber (${t}" × ${w}" × ${l}')`, `${qty} boards (${totalBf.toFixed(1)} BF)`, totalCost);
+    return;
+  }
+  if (action === "textiles-add-to-shopping") {
+    const projSel = $("#textiles-est-project");
+    const wtSel = $("#textiles-est-yarn-wt");
+    const projName = projSel ? projSel.selectedOptions[0]?.text : "Knitting Project";
+    const wtName = wtSel ? wtSel.selectedOptions[0]?.text.split("(")[0].trim() : "Worsted";
+    const baseYds = (typeof TEXTILE_PROJECT_YARDAGE_DB !== "undefined" && TEXTILE_PROJECT_YARDAGE_DB[projSel?.value] && TEXTILE_PROJECT_YARDAGE_DB[projSel?.value][wtSel?.value])
+      ? TEXTILE_PROJECT_YARDAGE_DB[projSel?.value][wtSel?.value] : 200;
+    const totalYds = Math.round(baseYds * 1.10);
+    const skeins = Math.ceil(totalYds / 210);
+    void addMaterialToProjectShopping(`${wtName} Yarn for ${projName}`, `${skeins} skeins (~${totalYds} yds)`, 0);
+    return;
+  }
+  if (action === "elec-add-to-shopping") {
+    const is5 = (typeof resistorBandMode !== "undefined" ? resistorBandMode : "4") === "5";
+    const b1 = $("#elec-res-band1")?.value || "2";
+    const b2 = $("#elec-res-band2")?.value || "0";
+    const b3 = $("#elec-res-band3")?.value || "0";
+    const mult = parseFloat($("#elec-res-mult")?.value) || 100;
+    const tol = $("#elec-res-tol")?.value || (is5 ? "1" : "5");
+    const base = is5 ? parseInt(b1, 10) * 100 + parseInt(b2, 10) * 10 + parseInt(b3, 10) : parseInt(b1, 10) * 10 + parseInt(b2, 10);
+    const ohms = base * mult;
+    const valStr = ohms >= 1e6 ? `${(ohms/1e6).toFixed(2).replace(/\.00$/,'')} MΩ` : ohms >= 1e3 ? `${(ohms/1e3).toFixed(2).replace(/\.00$/,'')} kΩ` : `${ohms} Ω`;
+    void addMaterialToProjectShopping(`${valStr} ±${tol}% Resistors`, "10 pcs pack", 0.50);
+    return;
+  }
+  if (action === "copy-crc-result") {
+    void copyCrcResult();
     return;
   }
   if (action === "wood-run-cut-optimizer") {
@@ -9210,7 +9252,7 @@ async function handleAction(action, target) {
   }
   if (action === "set-stitch-tool") {
     stitchStudioState.activeTool = target.dataset.tool || "pencil";
-    $(".stitch-tool-btn").forEach(b => {
+    $$(".stitch-tool-btn").forEach(b => {
       b.classList.toggle("button-primary", b.dataset.tool === target.dataset.tool);
       b.classList.toggle("button-outline", b.dataset.tool !== target.dataset.tool);
     });
@@ -12660,6 +12702,30 @@ function tapTempo() {
   tapTempoHistory.push(now);
   if (tapTempoHistory.length > 5) tapTempoHistory.shift();
 
+  // Visual pulse on beat indicator LED
+  const leds = $$("#music-beat-indicator");
+  leds.forEach(led => {
+    led.classList.add("beat-flash");
+    setTimeout(() => led.classList.remove("beat-flash"), 120);
+  });
+
+  // Auditory tap feedback
+  const ctx = getMusicAudioCtx();
+  if (ctx) {
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(880, t);
+    osc.frequency.exponentialRampToValueAtTime(220, t + 0.04);
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+    osc.connect(g);
+    g.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
   if (tapTempoHistory.length >= 2) {
     const intervals = [];
     for (let i = 1; i < tapTempoHistory.length; i++) {
@@ -12667,12 +12733,12 @@ function tapTempo() {
     }
     const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
     const computedBpm = Math.round(60000 / avgInterval);
-    if (computedBpm >= 40 && computedBpm <= 240) {
-      const bpmInput = $("#tool-music-bpm");
-      if (bpmInput) {
-        bpmInput.value = computedBpm;
-        updateMusicTiming();
-      }
+    if (computedBpm >= 40 && computedBpm <= 260) {
+      const bpmInputs = [$("#music-main-bpm"), $("#tool-music-bpm"), $("#music-view-timing-bpm")].filter(Boolean);
+      bpmInputs.forEach(input => input.value = computedBpm);
+      updateMusicTiming();
+      updateMusicViewTimingResult();
+      showToast(`🥁 Tempo detected: ${computedBpm} BPM`);
     }
   }
 }
@@ -12884,22 +12950,23 @@ const STITCH_PRESETS = {
 };
 
 function renderStitchPalette() {
-  const wrap = $("#stitch-palette-wrap");
-  if (!wrap) return;
-  wrap.innerHTML = STITCH_PALETTE.map(c => `
+  const wraps = $$("#stitch-palette-wrap, #stitch-view-palette");
+  if (!wraps.length) return;
+  const html = STITCH_PALETTE.map(c => `
     <button type="button" class="stitch-palette-swatch ${c.hex.toLowerCase() === stitchStudioState.activeColor.toLowerCase() ? "active" : ""}" 
       data-action="select-stitch-color" 
       data-color="${c.hex}" 
       style="background:${c.hex}" 
       title="${c.name} (${c.hex})"></button>
   `).join("");
+  wraps.forEach(w => w.innerHTML = html);
 }
 
 function renderStitchGrid() {
-  const board = $("#stitch-grid-board");
-  if (!board) return;
-  const showSymbols = $("#stitch-show-symbols")?.checked;
-  board.innerHTML = stitchStudioState.grid.map((color, idx) => {
+  const boards = $$("#stitch-grid-board, #stitch-view-board");
+  if (!boards.length) return;
+  const showSymbols = $("#stitch-show-symbols")?.checked || $("#stitch-view-symbols")?.checked;
+  const html = stitchStudioState.grid.map((color, idx) => {
     const isDark = color !== "#ffffff";
     const symbol = showSymbols && isDark ? "×" : "";
     return `
@@ -12911,6 +12978,7 @@ function renderStitchGrid() {
       </div>
     `;
   }).join("");
+  boards.forEach(b => b.innerHTML = html);
   updateStitchInstructions();
 }
 
@@ -12946,8 +13014,8 @@ function applyStitchTool(idx) {
 }
 
 function updateStitchInstructions() {
-  const box = $("#stitch-instructions-box");
-  if (!box) return;
+  const boxes = $$("#stitch-instructions-box, #stitch-view-instructions");
+  if (!boxes.length) return;
   const lines = [];
   for (let r = 0; r < 16; r++) {
     const rowCells = stitchStudioState.grid.slice(r * 16, (r + 1) * 16);
@@ -12968,7 +13036,8 @@ function updateStitchInstructions() {
     groups.push(`${curCount} ${name}`);
     lines.push(`Row ${r + 1}: ${groups.join(", ")}`);
   }
-  box.textContent = lines.join("\n");
+  const text = lines.join("\n");
+  boxes.forEach(b => b.textContent = text);
 }
 
 function loadStitchPreset(presetKey) {
@@ -14222,6 +14291,8 @@ function renderMusicStudioView() {
   renderDrumSequencerUI();
   updateMusicViewTimingResult();
   updateMusicViewNoteResult();
+  renderPianoKeyboardUI();
+  updateMusicScaleView();
 }
 
 function initChordStudio() {
@@ -16982,9 +17053,12 @@ function updateWoodworkingStudio() {
   const bfResult = $("#wood-view-bf-result");
   if (bfResult) {
     bfResult.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:700;color:var(--muted)">TOTAL LUMBER VOLUME:</span>
-        <strong style="font-size:18px;color:var(--green)">${totalBf.toFixed(2)} BF</strong>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-size:11px;font-weight:700;color:var(--muted)">TOTAL LUMBER VOLUME:</span>
+          <strong style="font-size:18px;color:var(--green);margin-left:6px">${totalBf.toFixed(2)} BF</strong>
+        </div>
+        <button type="button" class="button button-small button-outline" data-action="wood-add-to-shopping" title="Add calculated lumber to project shopping list">🛒 Add to Shopping List</button>
       </div>
       <div style="font-size:12px;color:var(--ink);line-height:1.4">
         • <strong>${bfPerBoard.toFixed(2)} BF</strong> per board (${t}" × ${w}" × ${l} ft) × ${qty} boards<br>
@@ -17125,56 +17199,9 @@ function updateTextilesYarnWeightView() {
 }
 
 function syncStitchViewUI() {
-  const viewPalette = $("#stitch-view-palette");
-  if (viewPalette && typeof STITCH_PALETTE !== "undefined" && typeof stitchStudioState !== "undefined") {
-    viewPalette.innerHTML = STITCH_PALETTE.map(c => `
-      <button type="button" class="stitch-palette-swatch ${c.hex.toLowerCase() === stitchStudioState.activeColor.toLowerCase() ? "active" : ""}" 
-        data-action="select-stitch-color" 
-        data-color="${c.hex}" 
-        style="background:${c.hex}" 
-        title="${c.name} (${c.hex})"></button>
-    `).join("");
-  }
-  const viewBoard = $("#stitch-view-board");
-  if (viewBoard && typeof stitchStudioState !== "undefined") {
-    const showSymbols = $("#stitch-view-symbols")?.checked;
-    viewBoard.innerHTML = stitchStudioState.grid.map((color, idx) => {
-      const isDark = color !== "#ffffff";
-      const symbol = showSymbols && isDark ? "×" : "";
-      return `
-        <div class="stitch-grid-cell" 
-          data-action="paint-stitch-cell" 
-          data-index="${idx}" 
-          style="background:${color};color:${color === '#ffffff' || color === '#f59e0b' ? '#0f172a' : '#ffffff'}">
-          ${symbol}
-        </div>
-      `;
-    }).join("");
-  }
-  const viewInstructions = $("#stitch-view-instructions");
-  if (viewInstructions && typeof stitchStudioState !== "undefined" && typeof STITCH_PALETTE !== "undefined") {
-    const lines = [];
-    for (let r = 0; r < 16; r++) {
-      const rowCells = stitchStudioState.grid.slice(r * 16, (r + 1) * 16);
-      const groups = [];
-      let curColor = rowCells[0];
-      let curCount = 1;
-      for (let c = 1; c < 16; c++) {
-        if (rowCells[c] === curColor) {
-          curCount++;
-        } else {
-          const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || curColor;
-          groups.push(`${curCount} ${name}`);
-          curColor = rowCells[c];
-          curCount = 1;
-        }
-      }
-      const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || curColor;
-      groups.push(`${curCount} ${name}`);
-      lines.push(`Row ${r + 1}: ${groups.join(", ")}`);
-    }
-    viewInstructions.textContent = lines.join("\n");
-  }
+  renderStitchPalette();
+  renderStitchGrid();
+  updateStitchInstructions();
 }
 
 async function copyStitchInstructions() {
@@ -17215,27 +17242,41 @@ const ELEC_TOLERANCE_MAP = {
 };
 
 function updateResistorColorView() {
+  const is5Band = (typeof resistorBandMode !== "undefined" ? resistorBandMode : "4") === "5";
   const b1 = $("#elec-res-band1")?.value || "2";
   const b2 = $("#elec-res-band2")?.value || "0";
+  const b3 = $("#elec-res-band3")?.value || "0";
   const mult = $("#elec-res-mult")?.value || "100";
-  const tol = $("#elec-res-tol")?.value || "5";
+  const tol = $("#elec-res-tol")?.value || (is5Band ? "1" : "5");
+
+  const band3Wrap = $("#elec-res-band3-wrap");
+  if (band3Wrap) band3Wrap.style.display = is5Band ? "block" : "none";
 
   const colorMap = typeof RESISTOR_COLOR_MAP !== "undefined" ? RESISTOR_COLOR_MAP : {};
   const c1 = colorMap[b1]?.color || colorMap[b1]?.hex || "#dc2626";
   const c2 = colorMap[b2]?.color || colorMap[b2]?.hex || "#000000";
+  const c3 = colorMap[b3]?.color || colorMap[b3]?.hex || "#000000";
   const cm = ELEC_MULTIPLIER_MAP[mult]?.hex || "#dc2626";
   const ct = ELEC_TOLERANCE_MAP[tol]?.hex || "#ca8a04";
 
   const s1 = $("#res-band-1-vis");
   const s2 = $("#res-band-2-vis");
+  const s3digit = $("#res-band-3digit-vis");
   const sm = $("#res-band-3-vis");
   const st = $("#res-band-tol-vis");
   if (s1) s1.style.background = c1;
   if (s2) s2.style.background = c2;
+  if (s3digit) {
+    s3digit.style.display = is5Band ? "block" : "none";
+    s3digit.style.background = c3;
+  }
   if (sm) sm.style.background = cm;
   if (st) st.style.background = ct;
 
-  const valOhms = (parseInt(b1, 10) * 10 + parseInt(b2, 10)) * parseFloat(mult);
+  const baseDigits = is5Band
+    ? parseInt(b1, 10) * 100 + parseInt(b2, 10) * 10 + parseInt(b3, 10)
+    : parseInt(b1, 10) * 10 + parseInt(b2, 10);
+  const valOhms = baseDigits * parseFloat(mult);
   const tolPct = parseFloat(tol);
   const minOhms = valOhms * (1 - tolPct / 100);
   const maxOhms = valOhms * (1 + tolPct / 100);
@@ -17246,17 +17287,24 @@ function updateResistorColorView() {
     return o.toFixed(1).replace(/\.0$/, "") + " Ω";
   }
 
+  const seq = is5Band
+    ? `${colorMap[b1]?.name || b1} – ${colorMap[b2]?.name || b2} – ${colorMap[b3]?.name || b3} – ${ELEC_MULTIPLIER_MAP[mult]?.name?.split(" ")[0] || mult} – ${ELEC_TOLERANCE_MAP[tol]?.name?.split(" ")[0] || tol}`
+    : `${colorMap[b1]?.name || b1} – ${colorMap[b2]?.name || b2} – ${ELEC_MULTIPLIER_MAP[mult]?.name?.split(" ")[0] || mult} – ${ELEC_TOLERANCE_MAP[tol]?.name?.split(" ")[0] || tol}`;
+
   const res = $("#elec-res-calc-result");
   if (res) {
     res.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:11px;font-weight:700;color:var(--muted)">RESISTANCE:</span>
-        <strong style="font-size:20px;color:var(--green)">${formatOhms(valOhms)} ±${tolPct}%</strong>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-size:11px;font-weight:700;color:var(--muted)">RESISTANCE:</span>
+          <strong style="font-size:20px;color:var(--green);margin-left:6px">${formatOhms(valOhms)} ±${tolPct}%</strong>
+        </div>
+        <button type="button" class="button button-small button-outline" data-action="elec-add-to-shopping" title="Add this resistor specification to project shopping list">🛒 Add to Shopping List</button>
       </div>
       <div style="font-size:12px;color:var(--ink);line-height:1.4">
-        • Tolerance Range: <strong>${formatOhms(minOhms)}</strong> to <strong>${formatOhms(maxOhms)}</strong><br>
-        • Color Sequence: ${colorMap[b1]?.name || b1} – ${colorMap[b2]?.name || b2} – ${ELEC_MULTIPLIER_MAP[mult]?.name.split(" ")[0]} – ${ELEC_TOLERANCE_MAP[tol]?.name.split(" ")[0]}<br>
-        • Standard EIA E24 Series component
+        • <strong>Tolerance Range:</strong> ${formatOhms(minOhms)} to ${formatOhms(maxOhms)}<br>
+        • <strong>Color Sequence:</strong> ${seq}<br>
+        • Standard ${is5Band ? "EIA E96 1% Precision" : "EIA E24 5% Standard"} Series
       </div>
     `;
   }
@@ -17677,6 +17725,11 @@ function renderProgrammingView() {
   updateProgBaseFromValue(progRegisterValue, "init");
   updateMcuBoardView();
   updateProgSnippetView();
+  updateProgAluCalc();
+  searchProgAsciiTable();
+  formatProgByteArray();
+  updateProgBaudCalc();
+  updateProgCrcCalc();
 }
 
 // --- 🎨 Art & Design Studio ---
@@ -17751,6 +17804,8 @@ function updateArtStudioPalette() {
       `;
     }).join("");
   }
+  if (typeof updateArtGradientStudio === "function") updateArtGradientStudio();
+  if (typeof updateArtCvdView === "function") updateArtCvdView();
 }
 
 function updateArtGoldenRatioView() {
@@ -17847,6 +17902,10 @@ function renderArtView() {
   updateArtBoxNetView();
   updateArt3DPrintView();
   updateArtLaserKerfView();
+  updateArtContrastCalc();
+  updateArtGradientStudio();
+  updateArtPrintResCalc();
+  updateArtCvdView();
 }
 
 // --- Initialize All Craft Studios ---
@@ -18029,9 +18088,12 @@ function updateTextilesYardageEstimator() {
   const res = $("#textiles-yardage-result");
   if (!res) return;
 
-  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
-    '<span style="font-size:11px;font-weight:700;color:var(--muted)">RECOMMENDED YARN:</span>' +
-    '<strong style="font-size:18px;color:var(--green)">~' + totalYds + ' yds (' + totalMeters + ' m)</strong>' +
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">' +
+    '<div>' +
+      '<span style="font-size:11px;font-weight:700;color:var(--muted)">RECOMMENDED YARN:</span>' +
+      '<strong style="font-size:18px;color:var(--green);margin-left:6px">~' + totalYds + ' yds (' + totalMeters + ' m)</strong>' +
+    '</div>' +
+    '<button type="button" class="button button-small button-outline" data-action="textiles-add-to-shopping" title="Add yarn to project shopping list">🛒 Add to Shopping List</button>' +
   '</div>' +
   '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
     '• Estimated Skeins: <strong>' + skeins100g + ' × 100g skeins</strong> (or ' + skeins50g + ' × 50g skeins)<br>' +
@@ -18162,22 +18224,103 @@ function playPianoKeyNote(note, midi) {
   if (!ctx) return;
   const freq = 440 * Math.pow(2, (midi - 69) / 12);
   const now = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = "triangle";
-  osc.frequency.setValueAtTime(freq, now);
-  gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.linearRampToValueAtTime(0.3, now + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + 0.85);
+  const instrument = $("#music-main-instrument")?.value || localStorage.getItem("workbench_music_instrument") || "rhodes";
 
   const keyEl = $("#piano-key-" + midi);
   if (keyEl) {
     keyEl.classList.add("active");
     setTimeout(() => keyEl.classList.remove("active"), 350);
+  }
+
+  if (instrument === "rhodes") {
+    const osc = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq, now);
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(2400, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.25, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.85);
+
+    const tine = ctx.createOscillator();
+    const tineGain = ctx.createGain();
+    tine.type = "sine";
+    tine.frequency.setValueAtTime(freq * 3.5, now);
+    tineGain.gain.setValueAtTime(0.0001, now);
+    tineGain.gain.linearRampToValueAtTime(0.08, now + 0.01);
+    tineGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    tine.connect(tineGain);
+    tineGain.connect(ctx.destination);
+    tine.start(now);
+    tine.stop(now + 0.4);
+  } else if (instrument === "pad") {
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    osc1.type = "sawtooth";
+    osc2.type = "sawtooth";
+    osc1.frequency.setValueAtTime(freq * 0.997, now);
+    osc2.frequency.setValueAtTime(freq * 1.003, now);
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(380, now);
+    filter.frequency.exponentialRampToValueAtTime(1400, now + 0.4);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.95);
+    osc2.stop(now + 0.95);
+  } else if (instrument === "chiptune") {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.22, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.75);
+  } else if (instrument === "organ") {
+    [1.0, 2.0, 3.0].forEach((mult, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq * mult, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.18 / (idx + 1), now + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.85);
+    });
+  } else {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.3, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.85);
   }
 }
 
@@ -18196,7 +18339,12 @@ function highlightPianoKeysForChord(chordName, duration = 1.0) {
   const rootOffset = rootOffsets[root] || 0;
   const intervals = intervalsMap[type] || [0, 4, 7];
 
-  const chordMidis = [48 + rootOffset, ...intervals.map(semitone => 60 + rootOffset + semitone)];
+  const chordMidis = [48 + rootOffset, ...intervals.map(semitone => {
+    let m = 60 + rootOffset + semitone;
+    while (m > 72) m -= 12;
+    while (m < 48) m += 12;
+    return m;
+  })];
 
   chordMidis.forEach(midi => {
     const keyEl = $("#piano-key-" + midi);
@@ -18249,6 +18397,14 @@ function setResistorBandMode(mode) {
   $("#res-mode-4-btn")?.classList.toggle("button-outline", mode !== "4");
   $("#res-mode-5-btn")?.classList.toggle("button-primary", mode === "5");
   $("#res-mode-5-btn")?.classList.toggle("button-outline", mode !== "5");
+  const band3Wrap = $("#elec-res-band3-wrap");
+  if (band3Wrap) band3Wrap.style.display = mode === "5" ? "block" : "none";
+  const stripe3 = $("#res-band-3digit-vis");
+  if (stripe3) stripe3.style.display = mode === "5" ? "block" : "none";
+  if (mode === "5") {
+    const tolSelect = $("#elec-res-tol");
+    if (tolSelect && tolSelect.value === "5") tolSelect.value = "1";
+  }
   updateResistorColorView();
   showToast(mode === "5" ? "Switched to 5-Band Precision (1%) mode" : "Switched to 4-Band Standard (5%) mode");
 }
@@ -18342,12 +18498,83 @@ function updateWireAwgView() {
   const res = $("#elec-wire-result");
   if (!res) return;
 
-  res.innerHTML = '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
-    '• <strong>Conductor Diameter:</strong> ' + data.diaMm + ' mm (' + (data.diaMm * 0.03937).toFixed(3) + '")<br>' +
-    '• <strong>Resistance:</strong> ' + data.resOhmsPer1000Ft + ' Ω / 1000 ft (~ ' + (data.resOhmsPer1000Ft / 304.8).toFixed(3) + ' Ω / m)<br>' +
-    '• <strong>Max Chassis Ampacity:</strong> <span style="color:var(--green);font-weight:700">' + data.chassisA + ' Amperes</span><br>' +
-    '• 10 ft Run Voltage Drop @ 5A: ' + ((data.resOhmsPer1000Ft / 1000) * 10 * 5).toFixed(2) + ' Volts' +
-  '</div>';
+  const distFt = parseFloat($("#elec-wire-dist")?.value) || 20;
+  const volts = parseFloat($("#elec-wire-volts")?.value) || 12;
+  const amps = parseFloat($("#elec-wire-amps")?.value) || 3;
+
+  const loopFt = distFt * 2;
+  const loopResOhms = (data.resOhmsPer1000Ft / 1000) * loopFt;
+  const vDrop = amps * loopResOhms;
+  const pctDrop = volts > 0 ? (vDrop / volts) * 100 : 0;
+  const vLoad = Math.max(0, volts - vDrop);
+  const powerLossW = Math.pow(amps, 2) * loopResOhms;
+  const isOverAmp = amps > data.chassisA;
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">VOLTAGE DROP (${distFt} FT RUN):</span>
+      <strong style="font-size:18px;color:${pctDrop > 5 ? '#ef4444' : 'var(--green)'}">${vDrop.toFixed(2)} V (${pctDrop.toFixed(1)}% loss)</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • <strong>Voltage at Load:</strong> ${vLoad.toFixed(2)} V (from ${volts}V source)<br>
+      • <strong>Two-Way Loop Resistance:</strong> ${loopResOhms.toFixed(3)} Ω (${loopFt} ft total round-trip)<br>
+      • <strong>Wire Heat Dissipation:</strong> ${powerLossW.toFixed(2)} W<br>
+      • <strong>Max Chassis Ampacity:</strong> <span style="color:${isOverAmp ? '#ef4444' : 'var(--green)'};font-weight:700">${data.chassisA} A</span>
+      ${isOverAmp ? '<br><strong style="color:#ef4444;font-size:11px">⚠️ WARNING: Current exceeds maximum rated chassis ampacity for ' + awg + ' AWG!</strong>' : ''}
+    </div>
+  `;
+}
+
+// --- ⏱️ NE555 Astable Timer Engine ---
+function update555TimerCalc() {
+  const r1K = parseFloat($("#elec-555-r1")?.value) || 10;
+  const r2K = parseFloat($("#elec-555-r2")?.value) || 47;
+  const cUf = parseFloat($("#elec-555-c")?.value) || 10;
+  const res = $("#elec-555-result");
+  if (!res) return;
+
+  const r1 = r1K * 1000;
+  const r2 = r2K * 1000;
+  const c = cUf * 1e-6;
+
+  if (r1 <= 0 || r2 <= 0 || c <= 0) {
+    res.innerHTML = '<span style="font-size:12px;color:var(--muted)">Enter valid positive numbers for R1, R2, and C.</span>';
+    return;
+  }
+
+  const tHigh = 0.693 * (r1 + r2) * c;
+  const tLow = 0.693 * r2 * c;
+  const period = tHigh + tLow;
+  const freq = 1 / period;
+  const dutyPct = (tHigh / period) * 100;
+
+  function fmtTime(s) {
+    if (s >= 1) return s.toFixed(3) + " s";
+    if (s >= 0.001) return (s * 1000).toFixed(2) + " ms";
+    return (s * 1000000).toFixed(1) + " µs";
+  }
+
+  function fmtFreq(hz) {
+    if (hz >= 1000000) return (hz / 1000000).toFixed(3) + " MHz";
+    if (hz >= 1000) return (hz / 1000).toFixed(2) + " kHz";
+    return hz.toFixed(2) + " Hz";
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">OSCILLATION FREQUENCY:</span>
+      <strong style="font-size:18px;color:var(--green)">${fmtFreq(freq)}</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • <strong>Cycle Period (T):</strong> ${fmtTime(period)}<br>
+      • <strong>Output High Time (T<sub>high</sub>):</strong> ${fmtTime(tHigh)} (${dutyPct.toFixed(1)}%)<br>
+      • <strong>Output Low Time (T<sub>low</sub>):</strong> ${fmtTime(tLow)} (${(100 - dutyPct).toFixed(1)}%)
+    </div>
+    <div class="duty-cycle-visualizer">
+      <div class="duty-high-bar" style="width:${dutyPct.toFixed(1)}%">HIGH ${dutyPct.toFixed(0)}%</div>
+      <div class="duty-low-bar" style="width:${(100 - dutyPct).toFixed(1)}%">LOW ${(100 - dutyPct).toFixed(0)}%</div>
+    </div>
+  `;
 }
 
 // --- 💻 Programming Studio: ALU, ASCII Search, Array Formatter ---
@@ -18430,6 +18657,202 @@ async function copyFormattedArray() {
   } catch {
     showToast("Array ready.");
   }
+}
+
+// --- ⚡ Serial Baud Rate & Bit Timing Calculator ---
+function updateProgBaudCalc() {
+  const baud = parseInt($("#prog-baud-rate")?.value, 10) || 115200;
+  const dataBits = parseInt($("#prog-baud-databits")?.value, 10) || 8;
+  const parity = $("#prog-baud-parity")?.value || "none";
+  const stopBits = parseInt($("#prog-baud-stopbits")?.value, 10) || 1;
+  const res = $("#prog-baud-result");
+  if (!res) return;
+
+  const parityBits = parity === "none" ? 0 : 1;
+  const totalFrameBits = 1 + dataBits + parityBits + stopBits;
+  const bitTimeUs = 1000000 / baud;
+  const frameTimeUs = bitTimeUs * totalFrameBits;
+  const charsPerSec = Math.round(baud / totalFrameBits);
+  const kbPerSec = (charsPerSec / 1024).toFixed(2);
+
+  const bitCells = [];
+  bitCells.push('<div class="serial-bit-cell start" title="Start Bit (Active LOW)">START (0)</div>');
+  for (let i = 0; i < dataBits; i++) {
+    bitCells.push('<div class="serial-bit-cell data" title="Data Bit D' + i + '">D' + i + '</div>');
+  }
+  if (parityBits > 0) {
+    bitCells.push('<div class="serial-bit-cell parity" title="Parity Bit (' + parity.toUpperCase() + ')">PAR (' + parity[0].toUpperCase() + ')</div>');
+  }
+  for (let s = 1; s <= stopBits; s++) {
+    bitCells.push('<div class="serial-bit-cell stop" title="Stop Bit ' + s + ' (Resting HIGH)">STOP (1)</div>');
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">1 BIT DURATION:</span>
+      <strong style="font-size:18px;color:var(--green)">${bitTimeUs.toFixed(2)} µs</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • <strong>1 Byte Frame Duration:</strong> ${frameTimeUs >= 1000 ? (frameTimeUs / 1000).toFixed(3) + ' ms' : frameTimeUs.toFixed(1) + ' µs'} (${totalFrameBits} total bits per character)<br>
+      • <strong>Max Throughput:</strong> ${charsPerSec.toLocaleString()} Bytes/sec (~${kbPerSec} KB/s)<br>
+      • <strong>Frame Configuration:</strong> ${dataBits}${parity === 'none' ? 'N' : parity[0].toUpperCase()}${stopBits} (8N1 Standard)
+    </div>
+    <div class="serial-timing-chart">
+      ${bitCells.join("")}
+    </div>
+  `;
+}
+
+// --- 🔐 CRC Checksum Calculator (CRC-8 & CRC-16) ---
+let lastCalculatedCrcHex = "";
+
+function updateProgCrcCalc() {
+  const inputStr = ($("#prog-crc-input")?.value || "").trim();
+  const format = $("#prog-crc-format")?.value || "ascii";
+  const algo = $("#prog-crc-algo")?.value || "crc16_modbus";
+  const res = $("#prog-crc-result");
+  if (!res) return;
+
+  if (!inputStr) {
+    res.innerHTML = '<span style="font-size:12px;color:var(--muted)">Enter payload text or hex bytes above.</span>';
+    return;
+  }
+
+  const bytes = [];
+  if (format === "hex") {
+    const tokens = inputStr.replace(/0x/gi, '').split(/[\s,]+/);
+    for (const t of tokens) {
+      if (t) {
+        const val = parseInt(t, 16);
+        if (!isNaN(val)) bytes.push(val & 0xFF);
+      }
+    }
+  } else {
+    for (let i = 0; i < inputStr.length; i++) {
+      bytes.push(inputStr.charCodeAt(i) & 0xFF);
+    }
+  }
+
+  let crcVal = 0;
+  let polyName = "";
+  let cSnippet = "";
+
+  if (algo === "crc16_modbus") {
+    polyName = "Modbus CRC-16 (Poly 0x8005, Init 0xFFFF)";
+    let crc = 0xFFFF;
+    for (const b of bytes) {
+      crc ^= b;
+      for (let i = 0; i < 8; i++) {
+        if ((crc & 0x0001) !== 0) {
+          crc = ((crc >> 1) ^ 0xA001) & 0xFFFF;
+        } else {
+          crc = (crc >> 1) & 0xFFFF;
+        }
+      }
+    }
+    crcVal = crc;
+    lastCalculatedCrcHex = "0x" + crc.toString(16).toUpperCase().padStart(4, "0");
+    const lowByte = crc & 0xFF;
+    const highByte = (crc >> 8) & 0xFF;
+    cSnippet = `// CRC-16 Modbus (Low Byte First):\nuint8_t crcLo = 0x${lowByte.toString(16).toUpperCase().padStart(2, "0")};\nuint8_t crcHi = 0x${highByte.toString(16).toUpperCase().padStart(2, "0")};`;
+  } else if (algo === "crc16_ccitt") {
+    polyName = "CRC-16 CCITT / XMODEM (Poly 0x1021, Init 0x0000)";
+    let crc = 0x0000;
+    for (const b of bytes) {
+      crc ^= (b << 8);
+      for (let i = 0; i < 8; i++) {
+        if ((crc & 0x8000) !== 0) {
+          crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+        } else {
+          crc = (crc >> 1) & 0xFFFF;
+        }
+      }
+    }
+    crcVal = crc;
+    lastCalculatedCrcHex = "0x" + crc.toString(16).toUpperCase().padStart(4, "0");
+    cSnippet = `uint16_t crc16 = ${lastCalculatedCrcHex};`;
+  } else if (algo === "crc8_dallas") {
+    polyName = "CRC-8 Dallas / Maxim 1-Wire (Poly 0x31, Init 0x00)";
+    let crc = 0x00;
+    for (const b of bytes) {
+      crc ^= b;
+      for (let i = 0; i < 8; i++) {
+        if ((crc & 0x01) !== 0) {
+          crc = ((crc >> 1) ^ 0x8C) & 0xFF;
+        } else {
+          crc = (crc >> 1) & 0xFF;
+        }
+      }
+    }
+    crcVal = crc;
+    lastCalculatedCrcHex = "0x" + crc.toString(16).toUpperCase().padStart(2, "0");
+    cSnippet = `uint8_t crc8 = ${lastCalculatedCrcHex};`;
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">CHECKSUM VALUE:</span>
+      <strong style="font-size:20px;color:var(--green)">${lastCalculatedCrcHex} (${crcVal})</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • <strong>Payload Size:</strong> ${bytes.length} bytes<br>
+      • <strong>Algorithm:</strong> ${polyName}
+    </div>
+    <pre style="margin:8px 0 0;font-family:monospace;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;line-height:1.3">${cSnippet}</pre>
+  `;
+}
+
+async function copyCrcResult() {
+  if (!lastCalculatedCrcHex) {
+    showToast("No CRC value calculated.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(lastCalculatedCrcHex);
+    showToast(`Copied ${lastCalculatedCrcHex} to clipboard!`);
+  } catch {
+    showToast("Checksum ready.");
+  }
+}
+
+// --- 🛒 Studio to Project Supplies Helper ---
+async function addMaterialToProjectShopping(itemName, qty, cost = 0) {
+  let project = (typeof state !== "undefined" && state.projects) ? (state.projects.find(p => p.status === "in-progress") || state.projects[0]) : null;
+  if (!project && typeof state !== "undefined") {
+    state.projects = state.projects || [];
+    project = {
+      id: uid(),
+      title: "Workshop Supplies & Builds",
+      description: "Materials and hardware calculated from craft studios",
+      status: "in-progress",
+      priority: "normal",
+      tags: ["supplies", "workshop"],
+      tasks: [],
+      materials: [],
+      logs: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    state.projects.push(project);
+  }
+  if (!project) return;
+
+  project.materials = Array.isArray(project.materials) ? project.materials : [];
+  project.materials.push({
+    id: uid(),
+    name: itemName,
+    qty: String(qty),
+    cost: Number(cost) || 0,
+    status: "need",
+    createdAt: new Date().toISOString()
+  });
+  project.updatedAt = new Date().toISOString();
+  if (typeof makeActivity === "function") {
+    makeActivity("project", `Added ${itemName} to supplies for ${project.title}`);
+  }
+  await persistState();
+  if (typeof renderShoppingList === "function") renderShoppingList();
+  showToast(`🛒 Added "${itemName}" (${qty}) to project "${project.title}" shopping checklist!`);
 }
 
 // --- 🎨 Art & Design Studio: WCAG Contrast, CSS Gradient, DPI Print Scaler ---
@@ -18532,6 +18955,74 @@ function updateArtPrintResCalc() {
   '</div>';
 }
 
+// --- 👁️ Color Vision Deficiency (CVD) Simulation Preview ---
+function simulateCvdColor(hex, type) {
+  let c = hex.replace("#", "");
+  if (c.length === 3) c = c.split("").map(x => x + x).join("");
+  const num = parseInt(c, 16);
+  const r = ((num >> 16) & 255) / 255;
+  const g = ((num >> 8) & 255) / 255;
+  const b = (num & 255) / 255;
+
+  let sr = r, sg = g, sb = b;
+  if (type === "protanopia") {
+    sr = 0.56667 * r + 0.43333 * g;
+    sg = 0.55833 * r + 0.44167 * g;
+    sb = 0.24167 * g + 0.75833 * b;
+  } else if (type === "deuteranopia") {
+    sr = 0.625 * r + 0.375 * g;
+    sg = 0.70 * r + 0.30 * g;
+    sb = 0.30 * g + 0.70 * b;
+  } else if (type === "tritanopia") {
+    sr = 0.95 * r + 0.05 * g;
+    sg = 0.43333 * g + 0.56667 * b;
+    sb = 0.475 * g + 0.525 * b;
+  } else if (type === "achromatopsia") {
+    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+    sr = sg = sb = luma;
+  }
+
+  const toByte = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
+  const toHex = (v) => toByte(v).toString(16).padStart(2, "0");
+  return `#${toHex(sr)}${toHex(sg)}${toHex(sb)}`;
+}
+
+function updateArtCvdView() {
+  const wrap = $("#art-cvd-preview-wrap");
+  if (!wrap) return;
+
+  const cvdType = $("#art-cvd-type")?.value || "protanopia";
+  const colors = (typeof currentStudioPaletteHexes !== "undefined" && currentStudioPaletteHexes.length >= 2)
+    ? currentStudioPaletteHexes
+    : ["#0284c7", "#38bdf8", "#0369a1", "#f59e0b", "#10b981"];
+
+  const cards = colors.map((origHex) => {
+    const simHex = simulateCvdColor(origHex, cvdType);
+    return `
+      <div class="cvd-swatch-card">
+        <div class="cvd-color-split">
+          <div class="cvd-color-orig" style="background:${origHex}" title="Normal Vision: ${origHex}"></div>
+          <div class="cvd-color-sim" style="background:${simHex}" title="Simulated: ${simHex}"></div>
+        </div>
+        <div class="cvd-swatch-label">
+          <div style="font-weight:700">${origHex}</div>
+          <div style="color:var(--muted);font-size:9px">→ ${simHex}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:4px;padding:0 4px">
+      <span>LEFT: NORMAL</span>
+      <span>RIGHT: SIMULATED</span>
+    </div>
+    <div class="cvd-preview-grid">
+      ${cards.join("")}
+    </div>
+  `;
+}
+
 function initCraftStudios() {
   // Piano keyboard & Music Theory
   renderPianoKeyboardUI();
@@ -18556,10 +19047,11 @@ function initCraftStudios() {
   $("#textiles-est-yarn-wt")?.addEventListener("change", updateTextilesYardageEstimator);
   ["#textiles-gauge-pattern", "#textiles-gauge-actual", "#textiles-gauge-target-w"].forEach(s => $(s)?.addEventListener("input", updateTextilesGaugeCalc));
 
-  // Electronics Voltage Divider, Capacitor, AWG
+  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer
   updateVoltageDividerCalc();
   updateCapacitorCodeView();
   updateWireAwgView();
+  update555TimerCalc();
   ["#elec-div-vin", "#elec-div-r1", "#elec-div-r2"].forEach(s => $(s)?.addEventListener("input", updateVoltageDividerCalc));
   $("#elec-cap-code")?.addEventListener("input", updateCapacitorCodeView);
   $("#elec-cap-preset")?.addEventListener("change", (e) => {
@@ -18567,27 +19059,48 @@ function initCraftStudios() {
     if (inp) { inp.value = e.target.value; updateCapacitorCodeView(); }
   });
   $("#elec-wire-awg")?.addEventListener("change", updateWireAwgView);
+  ["#elec-wire-dist", "#elec-wire-volts", "#elec-wire-amps"].forEach(s => $(s)?.addEventListener("input", updateWireAwgView));
+  ["#elec-555-r1", "#elec-555-r2", "#elec-555-c"].forEach(s => $(s)?.addEventListener("input", update555TimerCalc));
+  $("#elec-555-preset")?.addEventListener("change", (e) => {
+    const val = e.target.value;
+    const r1 = $("#elec-555-r1");
+    const r2 = $("#elec-555-r2");
+    const c = $("#elec-555-c");
+    if (val === "1hz") { if (r1) r1.value = 10; if (r2) r2.value = 68; if (c) c.value = 10; }
+    else if (val === "1khz") { if (r1) r1.value = 1; if (r2) r2.value = 47; if (c) c.value = 0.015; }
+    else if (val === "38khz") { if (r1) r1.value = 1; if (r2) r2.value = 18; if (c) c.value = 0.001; }
+    else if (val === "pwm50") { if (r1) r1.value = 1; if (r2) r2.value = 100; if (c) c.value = 1; }
+    update555TimerCalc();
+  });
+  $("#elec-res-band3")?.addEventListener("change", updateResistorColorView);
 
-  // Programming ALU, ASCII, Array Formatter
+  // Programming ALU, ASCII, Array Formatter, Baud, CRC
   updateProgAluCalc();
   searchProgAsciiTable();
   formatProgByteArray();
+  updateProgBaudCalc();
+  updateProgCrcCalc();
   ["#prog-alu-rega", "#prog-alu-regb"].forEach(s => $(s)?.addEventListener("input", updateProgAluCalc));
   $("#prog-alu-op")?.addEventListener("change", updateProgAluCalc);
   $("#prog-ascii-search")?.addEventListener("input", searchProgAsciiTable);
   $("#prog-array-input")?.addEventListener("input", formatProgByteArray);
   $("#prog-array-lang")?.addEventListener("change", formatProgByteArray);
+  ["#prog-baud-rate", "#prog-baud-databits", "#prog-baud-parity", "#prog-baud-stopbits"].forEach(s => $(s)?.addEventListener("change", updateProgBaudCalc));
+  $("#prog-crc-input")?.addEventListener("input", updateProgCrcCalc);
+  ["#prog-crc-format", "#prog-crc-algo"].forEach(s => $(s)?.addEventListener("change", updateProgCrcCalc));
 
-  // Art Contrast, Gradient, Print Scaler
+  // Art Contrast, Gradient, Print Scaler, CVD Preview
   updateArtContrastCalc();
   updateArtGradientStudio();
   updateArtPrintResCalc();
+  updateArtCvdView();
   $("#art-contrast-text")?.addEventListener("input", updateArtContrastCalc);
   $("#art-contrast-bg")?.addEventListener("input", updateArtContrastCalc);
   $("#art-gradient-type")?.addEventListener("change", updateArtGradientStudio);
   $("#art-gradient-angle")?.addEventListener("input", updateArtGradientStudio);
   $("#art-print-size")?.addEventListener("change", updateArtPrintResCalc);
   $("#art-print-dpi")?.addEventListener("change", updateArtPrintResCalc);
+  $("#art-cvd-type")?.addEventListener("change", updateArtCvdView);
 
   const instSelect = $("#music-main-instrument");
   if (instSelect) {
@@ -18685,11 +19198,19 @@ function initCraftStudios() {
   updateProgBaseFromValue(progRegisterValue, "init");
   updateMcuBoardView();
   updateProgSnippetView();
+  updateProgAluCalc();
+  formatProgByteArray();
+  updateProgBaudCalc();
+  updateProgCrcCalc();
   updateArtStudioPalette();
   updateArtGoldenRatioView();
   updateArtBoxNetView();
   updateArt3DPrintView();
   updateArtLaserKerfView();
+  updateArtContrastCalc();
+  updateArtGradientStudio();
+  updateArtPrintResCalc();
+  updateArtCvdView();
 }
 
 window.addEventListener("DOMContentLoaded", initCraftStudios);

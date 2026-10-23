@@ -6249,7 +6249,7 @@ body.theme-dark .version-tag {
   background: #94a3b8;
 }
 .resistor-body {
-  width: 150px;
+  width: 165px;
   height: 36px;
   background: #e2d9c8;
   border-radius: 12px;
@@ -6257,7 +6257,8 @@ body.theme-dark .version-tag {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 0 14px;
+  padding: 0 12px;
+  gap: 4px;
   box-shadow: inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -2px 4px rgba(0,0,0,0.15);
 }
 .resistor-stripe {
@@ -6445,4 +6446,103 @@ body.theme-dark .version-tag {
 .contrast-badge.fail {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
+}
+
+/* 🎵 Music Studio Beat Indicator */
+.music-beat-indicator {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--border);
+  border: 2px solid var(--border-hover, #94a3b8);
+  vertical-align: middle;
+  transition: background 0.05s ease, box-shadow 0.05s ease, transform 0.05s ease;
+}
+.music-beat-indicator.beat-flash {
+  background: #10b981 !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 12px #10b981, 0 0 4px #ffffff;
+  transform: scale(1.35);
+}
+
+/* ⏱️ Duty Cycle & Wave Visualizer */
+.duty-cycle-visualizer {
+  display: flex;
+  height: 24px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-top: 8px;
+}
+.duty-high-bar {
+  background: var(--green);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.duty-low-bar {
+  background: var(--surface-hover);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ⚡ UART Serial Timing Chart */
+.serial-timing-chart {
+  display: flex;
+  gap: 2px;
+  margin-top: 8px;
+  overflow-x: auto;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.serial-bit-cell {
+  flex: 1;
+  min-width: 28px;
+  padding: 6px 2px;
+  text-align: center;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 10px;
+}
+.serial-bit-cell.start { background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.3); }
+.serial-bit-cell.data { background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 700; border: 1px solid rgba(59, 130, 246, 0.3); }
+.serial-bit-cell.parity { background: rgba(245, 158, 11, 0.15); color: #d97706; font-weight: 700; border: 1px solid rgba(245, 158, 11, 0.3); }
+.serial-bit-cell.stop { background: rgba(34, 197, 94, 0.15); color: #16a34a; font-weight: 700; border: 1px solid rgba(34, 197, 94, 0.3); }
+
+/* 👁️ CVD Preview Swatches */
+.cvd-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.cvd-swatch-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  text-align: center;
+}
+.cvd-color-split {
+  display: flex;
+  height: 38px;
+}
+.cvd-color-orig, .cvd-color-sim {
+  flex: 1;
+  height: 100%;
+}
+.cvd-swatch-label {
+  padding: 4px 2px;
+  font-size: 10px;
+  font-family: monospace;
+  background: var(--surface);
 }

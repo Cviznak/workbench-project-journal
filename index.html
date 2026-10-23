@@ -571,6 +571,7 @@
                     <input type="number" id="music-main-bpm" min="40" max="260" value="105" style="width:70px;padding:5px 8px;font-size:14px;font-weight:800">
                     <span style="font-size:11px;color:var(--muted)">BPM</span>
                     <button type="button" class="button button-small button-outline" data-action="tap-tempo" style="height:32px;padding:0 8px" title="Tap repeatedly in rhythm">🥁 Tap</button>
+                    <span class="music-beat-indicator" id="music-beat-indicator" title="Beat Flash Indicator"></span>
                   </div>
                   <div style="display:flex;align-items:center;gap:6px">
                     <label for="music-main-key" style="font-size:12px;font-weight:700;color:var(--muted)">KEY:</label>
@@ -791,14 +792,14 @@
                 <p>Cut list optimization, board feet, species movement, miter angles, screw pilot guides, and dust collection.</p>
               </div>
               <div class="sync-actions">
-                <button type="button" class="button button-outline" data-action="open-tools" data-tab="cutlist">✂️ Cut List Optimizer</button>
-                <button type="button" class="button button-primary" data-action="open-tools" data-tab="boardfeet">🪵 Board Foot Calculator</button>
+                <button type="button" class="button button-outline" data-action="scroll-to-wood-cutlist">✂️ Cut List Optimizer</button>
+                <button type="button" class="button button-primary" data-action="scroll-to-wood-bf">🪵 Board Foot Calculator</button>
               </div>
             </div>
 
             <div class="studio-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
               <!-- Board Foot & Lumber Cost -->
-              <div class="panel">
+              <div class="panel" id="wood-bf-panel">
                 <div class="eyebrow">LUMBER VOLUME &amp; PRICING</div>
                 <h3 style="font-size:16px;margin:2px 0 8px">🪵 Board Foot (BF) Estimator</h3>
                 <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px">
@@ -1140,10 +1141,11 @@
                   <div class="resistor-graphic">
                     <div class="resistor-lead"></div>
                     <div class="resistor-body">
-                      <div class="resistor-stripe" id="res-band-1-vis" style="background:#ef4444"></div>
-                      <div class="resistor-stripe" id="res-band-2-vis" style="background:#000000"></div>
-                      <div class="resistor-stripe" id="res-band-3-vis" style="background:#ef4444"></div>
-                      <div class="resistor-stripe" id="res-band-tol-vis" style="background:#ca8a04"></div>
+                      <div class="resistor-stripe" id="res-band-1-vis" style="background:#ef4444" title="Band 1 (1st Digit)"></div>
+                      <div class="resistor-stripe" id="res-band-2-vis" style="background:#000000" title="Band 2 (2nd Digit)"></div>
+                      <div class="resistor-stripe" id="res-band-3digit-vis" style="background:#000000;display:none" title="Band 3 (3rd Digit - Precision)"></div>
+                      <div class="resistor-stripe" id="res-band-3-vis" style="background:#ef4444" title="Multiplier"></div>
+                      <div class="resistor-stripe" id="res-band-tol-vis" style="background:#ca8a04" title="Tolerance"></div>
                     </div>
                     <div class="resistor-lead"></div>
                   </div>
@@ -1165,6 +1167,20 @@
                   </label>
                   <label class="field-label" style="font-size:11px">Band 2 (2nd Digit)
                     <select id="elec-res-band2">
+                      <option value="0" selected>0 - Black</option>
+                      <option value="1">1 - Brown</option>
+                      <option value="2">2 - Red</option>
+                      <option value="3">3 - Orange</option>
+                      <option value="4">4 - Yellow</option>
+                      <option value="5">5 - Green</option>
+                      <option value="6">6 - Blue</option>
+                      <option value="7">7 - Violet</option>
+                      <option value="8">8 - Gray</option>
+                      <option value="9">9 - White</option>
+                    </select>
+                  </label>
+                  <label class="field-label" id="elec-res-band3-wrap" style="font-size:11px;display:none">Band 3 (3rd Digit)
+                    <select id="elec-res-band3">
                       <option value="0" selected>0 - Black</option>
                       <option value="1">1 - Brown</option>
                       <option value="2">2 - Red</option>
@@ -1307,10 +1323,10 @@
                 <div class="tool-result-box" id="elec-cap-result" style="margin-top:10px"></div>
               </div>
 
-              <!-- 📏 AWG Wire Ampacity Guide -->
+              <!-- 📏 AWG Wire Ampacity & Voltage Drop Solver -->
               <div class="panel">
                 <div class="eyebrow">WIRING &amp; POWER DISTRIBUTION</div>
-                <h3 style="font-size:16px;margin:2px 0 8px">📏 Wire Gauge (AWG) Ampacity</h3>
+                <h3 style="font-size:16px;margin:2px 0 8px">📏 Wire Gauge (AWG) &amp; Voltage Drop</h3>
                 <label class="field-label" style="font-size:11px">American Wire Gauge (AWG)
                   <select id="elec-wire-awg">
                     <option value="12">12 AWG (High power motor / 20A)</option>
@@ -1322,7 +1338,45 @@
                     <option value="30">30 AWG (Wire-wrap / Thin jumpers / 0.8A)</option>
                   </select>
                 </label>
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;margin-top:6px">
+                  <label class="field-label" style="font-size:11px">One-Way Run (ft)
+                    <input type="number" id="elec-wire-dist" value="20" min="1" max="1000" step="any">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Circuit Volts (V)
+                    <input type="number" id="elec-wire-volts" value="12" min="1" max="600" step="any">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Current Load (A)
+                    <input type="number" id="elec-wire-amps" value="3" min="0.01" max="100" step="any">
+                  </label>
+                </div>
                 <div class="tool-result-box" id="elec-wire-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ⏱️ NE555 Timer Astable Frequency & Duty Cycle -->
+              <div class="panel">
+                <div class="eyebrow">PULSE GENERATION &amp; OSCILLATORS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+                  <h3 style="font-size:16px;margin:0">⏱️ NE555 Astable Timer</h3>
+                  <select id="elec-555-preset" style="font-size:11px;padding:3px 6px">
+                    <option value="">-- Quick Preset --</option>
+                    <option value="1hz">1 Hz LED Flasher (T = 1.0s)</option>
+                    <option value="1khz">1 kHz Audio Square Wave</option>
+                    <option value="38khz">38 kHz IR Remote Carrier</option>
+                    <option value="pwm50">Symmetric 50% Duty Target</option>
+                  </select>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px">
+                  <label class="field-label" style="font-size:11px">R1 Resistor (kΩ)
+                    <input type="number" step="any" id="elec-555-r1" value="10" placeholder="10">
+                  </label>
+                  <label class="field-label" style="font-size:11px">R2 Resistor (kΩ)
+                    <input type="number" step="any" id="elec-555-r2" value="47" placeholder="47">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Capacitor C (µF)
+                    <input type="number" step="any" id="elec-555-c" value="10" placeholder="10">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="elec-555-result" style="margin-top:10px"></div>
               </div>
 
             </div>
@@ -1462,6 +1516,74 @@
                   <button type="button" class="button button-small button-outline" data-action="copy-formatted-array">📋 Copy Formatted</button>
                 </div>
                 <pre id="prog-array-output" style="margin:8px 0 0;font-family:monospace;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;max-height:90px;overflow-y:auto;white-space:pre-wrap"></pre>
+              </div>
+
+              <!-- ⚡ Serial Baud Rate & Bit Timing Calculator -->
+              <div class="panel">
+                <div class="eyebrow">UART / SERIAL TIMING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚡ Serial Baud Rate &amp; Frame Timing</h3>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:6px">
+                  <label class="field-label" style="font-size:11px">Baud Rate (bps)
+                    <select id="prog-baud-rate">
+                      <option value="9600">9600 baud</option>
+                      <option value="19200">19200 baud</option>
+                      <option value="38400">38400 baud</option>
+                      <option value="57600">57600 baud</option>
+                      <option value="115200" selected>115200 baud (Standard)</option>
+                      <option value="230400">230400 baud</option>
+                      <option value="460800">460800 baud</option>
+                      <option value="921600">921600 baud (High Speed)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Data Bits
+                    <select id="prog-baud-databits">
+                      <option value="8" selected>8 Data Bits (Standard)</option>
+                      <option value="7">7 Data Bits</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Parity
+                    <select id="prog-baud-parity">
+                      <option value="none" selected>None (8N1)</option>
+                      <option value="even">Even (8E1)</option>
+                      <option value="odd">Odd (8O1)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Stop Bits
+                    <select id="prog-baud-stopbits">
+                      <option value="1" selected>1 Stop Bit</option>
+                      <option value="2">2 Stop Bits</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="prog-baud-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🔐 CRC Checksum Calculator (CRC-8 & CRC-16) -->
+              <div class="panel">
+                <div class="eyebrow">DATA INTEGRITY &amp; PROTOCOLS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <h3 style="font-size:16px;margin:0">🔐 CRC Checksum Calculator</h3>
+                  <button type="button" class="button button-small button-outline" data-action="copy-crc-result">📋 Copy CRC</button>
+                </div>
+                <label class="field-label" style="font-size:11px">Input Payload
+                  <input type="text" id="prog-crc-input" value="Sensor1:25.4C" placeholder="Text or Hex like 01 03 00 00">
+                </label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+                  <label class="field-label" style="font-size:11px">Input Encoding
+                    <select id="prog-crc-format">
+                      <option value="ascii" selected>ASCII String</option>
+                      <option value="hex">Hex Bytes (e.g. 01 03 00)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Algorithm
+                    <select id="prog-crc-algo">
+                      <option value="crc16_modbus" selected>CRC-16 Modbus (Poly 0x8005)</option>
+                      <option value="crc16_ccitt">CRC-16 CCITT / XMODEM (0x1021)</option>
+                      <option value="crc8_dallas">CRC-8 Dallas 1-Wire (Poly 0x31)</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="prog-crc-result" style="margin-top:10px"></div>
               </div>
 
             </div>
@@ -1629,6 +1751,22 @@
                   </label>
                 </div>
                 <div class="tool-result-box" id="art-print-dpi-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 👁️ Color Vision Deficiency (CVD) Simulator -->
+              <div class="panel">
+                <div class="eyebrow">INCLUSIVE ACCESSIBILITY DESIGN</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+                  <h3 style="font-size:16px;margin:0">👁️ Color Vision Deficiency (CVD) Preview</h3>
+                  <select id="art-cvd-type" style="font-size:11px;padding:3px 6px">
+                    <option value="protanopia" selected>Protanopia (Red-Blind · ~1% males)</option>
+                    <option value="deuteranopia">Deuteranopia (Green-Blind · ~5% males)</option>
+                    <option value="tritanopia">Tritanopia (Blue-Blind · Rare)</option>
+                    <option value="achromatopsia">Achromatopsia (Monochrome / Grayscale)</option>
+                  </select>
+                </div>
+                <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Live simulation of your active 5-swatch palette under various color vision conditions.</p>
+                <div id="art-cvd-preview-wrap"></div>
               </div>
             </div>
           </section>
