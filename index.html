@@ -497,6 +497,7 @@
                 <p>Compose chord progressions, program 16-step drum grooves, synthesize notes, and jam with synchronized beats.</p>
               </div>
               <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="export-groove-wav" title="Download 4-bar groove loop as 16-bit WAV file">💾 Export Audio (.wav)</button>
                 <button type="button" class="button button-outline" data-action="copy-chord-progression">📋 Copy Progression</button>
                 <button type="button" class="button button-outline" data-action="stop-music-groove">⏹ Stop</button>
                 <button type="button" class="button button-primary" data-action="play-both-groove" id="music-view-play-both-btn">▶ Play Both (Chords &amp; Drums)</button>
@@ -506,6 +507,23 @@
             <!-- Master Groove & Transport Deck -->
             <div class="music-studio-deck">
               <div class="music-deck-row" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <!-- Instrument & Swing Controls -->
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <label for="music-main-instrument" style="font-size:12px;font-weight:700;color:var(--muted)">SOUND:</label>
+                    <select id="music-main-instrument" style="padding:4px 8px;font-size:12px;font-weight:700">
+                      <option value="rhodes" selected>🎹 E-Piano (Rhodes)</option>
+                      <option value="pad">🌊 Warm Analog Pad</option>
+                      <option value="chiptune">👾 8-Bit Chiptune</option>
+                      <option value="organ">⛪ Cathedral Organ</option>
+                    </select>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <label for="music-main-swing" style="font-size:12px;font-weight:700;color:var(--muted)">SWING:</label>
+                    <input type="range" id="music-main-swing" min="0" max="66" value="0" style="width:70px;accent-color:var(--green)">
+                    <span id="music-main-swing-lbl" style="font-size:11px;font-weight:700;color:var(--muted);width:28px">0%</span>
+                  </div>
+                </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                   <button type="button" class="button button-primary music-transport-play-btn" data-action="play-both-groove" id="music-btn-play-both" style="min-width:130px">
                     ▶ Play Both
@@ -971,8 +989,10 @@
         <button type="button" class="tool-tab-btn" data-tool-tab="yarn">🧶 Fiber Arts &amp; Yarn</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="electronics">⚡ Electronics &amp; Circuits</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="art">🎨 Art &amp; Color Studio</button>
-        <button type="button" class="tool-tab-btn" data-tool-tab="music">🎵 Music &amp; Audio Studio</button>
-        <button type="button" class="tool-tab-btn" data-tool-tab="chords">🎹 Chords &amp; Drum Machine</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="music">🎵 Music Tools</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="pixelart">🧵 Pixel &amp; Stitch Studio</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="papercraft">📦 Papercraft &amp; Packaging</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="fabrication">🖨️ 3D Print &amp; Laser</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -1671,101 +1691,177 @@
       </div>
 
       <!-- Tab 14: Chord Progressions & Drum Machine Studio -->
-      <div class="tool-tab-panel" id="tool-panel-chords" style="display:none">
-        <p class="form-hint" style="margin-bottom:12px">Build, audition, and loop custom chord progressions paired with a synchronized 16-step drum machine beat.</p>
+            <!-- Tab 14: 🧵 Pixel & Stitch Pattern Studio -->
+      <div class="tool-tab-panel" id="tool-panel-pixelart" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Interactive pixel art, cross-stitch, tapestry crochet, and colorwork knitting pattern chart designer.</p>
 
-        <!-- Master Transport & Settings -->
-        <div class="chord-transport-bar" style="margin-bottom:14px">
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button type="button" class="button button-primary" data-action="toggle-chord-playback" id="tool-chord-play-btn" style="min-width:120px">
-              ▶ Play Groove
-            </button>
-            <button type="button" class="button button-outline" data-action="stop-chord-playback">
-              ⏹ Stop
-            </button>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;background:var(--surface-subtle);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+          <!-- Tools & Palette -->
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">TOOL:</span>
+            <button type="button" class="button button-small button-primary stitch-tool-btn" data-action="set-stitch-tool" data-tool="pencil" id="stitch-tool-pencil">✏️ Paint</button>
+            <button type="button" class="button button-small button-outline stitch-tool-btn" data-action="set-stitch-tool" data-tool="fill" id="stitch-tool-fill">🪣 Fill</button>
+            <button type="button" class="button button-small button-outline stitch-tool-btn" data-action="set-stitch-tool" data-tool="eraser" id="stitch-tool-eraser">🧹 Erase</button>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <div style="display:flex;align-items:center;gap:6px">
-              <label for="tool-chords-bpm" style="font-size:12px;font-weight:700;color:var(--muted)">TEMPO:</label>
-              <input type="number" id="tool-chords-bpm" min="50" max="220" value="105" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700">
-              <span style="font-size:11px;color:var(--muted)">BPM</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <label for="tool-chords-preset" style="font-size:12px;font-weight:700;color:var(--muted)">PRESET:</label>
-              <select id="tool-chords-preset" style="font-size:12px;padding:4px 8px">
-                <option value="pop" selected>Pop 4-Chord (I – V – vi – IV)</option>
-                <option value="ballad">Emotional Sad (vi – IV – I – V)</option>
-                <option value="doowop">50s Doo-Wop (I – vi – IV – V)</option>
-                <option value="jazz">Jazz Turnaround (ii – V – I – vi)</option>
-                <option value="rock">Classic Rock (I – IV – V – IV)</option>
-                <option value="flamenco">Andalusian Descent (i – VII – VI – V)</option>
-                <option value="rnb">Neo-Soul / R&amp;B (IV – iii – vi – I)</option>
-                <option value="custom">Custom Progression</option>
+              <label for="stitch-preset-select" style="font-size:11px;font-weight:700;color:var(--muted)">PRESET:</label>
+              <select id="stitch-preset-select" style="font-size:12px;padding:3px 6px">
+                <option value="custom">Custom Pattern</option>
+                <option value="heart" selected>❤️ Heart</option>
+                <option value="star">⭐ Nordic Star</option>
+                <option value="snowflake">❄️ Snowflake</option>
+                <option value="flower">🌸 Garden Flower</option>
+                <option value="invader">👾 Retro Space Invader</option>
+                <option value="diamond">💎 Argyle Diamond</option>
               </select>
             </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <label for="tool-chords-key" style="font-size:12px;font-weight:700;color:var(--muted)">KEY:</label>
-              <select id="tool-chords-key" style="font-size:12px;padding:4px 8px">
-                <option value="C" selected>C Major</option>
-                <option value="G">G Major</option>
-                <option value="D">D Major</option>
-                <option value="A">A Major</option>
-                <option value="F">F Major</option>
-                <option value="Am">A Minor</option>
-                <option value="Em">E Minor</option>
-                <option value="Dm">D Minor</option>
-              </select>
-            </div>
+            <button type="button" class="button button-small button-outline" data-action="clear-stitch-grid">Clear</button>
           </div>
         </div>
 
-        <!-- Chord Progression Slots -->
-        <div class="tools-quick-chart" style="margin-bottom:14px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div class="tools-chart-title">🎹 4-Bar Chord Progression</div>
-            <div style="font-size:11px;color:var(--muted)">Click a chord card to audition it · Plays 1 bar each</div>
-          </div>
-          <div class="chord-slots-grid" id="tool-chord-slots-container">
+        <!-- Color Palette Swatches -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <span style="font-size:11px;font-weight:700;color:var(--muted)">YARN / FLOSS:</span>
+          <div class="stitch-palette-wrap" id="stitch-palette-wrap" style="display:flex;gap:6px;align-items:center">
             <!-- Populated dynamically -->
           </div>
-          <!-- Quick Diatonic Chord Picker for Active Slot -->
-          <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">
-              QUICK SWAP CHORDS IN KEY (<span id="tool-chords-active-slot-lbl">Slot 1</span>):
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;margin-left:4px">
+            Custom:
+            <input type="color" id="stitch-custom-color" value="#ef4444" style="width:28px;height:24px;border:none;cursor:pointer;padding:0;background:none">
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-left:auto;cursor:pointer">
+            <input type="checkbox" id="stitch-show-symbols" style="accent-color:var(--green)">
+            Show Stitch Symbols (X / V)
+          </label>
+        </div>
+
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start">
+          <!-- Pixel Canvas Grid -->
+          <div class="stitch-canvas-container" style="overflow:auto;max-width:100%">
+            <div class="stitch-grid-board" id="stitch-grid-board">
+              <!-- 16x16 cells rendered dynamically -->
             </div>
-            <div class="diatonic-chords-wrap" id="tool-diatonic-chords-wrap">
+          </div>
+
+          <!-- Live Row-by-Row Written Pattern -->
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <strong style="font-size:12px;color:var(--ink)">🧶 Row-by-Row Stitch Instructions:</strong>
+              <button type="button" class="button button-small button-outline" data-action="copy-stitch-instructions">📋 Copy Pattern</button>
+            </div>
+            <pre class="stitch-instructions-box" id="stitch-instructions-box" style="margin:0;font-family:monospace;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;max-height:300px;overflow-y:auto;white-space:pre-wrap;line-height:1.4"></pre>
+            <div style="font-size:10px;color:var(--muted)">
+              Tip: Click or drag on the grid to draw. Click 'Copy Pattern' for written crochet/knitting lines!
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 15: 📦 Papercraft, Origami & Custom Box Packaging Studio -->
+      <div class="tool-tab-panel" id="tool-panel-papercraft" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Paper weight GSM to pound conversions and custom box/tray flat net layout dimension calculator.</p>
+
+        <!-- Paper Weight / Caliper Converter -->
+        <div class="tools-quick-chart" style="margin-bottom:14px">
+          <div class="tools-chart-title">⚖️ Paper &amp; Cardstock Weight Converter</div>
+          <div class="tool-calc-grid">
+            <label class="field-label">Grams per Sq Meter (GSM / gsm)
+              <input type="number" step="any" id="tool-paper-gsm" value="120" placeholder="e.g. 120">
+            </label>
+            <label class="field-label">Text / Book Weight (lb)
+              <input type="number" step="any" id="tool-paper-text-lb" value="81" placeholder="e.g. 80">
+            </label>
+            <label class="field-label">Cover / Cardstock (lb)
+              <input type="number" step="any" id="tool-paper-cover-lb" value="44" placeholder="e.g. 65">
+            </label>
+            <label class="field-label">Caliper / Thickness (points / pt)
+              <input type="number" step="any" id="tool-paper-pt" value="6.5" placeholder="e.g. 10">
+            </label>
+          </div>
+          <div class="tool-result-box" id="tool-paper-result" style="margin-top:10px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Custom Box Net Calculator -->
+        <div class="tools-quick-chart">
+          <div class="tools-chart-title">📦 Custom Folding Box &amp; Tray Net Generator</div>
+          <div class="tool-calc-grid">
+            <label class="field-label">Internal Length (in)
+              <input type="number" step="any" id="tool-box-length" value="6" placeholder="6">
+            </label>
+            <label class="field-label">Internal Width (in)
+              <input type="number" step="any" id="tool-box-width" value="4" placeholder="4">
+            </label>
+            <label class="field-label">Box Wall Depth / Height (in)
+              <input type="number" step="any" id="tool-box-depth" value="2" placeholder="2">
+            </label>
+            <label class="field-label">Lid Clearance Allowance (in)
+              <input type="number" step="any" id="tool-box-clearance" value="0.0625" placeholder="0.0625">
+            </label>
+          </div>
+
+          <div id="tool-box-net-result" style="margin-top:12px">
+            <!-- SVG net and dimensions dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 16: 🖨️ 3D Printing Spool Cost & Laser Job Calculator -->
+      <div class="tool-tab-panel" id="tool-panel-fabrication" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Calculate exact filament &amp; energy production costs and reference laser cutting speeds, powers, and kerf offsets.</p>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+          <!-- 3D Print Cost Estimator -->
+          <div class="tools-quick-chart">
+            <div class="tools-chart-title">🖨️ 3D Print Job Cost Estimator</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <label class="field-label" style="font-size:11px">Model Weight (grams)
+                <input type="number" step="any" id="tool-print-weight" value="65" placeholder="e.g. 65">
+              </label>
+              <label class="field-label" style="font-size:11px">Spool Cost ($/kg)
+                <input type="number" step="any" id="tool-print-spool-cost" value="22" placeholder="e.g. 22">
+              </label>
+              <label class="field-label" style="font-size:11px">Print Time (hours)
+                <input type="number" step="any" id="tool-print-hours" value="3.5" placeholder="e.g. 3.5">
+              </label>
+              <label class="field-label" style="font-size:11px">Printer Power (Watts)
+                <input type="number" step="any" id="tool-print-watts" value="120" placeholder="e.g. 120">
+              </label>
+            </div>
+            <div class="tool-result-box" id="tool-print-result" style="margin-top:10px">
               <!-- Populated dynamically -->
             </div>
           </div>
-        </div>
 
-        <!-- 16-Step Drum Machine Sequencer -->
-        <div class="tools-quick-chart">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-            <div>
-              <div class="tools-chart-title">🥁 16-Step Drum Machine Sequencer</div>
-              <div style="font-size:11px;color:var(--muted)">Click steps to toggle hits · Synced to progression loop</div>
-            </div>
-            <div style="display:flex;gap:6px;align-items:center">
-              <label for="tool-drum-preset" style="font-size:11px;font-weight:700;color:var(--muted)">BEAT PRESET:</label>
-              <select id="tool-drum-preset" style="font-size:11px;padding:3px 6px">
-                <option value="rock" selected>Pop / Rock 2 &amp; 4</option>
-                <option value="fourfloor">Four-on-the-Floor (House/Dance)</option>
-                <option value="boombap">Hip-Hop Boom Bap</option>
-                <option value="trap">Trap Half-Time Beat</option>
-                <option value="lofi">Lo-Fi Chill Groove</option>
-                <option value="clear">Clear All Steps</option>
+          <!-- Laser Cutting & Kerf Guide -->
+          <div class="tools-quick-chart">
+            <div class="tools-chart-title">⚡ Laser Material &amp; Kerf Offset Guide</div>
+            <label class="field-label" style="font-size:11px">Material
+              <select id="tool-laser-material">
+                <option value="plywood" selected>1/8" (3mm) Baltic Birch Plywood</option>
+                <option value="acrylic">1/8" (3mm) Cast Acrylic</option>
+                <option value="leather">2mm Veg-Tan Leather</option>
+                <option value="cardboard">Single-Wall Corrugated Cardboard</option>
+                <option value="mdf">1/4" (6mm) MDF Draftboard</option>
               </select>
+            </label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+              <label class="field-label" style="font-size:11px">Laser Beam Spot (mm)
+                <input type="number" step="any" id="tool-laser-spot" value="0.15" placeholder="0.15">
+              </label>
+              <label class="field-label" style="font-size:11px">Laser Wattage Class
+                <select id="tool-laser-watts">
+                  <option value="diode">10W - 20W Diode</option>
+                  <option value="co2" selected>40W - 60W CO2</option>
+                  <option value="high">80W - 100W+ CO2</option>
+                </select>
+              </label>
             </div>
-          </div>
-
-          <!-- Sequencer Grid -->
-          <div class="sequencer-grid-wrap" id="tool-sequencer-grid">
-            <!-- Populated dynamically -->
-          </div>
-
-          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-            <button type="button" class="button button-small button-outline" data-action="copy-chord-progression">📋 Copy Progression Details</button>
-            <div style="font-size:11px;color:var(--muted)">
-              Tip: Loop plays continuously while tweaking chords or drum patterns in real time!
+            <div class="tool-result-box" id="tool-laser-result" style="margin-top:10px">
+              <!-- Populated dynamically -->
             </div>
           </div>
         </div>

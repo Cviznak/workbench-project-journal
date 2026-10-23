@@ -4363,7 +4363,9 @@ function switchToolTab(tab) {
   if (tab === "electronics") { updateLedCalc(); updateResistorColorCode(); }
   if (tab === "art") { updateArtPalette(); updateGoldenRatioCalc(); }
   if (tab === "music") { updateMusicTiming(); updateMusicNoteView(); updateMusicStretchCalc(); }
-  if (tab === "chords") { initChordStudio(); }
+  if (tab === "pixelart") updatePixelArtView();
+  if (tab === "papercraft") updatePapercraftView();
+  if (tab === "fabrication") updateFabricationView();
 }
 
 function parseFraction(str) {
@@ -9124,6 +9126,46 @@ async function handleAction(action, target) {
     tapTempo();
     return;
   }
+  if (action === "open-full-music-studio") {
+    $("#tools-dialog")?.close();
+    switchView("music");
+    return;
+  }
+  if (action === "export-groove-wav") {
+    void exportGrooveWav();
+    return;
+  }
+  if (action === "select-stitch-color") {
+    stitchStudioState.activeColor = target.dataset.color || "#ef4444";
+    renderStitchPalette();
+    return;
+  }
+  if (action === "set-stitch-tool") {
+    stitchStudioState.activeTool = target.dataset.tool || "pencil";
+    $(".stitch-tool-btn").forEach(b => {
+      b.classList.toggle("button-primary", b.dataset.tool === target.dataset.tool);
+      b.classList.toggle("button-outline", b.dataset.tool !== target.dataset.tool);
+    });
+    return;
+  }
+  if (action === "clear-stitch-grid") {
+    stitchStudioState.grid = Array.from({ length: 16 * 16 }, () => "#ffffff");
+    renderStitchGrid();
+    return;
+  }
+  if (action === "paint-stitch-cell") {
+    const idx = parseInt(target.dataset.index, 10);
+    applyStitchTool(idx);
+    return;
+  }
+  if (action === "copy-stitch-instructions") {
+    const box = $("#stitch-instructions-box");
+    if (box) {
+      void navigator.clipboard.writeText(box.textContent);
+      showToast("Copied stitch pattern instructions to clipboard!");
+    }
+    return;
+  }
   if (action === "play-both-groove") {
     if (musicPlaybackState.isPlaying && musicPlaybackState.playMode === "both") {
       stopMusicGroove();
@@ -10437,6 +10479,58 @@ $("#music-main-drum-preset")?.addEventListener("change", (e) => {
 });
 $("#music-view-note")?.addEventListener("change", updateMusicViewNoteResult);
 $("#music-view-tuning")?.addEventListener("change", updateMusicViewNoteResult);
+
+// 🧵 Pixel & Stitch Studio listeners
+$("#stitch-preset-select")?.addEventListener("change", (e) => {
+  loadStitchPreset(e.target.value);
+});
+$("#stitch-custom-color")?.addEventListener("input", (e) => {
+  stitchStudioState.activeColor = e.target.value;
+  renderStitchPalette();
+});
+$("#stitch-show-symbols")?.addEventListener("change", renderStitchGrid);
+
+// Pixel Art Board Drag-Draw listener
+const stitchBoard = $("#stitch-grid-board");
+if (stitchBoard) {
+  stitchBoard.addEventListener("mousedown", (e) => {
+    stitchStudioState.isMouseDown = true;
+    const cell = e.target.closest(".stitch-grid-cell");
+    if (cell) applyStitchTool(parseInt(cell.dataset.index, 10));
+  });
+  window.addEventListener("mouseup", () => {
+    stitchStudioState.isMouseDown = false;
+  });
+  stitchBoard.addEventListener("mouseover", (e) => {
+    if (!stitchStudioState.isMouseDown) return;
+    const cell = e.target.closest(".stitch-grid-cell");
+    if (cell && stitchStudioState.activeTool !== "fill") {
+      applyStitchTool(parseInt(cell.dataset.index, 10));
+    }
+  });
+}
+
+// 📦 Papercraft & Packaging listeners
+$("#tool-paper-gsm")?.addEventListener("input", updatePapercraftView);
+$("#tool-box-length")?.addEventListener("input", updatePapercraftView);
+$("#tool-box-width")?.addEventListener("input", updatePapercraftView);
+$("#tool-box-depth")?.addEventListener("input", updatePapercraftView);
+$("#tool-box-clearance")?.addEventListener("input", updatePapercraftView);
+
+// 🖨️ 3D Print & Laser Job listeners
+$("#tool-print-weight")?.addEventListener("input", updateFabricationView);
+$("#tool-print-spool-cost")?.addEventListener("input", updateFabricationView);
+$("#tool-print-hours")?.addEventListener("input", updateFabricationView);
+$("#tool-print-watts")?.addEventListener("input", updateFabricationView);
+$("#tool-laser-material")?.addEventListener("change", updateFabricationView);
+$("#tool-laser-spot")?.addEventListener("input", updateFabricationView);
+$("#tool-laser-watts")?.addEventListener("change", updateFabricationView);
+
+// Swing Slider listener
+$("#music-main-swing")?.addEventListener("input", (e) => {
+  const lbl = $("#music-main-swing-lbl");
+  if (lbl) lbl.textContent = `${e.target.value}%`;
+});
 
 // Jam keyboard shortcuts (1, 2, 3, 4 for Kick, Snare, Hat, Clap; Space for Play Both)
 window.addEventListener("keydown", (e) => {
@@ -12624,10 +12718,420 @@ function updateMusicStretchCalc() {
   `;
 }
 
+
+/* ============================================================
+   🧵 Pixel Art & Stitch Pattern Studio
+   ============================================================ */
+const STITCH_PALETTE = [
+  { name: "Charcoal", hex: "#1e293b" },
+  { name: "Pure White", hex: "#ffffff" },
+  { name: "Crimson Red", hex: "#ef4444" },
+  { name: "Golden Amber", hex: "#f59e0b" },
+  { name: "Forest Green", hex: "#10b981" },
+  { name: "Ocean Blue", hex: "#0284c7" },
+  { name: "Violet Purple", hex: "#8b5cf6" },
+  { name: "Dusty Rose", hex: "#f43f5e" }
+];
+
+const stitchStudioState = {
+  activeColor: "#ef4444",
+  activeTool: "pencil",
+  grid: Array.from({ length: 16 * 16 }, () => "#ffffff"),
+  isMouseDown: false
+};
+
+const STITCH_PRESETS = {
+  heart: [
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,
+    0,0,1,1,1,1,1,0,1,1,1,1,1,0,0,0,
+    0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+    0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+    0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,
+    0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,
+    0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,
+    0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  ],
+  star: [
+    0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,1,0,1,1,0,1,0,0,0,0,0,
+    0,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0,
+    0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,0,
+    0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,0,
+    0,1,1,0,0,1,1,1,1,1,1,0,0,1,1,0,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    0,1,1,0,0,1,1,1,1,1,1,0,0,1,1,0,
+    0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,0,
+    0,0,1,1,0,0,0,1,1,0,0,0,1,1,0,0,
+    0,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0,
+    0,0,0,0,0,1,0,1,1,0,1,0,0,0,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0
+  ],
+  snowflake: [
+    0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,
+    0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,
+    0,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,
+    0,0,0,1,0,0,0,1,1,0,0,0,1,0,0,0,
+    0,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,
+    0,1,0,0,0,1,1,1,1,1,1,0,0,0,1,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,1,0,0,0,1,1,1,1,1,1,0,0,0,1,0,
+    0,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,
+    0,0,0,1,0,0,0,1,1,0,0,0,1,0,0,0,
+    0,0,1,0,1,0,0,1,1,0,0,1,0,1,0,0,
+    0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,
+    0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0
+  ],
+  invader: [
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,
+    0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,
+    0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,
+    0,0,0,0,1,1,0,1,1,0,1,1,0,0,0,0,
+    0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,
+    0,0,0,1,0,1,1,1,1,1,1,0,1,0,0,0,
+    0,0,0,1,0,1,0,0,0,0,1,0,1,0,0,0,
+    0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,
+    0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  ]
+};
+
+function renderStitchPalette() {
+  const wrap = $("#stitch-palette-wrap");
+  if (!wrap) return;
+  wrap.innerHTML = STITCH_PALETTE.map(c => `
+    <button type="button" class="stitch-palette-swatch ${c.hex.toLowerCase() === stitchStudioState.activeColor.toLowerCase() ? "active" : ""}" 
+      data-action="select-stitch-color" 
+      data-color="${c.hex}" 
+      style="background:${c.hex}" 
+      title="${c.name} (${c.hex})"></button>
+  `).join("");
+}
+
+function renderStitchGrid() {
+  const board = $("#stitch-grid-board");
+  if (!board) return;
+  const showSymbols = $("#stitch-show-symbols")?.checked;
+  board.innerHTML = stitchStudioState.grid.map((color, idx) => {
+    const isDark = color !== "#ffffff";
+    const symbol = showSymbols && isDark ? "×" : "";
+    return `
+      <div class="stitch-grid-cell" 
+        data-action="paint-stitch-cell" 
+        data-index="${idx}" 
+        style="background:${color};color:${color === '#ffffff' || color === '#f59e0b' ? '#0f172a' : '#ffffff'}">
+        ${symbol}
+      </div>
+    `;
+  }).join("");
+  updateStitchInstructions();
+}
+
+function applyStitchTool(idx) {
+  if (idx < 0 || idx >= stitchStudioState.grid.length) return;
+  const tool = stitchStudioState.activeTool;
+  if (tool === "eraser") {
+    stitchStudioState.grid[idx] = "#ffffff";
+  } else if (tool === "pencil") {
+    stitchStudioState.grid[idx] = stitchStudioState.activeColor;
+  } else if (tool === "fill") {
+    const targetColor = stitchStudioState.grid[idx];
+    const fillColor = stitchStudioState.activeColor;
+    if (targetColor === fillColor) return;
+    const queue = [idx];
+    const visited = new Set();
+    while (queue.length > 0) {
+      const curr = queue.pop();
+      if (visited.has(curr)) continue;
+      visited.add(curr);
+      if (stitchStudioState.grid[curr] === targetColor) {
+        stitchStudioState.grid[curr] = fillColor;
+        const r = Math.floor(curr / 16);
+        const c = curr % 16;
+        if (r > 0) queue.push((r - 1) * 16 + c);
+        if (r < 15) queue.push((r + 1) * 16 + c);
+        if (c > 0) queue.push(r * 16 + (c - 1));
+        if (c < 15) queue.push(r * 16 + (c + 1));
+      }
+    }
+  }
+  renderStitchGrid();
+}
+
+function updateStitchInstructions() {
+  const box = $("#stitch-instructions-box");
+  if (!box) return;
+  const lines = [];
+  for (let r = 0; r < 16; r++) {
+    const rowCells = stitchStudioState.grid.slice(r * 16, (r + 1) * 16);
+    const groups = [];
+    let curColor = rowCells[0];
+    let curCount = 1;
+    for (let c = 1; c < 16; c++) {
+      if (rowCells[c] === curColor) {
+        curCount++;
+      } else {
+        const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || curColor;
+        groups.push(`${curCount} ${name}`);
+        curColor = rowCells[c];
+        curCount = 1;
+      }
+    }
+    const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || curColor;
+    groups.push(`${curCount} ${name}`);
+    lines.push(`Row ${r + 1}: ${groups.join(", ")}`);
+  }
+  box.textContent = lines.join("\n");
+}
+
+function loadStitchPreset(presetKey) {
+  const p = STITCH_PRESETS[presetKey];
+  if (!p) return;
+  const color = stitchStudioState.activeColor;
+  stitchStudioState.grid = p.map(val => val === 1 ? color : "#ffffff");
+  renderStitchGrid();
+}
+
+function updatePixelArtView() {
+  renderStitchPalette();
+  renderStitchGrid();
+}
+
+/* ============================================================
+   📦 Papercraft & Packaging Studio
+   ============================================================ */
+function updatePapercraftView() {
+  const gsmInput = $("#tool-paper-gsm");
+  const gsm = parseFloat(gsmInput?.value) || 120;
+
+  const textLb = (gsm / 1.48).toFixed(1);
+  const coverLb = (gsm / 2.707).toFixed(1);
+  const pt = (gsm * 0.054).toFixed(1);
+  const mm = (pt * 0.0254).toFixed(3);
+
+  const paperResult = $("#tool-paper-result");
+  if (paperResult) {
+    paperResult.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">
+        Paper Weight Conversions for <strong>${gsm} GSM</strong>:
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted)">TEXT / BOOK WEIGHT</div>
+          <div style="font-size:18px;font-weight:800;color:var(--green)">${textLb} lb</div>
+          <div style="font-size:10px;color:var(--muted)">Brochures, flyleaves, flyers</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted)">COVER / CARDSTOCK</div>
+          <div style="font-size:18px;font-weight:800;color:#0284c7">${coverLb} lb</div>
+          <div style="font-size:10px;color:var(--muted)">Postcards, packaging, covers</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px">
+          <div style="font-size:10px;font-weight:700;color:var(--muted)">CALIPER THICKNESS</div>
+          <div style="font-size:18px;font-weight:800;color:var(--ink)">${pt} pt (${mm} mm)</div>
+          <div style="font-size:10px;color:var(--muted)">Estimated bulk caliper</div>
+        </div>
+      </div>
+    `;
+  }
+
+  const L = parseFloat($("#tool-box-length")?.value) || 6;
+  const W = parseFloat($("#tool-box-width")?.value) || 4;
+  const D = parseFloat($("#tool-box-depth")?.value) || 2;
+  const clearance = parseFloat($("#tool-box-clearance")?.value) || 0.0625;
+
+  const totalLength = L + 2 * D;
+  const totalWidth = W + 2 * D;
+
+  const lidL = L + clearance;
+  const lidW = W + clearance;
+  const lidD = D * 0.6;
+  const totalLidLength = (lidL + 2 * lidD).toFixed(2);
+  const totalLidWidth = (lidW + 2 * lidD).toFixed(2);
+
+  const boxResult = $("#tool-box-net-result");
+  if (boxResult) {
+    boxResult.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;margin-bottom:12px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted)">BASE TRAY BLANK SHEET</div>
+          <div style="font-size:20px;font-weight:800;color:var(--green)">${totalLength.toFixed(2)}" × ${totalWidth.toFixed(2)}"</div>
+          <div style="font-size:11px;color:var(--muted)">Score lines inset by ${D}" on all 4 borders</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted)">LID BLANK SHEET</div>
+          <div style="font-size:20px;font-weight:800;color:#0284c7">${totalLidLength}" × ${totalLidWidth}"</div>
+          <div style="font-size:11px;color:var(--muted)">Lid height: ${lidD.toFixed(2)}" · +${clearance}" slip fit</div>
+        </div>
+      </div>
+      <div style="text-align:center">
+        <svg viewBox="0 0 400 280" class="box-net-svg">
+          <rect x="50" y="30" width="300" height="220" fill="none" stroke="#0284c7" stroke-width="2"/>
+          <rect x="110" y="70" width="180" height="140" fill="rgba(34,197,94,0.08)" stroke="#22c55e" stroke-width="2" stroke-dasharray="6,4"/>
+          <line x1="110" y1="30" x2="110" y2="70" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <line x1="290" y1="30" x2="290" y2="70" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <line x1="110" y1="210" x2="110" y2="250" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <line x1="290" y1="210" x2="290" y2="250" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <text x="200" y="145" text-anchor="middle" font-size="12" font-weight="bold" fill="var(--ink)">Base Tray (${L}" × ${W}")</text>
+          <text x="200" y="55" text-anchor="middle" font-size="10" fill="var(--muted)">Depth ${D}"</text>
+          <text x="200" y="235" text-anchor="middle" font-size="10" fill="var(--muted)">Depth ${D}"</text>
+          <text x="75" y="145" text-anchor="middle" font-size="10" fill="var(--muted)">${D}"</text>
+          <text x="325" y="145" text-anchor="middle" font-size="10" fill="var(--muted)">${D}"</text>
+        </svg>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">
+          Legend: <span style="color:#0284c7">― Outer Cut</span> · <span style="color:#22c55e">--- Score / Crease</span> · <span style="color:#ef4444">··· Corner Notch</span>
+        </div>
+      </div>
+    `;
+  }
+}
+
+/* ============================================================
+   🖨️ 3D Printing & Laser Fabrication Studio
+   ============================================================ */
+const LASER_DATABASE = {
+  plywood: { name: "1/8\" Baltic Birch Plywood", power: "65%", speed: "18 mm/s", passes: 1, air: "High Air Assist" },
+  acrylic: { name: "1/8\" Cast Acrylic", power: "75%", speed: "12 mm/s", passes: 1, air: "Gentle Air (avoid frosting)" },
+  leather: { name: "2mm Veg-Tan Leather", power: "45%", speed: "24 mm/s", passes: 1, air: "Medium Air Assist" },
+  cardboard: { name: "Corrugated Cardboard", power: "30%", speed: "35 mm/s", passes: 1, air: "High Air Assist (fire watch)" },
+  mdf: { name: "1/4\" MDF Draftboard", power: "90%", speed: "8 mm/s", passes: 2, air: "High Air Assist" }
+};
+
+function updateFabricationView() {
+  const grams = parseFloat($("#tool-print-weight")?.value) || 65;
+  const spoolCost = parseFloat($("#tool-print-spool-cost")?.value) || 22;
+  const hours = parseFloat($("#tool-print-hours")?.value) || 3.5;
+  const watts = parseFloat($("#tool-print-watts")?.value) || 120;
+  const kwhRate = 0.16;
+
+  const materialCost = (grams / 1000) * spoolCost;
+  const electricityKwh = (watts * hours) / 1000;
+  const electricityCost = electricityKwh * kwhRate;
+  const totalCost = materialCost + electricityCost;
+
+  const printResult = $("#tool-print-result");
+  if (printResult) {
+    printResult.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">
+        Production Cost: <span style="font-size:18px;font-weight:900;color:var(--green)">${totalCost.toFixed(2)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px">
+          <div style="font-size:10px;color:var(--muted)">PLASTIC MATERIAL</div>
+          <div style="font-size:14px;font-weight:800;color:var(--ink)">${materialCost.toFixed(2)}</div>
+          <div style="font-size:10px;color:var(--muted)">${grams}g @ ${spoolCost}/kg</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px">
+          <div style="font-size:10px;color:var(--muted)">ELECTRIC POWER</div>
+          <div style="font-size:14px;font-weight:800;color:#0284c7">${electricityCost.toFixed(2)}</div>
+          <div style="font-size:10px;color:var(--muted)">${electricityKwh.toFixed(2)} kWh consumed</div>
+        </div>
+      </div>
+    `;
+  }
+
+  const matKey = $("#tool-laser-material")?.value || "plywood";
+  const laserInfo = LASER_DATABASE[matKey] || LASER_DATABASE.plywood;
+  const spot = parseFloat($("#tool-laser-spot")?.value) || 0.15;
+  const kerfRadius = spot / 2;
+
+  const laserResult = $("#tool-laser-result");
+  if (laserResult) {
+    laserResult.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">
+        Parameters for <strong>${laserInfo.name}</strong>:
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px">
+          <div style="font-size:10px;color:var(--muted)">CUT POWER / SPEED</div>
+          <div style="font-size:14px;font-weight:800;color:var(--green)">${laserInfo.power} · ${laserInfo.speed}</div>
+          <div style="font-size:10px;color:var(--muted)">Passes: ${laserInfo.passes}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px">
+          <div style="font-size:10px;color:var(--muted)">KERF OFFSET COMP</div>
+          <div style="font-size:14px;font-weight:800;color:#0284c7">+${kerfRadius.toFixed(3)} mm</div>
+          <div style="font-size:10px;color:var(--muted)">Spot dia: ${spot} mm</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">
+        💨 <strong>Assist:</strong> ${laserInfo.air} · To maintain press fit tab joints, expand outside geometry by +${kerfRadius.toFixed(3)}mm and shrink holes by -${kerfRadius.toFixed(3)}mm.
+      </div>
+    `;
+  }
+}
+
 /* ============================================================
    🔊 Web Audio Engine & Pitch Synthesis
    ============================================================ */
 let musicAudioCtx = null;
+
+
+function createWavBlobBuffer(audioBuffer) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  const numSamples = audioBuffer.length;
+  const dataByteCount = numSamples * blockAlign;
+  const buffer = new ArrayBuffer(44 + dataByteCount);
+  const view = new DataView(buffer);
+
+  function writeString(offset, string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataByteCount, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, format, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(36, "data");
+  view.setUint32(40, dataByteCount, true);
+
+  let offset = 44;
+  const channels = [];
+  for (let c = 0; c < numChannels; c++) {
+    channels.push(audioBuffer.getChannelData(c));
+  }
+  for (let i = 0; i < numSamples; i++) {
+    for (let c = 0; c < numChannels; c++) {
+      const sample = Math.max(-1, Math.min(1, channels[c][i]));
+      const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+      view.setInt16(offset, intSample, true);
+      offset += 2;
+    }
+  }
+  return buffer;
+}
 
 function getMusicAudioCtx() {
   if (!musicAudioCtx) {
@@ -13017,6 +13521,159 @@ function hitLiveDrumPad(drum) {
     pad.classList.add("hit");
     setTimeout(() => pad.classList.remove("hit"), 140);
   });
+}
+
+
+async function exportGrooveWav() {
+  const AudioContextClass = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!AudioContextClass) {
+    showToast("Audio export not supported in this browser.");
+    return;
+  }
+
+  const bpm = chordStudioState.bpm || musicPlaybackState.bpm || 105;
+  const sampleRate = 44100;
+  const stepSec = (60 / bpm) / 4;
+  const totalSteps = chordStudioState.slots.length * 16;
+  const totalDuration = totalSteps * stepSec + 1.2;
+
+  const offlineCtx = new AudioContextClass(2, Math.ceil(totalDuration * sampleRate), sampleRate);
+  showToast("Synthesizing 4-bar groove audio WAV...");
+
+  const swingPct = (parseFloat($("#music-main-swing")?.value) || 0) / 100;
+  const instrument = $("#music-main-instrument")?.value || "rhodes";
+
+  for (let step = 0; step < totalSteps; step++) {
+    const bar = Math.floor(step / 16);
+    const drumStep = step % 16;
+    const isOdd = (step % 2) === 1;
+    const swingOffset = isOdd ? stepSec * swingPct * 0.38 : 0;
+    const stepTime = step * stepSec + swingOffset;
+
+    if (drumStep === 0) {
+      const slot = chordStudioState.slots[bar];
+      if (slot) {
+        const freqs = getChordVoicingFrequencies(slot.chord);
+        const gainPerVoice = 0.28 / freqs.length;
+        const chordDur = Math.min((60 / bpm) * 3.8, 2.4);
+
+        freqs.forEach((freq, idx) => {
+          const osc = offlineCtx.createOscillator();
+          const filter = offlineCtx.createBiquadFilter();
+          const gain = offlineCtx.createGain();
+
+          osc.type = idx === 0 ? "sine" : (instrument === "chiptune" ? "square" : (instrument === "pad" ? "sawtooth" : "triangle"));
+          osc.frequency.setValueAtTime(freq, stepTime);
+          filter.type = "lowpass";
+          filter.frequency.setValueAtTime(instrument === "chiptune" ? 4500 : (idx === 0 ? 300 : 2000), stepTime);
+
+          gain.gain.setValueAtTime(0.0001, stepTime);
+          gain.gain.linearRampToValueAtTime(gainPerVoice, stepTime + 0.03);
+          gain.gain.exponentialRampToValueAtTime(0.001, stepTime + chordDur);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(offlineCtx.destination);
+          osc.start(stepTime);
+          osc.stop(stepTime + chordDur + 0.1);
+        });
+      }
+    }
+
+    if (drumGridState.kick[drumStep]) {
+      const osc = offlineCtx.createOscillator();
+      const gain = offlineCtx.createGain();
+      osc.frequency.setValueAtTime(140, stepTime);
+      osc.frequency.exponentialRampToValueAtTime(42, stepTime + 0.09);
+      gain.gain.setValueAtTime(0.9, stepTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, stepTime + 0.28);
+      osc.connect(gain);
+      gain.connect(offlineCtx.destination);
+      osc.start(stepTime);
+      osc.stop(stepTime + 0.3);
+    }
+
+    if (drumGridState.snare[drumStep]) {
+      const bufLen = Math.floor(sampleRate * 0.2);
+      const noiseBuf = offlineCtx.createBuffer(1, bufLen, sampleRate);
+      const out = noiseBuf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) out[i] = Math.random() * 2 - 1;
+      const whiteNoise = offlineCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuf;
+      const filter = offlineCtx.createBiquadFilter();
+      filter.type = "highpass";
+      filter.frequency.setValueAtTime(900, stepTime);
+      const noiseGain = offlineCtx.createGain();
+      noiseGain.gain.setValueAtTime(0.5, stepTime);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, stepTime + 0.18);
+      whiteNoise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(offlineCtx.destination);
+      whiteNoise.start(stepTime);
+      whiteNoise.stop(stepTime + 0.2);
+    }
+
+    if (drumGridState.hat[drumStep]) {
+      const bufLen = Math.floor(sampleRate * 0.06);
+      const noiseBuf = offlineCtx.createBuffer(1, bufLen, sampleRate);
+      const out = noiseBuf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) out[i] = Math.random() * 2 - 1;
+      const whiteNoise = offlineCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuf;
+      const filter = offlineCtx.createBiquadFilter();
+      filter.type = "highpass";
+      filter.frequency.setValueAtTime(7500, stepTime);
+      const gain = offlineCtx.createGain();
+      gain.gain.setValueAtTime(0.35, stepTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, stepTime + 0.05);
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(offlineCtx.destination);
+      whiteNoise.start(stepTime);
+      whiteNoise.stop(stepTime + 0.06);
+    }
+
+    if (drumGridState.clap[drumStep]) {
+      const bufLen = Math.floor(sampleRate * 0.2);
+      const noiseBuf = offlineCtx.createBuffer(1, bufLen, sampleRate);
+      const out = noiseBuf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) out[i] = Math.random() * 2 - 1;
+      [0, 0.012, 0.024].forEach((delay, bIdx) => {
+        const whiteNoise = offlineCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuf;
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.setValueAtTime(1200, stepTime + delay);
+        filter.Q.setValueAtTime(3, stepTime + delay);
+        const gain = offlineCtx.createGain();
+        gain.gain.setValueAtTime(bIdx === 2 ? 0.6 : 0.35, stepTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, stepTime + delay + 0.12);
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(offlineCtx.destination);
+        whiteNoise.start(stepTime + delay);
+        whiteNoise.stop(stepTime + delay + 0.15);
+      });
+    }
+  }
+
+  try {
+    const renderedBuffer = await offlineCtx.startRendering();
+    const wavData = createWavBlobBuffer(renderedBuffer);
+    const blob = new Blob([wavData], { type: "audio/wav" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `workbench-groove-${chordStudioState.key}-${bpm}bpm.wav`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("💾 Exported workbench-groove.wav!");
+  } catch (err) {
+    console.error("WAV export failed", err);
+    showToast("WAV export encountered an error.");
+  }
 }
 
 function renderChordSlotsUI() {

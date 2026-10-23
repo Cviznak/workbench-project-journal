@@ -6160,3 +6160,61 @@ body.theme-dark .version-tag {
 .live-drum-pad.hit .drum-pad-key {
   color: rgba(255,255,255,0.8);
 }
+
+/* 🧵 Pixel Art & Stitch Pattern Grid */
+.stitch-grid-board {
+  display: grid;
+  grid-template-columns: repeat(16, 20px);
+  grid-template-rows: repeat(16, 20px);
+  gap: 1px;
+  background: #cbd5e1;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  user-select: none;
+  width: max-content;
+}
+.stitch-grid-cell {
+  width: 20px;
+  height: 20px;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  transition: transform .05s ease;
+}
+.stitch-grid-cell:hover {
+  filter: brightness(0.92);
+  transform: scale(1.15);
+  z-index: 2;
+  box-shadow: 0 0 3px rgba(0,0,0,0.3);
+}
+.stitch-palette-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all .12s ease;
+}
+.stitch-palette-swatch:hover {
+  transform: scale(1.2);
+}
+.stitch-palette-swatch.active {
+  border-color: var(--ink);
+  transform: scale(1.25);
+  box-shadow: 0 0 0 2px var(--green);
+}
+
+/* 📦 Box Net SVG Styles */
+.box-net-svg {
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
