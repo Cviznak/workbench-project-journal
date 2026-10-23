@@ -3623,6 +3623,19 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
+
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art"]);
+  $$(".mobile-nav-btn").forEach(btn => {
+    if (btn.dataset.view) {
+      btn.classList.toggle("active", btn.dataset.view === targetView);
+    } else if (btn.dataset.action === "open-mobile-studios-sheet") {
+      btn.classList.toggle("active", studioViews.has(targetView));
+    }
+  });
+
+  // Close mobile navigation drawer if open
+  $(".sidebar")?.classList.remove("open");
+  $("#sidebar-backdrop")?.classList.remove("visible");
   const title = {
     overview: "Overview",
     projects: "Projects",
@@ -4162,6 +4175,12 @@ function updateTimerDisplay() {
     startBtn.textContent = timer.isRunning ? "Pause" : (timer.isStopwatch ? "Start Stopwatch" : "Start Focus");
   }
 
+  // Floating widget sync
+  const floatDisplay = $("#floating-timer-display");
+  if (floatDisplay) floatDisplay.textContent = timeText;
+  const floatPlayBtn = $("#floating-timer-play-btn");
+  if (floatPlayBtn) floatPlayBtn.textContent = timer.isRunning ? "⏸" : "▶";
+
   // Cycle dots
   const dotsContainer = $("#pomodoro-cycle-dots");
   if (dotsContainer) {
@@ -4169,6 +4188,33 @@ function updateTimerDisplay() {
       <span class="pomodoro-dot ${c < timer.cycle ? "filled" : c === timer.cycle ? "filled current" : ""}" title="Cycle ${c}"></span>
     `).join("");
   }
+}
+
+function minimizeTimer() {
+  $("#timer-dialog")?.close();
+  const floatWidget = $("#floating-timer-widget");
+  if (floatWidget) floatWidget.style.display = "flex";
+  try {
+    localStorage.setItem("workbench_timer_minimized", "true");
+  } catch {}
+  showToast("Focus timer minimized to floating widget.");
+}
+
+function restoreTimer() {
+  const floatWidget = $("#floating-timer-widget");
+  if (floatWidget) floatWidget.style.display = "none";
+  try {
+    localStorage.setItem("workbench_timer_minimized", "false");
+  } catch {}
+  openTimerDialog();
+}
+
+function closeFloatingTimer() {
+  const floatWidget = $("#floating-timer-widget");
+  if (floatWidget) floatWidget.style.display = "none";
+  try {
+    localStorage.setItem("workbench_timer_minimized", "false");
+  } catch {}
 }
 
 function setPomodoroMode(mode, minutes) {
@@ -7846,9 +7892,11 @@ async function handleTemplateSubmit(event) {
 }
 
 /* 🪟 Panel Minimization & Window Collapsing */
+const COLLAPSED_PANELS_STORAGE_KEY = "workbench-collapsed-panels";
+
 function isPanelCollapsed(panelId) {
   try {
-    const list = JSON.parse(localStorage.getItem("workbench-collapsed-panels") || "[]");
+    const list = JSON.parse(localStorage.getItem(COLLAPSED_PANELS_STORAGE_KEY) || "[]");
     return Array.isArray(list) && list.includes(panelId);
   } catch {
     return false;
@@ -7857,18 +7905,85 @@ function isPanelCollapsed(panelId) {
 
 function togglePanelCollapse(panelId) {
   try {
-    const list = JSON.parse(localStorage.getItem("workbench-collapsed-panels") || "[]");
+    const list = JSON.parse(localStorage.getItem(COLLAPSED_PANELS_STORAGE_KEY) || "[]");
     const arr = Array.isArray(list) ? list : [];
     const idx = arr.indexOf(panelId);
+    let nowCollapsed = false;
     if (idx >= 0) {
       arr.splice(idx, 1);
+      nowCollapsed = false;
     } else {
       arr.push(panelId);
+      nowCollapsed = true;
     }
-    localStorage.setItem("workbench-collapsed-panels", JSON.stringify(arr));
-    render();
+    localStorage.setItem(COLLAPSED_PANELS_STORAGE_KEY, JSON.stringify(arr));
+
+    const el = document.getElementById(panelId);
+    if (el) {
+      el.classList.toggle("is-collapsed", nowCollapsed);
+      const btn = el.querySelector(`.panel-collapse-btn[data-panel="${panelId}"]`);
+      if (btn) {
+        btn.textContent = nowCollapsed ? "＋ Expand" : "— Minimize";
+        btn.title = nowCollapsed ? "Expand panel" : "Minimize panel";
+      }
+    }
+    if (panelId === "achievements" || panelId === "goals") {
+      render();
+    }
   } catch (e) {
     console.error(e);
+  }
+}
+
+function applyInitialCollapsedPanels() {
+  try {
+    const list = JSON.parse(localStorage.getItem(COLLAPSED_PANELS_STORAGE_KEY) || "[]");
+    if (!Array.isArray(list)) return;
+    list.forEach(panelId => {
+      const el = document.getElementById(panelId);
+      if (el) {
+        el.classList.add("is-collapsed");
+        const btn = el.querySelector(`.panel-collapse-btn[data-panel="${panelId}"]`);
+        if (btn) {
+          btn.textContent = "＋ Expand";
+          btn.title = "Expand panel";
+        }
+      }
+    });
+  } catch {}
+}
+
+/* 📐 Sidebar Minimize / Collapse (Desktop & Tablet) */
+const SIDEBAR_MINIMIZED_KEY = "workbench_sidebar_minimized";
+
+function initSidebarMinimize() {
+  try {
+    const isMin = localStorage.getItem(SIDEBAR_MINIMIZED_KEY) === "true";
+    if (isMin && window.innerWidth > 768) {
+      $(".app-shell")?.classList.add("sidebar-minimized");
+      updateSidebarCollapseBtn(true);
+    }
+  } catch {}
+}
+
+function toggleSidebarMinimize() {
+  const shell = $(".app-shell");
+  if (!shell) return;
+  const isNowMin = shell.classList.toggle("sidebar-minimized");
+  try {
+    localStorage.setItem(SIDEBAR_MINIMIZED_KEY, isNowMin ? "true" : "false");
+  } catch {}
+  updateSidebarCollapseBtn(isNowMin);
+  showToast(isNowMin ? "Sidebar minimized." : "Sidebar expanded.");
+}
+
+function updateSidebarCollapseBtn(isMin) {
+  const btn = $("#sidebar-collapse-toggle-btn");
+  if (btn) {
+    btn.title = isMin ? "Expand sidebar (Ctrl+[)" : "Minimize sidebar (Ctrl+[)";
+    btn.setAttribute("aria-expanded", isMin ? "false" : "true");
+    const icon = btn.querySelector(".sidebar-collapse-icon");
+    if (icon) icon.textContent = isMin ? "⇥" : "⇤";
   }
 }
 
@@ -8788,6 +8903,50 @@ async function handleAction(action, target) {
     if (pid) togglePanelCollapse(pid);
     return;
   }
+  if (action === "toggle-sidebar-minimize") {
+    toggleSidebarMinimize();
+    return;
+  }
+  if (action === "toggle-mobile-sidebar") {
+    const sb = $(".sidebar");
+    const bd = $("#sidebar-backdrop");
+    const isOpen = sb?.classList.toggle("open");
+    bd?.classList.toggle("visible", !!isOpen);
+    return;
+  }
+  if (action === "close-mobile-sidebar") {
+    $(".sidebar")?.classList.remove("open");
+    $("#sidebar-backdrop")?.classList.remove("visible");
+    return;
+  }
+  if (action === "open-mobile-studios-sheet") {
+    $("#mobile-studios-dialog")?.showModal();
+    return;
+  }
+  if (action === "select-mobile-studio") {
+    const view = target.dataset.view || target.closest("[data-view]")?.dataset.view;
+    if (view) {
+      $("#mobile-studios-dialog")?.close();
+      switchView(view);
+    }
+    return;
+  }
+  if (action === "minimize-timer") {
+    minimizeTimer();
+    return;
+  }
+  if (action === "restore-timer") {
+    restoreTimer();
+    return;
+  }
+  if (action === "toggle-floating-timer") {
+    toggleTimer();
+    return;
+  }
+  if (action === "close-floating-timer") {
+    closeFloatingTimer();
+    return;
+  }
   if (action === "auth-forgot-password") {
     const email = $("#signin-email")?.value;
     if (!email) {
@@ -9346,6 +9505,7 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "hit-piano-key") {
+    if (target._lastPointerTime && Date.now() - target._lastPointerTime < 450) return;
     const note = target.dataset.note;
     const midi = parseInt(target.dataset.midi, 10);
     playPianoKeyNote(note, midi);
@@ -9485,6 +9645,7 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "hit-drum-pad") {
+    if (target._lastPointerTime && Date.now() - target._lastPointerTime < 450) return;
     const drum = target.dataset.drum || target.closest("[data-drum]")?.dataset.drum;
     if (drum) hitLiveDrumPad(drum);
     return;
@@ -10393,6 +10554,11 @@ document.addEventListener("click", event => {
 });
 
 document.addEventListener("keydown", event => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "[") {
+    event.preventDefault();
+    toggleSidebarMinimize();
+    return;
+  }
   if (event.target.closest("input, textarea, select")) {
     if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && event.target.matches("textarea#journal-entry")) {
       event.preventDefault();
@@ -13593,6 +13759,7 @@ function initStitchBoardInteraction() {
 
     board.addEventListener("touchmove", (e) => {
       if (typeof stitchStudioState === "undefined" || !stitchStudioState.isMouseDown) return;
+      if (e.cancelable) e.preventDefault();
       if (stitchStudioState.activeTool === "fill") return;
       const touch = e.touches[0];
       if (!touch) return;
@@ -13601,7 +13768,7 @@ function initStitchBoardInteraction() {
       if (cell && typeof applyStitchTool === "function") {
         applyStitchTool(parseInt(cell.dataset.index, 10));
       }
-    }, { passive: true });
+    }, { passive: false });
 
     board.addEventListener("touchend", () => {
       if (typeof stitchStudioState !== "undefined") {
@@ -19385,6 +19552,20 @@ function renderPianoKeyboardUI() {
   wrap.innerHTML = PIANO_NOTES_25.map(k => {
     return '<div class="piano-key ' + (k.isBlack ? 'black-key' : 'white-key') + '" data-action="hit-piano-key" data-note="' + k.note + '" data-midi="' + k.midi + '" id="piano-key-' + k.midi + '">' + k.note.replace(/[0-9]/g, "") + '</div>';
   }).join("");
+
+  if (!wrap.dataset.touchBound) {
+    wrap.dataset.touchBound = "true";
+    wrap.addEventListener("pointerdown", (e) => {
+      const key = e.target.closest(".piano-key");
+      if (!key) return;
+      const note = key.dataset.note;
+      const midi = parseInt(key.dataset.midi, 10);
+      if (note && !isNaN(midi)) {
+        key._lastPointerTime = Date.now();
+        playPianoKeyNote(note, midi);
+      }
+    });
+  }
 }
 
 function playPianoKeyNote(note, midi) {
@@ -20424,6 +20605,33 @@ function initCraftStudios() {
   updateArtCvdView();
   populateUnitDropdowns($("#tool-unit-category")?.value || "length");
   updateUniversalUnitConverter();
+
+  // Tablet & Desktop Sidebar state
+  initSidebarMinimize();
+
+  // Restore any saved collapsed/minimized panels
+  applyInitialCollapsedPanels();
+
+  // Live drum pads touch latency binding
+  const drumWrap = $(".live-drum-pads-wrap");
+  if (drumWrap && !drumWrap.dataset.touchBound) {
+    drumWrap.dataset.touchBound = "true";
+    drumWrap.addEventListener("pointerdown", (e) => {
+      const pad = e.target.closest(".live-drum-pad");
+      if (!pad) return;
+      const drum = pad.dataset.drum;
+      if (drum) {
+        pad._lastPointerTime = Date.now();
+        hitLiveDrumPad(drum);
+      }
+    });
+  }
+
+  // Restore floating timer if minimized
+  if (localStorage.getItem("workbench_timer_minimized") === "true") {
+    const floatWidget = $("#floating-timer-widget");
+    if (floatWidget) floatWidget.style.display = "flex";
+  }
 }
 
 window.addEventListener("DOMContentLoaded", initCraftStudios);

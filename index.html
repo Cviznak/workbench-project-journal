@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#f5f3ed">
     <title>Workbench — your project journal</title>
     <link rel="stylesheet" href="styles.css?v=2.8.0">
@@ -30,10 +30,15 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <a class="brand" href="#" data-view="overview" aria-label="Workbench home">
-          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-          <span>workbench<span class="brand-period">.</span></span>
-        </a>
+        <div class="sidebar-top-row" style="display:flex;align-items:center;justify-content:space-between;margin:2px 0 24px 8px">
+          <a class="brand" href="#" data-view="overview" aria-label="Workbench home" style="margin:0">
+            <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+            <span>workbench<span class="brand-period">.</span></span>
+          </a>
+          <button type="button" class="sidebar-collapse-btn" id="sidebar-collapse-toggle-btn" data-action="toggle-sidebar-minimize" title="Minimize sidebar (Ctrl+[)" aria-label="Minimize sidebar">
+            <span class="sidebar-collapse-icon" aria-hidden="true">⇤</span>
+          </button>
+        </div>
         <div class="sidebar-label">YOUR SPACE</div>
         <nav class="main-nav" aria-label="Main navigation">
           <button class="nav-link active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
@@ -74,9 +79,13 @@
           </div>
         </div>
       </aside>
+      <div class="sidebar-backdrop" id="sidebar-backdrop" data-action="close-mobile-sidebar" aria-hidden="true"></div>
 
       <main class="main-content">
         <header class="topbar">
+          <button type="button" class="mobile-menu-btn" data-action="toggle-mobile-sidebar" aria-label="Open navigation menu">
+            <span class="mobile-menu-icon" aria-hidden="true">☰</span>
+          </button>
           <div class="breadcrumbs"><span id="topbar-space-label">My workshop</span><span class="crumb-divider">/</span><strong id="page-crumb">Overview</strong></div>
           <div class="topbar-actions">
             <button type="button" class="button button-outline button-small user-top-btn" id="top-auth-btn" data-action="open-auth-modal">Sign in</button>
@@ -746,11 +755,14 @@
                 </div>
 
                 <!-- Interactive Studio Metronome -->
-                <div class="panel music-card-panel">
+                <div class="panel music-card-panel" id="panel-metronome">
                   <div class="eyebrow">PRACTICE COMPANION</div>
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap">
                     <h3 style="font-size:16px;margin:0">⏱️ Studio Metronome</h3>
-                    <button type="button" class="button button-small button-primary" id="metronome-toggle-btn" data-action="toggle-metronome">▶ Start Metronome</button>
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-metronome" title="Minimize panel">— Minimize</button>
+                      <button type="button" class="button button-small button-primary" id="metronome-toggle-btn" data-action="toggle-metronome">▶ Start Metronome</button>
+                    </div>
                   </div>
                   <div style="display:flex;align-items:center;gap:12px;margin:8px 0;flex-wrap:wrap">
                     <div style="display:flex;align-items:center;gap:6px">
@@ -990,9 +1002,12 @@
               </div>
 
               <!-- 🪚 Wood Joinery Strength & Application Guide -->
-              <div class="panel">
+              <div class="panel" id="panel-wood-joinery">
                 <div class="eyebrow">STRUCTURAL JOINERY &amp; INTEGRITY</div>
-                <h3 style="font-size:16px;margin:2px 0 8px">🪚 Wood Joinery Strength &amp; Guide</h3>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px">
+                  <h3 style="font-size:16px;margin:0">🪚 Wood Joinery Strength &amp; Guide</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-joinery" title="Minimize panel">— Minimize</button>
+                </div>
                 <label class="field-label" style="font-size:11px">Select Woodworking Joint
                   <select id="wood-joinery-select">
                     <option value="mortise_tenon" selected>Mortise &amp; Tenon (King of Structural Frame Joints)</option>
@@ -1010,9 +1025,12 @@
               </div>
 
               <!-- 🪵 Sandpaper Grit Progression & Surface Prep -->
-              <div class="panel">
+              <div class="panel" id="panel-wood-sanding">
                 <div class="eyebrow">ABRASIVES &amp; SURFACE PREPARATION</div>
-                <h3 style="font-size:16px;margin:2px 0 8px">🪵 Sandpaper Grit Schedule &amp; Prep</h3>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px">
+                  <h3 style="font-size:16px;margin:0">🪵 Sandpaper Grit Schedule &amp; Prep</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-sanding" title="Minimize panel">— Minimize</button>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
                   <label class="field-label" style="font-size:11px">Initial Lumber State
                     <select id="wood-sand-starting">
@@ -2208,7 +2226,10 @@
     <dialog class="app-dialog compact-dialog" id="timer-dialog" aria-label="Practice & Focus Timer">
       <div class="dialog-heading">
         <div><div class="eyebrow">STAY IN THE FLOW</div><h2>Pomodoro Focus Mode</h2></div>
-        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        <div style="display:flex;align-items:center">
+          <button type="button" class="dialog-minimize-btn" data-action="minimize-timer" title="Minimize to floating widget" aria-label="Minimize timer">🗗</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
       </div>
       <div class="timer-body">
         <div class="pomodoro-modes">
@@ -3291,6 +3312,81 @@
         <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
       </div>
     </dialog>
+
+    <!-- 📱 Mobile Phone Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Mobile Navigation">
+      <button type="button" class="mobile-nav-btn active" data-view="overview" aria-label="Overview">
+        <span class="mobile-nav-icon" aria-hidden="true">◫</span>
+        <span class="mobile-nav-label">Overview</span>
+      </button>
+      <button type="button" class="mobile-nav-btn" data-view="projects" aria-label="Projects">
+        <span class="mobile-nav-icon" aria-hidden="true">▤</span>
+        <span class="mobile-nav-label">Projects</span>
+      </button>
+      <button type="button" class="mobile-nav-btn" data-view="shopping" aria-label="Shopping list">
+        <span class="mobile-nav-icon" aria-hidden="true">🛒</span>
+        <span class="mobile-nav-label">Shopping</span>
+      </button>
+      <button type="button" class="mobile-nav-btn" data-action="open-mobile-studios-sheet" aria-label="Craft Studios">
+        <span class="mobile-nav-icon" aria-hidden="true">🎨</span>
+        <span class="mobile-nav-label">Studios</span>
+      </button>
+      <button type="button" class="mobile-nav-btn" data-action="toggle-mobile-sidebar" aria-label="More navigation options">
+        <span class="mobile-nav-icon" aria-hidden="true">☰</span>
+        <span class="mobile-nav-label">Menu</span>
+      </button>
+    </nav>
+
+    <!-- 🎨 Mobile Craft Studios Quick Switcher Dialog -->
+    <dialog class="app-dialog mobile-studios-dialog" id="mobile-studios-dialog" aria-label="Craft Studios Quick Switcher">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">CREATIVE WORKSPACES</div>
+          <h2>Craft Studios</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="mobile-studios-grid">
+        <button type="button" class="mobile-studio-card" data-view="woodworking" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🪵</span>
+          <strong>Woodworking</strong>
+          <span class="mobile-studio-desc">Cutlist, joinery, sanding &amp; dust</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="textiles" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🧶</span>
+          <strong>Textiles &amp; Yarn</strong>
+          <span class="mobile-studio-desc">Pixel pattern, crochet, needles</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="music" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🎵</span>
+          <strong>Music &amp; Audio</strong>
+          <span class="mobile-studio-desc">Metronome, piano, drum machine</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="electronics" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">⚡</span>
+          <strong>Electronics</strong>
+          <span class="mobile-studio-desc">Resistors, Ohm's law, 555 timer</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="programming" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">💻</span>
+          <strong>Programming</strong>
+          <span class="mobile-studio-desc">Base converter, MCU &amp; snippets</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="art" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🎨</span>
+          <strong>Art &amp; Design</strong>
+          <span class="mobile-studio-desc">Palette, contrast, 3D print</span>
+        </button>
+      </div>
+    </dialog>
+
+    <!-- ⏱️ Floating Minimized Timer Widget -->
+    <div class="floating-timer-widget" id="floating-timer-widget" style="display:none" data-action="restore-timer" role="button" tabindex="0" title="Click to open Focus Timer">
+      <span class="floating-timer-icon" aria-hidden="true">⏱️</span>
+      <span class="floating-timer-time" id="floating-timer-display">25:00</span>
+      <button type="button" class="floating-timer-play" id="floating-timer-play-btn" data-action="toggle-floating-timer" title="Play or pause timer">▶</button>
+      <button type="button" class="floating-timer-close" data-action="close-floating-timer" title="Close timer widget">×</button>
+    </div>
 
     <input type="file" id="photo-input" accept="image/*" multiple hidden>
     <input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
