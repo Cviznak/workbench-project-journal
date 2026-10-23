@@ -1,11 +1,12 @@
-const CACHE_NAME = "workbench-cache-v3";
+const CACHE_NAME = "workbench-cache-v4";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./qr-generator.js",
   "./app.js",
-  "./manifest.json"
+  "./manifest.json",
+  "./favicon.svg"
 ];
 
 self.addEventListener("install", event => {

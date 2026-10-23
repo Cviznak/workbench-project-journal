@@ -215,7 +215,9 @@ const imageUrls = new Map();
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const uid = () => crypto.randomUUID();
+const uid = () => (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+  ? crypto.randomUUID()
+  : "uid_" + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -574,6 +576,12 @@ function getSavedTheme() {
   } catch {
     return "auto";
   }
+}
+
+function setSavedTheme(theme) {
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (e) {}
 }
 
 function applyTheme(theme = getSavedTheme()) {
@@ -2601,7 +2609,7 @@ function render() {
   renderAchievements();
   renderNotificationBadge();
   if ($("#admin-view")?.classList.contains("active")) renderAdminHub();
-  if (activeProjectId && $("#detail-dialog").open) renderProjectDetail(activeProjectId);
+  if (activeProjectId && $("#detail-dialog")?.open) renderProjectDetail(activeProjectId);
 }
 
 function renderNavigation() {
@@ -3346,14 +3354,14 @@ function renderProjectDetail(projectId) {
     </div>
     ${materials.length ? `
       <div class="materials-summary-bar">
-        <div><strong>Budget:</strong> $${totalCost.toFixed(2)} total · <span class="materials-cost-total">$${spentCost.toFixed(2)} acquired</span></div>
+        <div><strong>Budget:</strong> ${formatMoney(totalCost)} total · <span class="materials-cost-total">${formatMoney(spentCost)} acquired</span></div>
         <div><span>${haveCount}/${materials.length} items in hand</span></div>
       </div>
     ` : ""}
     <form class="materials-add-form" data-project="${project.id}">
       <input name="materialName" required maxlength="80" placeholder="Part or material name (e.g. 1/4&quot; Walnut ply)..." aria-label="Material name">
       <input name="materialQty" maxlength="30" placeholder="Qty (e.g. 2 pcs)" aria-label="Quantity">
-      <input name="materialCost" type="number" step="0.01" min="0" placeholder="$ Price" aria-label="Price">
+      <input name="materialCost" type="number" step="0.01" min="0" placeholder="${getCurrencySymbol()} Price" aria-label="Price">
       <select name="materialStatus" aria-label="Status">
         <option value="need">Need to buy</option>
         <option value="ordered">Ordered</option>
@@ -3378,7 +3386,7 @@ function renderProjectDetail(projectId) {
               <tr>
                 <td><strong>${escapeHTML(mat.name)}</strong></td>
                 <td>${escapeHTML(mat.qty || "-")}</td>
-                <td>${Number(mat.cost) > 0 ? `$${Number(mat.cost).toFixed(2)}` : "-"}</td>
+                <td>${Number(mat.cost) > 0 ? formatMoney(mat.cost) : "-"}</td>
                 <td>
                   <span class="materials-status-tag status-${mat.status || "need"}" data-action="cycle-material-status" data-project="${project.id}" data-id="${mat.id}" title="Click to cycle status">
                     ${mat.status === "have" ? "✓ Have / In stock" : mat.status === "ordered" ? "↗ Ordered" : "○ Need to buy"}
@@ -3599,7 +3607,7 @@ async function handlePhotoUpload(files) {
     makeActivity("photo", `Added ${validFiles.length} ${validFiles.length === 1 ? "photo" : "photos"} to ${project.title}`);
     await persistState();
     render();
-    if ($("#detail-dialog").open) renderProjectDetail(project.id);
+    if ($("#detail-dialog")?.open) renderProjectDetail(project.id);
     showToast(`${validFiles.length} ${validFiles.length === 1 ? "photo" : "photos"} added to ${folder.name}.`);
   } catch (error) {
     console.error("Unable to save project photos.", error);
@@ -4100,7 +4108,7 @@ function finishTimer() {
       makeActivity("note", `Logged ${formatMinutes(elapsedMins)} on ${project.title}`);
       void persistState().then(() => {
         render();
-        if ($("#detail-dialog").open) renderProjectDetail(project.id);
+        if ($("#detail-dialog")?.open) renderProjectDetail(project.id);
       });
       showToast(`Logged ${formatMinutes(elapsedMins)} to “${project.title}”!`);
     }
@@ -4287,7 +4295,7 @@ function updateBoardFeetCalc() {
     const totalCost = totalBf * price;
     resultBox.innerHTML = `
       <div><strong>Total Board Feet:</strong> <span style="font-size:16px;color:var(--green);font-weight:700">${totalBf.toFixed(2)} BF</span> (${bfPerBoard.toFixed(2)} BF per board)</div>
-      ${price > 0 ? `<div style="margin-top:6px"><strong>Estimated Cost:</strong> $${totalCost.toFixed(2)} ($${price.toFixed(2)}/BF)</div>` : `<div style="margin-top:6px;color:#888;font-size:11px">Tip: Enter price per BF to calculate total lumber purchase estimate.</div>`}
+      ${price > 0 ? `<div style="margin-top:6px"><strong>Estimated Cost:</strong> ${formatMoney(totalCost)} (${formatMoney(price)}/BF)</div>` : `<div style="margin-top:6px;color:#888;font-size:11px">Tip: Enter price per BF to calculate total lumber purchase estimate.</div>`}
     `;
   } else {
     resultBox.innerHTML = `Adjust board dimensions above to compute board footage and estimated material cost.`;
@@ -4359,7 +4367,7 @@ function getTimelineEvents() {
         badgeLabel: "Material",
         badgeClass: "badge-project",
         title: project.title,
-        text: `Part: ${mat.name}${mat.qty ? ` (${mat.qty})` : ""}${Number(mat.cost) > 0 ? ` · $${Number(mat.cost).toFixed(2)}` : ""} [${mat.status === "have" ? "In stock" : mat.status === "ordered" ? "Ordered" : "Need to buy"}]`,
+        text: `Part: ${mat.name}${mat.qty ? ` (${mat.qty})` : ""}${Number(mat.cost) > 0 ? ` · ${formatMoney(mat.cost)}` : ""} [${mat.status === "have" ? "In stock" : mat.status === "ordered" ? "Ordered" : "Need to buy"}]`,
         at: mat.createdAt || project.updatedAt || project.createdAt,
         projectId: project.id,
         projectTitle: project.title,
@@ -4555,9 +4563,9 @@ function exportMarkdownJournal() {
 
       if (project.materials?.length) {
         const totalMatCost = project.materials.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
-        md += `\n#### Materials & Supplies (BOM) — Total: $${totalMatCost.toFixed(2)}\n`;
+        md += `\n#### Materials & Supplies (BOM) — Total: ${formatMoney(totalMatCost)}\n`;
         project.materials.forEach(mat => {
-          const costStr = Number(mat.cost) > 0 ? `, Cost: $${Number(mat.cost).toFixed(2)}` : "";
+          const costStr = Number(mat.cost) > 0 ? `, Cost: ${formatMoney(mat.cost)}` : "";
           const qtyStr = mat.qty ? `, Qty: ${mat.qty}` : "";
           const statusStr = mat.status === "have" ? "In hand" : mat.status === "ordered" ? "Ordered" : "Need to buy";
           md += `- **${mat.name}** (${statusStr}${qtyStr}${costStr})\n`;
@@ -5451,9 +5459,9 @@ function renderShoppingList() {
   if (summaryBar) {
     summaryBar.innerHTML = `
       <div class="shopping-stat"><strong>${totalNeedCount}</strong> <span>To Buy</span></div>
-      <div class="shopping-stat"><strong>$${totalNeedCost.toFixed(2)}</strong> <span>Est. Cart Total</span></div>
-      <div class="shopping-stat"><strong>${orderedCount}</strong> <span>On Order ($${orderedCost.toFixed(2)})</span></div>
-      <div class="shopping-stat"><strong>$${acquiredCost.toFixed(2)}</strong> <span>Acquired In Shop</span></div>
+      <div class="shopping-stat"><strong>${formatMoney(totalNeedCost)}</strong> <span>Est. Cart Total</span></div>
+      <div class="shopping-stat"><strong>${orderedCount}</strong> <span>On Order (${formatMoney(orderedCost)})</span></div>
+      <div class="shopping-stat"><strong>${formatMoney(acquiredCost)}</strong> <span>Acquired In Shop</span></div>
     `;
   }
 
@@ -5494,7 +5502,7 @@ function renderShoppingList() {
                   <div class="shopping-item-meta" style="margin-top:3px">
                     <span class="shopping-qty-badge">Need: ${item.restockQty || 1} ${escapeHTML(item.unit || "units")}</span>
                     <span style="font-size:10px;color:var(--muted)">In depot: ${item.currentQty ?? 0}</span>
-                    ${cost > 0 ? `<span class="shopping-cost-badge">$${cost.toFixed(2)}</span>` : ""}
+                    ${cost > 0 ? `<span class="shopping-cost-badge">${formatMoney(cost)}</span>` : ""}
                     ${item.supplier ? `<span>🏷️ ${escapeHTML(item.supplier)}</span>` : ""}
                     ${item.location ? `<span>📍 ${escapeHTML(item.location)}</span>` : ""}
                   </div>
@@ -5537,7 +5545,7 @@ function renderShoppingList() {
                 <div class="shopping-item-name">${escapeHTML(m.name)}</div>
                 <div class="shopping-item-meta">
                   ${m.qty ? `<span class="shopping-qty-badge">Qty: ${escapeHTML(m.qty)}</span>` : ""}
-                  ${Number(m.cost) > 0 ? `<span class="shopping-cost-badge">$${Number(m.cost).toFixed(2)}</span>` : ""}
+                  ${Number(m.cost) > 0 ? `<span class="shopping-cost-badge">${formatMoney(m.cost)}</span>` : ""}
                   <span class="status-pill status-${m.status === "have" ? "completed" : m.status === "ordered" ? "on-hold" : "planned"}">${m.status === "have" ? "In Stock" : m.status === "ordered" ? "Ordered" : "Need to buy"}</span>
                 </div>
               </div>
@@ -5570,12 +5578,12 @@ function copyShoppingList() {
   let text = `🛒 HARDWARE STORE CHECKLIST\nGenerated from Workbench Project Journal\n\n`;
   needItems.forEach(m => {
     const qty = m.qty ? ` (${m.qty})` : "";
-    const cost = Number(m.cost) > 0 ? ` [~$${Number(m.cost).toFixed(2)}]` : "";
+    const cost = Number(m.cost) > 0 ? ` [~${formatMoney(m.cost)}]` : "";
     text += `[ ] ${m.name}${qty}${cost} — for "${m.projectTitle}"\n`;
   });
 
   const totalCost = needItems.reduce((s, m) => s + (Number(m.cost) || 0), 0);
-  if (totalCost > 0) text += `\nEstimated Total: $${totalCost.toFixed(2)}\n`;
+  if (totalCost > 0) text += `\nEstimated Total: ${formatMoney(totalCost)}\n`;
 
   navigator.clipboard.writeText(text).then(() => {
     showToast("Copied shopping checklist to clipboard!");
@@ -5736,7 +5744,7 @@ function renderInventory() {
             ${isLow ? `<span class="inventory-chip alert">⚠️ Low stock</span>` : ""}
             ${item.location ? `<span class="inventory-chip">📍 ${escapeHTML(item.location)}</span>` : ""}
           </div>
-          ${unitPrice > 0 ? `<span class="inventory-cost-badge">$${unitPrice.toFixed(2)}${item.unit ? ` / ${escapeHTML(item.unit)}` : ""}</span>` : ""}
+          ${unitPrice > 0 ? `<span class="inventory-cost-badge">${formatMoney(unitPrice)}${item.unit ? ` / ${escapeHTML(item.unit)}` : ""}</span>` : ""}
         </div>
 
         <div>
@@ -5746,7 +5754,7 @@ function renderInventory() {
 
         <div class="inventory-chips-row">
           ${item.supplier ? `<span class="inventory-chip">🏷️ ${escapeHTML(item.supplier)}</span>` : ""}
-          ${totalVal > 0 ? `<span class="inventory-chip highlight">Stock Value: $${totalVal.toFixed(2)}</span>` : ""}
+          ${totalVal > 0 ? `<span class="inventory-chip highlight">Stock Value: ${formatMoney(totalVal)}</span>` : ""}
         </div>
 
         <div class="inventory-qty-row">
@@ -5797,7 +5805,7 @@ function renderInventory() {
             <span class="inventory-condition-pill condition-${cond}">${condLabels[cond] || cond}</span>
             ${hasOverdueMaint ? `<span class="inventory-chip alert">⚠️ Care Overdue</span>` : ""}
           </div>
-          ${cost > 0 ? `<span class="inventory-cost-badge" title="Acquisition / Replacement Cost">$${cost.toFixed(2)}</span>` : ""}
+          ${cost > 0 ? `<span class="inventory-cost-badge" title="Acquisition / Replacement Cost">${formatMoney(cost)}</span>` : ""}
         </div>
 
         <div>
@@ -6266,7 +6274,7 @@ function openStarterKitsDialog() {
           ${kit.items.map(item => `
             <div class="starter-kit-item-row">
               <span>${item.type === "equipment" ? "⚙️" : "📦"} ${escapeHTML(item.name)}</span>
-              <span>${item.cost ? `$${item.cost.toFixed(2)}` : (item.quantity ? `${item.quantity} ${item.unit}` : "")}</span>
+              <span>${item.cost ? `${formatMoney(item.cost)}` : (item.quantity ? `${item.quantity} ${item.unit}` : "")}</span>
             </div>
           `).join("")}
         </div>
@@ -6406,7 +6414,7 @@ function openEquipmentLogbook(equipmentId) {
       <div class="inventory-chips-row" style="margin-top:8px">
         ${item.location ? `<span class="inventory-chip">📍 Location: ${escapeHTML(item.location)}</span>` : ""}
         ${item.specs ? `<span class="inventory-chip">⚡ Specs: ${escapeHTML(item.specs)}</span>` : ""}
-        ${cost > 0 ? `<span class="inventory-chip highlight">Valuation: $${cost.toFixed(2)}</span>` : ""}
+        ${cost > 0 ? `<span class="inventory-chip highlight">Valuation: ${formatMoney(cost)}</span>` : ""}
         ${item.purchaseDate ? `<span class="inventory-chip">📅 In Service: ${escapeHTML(item.purchaseDate)}</span>` : ""}
       </div>
 
@@ -6427,7 +6435,7 @@ function openEquipmentLogbook(equipmentId) {
         <span>Projects Involved</span>
       </div>
       <div class="equipment-logbook-stat">
-        <strong>${cost > 0 ? `$${cost.toFixed(0)}` : "—"}</strong>
+        <strong>${cost > 0 ? formatMoney(cost) : "—"}</strong>
         <span>Asset Value</span>
       </div>
     </div>
@@ -6553,7 +6561,7 @@ function renderEquipmentAssetTagHtml(item) {
           ${item.serialNumber ? `<span class="asset-tag-chip">TAG #${escapeHTML(item.serialNumber)}</span>` : `<span class="asset-tag-chip">ID #${item.id.slice(0, 8)}</span>`}
           ${item.location ? `<span class="asset-tag-chip">📍 ${escapeHTML(item.location)}</span>` : ""}
           ${item.specs ? `<span class="asset-tag-chip">⚡ ${escapeHTML(item.specs)}</span>` : ""}
-          ${cost > 0 ? `<span class="asset-tag-chip">$${cost.toFixed(0)}</span>` : ""}
+          ${cost > 0 ? `<span class="asset-tag-chip">${formatMoney(cost)}</span>` : ""}
         </div>
         <div class="asset-tag-safety-strip">
           <span>🥽 EYE</span>
@@ -6713,7 +6721,7 @@ function openInventoryPickDialog(inventoryId = null, targetProjectId = null) {
       <div class="inventory-pick-header-card">
         <div class="inventory-pick-header-top">
           <span class="inventory-pick-header-title">${isEquip ? "⚙️" : "📦"} ${escapeHTML(item.name)}</span>
-          <span class="inventory-cost-badge">${unitPrice > 0 ? `$${unitPrice.toFixed(2)}${!isEquip && item.unit ? ` / ${escapeHTML(item.unit)}` : ""}` : "No cost set"}</span>
+          <span class="inventory-cost-badge">${unitPrice > 0 ? `${formatMoney(unitPrice)}${!isEquip && item.unit ? ` / ${escapeHTML(item.unit)}` : ""}` : "No cost set"}</span>
         </div>
         <div class="inventory-pick-header-meta">
           <span>${escapeHTML(item.category || "General")}</span>
@@ -6814,7 +6822,7 @@ function openInventoryPickDialog(inventoryId = null, targetProjectId = null) {
                 <span class="inventory-pick-row-meta">
                   ${escapeHTML(item.category || "General")}
                   ${isEquip ? (item.brand ? ` · ${escapeHTML(item.brand)}` : "") : ` · Stock: ${item.quantity ?? 1} ${escapeHTML(item.unit || "units")}`}
-                  ${costVal > 0 ? ` · $${costVal.toFixed(2)}` : ""}
+                  ${costVal > 0 ? ` · ${formatMoney(costVal)}` : ""}
                   ${item.location ? ` · 📍 ${escapeHTML(item.location)}` : ""}
                 </span>
               </div>
@@ -7302,7 +7310,7 @@ async function saveAnnotatedPhoto() {
       await persistState();
       $("#annotate-dialog")?.close();
       render();
-      if ($("#detail-dialog").open) renderProjectDetail(annotateState.activeProject.id);
+      if ($("#detail-dialog")?.open) renderProjectDetail(annotateState.activeProject.id);
       showToast("Annotated photo saved to project!");
     } catch (e) {
       console.error(e);
@@ -7350,7 +7358,7 @@ function openProjectDossier(projectId) {
     <div class="dossier-stats-strip">
       <div class="dossier-stat-box"><strong>${progress.completed}/${progress.total}</strong><span>Steps (${progress.percent}%)</span></div>
       <div class="dossier-stat-box"><strong>${project.timeSpent ? formatMinutes(project.timeSpent) : "0m"}</strong><span>Time Invested</span></div>
-      <div class="dossier-stat-box"><strong>$${totalCost.toFixed(2)}</strong><span>Supplies Budget</span></div>
+      <div class="dossier-stat-box"><strong>${formatMoney(totalCost)}</strong><span>Supplies Budget</span></div>
       <div class="dossier-stat-box"><strong>${allImages.length}</strong><span>Photos Logged</span></div>
     </div>
 
@@ -7386,12 +7394,12 @@ function openProjectDossier(projectId) {
                 <td><strong>${escapeHTML(m.name)}</strong></td>
                 <td>${escapeHTML(m.qty || "—")}</td>
                 <td>${m.status === "have" ? "In Hand" : m.status === "ordered" ? "Ordered" : "Need"}</td>
-                <td style="text-align:right">${Number(m.cost) > 0 ? `$${Number(m.cost).toFixed(2)}` : "—"}</td>
+                <td style="text-align:right">${Number(m.cost) > 0 ? formatMoney(m.cost) : "—"}</td>
               </tr>
             `).join("")}
           </tbody>
           <tfoot>
-            <tr><td colspan="3"><strong>Total Budget</strong></td><td style="text-align:right"><strong>$${totalCost.toFixed(2)}</strong></td></tr>
+            <tr><td colspan="3"><strong>Total Budget</strong></td><td style="text-align:right"><strong>${formatMoney(totalCost)}</strong></td></tr>
           </tfoot>
         </table>
       </div>
@@ -8597,7 +8605,7 @@ async function handleAction(action, target) {
       try {
         await persistState();
         render();
-        if ($("#detail-dialog").open) renderProjectDetail(project.id);
+        if ($("#detail-dialog")?.open) renderProjectDetail(project.id);
         showToast(material.status === "have" ? `Marked ${material.name} as in hand!` : `Marked ${material.name} as needed.`);
       } catch (e) {
         console.error(e);
@@ -8745,7 +8753,8 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "dictate-task") {
-    toggleSpeechDictation(target, $("#task-input"));
+    const input = target.closest("form")?.querySelector("input[name='taskText']") || $("#task-input") || target.parentElement?.querySelector("input");
+    toggleSpeechDictation(target, input);
     return;
   }
   if (action === "dictate-note") {
@@ -8768,7 +8777,7 @@ async function handleAction(action, target) {
     try {
       await persistState();
       render();
-      if ($("#detail-dialog").open) renderProjectDetail(project.id);
+      if ($("#detail-dialog")?.open) renderProjectDetail(project.id);
       showToast(project.pinned ? `Pinned “${project.title}” to top.` : `Unpinned “${project.title}”.`);
     } catch (e) {
       console.error(e);
@@ -8854,7 +8863,7 @@ async function handleAction(action, target) {
       project.description ? `\n${project.description}\n` : "",
       `📊 **Progress:** ${progress.completed}/${progress.total} checklist steps (${progress.percent}%)`,
       project.timeSpent ? `⏱️ **Time Invested:** ${formatMinutes(project.timeSpent)}` : "",
-      materials.length ? `💰 **Supplies Budget:** $${totalCost.toFixed(2)} ($${spentCost.toFixed(2)} acquired)` : "",
+      materials.length ? `💰 **Supplies Budget:** ${formatMoney(totalCost)} (${formatMoney(spentCost)} acquired)` : "",
       skills.length ? `🎯 **Skills:** ${skills.join(", ")}` : "",
       project.tags?.length ? `🏷️ **Tags:** ${project.tags.map(t => `#${t}`).join(" ")}` : "",
       project.tasks?.length ? `\n📋 **Checklist:**\n` + project.tasks.map(t => `- [${t.done ? "x" : " "}] ${t.text}`).join("\n") : "",
@@ -9829,7 +9838,7 @@ $("#time-form")?.addEventListener("submit", async event => {
     await persistState();
     $("#time-dialog").close();
     render();
-    if ($("#detail-dialog").open) renderProjectDetail(project.id);
+    if ($("#detail-dialog")?.open) renderProjectDetail(project.id);
     showToast(`Logged ${formatMinutes(minutes)} to ${project.title}!`);
   } catch (error) {
     console.error("Unable to save project time.", error);
@@ -10109,12 +10118,12 @@ function generateProjectMarkdown(project) {
     `> **Status:** ${STATUS_LABELS[safeStatus(project.status)]} | **Priority:** ${priorityLabel(project.priority)}`,
     project.targetDate ? `> **Target Date:** ${formatDate(project.targetDate)}` : "",
     project.timeSpent ? `> **Time Invested:** ${formatMinutes(project.timeSpent)}` : "",
-    materials.length ? `> **Supplies Budget:** $${totalCost.toFixed(2)} ($${spentCost.toFixed(2)} acquired)` : "",
+    materials.length ? `> **Supplies Budget:** ${formatMoney(totalCost)} (${formatMoney(spentCost)} acquired)` : "",
     skills.length ? `> **Skills Involved:** ${skills.join(", ")}` : "",
     "",
     project.description ? `### About this build\n${project.description}\n` : "",
     project.tasks?.length ? `### Checklist & Process\n` + project.tasks.map(t => `- [${t.done ? "x" : " "}] ${t.text}`).join("\n") + "\n" : "",
-    materials.length ? `### Materials & Supplies\n` + materials.map(m => `- ${m.name}${m.qty ? ` (${m.qty})` : ""}${Number(m.cost) > 0 ? ` — $${Number(m.cost).toFixed(2)}` : ""} [${m.status === "have" ? "In hand" : m.status === "ordered" ? "Ordered" : "To buy"}]`).join("\n") + "\n" : "",
+    materials.length ? `### Materials & Supplies\n` + materials.map(m => `- ${m.name}${m.qty ? ` (${m.qty})` : ""}${Number(m.cost) > 0 ? ` — ${formatMoney(m.cost)}` : ""} [${m.status === "have" ? "In hand" : m.status === "ordered" ? "Ordered" : "To buy"}]`).join("\n") + "\n" : "",
     project.notes?.length ? `### Progress Journal Notes\n` + [...project.notes].sort((a,b) => new Date(b.at) - new Date(a.at)).map(n => `- **${formatDate(n.at)}:** ${n.text}`).join("\n") + "\n" : "",
     `---\n*Created with [Workbench](https://github.com) — Maker Project Journal*`
   ];
@@ -10554,34 +10563,34 @@ function renderProjectPricing() {
 
   container.innerHTML = `
     <div style="font-size:13px;color:var(--muted);margin-bottom:12px">
-      Valuation and pricing model for <strong>${escapeHTML(project.title)}</strong> based on logged craft time (${formatMinutes(project.timeSpent || 0)}) and acquired materials ($${materialsCost.toFixed(2)}).
+      Valuation and pricing model for <strong>${escapeHTML(project.title)}</strong> based on logged craft time (${formatMinutes(project.timeSpent || 0)}) and acquired materials (${formatMoney(materialsCost)}).
     </div>
 
     <div class="pricing-summary-card">
       <div class="pricing-stats-grid">
         <div class="pricing-stat-box">
           <span class="pricing-stat-label">Materials</span>
-          <span class="pricing-stat-val">$${materialsCost.toFixed(2)}</span>
+          <span class="pricing-stat-val">${formatMoney(materialsCost)}</span>
         </div>
         <div class="pricing-stat-box">
-          <span class="pricing-stat-label">Labor (${hours.toFixed(1)}h @ $${laborRate}/h)</span>
-          <span class="pricing-stat-val">$${laborCost.toFixed(2)}</span>
+          <span class="pricing-stat-label">Labor (${hours.toFixed(1)}h @ ${getCurrencySymbol()}${laborRate}/h)</span>
+          <span class="pricing-stat-val">${formatMoney(laborCost)}</span>
         </div>
         <div class="pricing-stat-box">
           <span class="pricing-stat-label">Total Cost (+Overhead)</span>
-          <span class="pricing-stat-val">$${totalProductionCost.toFixed(2)}</span>
+          <span class="pricing-stat-val">${formatMoney(totalProductionCost)}</span>
         </div>
         <div class="pricing-stat-box">
           <span class="pricing-stat-label">Suggested Retail</span>
-          <span class="pricing-stat-val retail">$${retailPrice.toFixed(2)}</span>
+          <span class="pricing-stat-val retail">${formatMoney(retailPrice)}</span>
         </div>
         <div class="pricing-stat-box">
           <span class="pricing-stat-label">Wholesale (55%)</span>
-          <span class="pricing-stat-val">$${wholesalePrice.toFixed(2)}</span>
+          <span class="pricing-stat-val">${formatMoney(wholesalePrice)}</span>
         </div>
         <div class="pricing-stat-box">
           <span class="pricing-stat-label">Net Profit / Item</span>
-          <span class="pricing-stat-val retail">+$${netProfit.toFixed(2)}</span>
+          <span class="pricing-stat-val retail">+${formatMoney(netProfit)}</span>
         </div>
       </div>
 
@@ -10597,7 +10606,7 @@ function renderProjectPricing() {
 
     <div style="display:flex;flex-direction:column;gap:12px">
       <div class="pricing-slider-row">
-        <label style="flex:1;font-size:13px;font-weight:600">Hourly Craft Rate: <span>$${laborRate}/hr</span></label>
+        <label style="flex:1;font-size:13px;font-weight:600">Hourly Craft Rate: <span>${getCurrencySymbol()}${laborRate}/hr</span></label>
         <input type="range" id="pricing-labor-slider" min="10" max="150" step="1" value="${laborRate}" style="flex:1">
       </div>
 
@@ -11175,7 +11184,7 @@ function toggleSoundscape(track) {
 }
 
 function updateSoundscapeButtons() {
-  $(".soundscape-btn").forEach(btn => {
+  $$(".soundscape-btn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.track === activeSoundscape);
   });
   const timerBtn = $("#topbar-timer-btn");
@@ -11520,7 +11529,7 @@ async function saveBlueprintToProject() {
 
       await persistState();
       render();
-      if ($("#detail-dialog").open) renderProjectDetail(project.id);
+      if ($("#detail-dialog")?.open) renderProjectDetail(project.id);
       $("#blueprint-dialog")?.close();
       showToast("💾 Blueprint saved to project photos in 'Blueprints'!");
     }, "image/png");
@@ -11655,7 +11664,7 @@ async function saveUnitsSettings() {
     await persistState();
     $("#units-dialog")?.close();
     render();
-    if ($("#detail-dialog").open && activeProjectId) {
+    if ($("#detail-dialog")?.open && activeProjectId) {
       renderProjectDetail(activeProjectId);
     }
     let msg = `Preferences updated: ${CURRENCIES[newCurr].name} · ${newUnit.toUpperCase()}`;
@@ -12017,6 +12026,14 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
 
     // 4. Both email prefixes match
     if (mPrefix && uPrefix && mPrefix === uPrefix) return true;
+
+    // 5. Containment / Substring matching for full/partial names and prefixes
+    if (!isGenericName(mName) && !isGenericName(uName)) {
+      if (mNorm && uNorm && (mNorm.includes(uNorm) || uNorm.includes(mNorm))) return true;
+    }
+    if (!isGenericName(mName) && mNorm && uPrefix && (mNorm.includes(uPrefix) || uPrefix.includes(mNorm))) return true;
+    if (!isGenericName(uName) && uNorm && mPrefix && (uNorm.includes(mPrefix) || mPrefix.includes(uNorm))) return true;
+    if (mPrefix && uPrefix && (mPrefix.includes(uPrefix) || uPrefix.includes(mPrefix))) return true;
 
     return false;
   };
@@ -12562,7 +12579,9 @@ async function pushProjectToCollaboratorWorkspaces(project) {
                        (rowEmail && memberEmails.has(rowEmail)) ||
                        (rowPrefix && memberNames.has(rowPrefix)) ||
                        (!isGenericName(rawName) && memberNames.has(rawName)) ||
-                       (!isGenericName(normName) && memberNames.has(normName));
+                       (!isGenericName(normName) && memberNames.has(normName)) ||
+                       (!isGenericName(normName) && [...memberNames].some(mn => mn && (mn.includes(normName) || normName.includes(mn)))) ||
+                       (rowPrefix && [...memberNames].some(mn => mn && (mn.includes(rowPrefix) || rowPrefix.includes(mn))));
 
       if (isMember) {
         row.data = row.data || {};
@@ -12615,6 +12634,36 @@ async function pushProjectToCollaboratorWorkspaces(project) {
     }
   } catch (err) {
     console.warn("Could not push project to collaborator workspaces:", err);
+  }
+}
+
+async function pushProjectDeletionToCollaboratorWorkspaces(projectId) {
+  if (!projectId) return;
+  recordDeletedProjectId(projectId);
+  const session = getCloudSession();
+  const curUser = getActiveUser();
+  if (!session?.access_token || !curUser) return;
+
+  try {
+    const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`).catch(() => []);
+    if (!Array.isArray(rows) || rows.length === 0) return;
+
+    for (const row of rows) {
+      if (row.user_id === curUser.id) continue;
+      if (row.data && Array.isArray(row.data.projects)) {
+        const idx = row.data.projects.findIndex(p => p.id === projectId);
+        if (idx >= 0) {
+          row.data.projects.splice(idx, 1);
+          await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(row.user_id)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data: row.data, updated_at: new Date().toISOString() })
+          }).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not propagate project deletion to collaborators:", err);
   }
 }
 
@@ -12967,7 +13016,7 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
     await persistState();
     void pushProjectToCollaboratorWorkspaces(project);
     render();
-    if ($("#detail-dialog").open && activeProjectId === project.id) {
+    if ($("#detail-dialog")?.open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
     }
     await renderCollaboratorsDialog(project);
@@ -13023,7 +13072,7 @@ async function passCreatorStatus(projectId, targetId) {
     await persistState();
     void pushProjectToCollaboratorWorkspaces(project);
     render();
-    if ($("#detail-dialog").open && activeProjectId === project.id) {
+    if ($("#detail-dialog")?.open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
     }
     await renderCollaboratorsDialog(project);
@@ -13090,10 +13139,10 @@ async function removeCoCreator(projectId, targetId) {
     await persistState();
     void pushProjectToCollaboratorWorkspaces(project);
     render();
-    if ($("#detail-dialog").open && activeProjectId === project.id) {
+    if ($("#detail-dialog")?.open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
     }
-    if ($("#collaborators-dialog").open && activeCollabProjectId === project.id) {
+    if ($("#collaborators-dialog")?.open && activeCollabProjectId === project.id) {
       await renderCollaboratorsDialog(project);
     }
     showToast(`Removed ${target.name} from project team.`);
