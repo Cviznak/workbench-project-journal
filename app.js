@@ -3649,6 +3649,7 @@ function renderProjectDetail(projectId) {
             <button type="button" class="small-action" data-action="open-compare-photos" data-project="${project.id}" title="Compare photos side-by-side">↔️ Compare</button>
             <button type="button" class="small-action print-keep" data-action="open-project-dossier" data-id="${project.id}" title="View comprehensive project dossier">📄 Dossier</button>
             <button type="button" class="small-action print-keep" data-action="open-workshop-blueprint" data-id="${project.id}" title="Printable workshop blueprint & cut-sheet">📐 Shop Blueprint</button>
+            <button type="button" class="small-action print-keep" data-action="open-quote-dialog" data-id="${project.id}" title="Client quote, estimate & work order invoice generator">💼 Client Quote</button>
             <button type="button" class="small-action" data-action="copy-project-summary" data-id="${project.id}" title="Copy project summary to clipboard">📋 Copy summary</button>
             <button type="button" class="small-action print-keep" data-action="print-project" data-id="${project.id}" title="Print workshop sheet">🖶 Print sheet</button>
           </div>
@@ -8563,6 +8564,356 @@ function renderWorkshopBlueprint() {
   `;
 }
 
+/* ============================================================
+   💼 Client Quote, Estimate & Work Order Invoice Generator
+   ============================================================ */
+let activeQuoteProjectId = null;
+let activeQuoteMode = "quote"; // "quote" | "invoice" | "workorder"
+
+function openQuoteDialog(projectId) {
+  const dialog = $("#quote-dialog");
+  const projectSelect = $("#quote-project-select");
+  if (!dialog) return;
+
+  if (projectSelect) {
+    projectSelect.innerHTML = (state.projects || []).map(p => `
+      <option value="${p.id}" ${p.id === projectId ? "selected" : ""}>${escapeHTML(p.title)}</option>
+    `).join("");
+  }
+
+  activeQuoteProjectId = projectId || (state.projects[0] && state.projects[0].id);
+  const project = state.projects.find(p => p.id === activeQuoteProjectId);
+
+  if (project) {
+    if ($("#quote-client-name") && !$("#quote-client-name").value) {
+      $("#quote-client-name").value = project.clientName || "";
+    }
+    if ($("#quote-scope-notes") && !$("#quote-scope-notes").value) {
+      $("#quote-scope-notes").value = project.description || `Custom fabrication for ${project.title}.`;
+    }
+    if ($("#quote-labor-hours")) {
+      const hrs = project.timeSpent ? (project.timeSpent / 60).toFixed(1) : "8";
+      $("#quote-labor-hours").value = hrs;
+    }
+  }
+
+  renderQuoteInvoice();
+  dialog.showModal();
+}
+
+function setQuoteMode(mode) {
+  activeQuoteMode = mode || "quote";
+  $$(".quote-mode-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === activeQuoteMode);
+    btn.classList.toggle("button-outline", btn.dataset.mode !== activeQuoteMode);
+  });
+  renderQuoteInvoice();
+}
+
+function renderQuoteInvoice() {
+  const sheet = $("#quote-sheet");
+  if (!sheet) return;
+
+  const project = state.projects.find(p => p.id === activeQuoteProjectId) || state.projects[0] || {
+    id: "proj_demo",
+    title: "Custom Workshop Commission",
+    description: "Handcrafted woodworking / fabrication project.",
+    materials: []
+  };
+
+  const clientName = $("#quote-client-name")?.value || "Valued Client";
+  const clientContact = $("#quote-client-contact")?.value || "client@example.com";
+  const laborRate = parseFloat($("#quote-labor-rate")?.value) || 65;
+  const laborHours = parseFloat($("#quote-labor-hours")?.value) || 8;
+  const matMarkupPct = parseFloat($("#quote-material-markup")?.value) || 20;
+  const shopFee = parseFloat($("#quote-shop-fee")?.value) || 50;
+  const taxRate = parseFloat($("#quote-tax-rate")?.value) || 7.5;
+  const depositPct = parseFloat($("#quote-deposit-pct")?.value) || 50;
+  const paymentTermsVal = $("#quote-payment-terms")?.value || "deposit_50";
+  const scopeNotes = $("#quote-scope-notes")?.value || (project.description || "Custom handcrafted design & fabrication according to client specifications.");
+
+  const docTitles = {
+    quote: "FORMAL QUOTE / ESTIMATE",
+    invoice: "TAX INVOICE & STATEMENT",
+    workorder: "WORK ORDER & BUILD SPEC"
+  };
+  const docPrefix = {
+    quote: "QTE",
+    invoice: "INV",
+    workorder: "WO"
+  };
+  const docCode = `${docPrefix[activeQuoteMode]}-${(project.id || "001").slice(0, 6).toUpperCase()}`;
+
+  const paymentTermsText = {
+    deposit_50: "50% upfront deposit to commence fabrication · Balance due upon final delivery & inspection.",
+    net_15: "Payment due within 15 days of invoice date.",
+    net_30: "Payment due within 30 days of invoice date.",
+    due_receipt: "Due immediately upon receipt of invoice.",
+    paid_full: "PAID IN FULL · Receipt of payment confirmed with thanks."
+  }[paymentTermsVal] || "50% deposit required.";
+
+  // Calculate Materials
+  const rawMaterials = (project.materials && project.materials.length > 0) ? project.materials : [
+    { name: "Primary Stock / Lumber", quantity: "1 lot", cost: 120 },
+    { name: "Hardware, Fasteners & Joinery", quantity: "1 pkg", cost: 35 },
+    { name: "Abrasives & Clear Finish Coat", quantity: "1 kit", cost: 28 }
+  ];
+
+  let rawMatTotal = 0;
+  const matRows = rawMaterials.map(m => {
+    const cost = parseFloat(m.cost) || 0;
+    rawMatTotal += cost;
+    const billedCost = cost * (1 + (matMarkupPct / 100));
+    return `
+      <tr>
+        <td>${escapeHTML(m.name || "Material item")}</td>
+        <td>${escapeHTML(m.quantity || "1")}</td>
+        <td class="text-right">${formatMoney(cost)}</td>
+        <td class="text-right">${formatMoney(billedCost)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const markedUpMaterials = rawMatTotal * (1 + (matMarkupPct / 100));
+  const laborTotal = laborHours * laborRate;
+  const subtotal = markedUpMaterials + laborTotal + shopFee;
+  const taxAmount = subtotal * (taxRate / 100);
+  const grandTotal = subtotal + taxAmount;
+  const depositDue = grandTotal * (depositPct / 100);
+  const balanceDue = grandTotal - depositDue;
+
+  const today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+
+  sheet.innerHTML = `
+    <div class="quote-sheet-header">
+      <div class="quote-sheet-brand">
+        <h2>WORKBENCH FABRICATION ATELIER</h2>
+        <div class="quote-sheet-tagline">Craftsmanship · Digital Fabrication · Design</div>
+      </div>
+      <div class="quote-sheet-doc-badge">
+        <div class="quote-doc-title">${docTitles[activeQuoteMode]}</div>
+        <div class="quote-doc-number">Document Ref: <strong>${docCode}</strong></div>
+      </div>
+    </div>
+
+    <div class="quote-meta-grid">
+      <div class="quote-meta-col">
+        <h5>CLIENT / COMMISSIONED FOR</h5>
+        <p><strong>${escapeHTML(clientName)}</strong></p>
+        <p>${escapeHTML(clientContact)}</p>
+      </div>
+      <div class="quote-meta-col">
+        <h5>COMMISSION METADATA</h5>
+        <p><strong>Date Issued:</strong> ${today}</p>
+        <p><strong>${activeQuoteMode === "invoice" ? "Payment Due" : "Estimate Valid Until"}:</strong> ${validUntil}</p>
+        <p><strong>Project:</strong> ${escapeHTML(project.title)}</p>
+      </div>
+    </div>
+
+    <div style="margin-bottom:18px">
+      <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:4px">PROJECT SCOPE &amp; SPECIFICATIONS</div>
+      <div style="font-size:12px;color:#1e293b;line-height:1.5;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px">
+        ${escapeHTML(scopeNotes)}
+      </div>
+    </div>
+
+    <!-- Itemized Tables -->
+    <table class="quote-items-table">
+      <thead>
+        <tr>
+          <th>Materials &amp; Components</th>
+          <th>Qty</th>
+          <th class="text-right">Unit / Base</th>
+          <th class="text-right">Billed Amount (${matMarkupPct}% markup)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${matRows}
+      </tbody>
+    </table>
+
+    <table class="quote-items-table">
+      <thead>
+        <tr>
+          <th>Labor, Fabrication &amp; Engineering Services</th>
+          <th>Logged Hours</th>
+          <th class="text-right">Rate / Hr</th>
+          <th class="text-right">Service Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Precision Fabrication, Joinery, Assembly &amp; Hand Finishing</td>
+          <td>${laborHours} hrs</td>
+          <td class="text-right">${formatMoney(laborRate)}/hr</td>
+          <td class="text-right">${formatMoney(laborTotal)}</td>
+        </tr>
+        ${shopFee > 0 ? `
+          <tr>
+            <td>Workshop Machinery Run Time &amp; Tool Wear Fee</td>
+            <td>1 setup</td>
+            <td class="text-right">${formatMoney(shopFee)}</td>
+            <td class="text-right">${formatMoney(shopFee)}</td>
+          </tr>
+        ` : ""}
+      </tbody>
+    </table>
+
+    <!-- Totals Block -->
+    <div class="quote-totals-block">
+      <table class="quote-totals-table">
+        <tr>
+          <td>Materials Subtotal:</td>
+          <td class="text-right">${formatMoney(markedUpMaterials)}</td>
+        </tr>
+        <tr>
+          <td>Labor Services Subtotal:</td>
+          <td class="text-right">${formatMoney(laborTotal)}</td>
+        </tr>
+        ${shopFee > 0 ? `
+          <tr>
+            <td>Workshop Machinery Fee:</td>
+            <td class="text-right">${formatMoney(shopFee)}</td>
+          </tr>
+        ` : ""}
+        <tr>
+          <td>Net Subtotal:</td>
+          <td class="text-right"><strong>${formatMoney(subtotal)}</strong></td>
+        </tr>
+        <tr>
+          <td>Estimated Sales Tax (${taxRate}%):</td>
+          <td class="text-right">${formatMoney(taxAmount)}</td>
+        </tr>
+        <tr class="quote-total-highlight">
+          <td>Grand Total:</td>
+          <td class="text-right">${formatMoney(grandTotal)}</td>
+        </tr>
+        ${activeQuoteMode !== "workorder" && depositPct > 0 ? `
+          <tr>
+            <td style="padding-top:10px">
+              <span class="quote-deposit-pill">Deposit Required (${depositPct}%):</span>
+            </td>
+            <td class="text-right" style="padding-top:10px;font-weight:700;color:#065f46">
+              ${formatMoney(depositDue)}
+            </td>
+          </tr>
+          <tr>
+            <td>Balance Due on Delivery:</td>
+            <td class="text-right" style="font-weight:600;color:#64748b">
+              ${formatMoney(balanceDue)}
+            </td>
+          </tr>
+        ` : ""}
+      </table>
+    </div>
+
+    <!-- Terms Box -->
+    <div class="quote-terms-box">
+      <strong>Terms &amp; Payment Agreement:</strong> ${escapeHTML(paymentTermsText)}
+      <br>All custom commission pieces are guaranteed against structural defects in joinery and workmanship for 1 year from delivery date.
+    </div>
+
+    <!-- Signatures -->
+    <div class="quote-signatures-row">
+      <div class="quote-sign-block">
+        Authorized Workshop Signature &amp; Date
+      </div>
+      <div class="quote-sign-block">
+        Client Acceptance Signature &amp; Date
+      </div>
+    </div>
+  `;
+}
+
+function printQuoteInvoice() {
+  window.print();
+}
+
+function downloadQuoteInvoiceHTML() {
+  const sheet = $("#quote-sheet");
+  const project = state.projects.find(p => p.id === activeQuoteProjectId) || { title: "Commission" };
+  if (!sheet) return;
+
+  const safeTitle = (project.title || "Commission").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const htmlDoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${activeQuoteMode.toUpperCase()} · ${escapeHTML(project.title)}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #0f172a;
+      display: flex;
+      justify-content: center;
+    }
+    .quote-sheet {
+      width: 100%;
+      max-width: 800px;
+      background: #ffffff;
+      padding: 40px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      box-sizing: border-box;
+    }
+    .quote-sheet-header { display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px; }
+    .quote-sheet-brand h2 { margin: 0 0 4px; font-size: 22px; font-weight: 800; }
+    .quote-sheet-tagline { font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600; }
+    .quote-doc-title { font-size: 22px; font-weight: 900; text-transform: uppercase; margin: 0 0 4px; }
+    .quote-doc-number { font-size: 12px; color: #64748b; font-family: monospace; }
+    .quote-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; font-size: 12px; }
+    .quote-meta-col h5 { font-size: 10px; text-transform: uppercase; color: #64748b; margin: 0 0 4px; }
+    .quote-meta-col p { margin: 0 0 3px; }
+    .quote-items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+    .quote-items-table th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; text-align: left; padding: 8px; font-size: 10px; text-transform: uppercase; }
+    .quote-items-table td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+    .text-right { text-align: right; }
+    .quote-totals-block { display: flex; justify-content: flex-end; margin-bottom: 24px; }
+    .quote-totals-table { width: 320px; border-collapse: collapse; font-size: 12px; }
+    .quote-totals-table td { padding: 4px 6px; }
+    .quote-total-highlight td { border-top: 2px solid #0f172a; border-bottom: 2px solid #0f172a; font-size: 15px; font-weight: 800; padding: 8px 6px; }
+    .quote-deposit-pill { display: inline-block; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+    .quote-terms-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; font-size: 11px; color: #475569; }
+    .quote-signatures-row { display: flex; justify-content: space-between; gap: 30px; margin-top: 32px; font-size: 11px; color: #64748b; text-align: center; }
+    .quote-sign-block { flex: 1; border-top: 1px dashed #94a3b8; padding-top: 6px; }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .quote-sheet { border: none; box-shadow: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="quote-sheet">
+    ${sheet.innerHTML}
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([htmlDoc], { type: "text/html;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${activeQuoteMode.toUpperCase()}_${safeTitle}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast(`Downloaded ${activeQuoteMode.toUpperCase()} document!`);
+}
+
+function copyQuoteSummary() {
+  const sheet = $("#quote-sheet");
+  if (!sheet) return;
+  const text = sheet.innerText || "";
+  void navigator.clipboard.writeText(text).then(() => {
+    showToast("Copied quote summary to clipboard!");
+  });
+}
+
+
 
 /* ⭐ Save Custom Project Templates */
 function openSaveTemplateDialog(projectId) {
@@ -9969,6 +10320,47 @@ async function handleAction(action, target) {
   }
   if (action === "open-workshop-blueprint") {
     openWorkshopBlueprint(id || target.dataset.project || activeProjectId);
+    return;
+  }
+  if (action === "open-quote-dialog") {
+    openQuoteDialog(id || target.dataset.project || activeProjectId);
+    return;
+  }
+  if (action === "print-quote-invoice") {
+    printQuoteInvoice();
+    return;
+  }
+  if (action === "download-quote-invoice") {
+    downloadQuoteInvoiceHTML();
+    return;
+  }
+  if (action === "copy-quote-summary") {
+    copyQuoteSummary();
+    return;
+  }
+  if (action === "set-quote-mode") {
+    setQuoteMode(target.dataset.mode);
+    return;
+  }
+  if (action === "copy-cnc-specs") {
+    const gcode = target.dataset.gcode || $("#cnc-result")?.innerText || "";
+    if (gcode) {
+      void navigator.clipboard.writeText(gcode).then(() => showToast("Copied CNC Feed & Speed G-Code settings!"));
+    }
+    return;
+  }
+  if (action === "copy-serial-crc") {
+    const hex = target.dataset.hex || "";
+    if (hex) {
+      void navigator.clipboard.writeText(hex).then(() => showToast(`Copied ${hex} to clipboard!`));
+    }
+    return;
+  }
+  if (action === "copy-resin-mix") {
+    const recipe = target.dataset.recipe || $("#resin-result")?.innerText || "";
+    if (recipe) {
+      void navigator.clipboard.writeText(recipe).then(() => showToast("Copied Resin & Silicone mix recipe!"));
+    }
     return;
   }
   if (action === "add-fastener-to-project") {
@@ -22441,6 +22833,128 @@ function updateWoodFinishView() {
   '</div>';
 }
 
+// --- ⚙️ Woodworking: CNC Feeds, Speeds & Chip Load Precision Calculator ---
+function updateCncCalc() {
+  const material = $("#cnc-material")?.value || "hardwood";
+  const bitPreset = $("#cnc-bit-preset")?.value || "0.25";
+  const customBitInput = $("#cnc-bit-custom");
+  let bitDia = parseFloat(bitPreset);
+  if (bitPreset === "custom") {
+    if (customBitInput) customBitInput.style.display = "inline-block";
+    bitDia = parseFloat(customBitInput?.value) || 0.25;
+  } else {
+    if (customBitInput) customBitInput.style.display = "none";
+  }
+  bitDia = Math.max(0.01, Math.min(3.0, bitDia));
+
+  const flutes = parseInt($("#cnc-flutes")?.value, 10) || 2;
+  const rpm = Math.max(1000, Math.min(40000, parseInt($("#cnc-rpm")?.value, 10) || 18000));
+  const opType = $("#cnc-op-type")?.value || "slotting";
+  const unit = $("#cnc-unit")?.value || "imperial";
+  const res = $("#cnc-result");
+  if (!res) return;
+
+  const matDatabase = {
+    hardwood: { name: "Hardwood", baseChip: 0.0045, docFactor: 0.50, maxSfm: 800, advice: "Use 2-flute upcut or compression spiral to prevent bottom blowout; ensure rigid workpiece hold-down." },
+    softwood: { name: "Softwood", baseChip: 0.0055, docFactor: 0.75, maxSfm: 1000, advice: "High feed rates prevent burning in pitchy pine/fir. Sharp carbide edge is critical to avoid fuzzy fibers." },
+    plywood:  { name: "Plywood", baseChip: 0.0040, docFactor: 0.50, maxSfm: 750, advice: "Use compression spiral bits (upcut bottom + downcut top) for tearout-free veneers on both sides." },
+    mdf:      { name: "MDF / HDF", baseChip: 0.0060, docFactor: 0.75, maxSfm: 1000, advice: "Abrasive resin glues dull bits rapidly. Run fast feed rates to extract heat in dust; turn dust collection on MAX." },
+    acrylic:  { name: "Cast Acrylic", baseChip: 0.0040, docFactor: 0.40, maxSfm: 500, advice: "Use polished single O-flute bit. Too slow feeds melt plastic back into kerf; ramp entries prevent chipping." },
+    aluminum: { name: "Aluminum (6061)", baseChip: 0.0012, docFactor: 0.20, maxSfm: 400, advice: "Single or 2-flute ZrN coated endmill. Use isopropyl alcohol or air blast mist; shallow DOC with high RPM." },
+    delrin:   { name: "Delrin / Acetal", baseChip: 0.0050, docFactor: 0.50, maxSfm: 800, advice: "Machines exceptionally well. Use sharp upcut bit with moderate feed to avoid heating and thermal expansion." }
+  };
+
+  const mat = matDatabase[material] || matDatabase.hardwood;
+  // Haas tooling chip load scaling: CL = base * (D / 0.25)^0.6
+  const chipLoadIn = mat.baseChip * Math.pow(bitDia / 0.25, 0.6);
+  const feedRateIpm = Math.round(rpm * flutes * chipLoadIn * 10) / 10;
+  const sfm = Math.round((Math.PI * bitDia * rpm) / 12);
+  const plungeIpm = Math.round(feedRateIpm * 0.30 * 10) / 10;
+  const docIn = Math.round(bitDia * mat.docFactor * 1000) / 1000;
+  const wocFactor = opType === "slotting" ? 1.0 : (opType === "roughing" ? 0.5 : 0.15);
+  const wocIn = Math.round(bitDia * wocFactor * 1000) / 1000;
+  const mrrIn3 = Math.round(feedRateIpm * docIn * wocIn * 100) / 100;
+
+  // Unit display values
+  const isMetric = unit === "metric";
+  const displayFeed = isMetric ? Math.round(feedRateIpm * 25.4) : feedRateIpm;
+  const feedUnit = isMetric ? "mm/min" : "IPM";
+  const displayPlunge = isMetric ? Math.round(plungeIpm * 25.4) : plungeIpm;
+  const plungeUnit = isMetric ? "mm/min" : "IPM";
+  const displayDoc = isMetric ? (docIn * 25.4).toFixed(2) : docIn.toFixed(3);
+  const docUnit = isMetric ? "mm" : "in";
+  const displayWoc = isMetric ? (wocIn * 25.4).toFixed(2) : wocIn.toFixed(3);
+  const wocUnit = isMetric ? "mm" : "in";
+  const displayMrr = isMetric ? (mrrIn3 * 16.387).toFixed(1) : mrrIn3.toFixed(2);
+  const mrrUnit = isMetric ? "cm³/min" : "in³/min";
+  const displayChip = isMetric ? (chipLoadIn * 25.4).toFixed(3) : chipLoadIn.toFixed(4);
+  const chipUnit = isMetric ? "mm/tooth" : "in/tooth";
+  const surfaceSpeed = isMetric ? Math.round(sfm * 0.3048) : sfm;
+  const sfmUnit = isMetric ? "m/min" : "SFM";
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Feed Rate (XY)</span>
+        <span class="cnc-stat-pill-val">${displayFeed}<span class="cnc-stat-pill-unit">${feedUnit}</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Plunge Rate (Z)</span>
+        <span class="cnc-stat-pill-val">${displayPlunge}<span class="cnc-stat-pill-unit">${plungeUnit}</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Target Chip Load</span>
+        <span class="cnc-stat-pill-val">${displayChip}<span class="cnc-stat-pill-unit">${chipUnit}</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Max Depth of Cut</span>
+        <span class="cnc-stat-pill-val">${displayDoc}<span class="cnc-stat-pill-unit">${docUnit}</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Stepover (WOC)</span>
+        <span class="cnc-stat-pill-val">${displayWoc}<span class="cnc-stat-pill-unit">${wocUnit}</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Surface Speed</span>
+        <span class="cnc-stat-pill-val">${surfaceSpeed}<span class="cnc-stat-pill-unit">${sfmUnit}</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Removal Rate</span>
+        <span class="cnc-stat-pill-val">${displayMrr}<span class="cnc-stat-pill-unit">${mrrUnit}</span></span>
+      </div>
+    </div>
+
+    <div class="cnc-chip-gauge-wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700">
+        <span style="color:#ef4444">🔥 Rubbing / Friction Burn</span>
+        <span style="color:#10b981">🎯 Optimal Evacuation Sweet Spot</span>
+        <span style="color:#ef4444">⚠️ Tool Deflection / Chatter</span>
+      </div>
+      <div class="cnc-chip-track">
+        <div class="cnc-chip-marker" style="left:50%" title="Target Chip Load Sweet Spot"></div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.45">
+      <strong>💡 Tooling &amp; Cut Strategy Advice:</strong> ${mat.advice}
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="button button-outline" data-action="copy-cnc-specs" style="font-size:12px" data-gcode="S${rpm} M3\nG1 F${displayFeed}">
+        📋 Copy G-Code Settings (F${displayFeed} ${feedUnit} · S${rpm})
+      </button>
+    </div>
+  `;
+}
+
+function setRouterRpmPreset(val) {
+  const rpmInput = $("#cnc-rpm");
+  if (rpmInput && val) {
+    rpmInput.value = val;
+    updateCncCalc();
+  }
+}
+
 // --- 🧶 Textiles & Yarn Studio: Yardage Estimator, Gauge Swatch, PNG Export ---
 const TEXTILE_PROJECT_YARDAGE_DB = {
   beanie: { "1": 250, "2": 220, "3": 200, "4": 180, "5": 140, "6": 90 },
@@ -24572,6 +25086,203 @@ async function saveBatteryToMaterials() {
   await addMaterialToProjectShopping(`${bat} (${cap} mAh)`, "1 unit", 0, "Sensors & Modules");
 }
 
+// --- 📡 Programming: Serial UART, Packet Timing & CRC Checksum Analyzer ---
+function updateSerialCalc() {
+  const baud = parseInt($("#serial-baud")?.value, 10) || 115200;
+  const framing = $("#serial-framing")?.value || "8N1";
+  const format = $("#serial-data-format")?.value || "ascii";
+  const rawInput = $("#serial-payload-input")?.value || "HELLO_MAKER";
+  const res = $("#serial-result");
+  if (!res) return;
+
+  const bitTimeUs = (1 / baud) * 1e6;
+  const framingMap = {
+    "8N1": { data: 8, parity: 0, stop: 1, total: 10, label: "8 Data, No Parity, 1 Stop" },
+    "8E1": { data: 8, parity: 1, stop: 1, total: 11, label: "8 Data, Even Parity, 1 Stop" },
+    "8O1": { data: 8, parity: 1, stop: 1, total: 11, label: "8 Data, Odd Parity, 1 Stop" },
+    "8N2": { data: 8, parity: 0, stop: 2, total: 11, label: "8 Data, No Parity, 2 Stop" },
+    "7E1": { data: 7, parity: 1, stop: 1, total: 10, label: "7 Data, Even Parity, 1 Stop" }
+  };
+  const frame = framingMap[framing] || framingMap["8N1"];
+
+  let bytes = [];
+  if (format === "hex") {
+    const clean = rawInput.replace(/[^0-9a-fA-F]/g, "");
+    for (let i = 0; i < clean.length; i += 2) {
+      bytes.push(parseInt(clean.substr(i, 2), 16) || 0);
+    }
+  } else {
+    for (let i = 0; i < rawInput.length; i++) {
+      bytes.push(rawInput.charCodeAt(i) & 0xFF);
+    }
+  }
+  if (bytes.length === 0) bytes = [0x00];
+
+  // XOR Checksum
+  const xor = bytes.reduce((acc, b) => acc ^ b, 0);
+
+  // Sum-8
+  const sum8 = bytes.reduce((acc, b) => (acc + b) & 0xFF, 0);
+
+  // CRC-8 (Dallas 0x31)
+  let crc8 = 0;
+  for (const b of bytes) {
+    crc8 ^= b;
+    for (let i = 0; i < 8; i++) {
+      if (crc8 & 0x80) crc8 = ((crc8 << 1) ^ 0x31) & 0xFF;
+      else crc8 = (crc8 << 1) & 0xFF;
+    }
+  }
+
+  // CRC-16 Modbus (Poly 0xA001)
+  let crc16Modbus = 0xFFFF;
+  for (const b of bytes) {
+    crc16Modbus ^= b;
+    for (let i = 0; i < 8; i++) {
+      if (crc16Modbus & 0x0001) crc16Modbus = (crc16Modbus >> 1) ^ 0xA001;
+      else crc16Modbus = crc16Modbus >> 1;
+    }
+  }
+
+  // CRC-16 CCITT (Poly 0x1021)
+  let crc16Ccitt = 0xFFFF;
+  for (const b of bytes) {
+    crc16Ccitt ^= (b << 8);
+    for (let i = 0; i < 8; i++) {
+      if (crc16Ccitt & 0x8000) crc16Ccitt = ((crc16Ccitt << 1) ^ 0x1021) & 0xFFFF;
+      else crc16Ccitt = (crc16Ccitt << 1) & 0xFFFF;
+    }
+  }
+
+  const packetBits = bytes.length * frame.total;
+  const packetTimeMs = (packetBits * bitTimeUs) / 1000;
+  const byteRate = Math.round(baud / frame.total);
+  const throughputKbps = ((byteRate * 8) / 1000).toFixed(1);
+
+  const xorHex = "0x" + xor.toString(16).padStart(2, "0").toUpperCase();
+  const sum8Hex = "0x" + sum8.toString(16).padStart(2, "0").toUpperCase();
+  const crc8Hex = "0x" + crc8.toString(16).padStart(2, "0").toUpperCase();
+  const crc16ModbusHex = "0x" + crc16Modbus.toString(16).padStart(4, "0").toUpperCase();
+  const crc16CcittHex = "0x" + crc16Ccitt.toString(16).padStart(4, "0").toUpperCase();
+
+  // Generate Digital Signal Waveform SVG for first byte (UART TX Line)
+  const firstByte = bytes[0] || 0;
+  const firstByteHex = "0x" + firstByte.toString(16).padStart(2, "0").toUpperCase();
+  const firstByteChar = (firstByte >= 32 && firstByte <= 126) ? `'${String.fromCharCode(firstByte)}'` : "N/A";
+
+  // Build bit train: Idle (1) -> Start (0) -> D0..D7 -> Parity -> Stop (1) -> Idle (1)
+  const bitTrain = [{ name: "IDLE", val: 1 }];
+  bitTrain.push({ name: "START", val: 0 });
+  for (let i = 0; i < frame.data; i++) {
+    const bitVal = (firstByte >> i) & 1;
+    bitTrain.push({ name: `D${i}`, val: bitVal });
+  }
+  if (frame.parity > 0) {
+    let ones = 0;
+    for (let i = 0; i < frame.data; i++) if ((firstByte >> i) & 1) ones++;
+    const isEvenParity = framing.includes("E");
+    const parVal = isEvenParity ? (ones % 2 === 0 ? 0 : 1) : (ones % 2 === 0 ? 1 : 0);
+    bitTrain.push({ name: "PAR", val: parVal });
+  }
+  for (let i = 0; i < frame.stop; i++) {
+    bitTrain.push({ name: `STOP${frame.stop > 1 ? i + 1 : ""}`, val: 1 });
+  }
+  bitTrain.push({ name: "IDLE", val: 1 });
+
+  // Draw SVG pulse waveform
+  const totalSlots = bitTrain.length;
+  const slotW = 540 / totalSlots;
+  const highY = 16, lowY = 48;
+  let waveD = `M 0 ${highY}`;
+  let currentY = highY;
+
+  let markersHtml = "";
+  bitTrain.forEach((bit, idx) => {
+    const xStart = idx * slotW;
+    const xEnd = (idx + 1) * slotW;
+    const targetY = bit.val === 1 ? highY : lowY;
+    if (targetY !== currentY) {
+      waveD += ` L ${xStart} ${targetY}`;
+      currentY = targetY;
+    }
+    waveD += ` L ${xEnd} ${targetY}`;
+
+    markersHtml += `
+      <g transform="translate(${xStart + (slotW / 2)}, 0)">
+        <text x="0" y="62" font-size="9" font-family="monospace" fill="#94a3b8" text-anchor="middle">${bit.name}</text>
+        <text x="0" y="${targetY > 30 ? 44 : 28}" font-size="10" font-weight="bold" font-family="monospace" fill="${bit.val === 1 ? '#34d399' : '#f87171'}" text-anchor="middle">${bit.val}</text>
+      </g>
+    `;
+  });
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Bit Duration (Tbit)</span>
+        <span class="cnc-stat-pill-val">${bitTimeUs < 1 ? (bitTimeUs * 1000).toFixed(1) : bitTimeUs.toFixed(2)}<span class="cnc-stat-pill-unit">${bitTimeUs < 1 ? "ns" : "µs"}</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Byte Throughput</span>
+        <span class="cnc-stat-pill-val">${byteRate.toLocaleString()}<span class="cnc-stat-pill-unit">B/s</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Effective Data Rate</span>
+        <span class="cnc-stat-pill-val">${throughputKbps}<span class="cnc-stat-pill-unit">kbps</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Packet Payload</span>
+        <span class="cnc-stat-pill-val">${bytes.length}<span class="cnc-stat-pill-unit">bytes</span></span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Wire Time</span>
+        <span class="cnc-stat-pill-val">${packetTimeMs < 1 ? (packetTimeMs * 1000).toFixed(0) : packetTimeMs.toFixed(2)}<span class="cnc-stat-pill-unit">${packetTimeMs < 1 ? "µs" : "ms"}</span></span>
+      </div>
+    </div>
+
+    <!-- Oscilloscope trace -->
+    <div class="serial-wave-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:11px;color:#94a3b8">
+        <span>⚡ <strong>Digital Scope: Byte 0 (${firstByteHex} / ${firstByteChar})</strong> · LSB-First UART Pulse Train</span>
+        <span>${frame.label} · ${baud} bps</span>
+      </div>
+      <svg class="serial-wave-svg" viewBox="0 0 540 70">
+        <line x1="0" y1="${highY}" x2="540" y2="${highY}" stroke="#1e293b" stroke-dasharray="2,2"/>
+        <line x1="0" y1="${lowY}" x2="540" y2="${lowY}" stroke="#1e293b" stroke-dasharray="2,2"/>
+        <path d="${waveD}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linejoin="round"/>
+        ${markersHtml}
+      </svg>
+    </div>
+
+    <!-- CRC Checksum Badges -->
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div class="serial-crc-badge" title="Standard Modbus RTU / RS-485 CRC-16 (Poly 0xA001)">
+        <span>CRC-16 Modbus:</span> <strong>${crc16ModbusHex}</strong>
+      </div>
+      <div class="serial-crc-badge" title="CRC-16 CCITT / XMODEM (Poly 0x1021)">
+        <span>CRC-16 CCITT:</span> <strong>${crc16CcittHex}</strong>
+      </div>
+      <div class="serial-crc-badge" title="Dallas 1-Wire DS18B20 CRC-8 (Poly 0x31)">
+        <span>CRC-8 Dallas:</span> <strong>${crc8Hex}</strong>
+      </div>
+      <div class="serial-crc-badge" title="8-bit XOR Longitudinal Checksum">
+        <span>XOR / NMEA:</span> <strong>${xorHex}</strong>
+      </div>
+      <div class="serial-crc-badge" title="8-bit Modulo 256 Sum Checksum">
+        <span>Sum-8:</span> <strong>${sum8Hex}</strong>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="button button-outline" data-action="copy-serial-crc" data-hex="${crc16ModbusHex}" style="font-size:12px">
+        📋 Copy CRC-16 (${crc16ModbusHex})
+      </button>
+      <button type="button" class="button button-outline" data-action="copy-serial-crc" data-hex="${crc8Hex}" style="font-size:12px">
+        📋 Copy CRC-8 (${crc8Hex})
+      </button>
+    </div>
+  `;
+}
+
 // --- 🛒 Studio to Project Supplies Helper ---
 async function addMaterialToProjectShopping(itemName, qty, cost = 0, groupOverride = null) {
   let project = (typeof state !== "undefined" && state.projects) ? (state.projects.find(p => p.status === "in-progress") || state.projects[0]) : null;
@@ -25934,6 +26645,188 @@ function updatePigmentMixer() {
   `;
 }
 
+// --- 🧪 Art & Design: Epoxy Resin, Silicone & Casting Mix Calculator ---
+function updateResinCalc() {
+  const preset = $("#resin-type-preset")?.value || "tabletop_1_1";
+  const shape = $("#resin-shape")?.value || "rect";
+  const measureMode = $("#resin-measure-mode")?.value || "weight";
+  const units = $("#resin-units")?.value || "imperial";
+  const wastePct = parseFloat($("#resin-waste")?.value) || 0.10;
+  const res = $("#resin-result");
+  if (!res) return;
+
+  const isMetric = units === "metric";
+
+  // Dynamic label updating
+  const lbl1 = $("#resin-lbl-dim1");
+  const lbl2 = $("#resin-lbl-dim2");
+  const lbl3 = $("#resin-lbl-dim3");
+  const text1 = $("#resin-text-dim1");
+  const text2 = $("#resin-text-dim2");
+  const text3 = $("#resin-text-dim3");
+
+  if (shape === "rect") {
+    if (lbl1) lbl1.style.display = "block";
+    if (lbl2) lbl2.style.display = "block";
+    if (lbl3) lbl3.style.display = "block";
+    if (text1) text1.textContent = isMetric ? "Length (cm)" : "Length (in)";
+    if (text2) text2.textContent = isMetric ? "Width (cm)" : "Width (in)";
+    if (text3) text3.textContent = isMetric ? "Depth / Thickness (cm)" : "Depth / Thickness (in)";
+  } else if (shape === "cyl") {
+    if (lbl1) lbl1.style.display = "block";
+    if (lbl2) lbl2.style.display = "none";
+    if (lbl3) lbl3.style.display = "block";
+    if (text1) text1.textContent = isMetric ? "Diameter (cm)" : "Diameter (in)";
+    if (text3) text3.textContent = isMetric ? "Depth / Height (cm)" : "Depth / Height (in)";
+  } else {
+    // direct
+    if (lbl1) lbl1.style.display = "block";
+    if (lbl2) lbl2.style.display = "none";
+    if (lbl3) lbl3.style.display = "none";
+    if (text1) text1.textContent = isMetric ? "Liquid Volume (ml)" : "Liquid Volume (fl oz)";
+  }
+
+  const dim1 = Math.max(0.1, parseFloat($("#resin-dim1")?.value) || 12);
+  const dim2 = Math.max(0.1, parseFloat($("#resin-dim2")?.value) || 6);
+  const dim3 = Math.max(0.01, parseFloat($("#resin-dim3")?.value) || 0.5);
+
+  let volMl = 0;
+  let depthIn = 0;
+  if (shape === "rect") {
+    if (isMetric) {
+      volMl = dim1 * dim2 * dim3; // cm3 = ml
+      depthIn = dim3 / 2.54;
+    } else {
+      const volIn3 = dim1 * dim2 * dim3;
+      volMl = volIn3 * 16.3871;
+      depthIn = dim3;
+    }
+  } else if (shape === "cyl") {
+    if (isMetric) {
+      volMl = Math.PI * Math.pow(dim1 / 2, 2) * dim3;
+      depthIn = dim3 / 2.54;
+    } else {
+      const volIn3 = Math.PI * Math.pow(dim1 / 2, 2) * dim3;
+      volMl = volIn3 * 16.3871;
+      depthIn = dim3;
+    }
+  } else {
+    volMl = isMetric ? dim1 : dim1 * 29.5735;
+    depthIn = 0;
+  }
+
+  // Formulation properties
+  let ratioA = 1, ratioB = 1, safeDepthIn = 0.25, potLifeMin = 25, cureHours = 24;
+  let name = "1:1 Tabletop Epoxy";
+  if (preset === "tabletop_1_1") {
+    ratioA = 1; ratioB = 1; safeDepthIn = 0.25; potLifeMin = 25; cureHours = 24; name = "1:1 Tabletop Epoxy";
+  } else if (preset === "deep_pour_2_1") {
+    ratioA = 2; ratioB = 1; safeDepthIn = 2.0; potLifeMin = 90; cureHours = 72; name = "2:1 Deep Pour River Table Epoxy";
+  } else if (preset === "casting_3_1") {
+    ratioA = 3; ratioB = 1; safeDepthIn = 3.0; potLifeMin = 180; cureHours = 96; name = "3:1 Casting Resin";
+  } else if (preset === "silicone_10_1") {
+    ratioA = 10; ratioB = 1; safeDepthIn = 8.0; potLifeMin = 45; cureHours = 18; name = "10:1 Tin-Cure Mold Silicone";
+  } else if (preset === "silicone_1_1") {
+    ratioA = 1; ratioB = 1; safeDepthIn = 8.0; potLifeMin = 30; cureHours = 12; name = "1:1 Platinum Silicone";
+  } else if (preset === "urethane_1_1") {
+    ratioA = 1; ratioB = 1; safeDepthIn = 1.5; potLifeMin = 4; cureHours = 2; name = "1:1 Fast-Cast Polyurethane";
+  }
+
+  const totalMl = volMl * (1 + wastePct);
+  const totalFlOz = totalMl / 29.5735;
+
+  const fracA = ratioA / (ratioA + ratioB);
+  const fracB = ratioB / (ratioA + ratioB);
+
+  const partAMl = Math.round(totalMl * fracA);
+  const partBMl = Math.round(totalMl * fracB);
+
+  // Densities (g/ml): Part A ~1.12, Part B ~0.98
+  const densityA = preset.startsWith("silicone") ? 1.15 : 1.12;
+  const densityB = preset.startsWith("silicone") ? 1.05 : 0.98;
+
+  const partAGrams = Math.round(partAMl * densityA);
+  const partBGrams = Math.round(partBMl * densityB);
+  const totalGrams = partAGrams + partBGrams;
+  const partAoz = (partAGrams / 28.3495).toFixed(1);
+  const partBoz = (partBGrams / 28.3495).toFixed(1);
+  const totalOz = (totalGrams / 28.3495).toFixed(1);
+
+  // Exotherm safety evaluation
+  const isDepthDanger = shape !== "direct" && depthIn > (safeDepthIn * 1.35);
+  const depthMm = (depthIn * 25.4).toFixed(1);
+  const safeDepthMm = (safeDepthIn * 25.4).toFixed(1);
+
+  let exothermHtml = "";
+  if (isDepthDanger) {
+    exothermHtml = `
+      <div class="resin-exotherm-alert resin-alert-warn">
+        <span style="font-size:20px;line-height:1">⚠️</span>
+        <div>
+          <strong>HIGH EXOTHERMIC HEAT WARNING!</strong><br>
+          Pour depth of <strong>${depthIn.toFixed(2)}" (${depthMm} mm)</strong> exceeds the safe dissipation limit (<strong>${safeDepthIn}" / ${safeDepthMm} mm</strong>) for ${name}. The resin will overheat, boil, create bubbles, scorch yellow, or crack during cure!
+          <br><em>Action: Pour in 2 or more sequential layers, OR switch formulation to <strong>2:1 Deep Pour Epoxy</strong>.</em>
+        </div>
+      </div>
+    `;
+  } else {
+    exothermHtml = `
+      <div class="resin-exotherm-alert resin-alert-safe">
+        <span style="font-size:18px;line-height:1">✅</span>
+        <div>
+          <strong>Thermal Dissipation Safe:</strong> Pour depth of <strong>${depthIn.toFixed(2)}" (${depthMm} mm)</strong> is well within the recommended limit (max ${safeDepthIn}" / ${safeDepthMm} mm). Pot life: ~${potLifeMin} min · Demold time: ~${cureHours} hrs.
+        </div>
+      </div>
+    `;
+  }
+
+  // Visual Flask percentages
+  const pctA = Math.round(fracA * 100);
+  const pctB = Math.round(fracB * 100);
+
+  res.innerHTML = `
+    <div class="resin-vessel-card">
+      <div class="resin-flask-beaker" title="Part A (Resin) + Part B (Hardener)">
+        <div class="resin-fluid-b" style="height:${pctB * 0.9}%" title="Part B: ${pctB}%"></div>
+        <div class="resin-fluid-a" style="height:${pctA * 0.9}%" title="Part A: ${pctA}%"></div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px">TOTAL MIX REQUIRED (INCL. ${(wastePct * 100).toFixed(0)}% OVERAGE)</div>
+        <div style="font-size:24px;font-weight:900;color:var(--ink);margin:2px 0 8px">
+          ${measureMode === "weight" ? `${totalGrams} g (${totalOz} oz)` : `${Math.round(totalMl)} ml (${totalFlOz.toFixed(1)} fl oz)`}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:var(--surface);border:1.5px solid #3b82f6;border-radius:6px;padding:8px 10px">
+            <div style="font-size:10px;font-weight:800;color:#2563eb;text-transform:uppercase">PART A (RESIN / BASE)</div>
+            <div style="font-size:17px;font-weight:800;color:var(--ink);margin-top:2px">
+              ${measureMode === "weight" ? `${partAGrams} g` : `${partAMl} ml`}
+            </div>
+            <div style="font-size:11px;color:var(--muted)">${measureMode === "weight" ? `${partAoz} oz` : `${(partAMl / 29.5735).toFixed(1)} fl oz`} · ${pctA}%</div>
+          </div>
+
+          <div style="background:var(--surface);border:1.5px solid #06b6d4;border-radius:6px;padding:8px 10px">
+            <div style="font-size:10px;font-weight:800;color:#0891b2;text-transform:uppercase">PART B (HARDENER / CATALYST)</div>
+            <div style="font-size:17px;font-weight:800;color:var(--ink);margin-top:2px">
+              ${measureMode === "weight" ? `${partBGrams} g` : `${partBMl} ml`}
+            </div>
+            <div style="font-size:11px;color:var(--muted)">${measureMode === "weight" ? `${partBoz} oz` : `${(partBMl / 29.5735).toFixed(1)} fl oz`} · ${pctB}%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${exothermHtml}
+
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="button button-outline" data-action="copy-resin-mix" style="font-size:12px" data-recipe="${name}: Part A = ${partAGrams}g (${partAMl}ml), Part B = ${partBGrams}g (${partBMl}ml) · Total = ${totalGrams}g">
+        📋 Copy Recipe Card
+      </button>
+    </div>
+  `;
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -26423,6 +27316,35 @@ function initCraftStudios() {
       updatePigmentMixer();
     }
   });
+
+  // Wood CNC Feeds & Speeds Precision Calculator
+  updateCncCalc();
+  ["#cnc-material", "#cnc-bit-preset", "#cnc-flutes", "#cnc-op-type", "#cnc-unit"].forEach(s => $(s)?.addEventListener("change", updateCncCalc));
+  ["#cnc-bit-custom", "#cnc-rpm"].forEach(s => $(s)?.addEventListener("input", updateCncCalc));
+  $("#cnc-router-preset")?.addEventListener("change", (e) => setRouterRpmPreset(e.target.value));
+
+  // Programming Serial UART & CRC Analyzer
+  updateSerialCalc();
+  ["#serial-baud", "#serial-framing", "#serial-data-format"].forEach(s => $(s)?.addEventListener("change", updateSerialCalc));
+  $("#serial-payload-input")?.addEventListener("input", updateSerialCalc);
+
+  // Art Epoxy Resin & Silicone Casting Mix Calculator
+  updateResinCalc();
+  ["#resin-type-preset", "#resin-shape", "#resin-measure-mode", "#resin-units", "#resin-waste"].forEach(s => $(s)?.addEventListener("change", updateResinCalc));
+  ["#resin-dim1", "#resin-dim2", "#resin-dim3"].forEach(s => $(s)?.addEventListener("input", updateResinCalc));
+
+  // Client Quote & Estimate Form Listeners
+  ["#quote-project-select", "#quote-payment-terms"].forEach(s => $(s)?.addEventListener("change", (e) => {
+    if (e.target.id === "quote-project-select") {
+      activeQuoteProjectId = e.target.value;
+      const proj = state.projects.find(p => p.id === activeQuoteProjectId);
+      if (proj && $("#quote-scope-notes")) {
+        $("#quote-scope-notes").value = proj.description || `Custom fabrication for ${proj.title}.`;
+      }
+    }
+    renderQuoteInvoice();
+  }));
+  ["#quote-client-name", "#quote-client-contact", "#quote-labor-rate", "#quote-labor-hours", "#quote-material-markup", "#quote-shop-fee", "#quote-tax-rate", "#quote-deposit-pct", "#quote-scope-notes"].forEach(s => $(s)?.addEventListener("input", renderQuoteInvoice));
 
   const instSelect = $("#music-main-instrument");
   if (instSelect) {

@@ -1557,6 +1557,88 @@
                 <div class="tool-result-box" id="wood-dt-result" style="margin-top:12px"></div>
               </div>
 
+              <!-- ⚙️ CNC Feeds, Speeds & Chip Load Precision Calculator -->
+              <div class="panel" id="panel-wood-cnc" style="grid-column: 1 / -1">
+                <div class="eyebrow">DIGITAL FABRICATION &amp; CNC MILLING</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">⚙️ CNC Feeds, Speeds &amp; Chip Load Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-cnc" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate mathematically optimal spindle RPM, feed rates (IPM/mm-min), depth-of-cut, and chip load per tooth to prevent bit breakage, burning, and tool deflection.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Stock Material
+                    <select id="cnc-material">
+                      <option value="hardwood" selected>Hardwood (Oak, Walnut, Maple, Cherry)</option>
+                      <option value="softwood">Softwood (Pine, Fir, Cedar, Spruce)</option>
+                      <option value="plywood">Baltic Birch &amp; Cabinet Plywood</option>
+                      <option value="mdf">MDF &amp; Hardboard / HDF</option>
+                      <option value="acrylic">Cast Acrylic &amp; Polycarbonate Plastics</option>
+                      <option value="aluminum">Aluminum Plate (6061-T6)</option>
+                      <option value="delrin">Delrin / POM / Acetal</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">End Mill Diameter
+                    <div style="display:flex;gap:4px">
+                      <select id="cnc-bit-preset" style="flex:1">
+                        <option value="0.125">1/8" (0.125" / 3.175mm)</option>
+                        <option value="0.25" selected>1/4" (0.250" / 6.35mm)</option>
+                        <option value="0.0625">1/16" (0.0625" / 1.59mm)</option>
+                        <option value="0.375">3/8" (0.375" / 9.53mm)</option>
+                        <option value="0.5">1/2" (0.500" / 12.7mm)</option>
+                        <option value="custom">Custom Diameter...</option>
+                      </select>
+                      <input type="number" id="cnc-bit-custom" value="0.25" step="any" min="0.01" max="2" style="width:70px;display:none" placeholder="in">
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Number of Flutes
+                    <select id="cnc-flutes">
+                      <option value="1">1 Flute (O-Flute · Best for plastics/aluminum)</option>
+                      <option value="2" selected>2 Flutes (General Woodworking Standard)</option>
+                      <option value="3">3 Flutes (High-Speed Aluminum / Finishing)</option>
+                      <option value="4">4 Flutes (Finishing / Shallow Profile Pass)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Spindle / Router RPM
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="cnc-rpm" value="18000" min="4000" max="32000" step="500" style="flex:1">
+                      <select id="cnc-router-preset" style="width:95px" title="Preset router speeds">
+                        <option value="" disabled selected>Router ▾</option>
+                        <option value="10000">Makita 1 (10k)</option>
+                        <option value="14000">Makita 2 (14k)</option>
+                        <option value="18000">Makita 3 (18k)</option>
+                        <option value="23000">Makita 4 (23k)</option>
+                        <option value="30000">Makita 5 (30k)</option>
+                        <option value="16000">DeWalt 1 (16k)</option>
+                        <option value="18200">DeWalt 2 (18.2k)</option>
+                        <option value="20400">DeWalt 3 (20.4k)</option>
+                        <option value="24000">VFD 400Hz (24k)</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Cut Operation Type
+                    <select id="cnc-op-type">
+                      <option value="slotting" selected>Full Slotting / Pocketing (100% WOC)</option>
+                      <option value="roughing">Roughing / Stepover (50% WOC)</option>
+                      <option value="finishing">Finishing Pass (15% WOC · High Precision)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Output Units
+                    <select id="cnc-unit">
+                      <option value="imperial" selected>Imperial (IPM, inches, in³/min)</option>
+                      <option value="metric">Metric (mm/min, mm, cm³/min)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="cnc-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -3014,6 +3096,55 @@
                 <div class="tool-result-box" id="prog-fp-result" style="margin-top:12px"></div>
               </div>
 
+              <!-- 📡 Serial UART, Packet Timing & CRC Checksum Analyzer -->
+              <div class="panel" id="panel-prog-serial" style="grid-column: 1 / -1">
+                <div class="eyebrow">EMBEDDED PROTOCOLS &amp; TELEMETRY</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">📡 Serial UART, Packet Timing &amp; CRC Checksum Analyzer</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-prog-serial" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Analyze bit duration, frame timing, byte throughput, and verify CRC-8 / CRC-16 / XOR checksums with interactive oscilloscope signal waveforms.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Baud Rate (bps)
+                    <select id="serial-baud">
+                      <option value="9600">9,600 (Legacy Arduino / GPS standard)</option>
+                      <option value="19200">19,200 (Modbus RTU Standard)</option>
+                      <option value="38400">38,400 (Bluetooth HC-05 default)</option>
+                      <option value="57600">57,600 (Drone telemetry / bootloader)</option>
+                      <option value="115200" selected>115,200 (Modern ESP32/RP2040 Standard)</option>
+                      <option value="230400">230,400 (High-Speed Serial)</option>
+                      <option value="460800">460,800 (ESP Flash upload)</option>
+                      <option value="921600">921,600 (Ultra High-Speed UART)</option>
+                      <option value="1000000">1,000,000 (1 Mbps Industrial)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">UART Framing Protocol
+                    <select id="serial-framing">
+                      <option value="8N1" selected>8N1 (8 Data bits, No Parity, 1 Stop bit · 10 bits/byte)</option>
+                      <option value="8E1">8E1 (8 Data bits, Even Parity, 1 Stop bit · 11 bits/byte)</option>
+                      <option value="8O1">8O1 (8 Data bits, Odd Parity, 1 Stop bit · 11 bits/byte)</option>
+                      <option value="8N2">8N2 (8 Data bits, No Parity, 2 Stop bits · 11 bits/byte)</option>
+                      <option value="7E1">7E1 (7 Data bits, Even Parity, 1 Stop bit · 10 bits/byte)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Payload Format
+                    <select id="serial-data-format">
+                      <option value="ascii" selected>ASCII Text String</option>
+                      <option value="hex">Hexadecimal Byte String (e.g. 01 03 00 00)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Packet Payload Data
+                    <input type="text" id="serial-payload-input" value="HELLO_MAKER" placeholder="Enter text or hex bytes" maxlength="200">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="serial-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -3377,6 +3508,79 @@
                 </div>
 
                 <div class="tool-result-box" id="art-pigment-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🧪 Epoxy Resin, Silicone & Casting Mix Calculator -->
+              <div class="panel" id="panel-art-resin" style="grid-column: 1 / -1">
+                <div class="eyebrow">EPOXY, RESIN &amp; SILICONE CASTING</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🧪 Epoxy Resin, Silicone &amp; Casting Mix Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-art-resin" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact Part A (Resin/Base) and Part B (Hardener/Catalyst) by weight or volume, mold capacity (rectangular slabs, cylinders, custom molds), overage safety margin, and thermal exotherm danger thresholds.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Resin / Rubber Formulation Preset
+                    <select id="resin-type-preset">
+                      <option value="tabletop_1_1" selected>1:1 Tabletop / Bar Top Epoxy (Max 0.25" / 6mm depth)</option>
+                      <option value="deep_pour_2_1">2:1 Deep Pour Epoxy (River tables · up to 2.0" / 50mm)</option>
+                      <option value="casting_3_1">3:1 Deep Block Casting Epoxy (Slow cure · low exotherm)</option>
+                      <option value="silicone_10_1">10:1 Tin-Cure Silicone Mold Rubber (by weight)</option>
+                      <option value="silicone_1_1">1:1 Platinum Silicone Rubber (Food &amp; skin safe)</option>
+                      <option value="urethane_1_1">1:1 Fast-Cast Polyurethane (3 min pot life)</option>
+                      <option value="custom">Custom Ratio...</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Mold Shape / Geometry
+                    <select id="resin-shape">
+                      <option value="rect" selected>Rectangular Cavity / River Board (L × W × D)</option>
+                      <option value="cyl">Cylindrical / Round Mold (Dia × Depth)</option>
+                      <option value="direct">Direct Known Volume (Enter ml / fl oz)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Measurement Mode
+                    <select id="resin-measure-mode">
+                      <option value="weight" selected>By Weight (Grams / Ounces · Recommended)</option>
+                      <option value="volume">By Liquid Volume (ml / fl oz)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Units &amp; Dimensions
+                    <select id="resin-units">
+                      <option value="imperial" selected>Inches &amp; Fl Oz / Oz</option>
+                      <option value="metric">Centimeters &amp; Milliliters / Grams</option>
+                    </select>
+                  </label>
+                </div>
+
+                <!-- Dimension Inputs based on shape -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:8px;margin-top:8px" id="resin-dim-inputs">
+                  <label class="field-label" style="font-size:11px" id="resin-lbl-dim1">
+                    <span id="resin-text-dim1">Length (in)</span>
+                    <input type="number" id="resin-dim1" value="16" min="0.1" step="any">
+                  </label>
+                  <label class="field-label" style="font-size:11px" id="resin-lbl-dim2">
+                    <span id="resin-text-dim2">Width (in)</span>
+                    <input type="number" id="resin-dim2" value="6" min="0.1" step="any">
+                  </label>
+                  <label class="field-label" style="font-size:11px" id="resin-lbl-dim3">
+                    <span id="resin-text-dim3">Depth / Thickness (in)</span>
+                    <input type="number" id="resin-dim3" value="0.75" min="0.05" step="any">
+                  </label>
+                  <label class="field-label" style="font-size:11px">
+                    <span>Overage &amp; Cup Cling Margin</span>
+                    <select id="resin-waste">
+                      <option value="0">0% (Exact cavity volume)</option>
+                      <option value="0.05">5% (Minimal cup waste)</option>
+                      <option value="0.1" selected>10% (Standard safe buffer)</option>
+                      <option value="0.15">15% (Irregular cavity / high cling)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="resin-result" style="margin-top:12px"></div>
               </div>
             </div>
           </section>
@@ -3909,6 +4113,96 @@
         <div class="blueprint-sheet blueprint-theme-paper" id="workshop-blueprint-sheet">
           <!-- Dynamically populated -->
         </div>
+      </div>
+    </dialog>
+
+    <!-- 💼 Client Quote, Estimate & Work Order Invoice Generator Dialog -->
+    <dialog class="app-dialog quote-dialog" id="quote-dialog" aria-label="Client Quote, Estimate &amp; Work Order Invoice">
+      <div class="quote-dialog-topbar no-print">
+        <div class="quote-controls-left">
+          <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">
+            <span>💼</span> <span>Client Quote &amp; Invoice Generator</span>
+          </div>
+          <div class="quote-doc-mode-selector">
+            <button type="button" class="button button-small quote-mode-btn active" data-mode="quote" data-action="set-quote-mode">💼 Formal Quote</button>
+            <button type="button" class="button button-small button-outline quote-mode-btn" data-mode="invoice" data-action="set-quote-mode">🧾 Tax Invoice</button>
+            <button type="button" class="button button-small button-outline quote-mode-btn" data-mode="workorder" data-action="set-quote-mode">📋 Work Order</button>
+          </div>
+        </div>
+        <div class="quote-controls-right">
+          <button type="button" class="button button-primary" data-action="print-quote-invoice">🖶 Print / Save PDF</button>
+          <button type="button" class="button button-outline" data-action="download-quote-invoice">📥 Download HTML</button>
+          <button type="button" class="button button-outline" data-action="copy-quote-summary">📋 Copy Summary</button>
+          <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+        </div>
+      </div>
+
+      <div class="quote-dialog-container">
+        <!-- Configuration Sidebar (Settings & Customization) -->
+        <aside class="quote-config-panel no-print">
+          <div class="eyebrow">ESTIMATE PARAMETERS</div>
+          <h4 style="margin:2px 0 10px;font-size:14px">Invoice &amp; Quote Details</h4>
+
+          <label class="field-label" style="font-size:11px">Project Link
+            <select id="quote-project-select"></select>
+          </label>
+
+          <label class="field-label" style="font-size:11px">Client / Organization Name
+            <input type="text" id="quote-client-name" placeholder="e.g. Acme Custom Woodcraft / Jane Doe" maxlength="60">
+          </label>
+
+          <label class="field-label" style="font-size:11px">Client Contact (Email / Phone)
+            <input type="text" id="quote-client-contact" placeholder="e.g. client@example.com / (555) 019-2834" maxlength="60">
+          </label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <label class="field-label" style="font-size:11px">Labor Rate ($/hr)
+              <input type="number" id="quote-labor-rate" value="65" min="0" step="5">
+            </label>
+            <label class="field-label" style="font-size:11px">Labor Hours
+              <input type="number" id="quote-labor-hours" value="8" min="0" step="0.25">
+            </label>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <label class="field-label" style="font-size:11px">Materials Markup %
+              <input type="number" id="quote-material-markup" value="20" min="0" max="200" step="1">
+            </label>
+            <label class="field-label" style="font-size:11px">Shop / Machine Fee ($)
+              <input type="number" id="quote-shop-fee" value="50" min="0" step="5">
+            </label>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <label class="field-label" style="font-size:11px">Sales Tax %
+              <input type="number" id="quote-tax-rate" value="7.5" min="0" max="25" step="0.1">
+            </label>
+            <label class="field-label" style="font-size:11px">Deposit Required %
+              <input type="number" id="quote-deposit-pct" value="50" min="0" max="100" step="5">
+            </label>
+          </div>
+
+          <label class="field-label" style="font-size:11px">Payment Terms
+            <select id="quote-payment-terms">
+              <option value="deposit_50" selected>50% Deposit to Begin · Balance on Delivery</option>
+              <option value="net_15">Net 15 Days from Invoice Date</option>
+              <option value="net_30">Net 30 Days from Invoice Date</option>
+              <option value="due_receipt">Due Immediately Upon Receipt</option>
+              <option value="paid_full">Paid in Full (Receipt)</option>
+            </select>
+          </label>
+
+          <label class="field-label" style="font-size:11px">Workshop Notes &amp; Scope
+            <textarea id="quote-scope-notes" rows="2" placeholder="e.g. Handcrafted from select black walnut with matte ceramic clearcoat. Lead time 3-4 weeks."></textarea>
+          </label>
+        </aside>
+
+        <!-- Printable Document Sheet Preview -->
+        <main class="quote-preview-viewport">
+          <div class="quote-sheet" id="quote-sheet">
+            <!-- Dynamically populated by renderQuoteInvoice() -->
+          </div>
+        </main>
       </div>
     </dialog>
 
