@@ -3279,6 +3279,33 @@ function renderProjectDetail(projectId) {
 
   ensureProjectCreator(project);
   const isCollab = (project.coCreators || []).length > 0;
+  const isCraftingActive = liveCraftingSession.projectId === project.id;
+  const allTasks = project.tasks || [];
+  const phases = Array.from(new Set(allTasks.map(t => (t.phase || "").trim()).filter(Boolean)));
+  const activePhase = project._activePhase || "all";
+  const visibleTasks = activePhase === "all" ? allTasks : allTasks.filter(t => (t.phase || "") === activePhase);
+
+  const craftingBannerHtml = isCraftingActive ? `
+    <div class="active-crafting-banner">
+      <div class="crafting-banner-left">
+        <span class="crafting-pulse-dot"></span>
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--ink)">
+            Crafting in Progress: <span class="crafting-timer-clock">${formatCraftingClock(liveCraftingSession.elapsedSeconds)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">Session logging to “${escapeHTML(project.title)}” · Focused craft time</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button type="button" class="button button-small ${liveCraftingSession.isRunning ? "button-outline" : "button-primary"}" data-action="toggle-project-timer" data-project="${project.id}">
+          ${liveCraftingSession.isRunning ? "⏸ Pause" : "▶ Resume"}
+        </button>
+        <button type="button" class="button button-small button-primary" data-action="finish-project-timer" data-project="${project.id}">
+          ⏹ Finish &amp; Log Time
+        </button>
+      </div>
+    </div>
+  ` : "";
 
   $("#project-detail").innerHTML = `<div class="detail-content">
     <div class="detail-top">
@@ -3288,9 +3315,10 @@ function renderProjectDetail(projectId) {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <h2>${escapeHTML(project.title)}</h2>
             <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
+            <button type="button" class="button button-small ${isCraftingActive ? "button-outline" : "button-primary"} live-craft-btn" data-action="quick-start-project-timer" data-project="${project.id}" title="Start real-time crafting stopwatch & focus session">⏱️ ${isCraftingActive && liveCraftingSession.isRunning ? "Crafting..." : "Start Crafting"}</button>
             <button type="button" class="button button-small prominent-team-btn" data-action="open-collaborators-dialog" data-id="${project.id}" title="Manage co-creators & project team members">👥 Project Team (${(project.coCreators || []).length + 1})</button>
             <button type="button" class="small-action" data-action="open-time-dialog" data-id="${project.id}" title="Log time on this project">⏱ Log time</button>
-            <button type="button" class="small-action" data-action="open-timer" data-project="${project.id}" title="Start focused practice timer for this project">⏱ Timer</button>
+            <button type="button" class="small-action" data-action="open-timer" data-project="${project.id}" title="Start focused practice timer for this project">⏱ Focus Timer</button>
             <button type="button" class="small-action" data-action="open-showcase" data-id="${project.id}" title="Shareable project showcase & build story">🌟 Showcase</button>
             <button type="button" class="small-action" data-action="open-project-pricing" data-id="${project.id}" title="Labor cost & selling price calculator">🏷️ Price & Profit</button>
             <button type="button" class="small-action" data-action="open-project-blueprint" data-id="${project.id}" title="2D Blueprint & dimensioned sketchpad">📐 Blueprint</button>
@@ -3326,6 +3354,7 @@ function renderProjectDetail(projectId) {
       </div>
       <button class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
     </div>
+    ${craftingBannerHtml}
     ${completionBannerHtml}
     <p class="detail-description">${escapeHTML(project.description || "No description yet.")}</p>
     <div class="detail-top">
@@ -3338,10 +3367,40 @@ function renderProjectDetail(projectId) {
       <button class="small-action" data-action="edit-project" data-id="${project.id}">Edit project</button>
     </div>
     ${skills.length ? `<div class="detail-skills">${skills.map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)} · Level ${skillLevel(skill.xp)}</span>`).join("")}</div>` : ""}
-    <div class="detail-section-heading"><h3>Project checklist <span class="subtle-count">${progress.total ? `${progress.completed}/${progress.total} complete` : "Break it into steps"}</span></h3></div>
+    
+    <div class="detail-section-heading">
+      <div>
+        <h3>Project checklist <span class="subtle-count">${progress.total ? `${progress.completed}/${progress.total} complete` : "Break it into steps"}</span></h3>
+      </div>
+    </div>
     ${progress.total ? `<div class="detail-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.percent}%</span></div>` : ""}
-    <form class="inline-add-form task-add-form" data-project="${project.id}"><input name="taskText" required maxlength="140" placeholder="Add a next step..." aria-label="New checklist step"><button type="button" class="small-action mic-btn" data-action="dictate-task" data-project="${project.id}" title="Voice dictate next step">🎙 Dictate</button><button class="button button-outline" type="submit">＋ Add step</button></form>
-    ${tasks.length ? `<ul class="task-list">${tasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span>${task.completedBy ? `<span class="activity-author-tag">✓ ${escapeHTML(task.completedBy.name)}</span>` : ""}</label><div class="task-item-actions">${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < tasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">Add a few steps to make a big project feel manageable.</div>`}
+
+    <div class="project-phase-strip">
+      <button type="button" class="phase-pill ${activePhase === "all" ? "active" : ""}" data-action="set-phase-filter" data-project="${project.id}" data-phase="all">
+        All Steps (${allTasks.filter(t => t.done).length}/${allTasks.length})
+      </button>
+      ${phases.map(ph => {
+        const phTasks = allTasks.filter(t => (t.phase || "") === ph);
+        const phDone = phTasks.filter(t => t.done).length;
+        return `
+          <button type="button" class="phase-pill ${activePhase === ph ? "active" : ""}" data-action="set-phase-filter" data-project="${project.id}" data-phase="${escapeHTML(ph)}">
+            ${escapeHTML(ph)} (${phDone}/${phTasks.length})${phDone === phTasks.length && phTasks.length > 0 ? " ✓" : ""}
+          </button>
+        `;
+      }).join("")}
+      <button type="button" class="phase-pill phase-add-btn" data-action="add-project-phase" data-project="${project.id}">＋ Phase</button>
+    </div>
+
+    <form class="inline-add-form task-add-form" data-project="${project.id}">
+      <input name="taskText" required maxlength="140" placeholder="Add a next step..." aria-label="New checklist step">
+      <input name="taskPhase" list="phase-options-${project.id}" placeholder="Phase (optional)" style="max-width:130px;font-size:12px" aria-label="Step phase" value="${activePhase !== "all" ? escapeHTML(activePhase) : ""}">
+      <datalist id="phase-options-${project.id}">
+        ${phases.map(ph => `<option value="${escapeHTML(ph)}">`).join("")}
+      </datalist>
+      <button type="button" class="small-action mic-btn" data-action="dictate-task" data-project="${project.id}" title="Voice dictate next step">🎙 Dictate</button>
+      <button class="button button-outline" type="submit">＋ Add step</button>
+    </form>
+    ${visibleTasks.length ? `<ul class="task-list">${visibleTasks.map((task, idx) => `<li class="task-item ${task.done ? "is-done" : ""}"><label><input type="checkbox" data-action="toggle-task" data-project="${project.id}" data-id="${task.id}" ${task.done ? "checked" : ""}><span>${escapeHTML(task.text)}</span>${task.phase ? `<span class="mini-tag phase-tag">${escapeHTML(task.phase)}</span>` : ""}${task.completedBy ? `<span class="activity-author-tag">✓ ${escapeHTML(task.completedBy.name)}</span>` : ""}</label><div class="task-item-actions"><button type="button" class="task-action-btn" data-action="assign-task-phase" data-project="${project.id}" data-id="${task.id}" title="Assign build phase">🏷️</button>${idx > 0 ? `<button type="button" class="task-action-btn" data-action="move-task-up" data-project="${project.id}" data-id="${task.id}" title="Move up" aria-label="Move up">↑</button>` : ""}${idx < visibleTasks.length - 1 ? `<button type="button" class="task-action-btn" data-action="move-task-down" data-project="${project.id}" data-id="${task.id}" title="Move down" aria-label="Move down">↓</button>` : ""}<button type="button" class="task-action-btn" data-action="edit-task" data-project="${project.id}" data-id="${task.id}" title="Edit step" aria-label="Edit step">✎</button><button type="button" class="task-remove" data-action="delete-task" data-project="${project.id}" data-id="${task.id}" aria-label="Remove ${escapeHTML(task.text)}">×</button></div></li>`).join("")}</ul>` : `<div class="folder-empty">${activePhase !== "all" ? `No steps in "${escapeHTML(activePhase)}" phase yet. Add one above.` : "Add a few steps to make a big project feel manageable."}</div>`}
     ${budgetCardHtml}
     <div class="detail-section-heading">
       <div>
@@ -3432,9 +3491,13 @@ function renderProjectDetail(projectId) {
   </div>`;
 }
 
-function switchView(view) {
-  $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${view}-view`));
-  $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === view));
+const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin"]);
+
+function switchView(view, { updateHistory = true, scroll = true } = {}) {
+  const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
+  $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
+  $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
   const title = {
     overview: "Overview",
     projects: "Projects",
@@ -3446,15 +3509,30 @@ function switchView(view) {
     shopping: "Shopping list",
     inventory: "Inventory",
     admin: "Admin Console"
-  }[view] || "Overview";
-  $("#page-crumb").textContent = title;
+  }[targetView] || "Overview";
+  const crumb = $("#page-crumb");
+  if (crumb) crumb.textContent = title;
   updateUserUI();
-  if (view === "sync") renderCloudConnection();
-  if (view === "timeline") renderTimeline();
-  if (view === "shopping") renderShoppingList();
-  if (view === "inventory") renderInventory();
-  if (view === "admin") renderAdminHub();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  try {
+    localStorage.setItem(ACTIVE_VIEW_STORAGE_KEY, targetView);
+  } catch {}
+
+  if (updateHistory) {
+    const curHash = window.location.hash || "";
+    if (!curHash.startsWith("#project=") && !curHash.startsWith("#project/") && !curHash.startsWith("#tool=") && !curHash.startsWith("#setup") && !curHash.startsWith("#join")) {
+      try {
+        history.replaceState(null, "", `#${targetView}`);
+      } catch {}
+    }
+  }
+
+  if (targetView === "sync") renderCloudConnection();
+  if (targetView === "timeline") renderTimeline();
+  if (targetView === "shopping") renderShoppingList();
+  if (targetView === "inventory") renderInventory();
+  if (targetView === "admin") renderAdminHub();
+  if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function showToast(message) {
@@ -3797,7 +3875,8 @@ async function handleProjectEntrySubmit(event) {
   if (!text) return;
   const maker = getCurrentMakerIdentity();
   if (isTask) {
-    project.tasks.push({ id: uid(), text, done: false, createdAt: new Date().toISOString(), createdBy: maker });
+    const phaseVal = form.elements["taskPhase"] ? form.elements["taskPhase"].value.trim() : "";
+    project.tasks.push({ id: uid(), text, phase: phaseVal || undefined, done: false, createdAt: new Date().toISOString(), createdBy: maker });
     makeActivity("task", `${maker.name} added a step to ${project.title}`);
   } else {
     const at = new Date().toISOString();
@@ -4124,6 +4203,8 @@ function finishTimer() {
 /* Workshop Reference & Tools */
 function openToolsDialog() {
   renderFractionChart();
+  updateEpoxyCalc();
+  updateScrewGuide();
   $("#tools-dialog")?.showModal();
 }
 
@@ -4132,6 +4213,8 @@ function switchToolTab(tab) {
   $$(".tool-tab-panel").forEach(panel => {
     panel.style.display = panel.id === `tool-panel-${tab}` ? "block" : "none";
   });
+  if (tab === "epoxy") updateEpoxyCalc();
+  if (tab === "screws") updateScrewGuide();
 }
 
 function parseFraction(str) {
@@ -5243,7 +5326,6 @@ async function checkInviteOrSetupLink() {
 /* 🔖 Workshop QR Code Label Generator & Routing */
 function checkHashRouting() {
   const hash = window.location.hash || "";
-  if (!hash) return;
 
   if (
     hash.startsWith("#setup") ||
@@ -5288,7 +5370,7 @@ function checkHashRouting() {
 
         void persistState();
         render();
-        switchView("projects");
+        switchView("projects", { updateHistory: false, scroll: false });
         openProjectDetail(incomingProject.id);
         showToast(`👥 Joined team project: ${incomingProject.title}!`);
         return;
@@ -5301,19 +5383,11 @@ function checkHashRouting() {
   const projectMatch = hash.match(/^#project[=/]([a-zA-Z0-9_-]+)/);
   if (projectMatch) {
     const pid = projectMatch[1];
-    switchView("projects");
+    switchView("projects", { updateHistory: false, scroll: false });
     openProjectDetail(pid);
     return;
   }
 
-  if (hash === "#shopping") {
-    switchView("shopping");
-    return;
-  }
-  if (hash === "#inventory") {
-    switchView("inventory");
-    return;
-  }
   if (hash === "#tools") {
     openToolsDialog();
     return;
@@ -5324,13 +5398,25 @@ function checkHashRouting() {
   }
   const toolMatch = hash.match(/^#tool=([a-zA-Z0-9_-]+)/);
   if (toolMatch) {
-    switchView("inventory");
+    switchView("inventory", { updateHistory: false, scroll: false });
     openEquipmentLogbook(toolMatch[1]);
     return;
   }
-  const viewMatch = hash.match(/^#view=([a-z-]+)/);
-  if (viewMatch) {
-    switchView(viewMatch[1]);
+
+  // Check if hash matches any valid view name: e.g. #skills, #projects, #inventory, #shopping, #gallery, #planner, #timeline, #admin, #sync, #overview
+  const cleanHash = hash.replace(/^#\/?/, "").replace(/^view=/, "").toLowerCase().trim();
+  if (cleanHash && VALID_APP_VIEWS.has(cleanHash)) {
+    switchView(cleanHash, { updateHistory: false, scroll: false });
+    return;
+  }
+
+  // If no hash in URL or unrecognized hash, restore the saved view from localStorage!
+  let savedView = null;
+  try {
+    savedView = localStorage.getItem(ACTIVE_VIEW_STORAGE_KEY);
+  } catch {}
+  if (savedView && VALID_APP_VIEWS.has(savedView) && savedView !== "overview") {
+    switchView(savedView, { updateHistory: true, scroll: false });
   }
 }
 
@@ -8401,10 +8487,10 @@ async function handleAction(action, target) {
       "new-project", "edit-project", "delete-project", "archive-project", "save-project",
       "new-skill", "edit-skill", "delete-skill", "delete-xp",
       "toggle-task", "delete-task", "move-task-up", "move-task-down", "edit-task",
-      "dictate-task", "add-task", "pick-from-inventory", "add-material",
+      "dictate-task", "add-task", "assign-task-phase", "add-project-phase", "pick-from-inventory", "add-material",
       "delete-material", "add-journal", "delete-journal",
       "add-co-creator", "remove-co-creator", "toggle-co-creator-role", "pass-creator-status",
-      "save-inventory", "delete-inventory", "save-maintenance", "delete-maintenance"
+      "save-inventory", "delete-inventory", "commit-inventory-csv", "save-maintenance", "delete-maintenance"
     ];
     if (blockedActions.includes(action)) {
       showToast("🔒 Read-Only Inspection: Modifying another user's workbench is disabled.", "warning");
@@ -8647,6 +8733,22 @@ async function handleAction(action, target) {
     exportInventoryCSV();
     return;
   }
+  if (action === "open-import-inventory-dialog") {
+    openImportInventoryDialog();
+    return;
+  }
+  if (action === "parse-inventory-csv") {
+    parseInventoryCSV();
+    return;
+  }
+  if (action === "load-inventory-csv-sample") {
+    loadInventoryCSVSample();
+    return;
+  }
+  if (action === "commit-inventory-csv") {
+    void commitInventoryCSVImport();
+    return;
+  }
   if (action === "toggle-inventory-alerts") {
     state.inventoryAlertsOnly = !state.inventoryAlertsOnly;
     target.classList.toggle("button-primary", state.inventoryAlertsOnly);
@@ -8841,6 +8943,10 @@ async function handleAction(action, target) {
     }
     return;
   }
+  if (action === "copy-epoxy-recipe") {
+    copyEpoxyRecipe();
+    return;
+  }
   if (action === "open-time-dialog") {
     openTimeDialog(id || target.dataset.id);
     return;
@@ -8954,6 +9060,19 @@ async function handleAction(action, target) {
   }
   if (action === "timer-finish") {
     finishTimer();
+    return;
+  }
+  if (action === "quick-start-project-timer") {
+    const projId = target.dataset.project || target.dataset.id || id;
+    startProjectCraftingTimer(projId);
+    return;
+  }
+  if (action === "toggle-project-timer") {
+    toggleProjectCraftingTimer();
+    return;
+  }
+  if (action === "finish-project-timer") {
+    void finishProjectCraftingTimer();
     return;
   }
   if (action === "switch-planner-mode") {
@@ -9346,19 +9465,89 @@ async function handleAction(action, target) {
   if (action === "move-task-up" || action === "move-task-down") {
     const project = state.projects.find(item => item.id === target.dataset.project);
     if (!project) return;
-    const index = project.tasks.findIndex(item => item.id === id);
-    if (index < 0) return;
-    const targetIndex = action === "move-task-up" ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= project.tasks.length) return;
-    const [moved] = project.tasks.splice(index, 1);
-    project.tasks.splice(targetIndex, 0, moved);
-    project.updatedAt = new Date().toISOString();
-    try {
-      await persistState();
-      render();
-      renderProjectDetail(project.id);
-    } catch (error) {
-      console.error("Unable to reorder task.", error);
+    const activePhase = project._activePhase || "all";
+    const taskList = activePhase === "all" ? project.tasks : project.tasks.filter(t => (t.phase || "") === activePhase);
+    const visibleIndex = taskList.findIndex(item => item.id === id);
+    if (visibleIndex < 0) return;
+    const targetVisibleIndex = action === "move-task-up" ? visibleIndex - 1 : visibleIndex + 1;
+    if (targetVisibleIndex < 0 || targetVisibleIndex >= taskList.length) return;
+    const neighborTask = taskList[targetVisibleIndex];
+    const currentIndex = project.tasks.findIndex(t => t.id === id);
+    const neighborIndex = project.tasks.findIndex(t => t.id === neighborTask.id);
+    if (currentIndex >= 0 && neighborIndex >= 0) {
+      const [moved] = project.tasks.splice(currentIndex, 1);
+      project.tasks.splice(neighborIndex, 0, moved);
+      project.updatedAt = new Date().toISOString();
+      try {
+        await persistState();
+        render();
+        renderProjectDetail(project.id);
+      } catch (error) {
+        console.error("Unable to reorder task.", error);
+      }
+    }
+    return;
+  }
+  if (action === "set-phase-filter") {
+    const proj = state.projects.find(p => p.id === (target.dataset.project || id));
+    if (proj) {
+      proj._activePhase = target.dataset.phase || "all";
+      renderProjectDetail(proj.id);
+    }
+    return;
+  }
+  if (action === "add-project-phase") {
+    const proj = state.projects.find(p => p.id === (target.dataset.project || id));
+    if (proj) {
+      const newPhase = window.prompt("Enter new build phase name (e.g. Rough Cut, Assembly, Sanding, Finish, Wiring):");
+      if (newPhase && newPhase.trim()) {
+        const trimmed = newPhase.trim();
+        if (!proj.phases) proj.phases = [];
+        if (!proj.phases.includes(trimmed)) {
+          proj.phases.push(trimmed);
+        }
+        proj._activePhase = trimmed;
+        void saveProject(proj);
+        renderProjectDetail(proj.id);
+        showToast(`Phase "${trimmed}" added!`);
+      }
+    }
+    return;
+  }
+  if (action === "assign-task-phase") {
+    const proj = state.projects.find(p => p.id === (target.dataset.project || id));
+    const taskId = target.dataset.id || id;
+    if (proj && taskId) {
+      const task = (proj.tasks || []).find(t => t.id === taskId);
+      if (task) {
+        const current = task.phase || "";
+        const allKnown = Array.from(new Set([
+          "Rough Dimensioning", "Joinery & Prep", "Assembly & Glue-up", "Sanding & Smoothing", "Finishing & Polish", "Final Setup",
+          ...(proj.phases || []),
+          ...((proj.tasks || []).map(t => t.phase).filter(Boolean))
+        ]));
+        const chosen = window.prompt(
+          `Assign build phase for "${task.text}":\nSuggestions: ${allKnown.slice(0, 6).join(", ")}\n\n(Enter a phase name, or leave blank to clear)`,
+          current
+        );
+        if (chosen !== null) {
+          const trimmed = chosen.trim();
+          task.phase = trimmed || undefined;
+          if (trimmed) {
+            if (!proj.phases) proj.phases = [];
+            if (!proj.phases.includes(trimmed)) proj.phases.push(trimmed);
+          }
+          proj.updatedAt = new Date().toISOString();
+          try {
+            await persistState();
+            render();
+            renderProjectDetail(proj.id);
+            showToast(trimmed ? `Phase set to "${trimmed}"` : "Phase cleared.");
+          } catch (e) {
+            console.error("Unable to update task phase", e);
+          }
+        }
+      }
     }
     return;
   }
@@ -9861,6 +10050,17 @@ $("#tool-bf-width")?.addEventListener("input", updateBoardFeetCalc);
 $("#tool-bf-length")?.addEventListener("input", updateBoardFeetCalc);
 $("#tool-bf-qty")?.addEventListener("input", updateBoardFeetCalc);
 $("#tool-bf-price")?.addEventListener("input", updateBoardFeetCalc);
+$("#tool-epoxy-shape")?.addEventListener("change", updateEpoxyCalc);
+$("#tool-epoxy-units")?.addEventListener("change", updateEpoxyCalc);
+$("#tool-epoxy-length")?.addEventListener("input", updateEpoxyCalc);
+$("#tool-epoxy-width")?.addEventListener("input", updateEpoxyCalc);
+$("#tool-epoxy-diameter")?.addEventListener("input", updateEpoxyCalc);
+$("#tool-epoxy-depth")?.addEventListener("input", updateEpoxyCalc);
+$("#tool-epoxy-ratio")?.addEventListener("change", updateEpoxyCalc);
+$("#tool-epoxy-waste")?.addEventListener("input", updateEpoxyCalc);
+$("#tool-screw-size")?.addEventListener("change", updateScrewGuide);
+$("#tool-screw-wood")?.addEventListener("change", updateScrewGuide);
+$("#inventory-csv-file")?.addEventListener("change", parseInventoryCSV);
 
 $("#backup-input").addEventListener("change", async event => {
   const [file] = event.target.files;
@@ -10783,6 +10983,619 @@ async function copyCutPlan() {
     document.execCommand("copy");
     document.body.removeChild(ta);
     showToast("Copied cut plan to clipboard!");
+  }
+}
+
+/* ============================================================
+   🧪 Workshop Epoxy & Resin Pour Calculator
+   ============================================================ */
+let lastEpoxyRecipeText = "";
+
+function updateEpoxyCalc() {
+  const shape = $("#tool-epoxy-shape")?.value || "rect";
+  const units = $("#tool-epoxy-units")?.value || "in";
+  const ratioStr = $("#tool-epoxy-ratio")?.value || "2:1";
+  const wastePct = parseFloat($("#tool-epoxy-waste")?.value) || 10;
+  const resultBox = $("#tool-epoxy-result");
+  if (!resultBox) return;
+
+  const lenWrap = $("#tool-epoxy-len-wrap");
+  const widWrap = $("#tool-epoxy-wid-wrap");
+  const diamWrap = $("#tool-epoxy-diam-wrap");
+  const unitLabels = $$(".epoxy-unit-lbl");
+  unitLabels.forEach(lbl => lbl.textContent = units);
+
+  if (shape === "round") {
+    if (lenWrap) lenWrap.style.display = "none";
+    if (widWrap) widWrap.style.display = "none";
+    if (diamWrap) diamWrap.style.display = "block";
+  } else {
+    if (lenWrap) lenWrap.style.display = "block";
+    if (widWrap) widWrap.style.display = "block";
+    if (diamWrap) diamWrap.style.display = "none";
+  }
+
+  const depth = parseFloat($("#tool-epoxy-depth")?.value) || 0;
+  let rawVolumeCuUnits = 0;
+
+  if (shape === "round") {
+    const diam = parseFloat($("#tool-epoxy-diameter")?.value) || 0;
+    const radius = diam / 2;
+    if (diam > 0 && depth > 0) {
+      rawVolumeCuUnits = Math.PI * (radius * radius) * depth;
+    }
+  } else {
+    const len = parseFloat($("#tool-epoxy-length")?.value) || 0;
+    const wid = parseFloat($("#tool-epoxy-width")?.value) || 0;
+    if (len > 0 && wid > 0 && depth > 0) {
+      rawVolumeCuUnits = len * wid * depth;
+    }
+  }
+
+  if (rawVolumeCuUnits <= 0) {
+    resultBox.innerHTML = `Enter pour dimensions above to calculate resin volume and Part A/B weights.`;
+    lastEpoxyRecipeText = "";
+    return;
+  }
+
+  // 1 cu in = 16.387064 mL, 1 cu mm = 0.001 mL
+  const baseMl = units === "in" ? (rawVolumeCuUnits * 16.387064) : (rawVolumeCuUnits / 1000);
+  const totalMl = baseMl * (1 + (wastePct / 100));
+  const totalFlOz = totalMl / 29.5735;
+  const totalLiters = totalMl / 1000;
+
+  const parts = ratioStr.split(":").map(Number);
+  const partARatio = parts[0] || 2;
+  const partBRatio = parts[1] || 1;
+  const totalRatio = partARatio + partBRatio;
+
+  const volMlA = totalMl * (partARatio / totalRatio);
+  const volMlB = totalMl * (partBRatio / totalRatio);
+  const volFlOzA = volMlA / 29.5735;
+  const volFlOzB = volMlB / 29.5735;
+
+  // Density (grams): Resin ~ 1.15 g/mL, Hardener ~ 0.98 g/mL
+  const weightGramsA = volMlA * 1.15;
+  const weightGramsB = volMlB * 0.98;
+  const totalGrams = weightGramsA + weightGramsB;
+  const totalLbs = totalGrams / 453.592;
+
+  const depthInInches = units === "in" ? depth : (depth / 25.4);
+  const isDeepPour = depthInInches >= 2.0;
+
+  lastEpoxyRecipeText = `🧪 EPOXY POUR RECIPE\n` +
+    `Shape: ${shape === "round" ? "Round / Cylinder" : "Rectangle / Cavity"}\n` +
+    `Total Required: ${totalFlOz.toFixed(1)} fl oz (${Math.round(totalMl)} mL / ${totalLiters.toFixed(2)} L) [Includes +${wastePct}% buffer]\n` +
+    `• Part A (Resin, ${partARatio} parts): ${volFlOzA.toFixed(1)} fl oz · ${Math.round(volMlA)} mL · ${Math.round(weightGramsA)} grams\n` +
+    `• Part B (Hardener, ${partBRatio} parts): ${volFlOzB.toFixed(1)} fl oz · ${Math.round(volMlB)} mL · ${Math.round(weightGramsB)} grams\n` +
+    `Total Batch Weight: ${Math.round(totalGrams)} g (${totalLbs.toFixed(2)} lbs)\n` +
+    (isDeepPour ? `⚠️ Warning: Depth is ${depthInInches.toFixed(1)}". Use a specialized slow-cure deep pour epoxy formula to avoid thermal exotherm.\n` : "");
+
+  resultBox.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:700">Total Mix Volume (+${wastePct}% buffer)</div>
+        <div style="font-size:20px;color:var(--green);font-weight:800">${totalFlOz.toFixed(1)} fl oz <span style="font-size:14px;font-weight:600;color:var(--ink)">(${Math.round(totalMl)} mL / ${totalLiters.toFixed(2)} L)</span></div>
+      </div>
+      <div style="text-align:right">
+        <span class="inventory-chip highlight" style="font-size:12px;font-weight:700">Total Weight: ${Math.round(totalGrams)} g (${totalLbs.toFixed(2)} lbs)</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px">🧪 Part A (Resin) — ${partARatio} parts</div>
+        <div style="font-size:16px;font-weight:700;color:var(--green)">${volFlOzA.toFixed(1)} fl oz</div>
+        <div style="font-size:12px;color:var(--muted)">${Math.round(volMlA)} mL · <strong>${Math.round(weightGramsA)} grams</strong></div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:4px">💧 Part B (Hardener) — ${partBRatio} parts</div>
+        <div style="font-size:16px;font-weight:700;color:#0284c7">${volFlOzB.toFixed(1)} fl oz</div>
+        <div style="font-size:12px;color:var(--muted)">${Math.round(volMlB)} mL · <strong>${Math.round(weightGramsB)} grams</strong></div>
+      </div>
+    </div>
+
+    ${isDeepPour ? `
+      <div style="background:var(--warning-soft, #fef3c7);border:1px solid var(--warning, #f59e0b);color:#92400e;padding:10px;border-radius:6px;font-size:12px;margin-top:8px">
+        ⚠️ <strong>Deep Pour Advisory (${depthInInches.toFixed(1)}″ depth):</strong> Pouring thicker than 1.5″ in a single layer with standard tabletop epoxy will cause thermal runaway (boiling/yellowing/cracking). Use a slow-reacting deep casting formula or pour in multiple thin coats.
+      </div>
+    ` : ""}
+  `;
+}
+
+async function copyEpoxyRecipe() {
+  if (!lastEpoxyRecipeText) {
+    updateEpoxyCalc();
+  }
+  if (!lastEpoxyRecipeText) {
+    showToast("Enter dimensions first to generate recipe.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(lastEpoxyRecipeText);
+    showToast("Copied epoxy recipe to clipboard!");
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = lastEpoxyRecipeText;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    showToast("Copied epoxy recipe to clipboard!");
+  }
+}
+
+/* ============================================================
+   🔩 Screw Pilot Hole & Clearance Drill Bit Guide
+   ============================================================ */
+const SCREW_DATA = {
+  "#4": {
+    name: "#4 Wood Screw (0.112″ / 2.8 mm)",
+    softPilot: "1/16″ (0.062″ / 1.6 mm)",
+    hardPilot: "5/64″ (0.078″ / 2.0 mm)",
+    clearance: "1/8″ (0.125″ / 3.2 mm)",
+    countersink: "82° angle · 1/4″ (6.4 mm) head",
+    driver: "#1 Phillips / T10 Torx"
+  },
+  "#6": {
+    name: "#6 Wood Screw (0.138″ / 3.5 mm)",
+    softPilot: "5/64″ (0.078″ / 2.0 mm)",
+    hardPilot: "3/32″ (0.094″ / 2.4 mm)",
+    clearance: "9/64″ (0.141″ / 3.6 mm)",
+    countersink: "82° angle · 5/16″ (7.9 mm) head",
+    driver: "#2 Phillips / T15 Torx"
+  },
+  "#8": {
+    name: "#8 Wood Screw (0.164″ / 4.2 mm) — General Woodworking",
+    softPilot: "3/32″ (0.094″ / 2.4 mm)",
+    hardPilot: "7/64″ (0.109″ / 2.8 mm)",
+    clearance: "11/64″ (0.172″ / 4.4 mm)",
+    countersink: "82° angle · 3/8″ (9.5 mm) head",
+    driver: "#2 Phillips / T20 Torx / #2 Square"
+  },
+  "#10": {
+    name: "#10 Wood Screw (0.190″ / 4.8 mm) — Cabinetry & Framing",
+    softPilot: "7/64″ (0.109″ / 2.8 mm)",
+    hardPilot: "1/8″ (0.125″ / 3.2 mm)",
+    clearance: "3/16″ (0.188″ / 4.8 mm)",
+    countersink: "82° angle · 7/16″ (11.1 mm) head",
+    driver: "#2 Phillips / T25 Torx"
+  },
+  "#12": {
+    name: "#12 Wood Screw (0.216″ / 5.5 mm) — Heavy Timber",
+    softPilot: "1/8″ (0.125″ / 3.2 mm)",
+    hardPilot: "9/64″ (0.141″ / 3.6 mm)",
+    clearance: "7/32″ (0.219″ / 5.6 mm)",
+    countersink: "82° angle · 1/2″ (12.7 mm) head",
+    driver: "#3 Phillips / T25 Torx"
+  },
+  "#14": {
+    name: "#14 Wood Screw (0.242″ / 6.1 mm) — Heavy Construction",
+    softPilot: "9/64″ (0.141″ / 3.6 mm)",
+    hardPilot: "5/32″ (0.156″ / 4.0 mm)",
+    clearance: "1/4″ (0.250″ / 6.4 mm)",
+    countersink: "82° angle · 9/16″ (14.3 mm) head",
+    driver: "#3 Phillips / T30 Torx"
+  },
+  "M3": {
+    name: "M3 Metric Screw (3.0 mm)",
+    softPilot: "5/64″ (2.0 mm)",
+    hardPilot: "3/32″ (2.5 mm)",
+    clearance: "1/8″ (3.2 mm)",
+    countersink: "90° metric angle · 6.0 mm head",
+    driver: "#1 Phillips / 2.5 mm Hex"
+  },
+  "M4": {
+    name: "M4 Metric Screw (4.0 mm)",
+    softPilot: "7/64″ (2.8 mm)",
+    hardPilot: "1/8″ (3.2 mm)",
+    clearance: "11/64″ (4.5 mm)",
+    countersink: "90° metric angle · 8.0 mm head",
+    driver: "#2 Phillips / 3.0 mm Hex / T20"
+  },
+  "M5": {
+    name: "M5 Metric Screw (5.0 mm)",
+    softPilot: "9/64″ (3.5 mm)",
+    hardPilot: "5/32″ (4.0 mm)",
+    clearance: "7/32″ (5.5 mm)",
+    countersink: "90° metric angle · 10.0 mm head",
+    driver: "#2 Phillips / 4.0 mm Hex / T25"
+  },
+  "M6": {
+    name: "M6 Metric Screw (6.0 mm)",
+    softPilot: "11/64″ (4.2 mm)",
+    hardPilot: "3/16″ (4.8 mm)",
+    clearance: "17/64″ (6.5 mm)",
+    countersink: "90° metric angle · 12.0 mm head",
+    driver: "#3 Phillips / 5.0 mm Hex / T30"
+  }
+};
+
+function updateScrewGuide() {
+  const size = $("#tool-screw-size")?.value || "#8";
+  const wood = $("#tool-screw-wood")?.value || "soft";
+  const resultBox = $("#tool-screw-result");
+  if (!resultBox) return;
+
+  const data = SCREW_DATA[size] || SCREW_DATA["#8"];
+  const isHard = wood === "hard";
+  const chosenPilot = isHard ? data.hardPilot : data.softPilot;
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">🔩 ${data.name}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Recommended Pilot Drill Bit</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green);margin:2px 0">${chosenPilot}</div>
+        <div style="font-size:11px;color:var(--muted)">For ${isHard ? "Hardwoods (prevents screw snap)" : "Softwoods & Plywood"}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Shank Clearance Bit (Top Board)</div>
+        <div style="font-size:18px;font-weight:800;color:#0284c7;margin:2px 0">${data.clearance}</div>
+        <div style="font-size:11px;color:var(--muted)">Prevents thread jacking between pieces</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Countersink Head</div>
+        <div style="font-size:14px;font-weight:700;color:var(--ink);margin:4px 0">${data.countersink}</div>
+        <div style="font-size:11px;color:var(--muted)">Driver: <strong>${data.driver}</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   📥 Bulk Workshop Inventory CSV Import
+   ============================================================ */
+let parsedInventoryImportItems = [];
+
+function openImportInventoryDialog() {
+  parsedInventoryImportItems = [];
+  const fileInput = $("#inventory-csv-file");
+  const textArea = $("#inventory-csv-text");
+  const previewWrap = $("#inventory-csv-preview-wrap");
+  const commitBtn = $("#inventory-csv-commit-btn");
+
+  if (fileInput) fileInput.value = "";
+  if (textArea) textArea.value = "";
+  if (previewWrap) previewWrap.style.display = "none";
+  if (commitBtn) commitBtn.disabled = true;
+
+  $("#import-inventory-dialog")?.showModal();
+}
+
+function parseCSVLine(text) {
+  const p = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      p.push(cur.trim());
+      cur = "";
+    } else {
+      cur += ch;
+    }
+  }
+  p.push(cur.trim());
+  return p;
+}
+
+function parseInventoryCSV() {
+  const fileInput = $("#inventory-csv-file");
+  const textArea = $("#inventory-csv-text");
+  let rawText = textArea?.value || "";
+
+  if (fileInput?.files?.length) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      processInventoryCSVString(e.target.result);
+    };
+    reader.readAsText(fileInput.files[0]);
+  } else if (rawText.trim()) {
+    processInventoryCSVString(rawText);
+  } else {
+    showToast("Please choose a CSV file or paste CSV text to preview.");
+  }
+}
+
+function loadInventoryCSVSample() {
+  const ta = $("#inventory-csv-text");
+  if (ta) {
+    ta.value = `Name,Type,Category,Quantity,Unit,Cost,Location\n` +
+      `3/4 Birch Plywood 4x8,Material,Sheet Goods,3,sheets,64.50,Lumber Rack B\n` +
+      `DeWalt 20V Max XR Router,Equipment,Power Tools,1,unit,199.00,Tool Shelf 2\n` +
+      `#8 x 1-1/4 Wood Screws,Material,Fasteners,250,pcs,12.99,Screw Bin 4\n` +
+      `Starbond Medium CA Glue 2oz,Material,Adhesives,2,bottles,14.50,Finishing Cabinet\n` +
+      `Kreg Pocket Hole Jig 720,Equipment,Joinery,1,unit,149.00,Workbench Drawer\n` +
+      `220 Grit Sandpaper Roll,Material,Abrasives,5,meters,18.00,Sanding Station`;
+    parseInventoryCSV();
+  }
+}
+
+function processInventoryCSVString(str) {
+  if (!str || !str.trim()) {
+    showToast("No CSV data found.");
+    return;
+  }
+  const lines = str.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 1) {
+    showToast("CSV contains no rows.");
+    return;
+  }
+
+  const firstRow = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[\s_-]+/g, ""));
+  let hasHeader = firstRow.some(h => ["name", "item", "type", "category", "qty", "quantity", "price", "cost"].includes(h));
+
+  const items = [];
+  const startIndex = hasHeader ? 1 : 0;
+
+  for (let i = startIndex; i < lines.length; i++) {
+    const parts = parseCSVLine(lines[i]);
+    if (!parts.length || !parts[0]) continue;
+
+    let item = {
+      id: uid(),
+      type: "material",
+      name: "",
+      category: "Supplies",
+      quantity: 1,
+      unit: "units",
+      price: 0,
+      location: "",
+      supplier: "",
+      notes: ""
+    };
+
+    if (hasHeader) {
+      parts.forEach((val, idx) => {
+        const h = firstRow[idx] || "";
+        if (h === "name" || h === "item") item.name = val;
+        else if (h === "type") item.type = (val.toLowerCase().includes("equip") || val.toLowerCase().includes("tool")) ? "equipment" : "material";
+        else if (h === "category") item.category = val || "Supplies";
+        else if (h === "qty" || h === "quantity") item.quantity = parseFloat(val) || 1;
+        else if (h === "unit") item.unit = val || "units";
+        else if (h === "cost" || h === "price" || h === "unitcost" || h === "unitprice") item.price = parseFloat(val.replace(/[^0-9.]/g, "")) || 0;
+        else if (h === "location") item.location = val;
+        else if (h === "supplier") item.supplier = val;
+        else if (h === "brand") item.brand = val;
+        else if (h === "model") item.model = val;
+        else if (h === "condition" || h === "status") item.condition = val.toLowerCase().replace(/\s+/g, "_");
+        else if (h === "notes") item.notes = val;
+      });
+    } else {
+      item.name = parts[0] || "Unnamed Item";
+      if (parts[1]) item.type = (parts[1].toLowerCase().includes("equip") || parts[1].toLowerCase().includes("tool")) ? "equipment" : "material";
+      if (parts[2]) item.category = parts[2];
+      if (parts[3]) item.quantity = parseFloat(parts[3]) || 1;
+      if (parts[4]) item.unit = parts[4];
+      if (parts[5]) item.price = parseFloat(parts[5].replace(/[^0-9.]/g, "")) || 0;
+      if (parts[6]) item.location = parts[6];
+    }
+
+    if (item.name) {
+      if (item.type === "equipment") {
+        item.cost = item.price;
+        item.condition = item.condition || "operational";
+        item.logbook = [];
+      }
+      item.createdAt = new Date().toISOString();
+      item.updatedAt = new Date().toISOString();
+      items.push(item);
+    }
+  }
+
+  parsedInventoryImportItems = items;
+  renderInventoryCSVPreview(items);
+}
+
+function renderInventoryCSVPreview(items) {
+  const wrap = $("#inventory-csv-preview-wrap");
+  const countEl = $("#inventory-csv-preview-count");
+  const tableWrap = $("#inventory-csv-preview-table-wrap");
+  const commitBtn = $("#inventory-csv-commit-btn");
+  if (!wrap || !tableWrap) return;
+
+  if (!items.length) {
+    wrap.style.display = "none";
+    if (commitBtn) commitBtn.disabled = true;
+    showToast("Could not parse any valid items from that CSV.");
+    return;
+  }
+
+  wrap.style.display = "block";
+  if (countEl) countEl.textContent = `Found ${items.length} item${items.length === 1 ? "" : "s"} ready to import`;
+  if (commitBtn) commitBtn.disabled = false;
+
+  tableWrap.innerHTML = `
+    <table class="materials-table" style="font-size:12px;margin:0">
+      <thead>
+        <tr>
+          <th>Item Name</th>
+          <th>Type</th>
+          <th>Category</th>
+          <th>Qty / Unit</th>
+          <th>Unit Cost</th>
+          <th>Location</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.slice(0, 50).map(it => `
+          <tr>
+            <td><strong>${escapeHTML(it.name)}</strong></td>
+            <td><span class="inventory-chip">${it.type === "equipment" ? "⚙️ Tool" : "📦 Material"}</span></td>
+            <td>${escapeHTML(it.category || "General")}</td>
+            <td>${it.type === "equipment" ? "1 unit" : `${it.quantity} ${escapeHTML(it.unit || "")}`}</td>
+            <td>${it.price > 0 ? formatMoney(it.price) : "—"}</td>
+            <td>${escapeHTML(it.location || "Shop")}</td>
+          </tr>
+        `).join("")}
+        ${items.length > 50 ? `<tr><td colspan="6" style="text-align:center;color:var(--muted)">+ ${items.length - 50} more items...</td></tr>` : ""}
+      </tbody>
+    </table>
+  `;
+}
+
+async function commitInventoryCSVImport() {
+  if (!parsedInventoryImportItems.length) return;
+  state.inventory = Array.isArray(state.inventory) ? state.inventory : [];
+  state.inventory.unshift(...parsedInventoryImportItems);
+
+  try {
+    await persistState();
+    renderInventory();
+    $("#import-inventory-dialog")?.close();
+    showToast(`🎉 Imported ${parsedInventoryImportItems.length} items to your workshop inventory!`);
+    parsedInventoryImportItems = [];
+  } catch (err) {
+    console.error(err);
+    showToast("Failed to save imported items.");
+  }
+}
+
+/* ============================================================
+   ⏱️ Live Project Crafting Session Stopwatch
+   ============================================================ */
+let liveCraftingSession = {
+  projectId: null,
+  projectTitle: "",
+  startTime: null,
+  elapsedSeconds: 0,
+  intervalId: null,
+  isRunning: false
+};
+
+function formatCraftingClock(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  const h = Math.floor(m / 60);
+  const remM = m % 60;
+  if (h > 0) {
+    return `${h}:${String(remM).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  }
+  return `${String(remM).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function startProjectCraftingTimer(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+
+  if (liveCraftingSession.isRunning && liveCraftingSession.projectId === project.id) {
+    showToast("Crafting timer is already running for this project.");
+    return;
+  }
+
+  if (liveCraftingSession.intervalId) {
+    clearInterval(liveCraftingSession.intervalId);
+  }
+
+  liveCraftingSession.projectId = project.id;
+  liveCraftingSession.projectTitle = project.title;
+  liveCraftingSession.startTime = Date.now();
+  liveCraftingSession.elapsedSeconds = 0;
+  liveCraftingSession.isRunning = true;
+
+  liveCraftingSession.intervalId = setInterval(() => {
+    liveCraftingSession.elapsedSeconds++;
+    updateLiveCraftingUI();
+  }, 1000);
+
+  updateLiveCraftingUI();
+  if ($("#detail-dialog")?.open) renderProjectDetail(project.id);
+  showToast(`⏱️ Started crafting session on “${project.title}”!`);
+}
+
+function toggleProjectCraftingTimer() {
+  if (!liveCraftingSession.projectId) return;
+  if (liveCraftingSession.isRunning) {
+    clearInterval(liveCraftingSession.intervalId);
+    liveCraftingSession.intervalId = null;
+    liveCraftingSession.isRunning = false;
+    showToast("Crafting timer paused.");
+  } else {
+    liveCraftingSession.isRunning = true;
+    liveCraftingSession.intervalId = setInterval(() => {
+      liveCraftingSession.elapsedSeconds++;
+      updateLiveCraftingUI();
+    }, 1000);
+    showToast("Crafting timer resumed.");
+  }
+  updateLiveCraftingUI();
+  if ($("#detail-dialog")?.open) renderProjectDetail(liveCraftingSession.projectId);
+}
+
+function updateLiveCraftingUI() {
+  const topbarBtn = $("#topbar-timer-btn");
+  if (topbarBtn) {
+    if (liveCraftingSession.isRunning || liveCraftingSession.elapsedSeconds > 0) {
+      topbarBtn.classList.add("topbar-focus-running");
+      topbarBtn.textContent = `⏱️ ${formatCraftingClock(liveCraftingSession.elapsedSeconds)}`;
+    }
+  }
+
+  const clockEl = $(".crafting-timer-clock");
+  if (clockEl) {
+    clockEl.textContent = formatCraftingClock(liveCraftingSession.elapsedSeconds);
+  }
+}
+
+async function finishProjectCraftingTimer() {
+  if (!liveCraftingSession.projectId) return;
+  const project = state.projects.find(p => p.id === liveCraftingSession.projectId);
+  if (!project) return;
+
+  if (liveCraftingSession.intervalId) {
+    clearInterval(liveCraftingSession.intervalId);
+    liveCraftingSession.intervalId = null;
+  }
+  liveCraftingSession.isRunning = false;
+
+  const totalMinutes = Math.max(1, Math.round(liveCraftingSession.elapsedSeconds / 60));
+  project.timeSpent = (project.timeSpent || 0) + totalMinutes;
+  project.updatedAt = new Date().toISOString();
+
+  // Award XP to linked skills (+10 XP per 15m)
+  const earnedXP = Math.max(5, Math.round((totalMinutes / 15) * 10));
+  const linkedSkillIds = project.skillIds || [];
+  if (linkedSkillIds.length > 0) {
+    state.skills.forEach(s => {
+      if (linkedSkillIds.includes(s.id)) {
+        s.xp = (s.xp || 0) + earnedXP;
+      }
+    });
+  }
+
+  makeActivity("note", `Crafted on ${project.title} for ${formatMinutes(totalMinutes)} (+${earnedXP} XP)`);
+
+  const prevTitle = project.title;
+  liveCraftingSession = {
+    projectId: null,
+    projectTitle: "",
+    startTime: null,
+    elapsedSeconds: 0,
+    intervalId: null,
+    isRunning: false
+  };
+
+  const topbarBtn = $("#topbar-timer-btn");
+  if (topbarBtn) {
+    topbarBtn.classList.remove("topbar-focus-running");
+    topbarBtn.textContent = "⏱️ Focus";
+  }
+
+  try {
+    await persistState();
+    render();
+    if ($("#detail-dialog")?.open) renderProjectDetail(project.id);
+    showToast(`🎉 Logged ${formatMinutes(totalMinutes)} & earned +${earnedXP} XP on ${prevTitle}!`);
+  } catch (err) {
+    console.error(err);
   }
 }
 

@@ -329,6 +329,7 @@
               </div>
               <div class="sync-actions">
                 <button type="button" class="button button-outline" data-action="export-inventory-csv" title="Export workshop inventory and tools to CSV">📋 Export CSV</button>
+                <button type="button" class="button button-outline" data-action="open-import-inventory-dialog" title="Bulk import inventory supplies or equipment from CSV">📥 Import CSV</button>
                 <button type="button" class="button button-outline" data-action="open-inventory-dialog" data-type="equipment">⚙️ Add Equipment</button>
                 <button type="button" class="button button-primary" data-action="open-inventory-dialog" data-type="material">📦 Add Material</button>
               </div>
@@ -738,6 +739,8 @@
         <button type="button" class="tool-tab-btn" data-tool-tab="scale">⚖️ Scale &amp; Proportions</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="boardfeet">🪵 Board Foot (BF)</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="cutlist">✂️ Cut List Optimizer</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="epoxy">🧪 Epoxy &amp; Resin</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="screws">🔩 Screw &amp; Pilot Holes</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -841,6 +844,113 @@
         </div>
         <div class="tool-result-box" id="tool-cutlist-result">
           Click “Optimize Cuts” above to calculate board count, yield percentage, and visual cutting layout.
+        </div>
+      </div>
+
+      <!-- Tab 5: Epoxy & Resin Pour Calculator -->
+      <div class="tool-tab-panel" id="tool-panel-epoxy" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Compute exact epoxy resin &amp; hardener volumes, mixing ratios, and weight in grams for river tables, voids, coasters, and deep pours.</p>
+        <div class="tool-calc-grid">
+          <label class="field-label">Cavity Shape
+            <select id="tool-epoxy-shape">
+              <option value="rect">Rectangle / Table / Mold (L × W × D)</option>
+              <option value="round">Circle / Cylinder / Round (Diameter × D)</option>
+            </select>
+          </label>
+          <label class="field-label">Measurement Units
+            <select id="tool-epoxy-units">
+              <option value="in">Inches (in)</option>
+              <option value="mm">Millimeters (mm)</option>
+            </select>
+          </label>
+          <label class="field-label" id="tool-epoxy-len-wrap">Length (<span class="epoxy-unit-lbl">in</span>)
+            <input type="number" step="any" id="tool-epoxy-length" value="24" placeholder="e.g. 24">
+          </label>
+          <label class="field-label" id="tool-epoxy-wid-wrap">Width (<span class="epoxy-unit-lbl">in</span>)
+            <input type="number" step="any" id="tool-epoxy-width" value="6" placeholder="e.g. 6">
+          </label>
+          <label class="field-label" id="tool-epoxy-diam-wrap" style="display:none">Diameter (<span class="epoxy-unit-lbl">in</span>)
+            <input type="number" step="any" id="tool-epoxy-diameter" value="12" placeholder="e.g. 12">
+          </label>
+          <label class="field-label">Pour Depth (<span class="epoxy-unit-lbl">in</span>)
+            <input type="number" step="any" id="tool-epoxy-depth" value="1.5" placeholder="e.g. 1.5">
+          </label>
+          <label class="field-label">Mixing Ratio (Resin : Hardener)
+            <select id="tool-epoxy-ratio">
+              <option value="1:1">1:1 by Volume (Tabletop / Doming / Art)</option>
+              <option value="2:1" selected>2:1 by Volume (Standard Deep Pour)</option>
+              <option value="3:1">3:1 by Volume (Ultra-Slow Casting)</option>
+              <option value="4:1">4:1 by Volume (Specialty Hardener)</option>
+            </select>
+          </label>
+          <label class="field-label">Waste &amp; Container Buffer
+            <select id="tool-epoxy-waste">
+              <option value="0">0% (Exact cavity volume)</option>
+              <option value="5">+5% (Slight margin)</option>
+              <option value="10" selected>+10% (Recommended for mixing loss)</option>
+              <option value="15">+15% (Safe margin for deep pours)</option>
+            </select>
+          </label>
+        </div>
+        <div style="margin:12px 0 8px 0;display:flex;gap:8px">
+          <button type="button" class="button button-outline button-small" data-action="copy-epoxy-recipe">📋 Copy Recipe</button>
+        </div>
+        <div class="tool-result-box" id="tool-epoxy-result">
+          Enter pour dimensions above to calculate resin volume and Part A/B weights.
+        </div>
+      </div>
+
+      <!-- Tab 6: Screw & Pilot Hole Guide -->
+      <div class="tool-tab-panel" id="tool-panel-screws" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Look up exact pilot drill bit sizes, shank clearance bits, countersink angles, and driver bits to prevent split wood and stripped screws.</p>
+        <div class="tool-calc-grid">
+          <label class="field-label">Screw Gauge / Size
+            <select id="tool-screw-size">
+              <option value="#4">#4 Screw (0.112″ / 2.8 mm)</option>
+              <option value="#6">#6 Screw (0.138″ / 3.5 mm)</option>
+              <option value="#8" selected>#8 Screw (0.164″ / 4.2 mm) — Most common woodworking</option>
+              <option value="#10">#10 Screw (0.190″ / 4.8 mm) — Cabinetry &amp; Framing</option>
+              <option value="#12">#12 Screw (0.216″ / 5.5 mm) — Heavy construction</option>
+              <option value="#14">#14 Screw (0.242″ / 6.1 mm)</option>
+              <option value="M3">M3 Metric (3.0 mm)</option>
+              <option value="M4">M4 Metric (4.0 mm)</option>
+              <option value="M5">M5 Metric (5.0 mm)</option>
+              <option value="M6">M6 Metric (6.0 mm)</option>
+            </select>
+          </label>
+          <label class="field-label">Wood Material
+            <select id="tool-screw-wood">
+              <option value="soft" selected>Softwood (Pine, Cedar, Fir, Spruce, Plywood)</option>
+              <option value="hard">Hardwood (Oak, Walnut, Maple, Cherry, Ash, Teak)</option>
+            </select>
+          </label>
+        </div>
+        <div class="tool-result-box" id="tool-screw-result">
+          Select a screw gauge and material above to see pilot bit and clearance specifications.
+        </div>
+        <div class="tools-quick-chart" style="margin-top:14px">
+          <div class="tools-chart-title">Wood Screw Pilot Hole Master Cheatsheet</div>
+          <div style="overflow-x:auto">
+            <table class="screw-chart-table" id="screw-chart-table">
+              <thead>
+                <tr>
+                  <th>Screw</th>
+                  <th>Softwood Pilot</th>
+                  <th>Hardwood Pilot</th>
+                  <th>Clearance Hole</th>
+                  <th>Driver Bit</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>#4</strong></td><td>1/16″ (1.6 mm)</td><td>5/64″ (2.0 mm)</td><td>1/8″ (3.2 mm)</td><td>#1 Phillips</td></tr>
+                <tr><td><strong>#6</strong></td><td>5/64″ (2.0 mm)</td><td>3/32″ (2.4 mm)</td><td>9/64″ (3.6 mm)</td><td>#2 Phillips / T15</td></tr>
+                <tr class="highlight-row"><td><strong>#8</strong></td><td>3/32″ (2.4 mm)</td><td>7/64″ (2.8 mm)</td><td>11/64″ (4.4 mm)</td><td>#2 Phillips / T20</td></tr>
+                <tr><td><strong>#10</strong></td><td>7/64″ (2.8 mm)</td><td>1/8″ (3.2 mm)</td><td>3/16″ (4.8 mm)</td><td>#2 Phillips / T25</td></tr>
+                <tr><td><strong>#12</strong></td><td>1/8″ (3.2 mm)</td><td>9/64″ (3.6 mm)</td><td>7/32″ (5.6 mm)</td><td>#3 Phillips / T25</td></tr>
+                <tr><td><strong>#14</strong></td><td>9/64″ (3.6 mm)</td><td>5/32″ (4.0 mm)</td><td>1/4″ (6.4 mm)</td><td>#3 Phillips / T30</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </dialog>
@@ -1087,6 +1197,44 @@
       <div id="starter-kits-list" class="starter-kits-grid"></div>
       <div class="dialog-actions">
         <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+    </dialog>
+
+    <!-- Workshop Bulk Inventory CSV Import Dialog -->
+    <dialog class="app-dialog" id="import-inventory-dialog" aria-label="Import Inventory from CSV" style="width:min(680px, calc(100% - 28px));">
+      <div class="dialog-heading">
+        <div><div class="eyebrow">BATCH WORKSHOP INGESTION</div><h2>Import Inventory from CSV</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Upload a spreadsheet (.csv) or paste CSV lines to bulk-add materials, supplies, and tools to your workshop depot.</p>
+      
+      <div style="margin-bottom:12px">
+        <label class="field-label">Choose .CSV File
+          <input type="file" id="inventory-csv-file" accept=".csv,text/csv" style="margin-top:4px">
+        </label>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <label class="field-label">Or Paste CSV Text
+          <textarea id="inventory-csv-text" rows="5" placeholder="Name,Type,Category,Quantity,Unit,Cost,Location&#10;1/4 Walnut Plywood,Material,Sheet Goods,4,sheets,42.50,Rack A&#10;Festool Domino DF 500,Equipment,Joinery,1,unit,1150.00,Workbench 1&#10;Titebond III Glue,Material,Adhesives,2,bottles,9.25,Glue Shelf"></textarea>
+        </label>
+      </div>
+
+      <div style="margin-bottom:14px;display:flex;gap:8px">
+        <button type="button" class="button button-outline button-small" data-action="parse-inventory-csv">🔍 Preview Items</button>
+        <button type="button" class="button button-quiet button-small" data-action="load-inventory-csv-sample">Load Example Template</button>
+      </div>
+
+      <div id="inventory-csv-preview-wrap" style="display:none;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <strong style="font-size:12px;color:var(--ink)" id="inventory-csv-preview-count">0 items ready to import</strong>
+        </div>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px" id="inventory-csv-preview-table-wrap"></div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="button button-primary" id="inventory-csv-commit-btn" data-action="commit-inventory-csv" disabled>📥 Import All Items</button>
+        <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
       </div>
     </dialog>
 
