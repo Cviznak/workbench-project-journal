@@ -5572,6 +5572,197 @@ body.theme-dark .version-tag {
   background: rgba(108, 165, 119, 0.15);
 }
 
+/* 🌲 Wood Species & Movement Card */
+.wood-species-card {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.wood-species-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.wood-species-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.wood-species-latin {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.wood-species-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: rgba(65, 106, 75, 0.12);
+  color: var(--green);
+}
+.wood-species-tag.softwood {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+.wood-species-tag.exotic {
+  background: rgba(147, 51, 234, 0.12);
+  color: #7e22ce;
+}
+[data-theme="dark"] .wood-species-tag.softwood {
+  color: #fbbf24;
+}
+[data-theme="dark"] .wood-species-tag.exotic {
+  color: #c084fc;
+}
+
+/* Janka meter bar */
+.janka-meter-wrap {
+  margin: 10px 0 14px;
+}
+.janka-meter-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.janka-meter-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.janka-meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .3s ease;
+  background: linear-gradient(90deg, #84cc16 0%, #eab308 50%, #ef4444 85%, #9333ea 100%);
+}
+
+/* Wood stats grid */
+.wood-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.wood-stat-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+}
+.wood-stat-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.wood-stat-lbl {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-top: 2px;
+}
+.wood-workability-box {
+  font-size: 12px;
+  color: var(--ink);
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+/* 💨 Dust collection velocity badge & alerts */
+.velocity-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 14px;
+  margin-top: 6px;
+}
+.velocity-status-badge.optimal {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+.velocity-status-badge.low {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+.velocity-status-badge.high {
+  background: rgba(234, 179, 8, 0.18);
+  color: #ca8a04;
+}
+[data-theme="dark"] .velocity-status-badge.optimal { color: #4ade80; }
+[data-theme="dark"] .velocity-status-badge.low { color: #f87171; }
+[data-theme="dark"] .velocity-status-badge.high { color: #facc15; }
+
+/* 📊 Supplies category breakdown in project detail */
+.supplies-cat-bar-wrap {
+  margin: 10px 0 14px;
+}
+.supplies-cat-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--border);
+  margin-bottom: 6px;
+}
+.supplies-cat-segment {
+  height: 100%;
+  transition: width .2s ease;
+}
+.supplies-cat-segment.lumber { background: #84532f; }
+.supplies-cat-segment.hardware { background: #3b82f6; }
+.supplies-cat-segment.finishes { background: #10b981; }
+.supplies-cat-segment.consumables { background: #f59e0b; }
+.supplies-cat-segment.other { background: #8b5cf6; }
+
+.supplies-cat-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+}
+.supplies-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+}
+.supplies-cat-pill strong {
+  color: var(--ink);
+}
+.cat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.cat-dot.lumber { background: #84532f; }
+.cat-dot.hardware { background: #3b82f6; }
+.cat-dot.finishes { background: #10b981; }
+.cat-dot.consumables { background: #f59e0b; }
+.cat-dot.other { background: #8b5cf6; }
+
+
 
 
 

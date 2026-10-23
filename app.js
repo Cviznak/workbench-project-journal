@@ -3238,6 +3238,43 @@ function renderProjectDetail(projectId) {
   const budgetPercent = budget > 0 ? Math.min(100, Math.round((totalCost / budget) * 100)) : 0;
   const isOverBudget = budget > 0 && totalCost > budget;
 
+  const catTotals = { lumber: 0, hardware: 0, finishes: 0, consumables: 0, other: 0 };
+  for (const m of materials) {
+    const cost = Number(m.cost) || 0;
+    const nameLow = (m.name || "").toLowerCase();
+    const typeLow = (m.type || m.category || "").toLowerCase();
+    if (nameLow.includes("plywood") || nameLow.includes("oak") || nameLow.includes("walnut") || nameLow.includes("board") || nameLow.includes("pine") || nameLow.includes("lumber") || nameLow.includes("maple") || nameLow.includes("cedar") || nameLow.includes("wood") || typeLow.includes("lumber") || typeLow.includes("wood") || typeLow.includes("sheet")) {
+      catTotals.lumber += cost;
+    } else if (nameLow.includes("screw") || nameLow.includes("bolt") || nameLow.includes("hinge") || nameLow.includes("pull") || nameLow.includes("handle") || nameLow.includes("hardware") || nameLow.includes("fastener") || typeLow.includes("fastener") || typeLow.includes("hardware")) {
+      catTotals.hardware += cost;
+    } else if (nameLow.includes("finish") || nameLow.includes("oil") || nameLow.includes("poly") || nameLow.includes("stain") || nameLow.includes("paint") || nameLow.includes("epoxy") || nameLow.includes("glue") || typeLow.includes("finish") || typeLow.includes("adhesive")) {
+      catTotals.finishes += cost;
+    } else if (nameLow.includes("sandpaper") || nameLow.includes("blade") || nameLow.includes("bit") || nameLow.includes("rag") || typeLow.includes("abrasive") || typeLow.includes("consumable")) {
+      catTotals.consumables += cost;
+    } else {
+      catTotals.other += cost;
+    }
+  }
+
+  const catBreakdownHtml = (totalCost > 0) ? `
+    <div class="supplies-cat-bar-wrap">
+      <div class="supplies-cat-bar" title="Category Cost Distribution">
+        ${catTotals.lumber > 0 ? `<div class="supplies-cat-segment lumber" style="width:${(catTotals.lumber / totalCost) * 100}%" title="Lumber: ${formatMoney(catTotals.lumber)}"></div>` : ""}
+        ${catTotals.hardware > 0 ? `<div class="supplies-cat-segment hardware" style="width:${(catTotals.hardware / totalCost) * 100}%" title="Hardware: ${formatMoney(catTotals.hardware)}"></div>` : ""}
+        ${catTotals.finishes > 0 ? `<div class="supplies-cat-segment finishes" style="width:${(catTotals.finishes / totalCost) * 100}%" title="Finishes: ${formatMoney(catTotals.finishes)}"></div>` : ""}
+        ${catTotals.consumables > 0 ? `<div class="supplies-cat-segment consumables" style="width:${(catTotals.consumables / totalCost) * 100}%" title="Consumables: ${formatMoney(catTotals.consumables)}"></div>` : ""}
+        ${catTotals.other > 0 ? `<div class="supplies-cat-segment other" style="width:${(catTotals.other / totalCost) * 100}%" title="Other: ${formatMoney(catTotals.other)}"></div>` : ""}
+      </div>
+      <div class="supplies-cat-legend">
+        ${catTotals.lumber > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot lumber"></span> Lumber: <strong>${formatMoney(catTotals.lumber)}</strong></span>` : ""}
+        ${catTotals.hardware > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot hardware"></span> Hardware: <strong>${formatMoney(catTotals.hardware)}</strong></span>` : ""}
+        ${catTotals.finishes > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot finishes"></span> Finishes: <strong>${formatMoney(catTotals.finishes)}</strong></span>` : ""}
+        ${catTotals.consumables > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot consumables"></span> Parts: <strong>${formatMoney(catTotals.consumables)}</strong></span>` : ""}
+        ${catTotals.other > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot other"></span> Other: <strong>${formatMoney(catTotals.other)}</strong></span>` : ""}
+      </div>
+    </div>
+  ` : "";
+
   const budgetCardHtml = (budget > 0 || materials.length > 0) ? `
     <div class="project-budget-card">
       <div class="budget-stats-grid">
@@ -3263,6 +3300,7 @@ function renderProjectDetail(projectId) {
           <div class="budget-meter-fill ${isOverBudget ? "over-budget" : ""}" style="width:${budgetPercent}%"></div>
         </div>
       ` : ""}
+      ${catBreakdownHtml}
     </div>
   ` : "";
 
@@ -3407,7 +3445,8 @@ function renderProjectDetail(projectId) {
         <h3>Materials &amp; Supplies</h3>
         <span class="subtle-count">${materials.length ? `${materials.length} items · ${formatMoney(totalCost)} total` : "Track parts & build budget"}</span>
       </div>
-      <div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" class="small-action" data-action="transfer-project-to-cutlist" data-id="${project.id}" title="Send lumber items to Workshop Cut List Optimizer">✂️ Send to Cut List</button>
         <button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}">📥 Add from inventory</button>
       </div>
     </div>
@@ -4205,6 +4244,9 @@ function openToolsDialog() {
   renderFractionChart();
   updateEpoxyCalc();
   updateScrewGuide();
+  updateMiterCalc();
+  updateWoodSpeciesView();
+  updateDustCalc();
   $("#tools-dialog")?.showModal();
 }
 
@@ -4215,6 +4257,9 @@ function switchToolTab(tab) {
   });
   if (tab === "epoxy") updateEpoxyCalc();
   if (tab === "screws") updateScrewGuide();
+  if (tab === "miter") updateMiterCalc();
+  if (tab === "wood") updateWoodSpeciesView();
+  if (tab === "dust") updateDustCalc();
 }
 
 function parseFraction(str) {
@@ -8947,6 +8992,14 @@ async function handleAction(action, target) {
     copyEpoxyRecipe();
     return;
   }
+  if (action === "copy-miter-recipe") {
+    void copyMiterRecipe();
+    return;
+  }
+  if (action === "transfer-project-to-cutlist") {
+    transferProjectToCutlist(id || target.dataset.id || target.dataset.project);
+    return;
+  }
   if (action === "open-time-dialog") {
     openTimeDialog(id || target.dataset.id);
     return;
@@ -10061,6 +10114,30 @@ $("#tool-epoxy-waste")?.addEventListener("input", updateEpoxyCalc);
 $("#tool-screw-size")?.addEventListener("change", updateScrewGuide);
 $("#tool-screw-wood")?.addEventListener("change", updateScrewGuide);
 $("#inventory-csv-file")?.addEventListener("change", parseInventoryCSV);
+
+// Miter & Polygon Calculator listeners
+$("#tool-miter-preset")?.addEventListener("change", updateMiterCalc);
+$("#tool-miter-sides")?.addEventListener("input", updateMiterCalc);
+$("#tool-miter-splay")?.addEventListener("input", updateMiterCalc);
+$("#tool-miter-dia")?.addEventListener("input", updateMiterCalc);
+$("#tool-miter-thick")?.addEventListener("input", updateMiterCalc);
+$("#tool-miter-kerf")?.addEventListener("input", updateMiterCalc);
+
+// Wood Species & Movement listeners
+$("#tool-wood-species")?.addEventListener("change", updateWoodSpeciesView);
+$("#tool-wood-width")?.addEventListener("input", updateWoodMovementCalc);
+$("#tool-wood-cut")?.addEventListener("change", updateWoodMovementCalc);
+$("#tool-wood-mc-swing")?.addEventListener("change", updateWoodMovementCalc);
+$("#tool-wood-custom-mc")?.addEventListener("input", updateWoodMovementCalc);
+
+// Dust Collection listeners
+$("#tool-dust-machine")?.addEventListener("change", updateDustCalc);
+$("#tool-dust-custom-cfm")?.addEventListener("input", updateDustCalc);
+$("#tool-dust-dia")?.addEventListener("change", updateDustCalc);
+$("#tool-dust-length")?.addEventListener("input", updateDustCalc);
+$("#tool-dust-elbows90")?.addEventListener("input", updateDustCalc);
+$("#tool-dust-elbows45")?.addEventListener("input", updateDustCalc);
+$("#tool-dust-flex")?.addEventListener("input", updateDustCalc);
 
 $("#backup-input").addEventListener("change", async event => {
   const [file] = event.target.files;
@@ -11241,6 +11318,339 @@ function updateScrewGuide() {
       </div>
     </div>
   `;
+}
+
+/* ============================================================
+   📐 Miter, Bevel & Polygon Calculator
+   ============================================================ */
+function updateMiterCalc() {
+  const preset = $("#tool-miter-preset")?.value || "8";
+  const sidesInput = $("#tool-miter-sides");
+  if (preset !== "custom" && sidesInput) {
+    sidesInput.value = preset;
+  }
+  const sides = Math.max(3, parseInt(sidesInput?.value, 10) || 8);
+  const splay = Math.max(0, Math.min(60, parseFloat($("#tool-miter-splay")?.value) || 0));
+  const outerDia = Math.max(0.1, parseFloat($("#tool-miter-dia")?.value) || 10);
+  const wallThick = Math.max(0.01, parseFloat($("#tool-miter-thick")?.value) || 1.25);
+  const kerf = Math.max(0, parseFloat($("#tool-miter-kerf")?.value) || 0.125);
+  const resultBox = $("#tool-miter-result");
+  if (!resultBox) return;
+
+  const includedAngle = ((sides - 2) * 180) / sides;
+  const flatMiter = 180 / sides;
+
+  let compoundMiter = flatMiter;
+  let bladeBevel = 0;
+
+  if (splay > 0) {
+    const splayRad = (splay * Math.PI) / 180;
+    const halfAngleRad = (flatMiter * Math.PI) / 180;
+    const beta = Math.PI / 2 - splayRad;
+    const tanMiter = Math.sin(beta) / Math.tan(halfAngleRad);
+    compoundMiter = (Math.atan(tanMiter) * 180) / Math.PI;
+    const sinBevel = Math.cos(beta) * Math.cos(halfAngleRad);
+    bladeBevel = (Math.asin(Math.min(1, Math.max(0, sinBevel))) * 180) / Math.PI;
+  }
+
+  const halfAngleRad = (flatMiter * Math.PI) / 180;
+  const outerSegmentLen = outerDia * Math.tan(halfAngleRad);
+  const innerDia = Math.max(0, outerDia - 2 * wallThick);
+  const innerSegmentLen = innerDia * Math.tan(halfAngleRad);
+  const totalStockLength = (outerSegmentLen + kerf) * sides;
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">
+      📐 ${sides}-Sided Polygon ${splay > 0 ? `(Flared at ${splay}°)` : "(Flat 90° Sides)"}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Miter Saw Angle</div>
+        <div style="font-size:20px;font-weight:800;color:var(--green);margin:2px 0">${compoundMiter.toFixed(2)}°</div>
+        <div style="font-size:11px;color:var(--muted)">Set saw miter scale to <strong>${compoundMiter.toFixed(1)}°</strong></div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Blade Bevel Tilt</div>
+        <div style="font-size:20px;font-weight:800;color:#0284c7;margin:2px 0">${bladeBevel.toFixed(2)}°</div>
+        <div style="font-size:11px;color:var(--muted)">${splay > 0 ? "Tilt saw blade bevel to this angle" : "0° (Perpendicular 90° blade)"}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Segment Outer Cut Length</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);margin:2px 0">${outerSegmentLen.toFixed(3)}″</div>
+        <div style="font-size:11px;color:var(--muted)">Inner ring cut: <strong>${innerSegmentLen.toFixed(3)}″</strong></div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Corner Angle &amp; Stock</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);margin:2px 0">${includedAngle.toFixed(1)}°</div>
+        <div style="font-size:11px;color:var(--muted)">Linear board: ~<strong>${totalStockLength.toFixed(1)}″</strong> (with ${sides} cuts)</div>
+      </div>
+    </div>
+  `;
+}
+
+async function copyMiterRecipe() {
+  const sides = $("#tool-miter-sides")?.value || "8";
+  const splay = $("#tool-miter-splay")?.value || "0";
+  const dia = $("#tool-miter-dia")?.value || "10";
+  const flatMiter = (180 / parseFloat(sides)).toFixed(2);
+  const text = `📐 Miter & Polygon Cut Recipe:
+- Shape: ${sides}-sided polygon (flare: ${splay}°)
+- Miter Saw Angle: ${flatMiter}°
+- Desired Outer Diameter: ${dia}″
+Calculated with Workbench Project Journal`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied miter angle recipe to clipboard!");
+  } catch {
+    showToast("Miter recipe ready.");
+  }
+}
+
+/* ============================================================
+   🌲 Wood Species & Movement Database
+   ============================================================ */
+const WOOD_SPECIES_DB = [
+  { id: "walnut", name: "Black Walnut", latin: "Juglans nigra", category: "hardwood", janka: 1010, rad: 5.5, tang: 7.8, weight: 38, tr: 1.42, notes: "Premier North American cabinet wood. Exceptional stability, darkens with age, glues and finishes beautifully.", caution: "Dust can cause allergic rhinitis in sensitive makers." },
+  { id: "white_oak", name: "White Oak", latin: "Quercus alba", category: "hardwood", janka: 1360, rad: 5.6, tang: 10.5, weight: 47, tr: 1.88, notes: "Closed tyloses make it rot and water proof (whiskey barrels, outdoor furniture). High tannins react black with iron.", caution: "Pre-drilling required for all screws." },
+  { id: "red_oak", name: "Red Oak", latin: "Quercus rubra", category: "hardwood", janka: 1290, rad: 4.0, tang: 8.6, weight: 44, tr: 2.15, notes: "Open porous end-grain straws (not rot-proof). Accepts stains very readily. Coarse texture.", caution: "Prone to cupping if dried unevenly (T/R > 2.0)." },
+  { id: "hard_maple", name: "Hard Maple (Sugar)", latin: "Acer saccharum", category: "hardwood", janka: 1450, rad: 4.8, tang: 9.9, weight: 44, tr: 2.06, notes: "Extremely abrasion resistant. Standard for butcher blocks, workbenches, and tool handles.", caution: "Dull router bits burn maple very quickly." },
+  { id: "cherry", name: "Black Cherry", latin: "Prunus serotina", category: "hardwood", janka: 950, rad: 3.7, tang: 7.1, weight: 35, tr: 1.92, notes: "Ages to deep rich reddish-brown patina with UV sunlight. Low movement, silky smooth surface.", caution: "High pitch content burns easily when crosscutting." },
+  { id: "ash", name: "White Ash", latin: "Fraxinus americana", category: "hardwood", janka: 1320, rad: 4.9, tang: 7.8, weight: 42, tr: 1.59, notes: "Superb shock resistance and steam-bending properties. Baseball bats, mallet handles, mid-century furniture.", caution: "Pores need grain filler for high gloss mirror finishes." },
+  { id: "poplar", name: "Yellow Poplar", latin: "Liriodendron tulipifera", category: "hardwood", janka: 540, rad: 4.6, tang: 8.2, weight: 29, tr: 1.78, notes: "Soft hardwood. The premier paint-grade species for interior cabinetry, moldings, and core carcasses.", caution: "Grain can fuzz up if sanded with worn abrasive paper." },
+  { id: "hickory", name: "Hickory", latin: "Carya ovata", category: "hardwood", janka: 1820, rad: 7.0, tang: 10.5, weight: 50, tr: 1.50, notes: "Highest strength and hardness among common domestic woods. Tremendous impact shock absorption.", caution: "Extremely tough on dull tooling and planers." },
+  { id: "pine", name: "Eastern White Pine", latin: "Pinus strobus", category: "softwood", janka: 380, rad: 2.1, tang: 6.1, weight: 25, tr: 2.90, notes: "Historic colonial timber. Very low shrinkage, exceptionally easy to carve with hand planes and chisels.", caution: "Very soft—dents easily under fingernail pressure." },
+  { id: "doug_fir", name: "Douglas Fir", latin: "Pseudotsuga menziesii", category: "softwood", janka: 660, rad: 4.8, tang: 7.6, weight: 32, tr: 1.58, notes: "High strength-to-weight structural timber. Very stiff workbench top material.", caution: "Latewood ridges can cause blade chatter when hand planning." },
+  { id: "cedar", name: "Western Red Cedar", latin: "Thuja plicata", category: "softwood", janka: 350, rad: 2.4, tang: 5.0, weight: 23, tr: 2.08, notes: "Natural thujaplicin oils provide supreme weather and insect decay resistance. Sauna and deck staple.", caution: "Soft; use stainless steel or coated fasteners to avoid black staining." },
+  { id: "teak", name: "Teak", latin: "Tectona grandis", category: "exotic", janka: 1070, rad: 2.5, tang: 5.8, weight: 40, tr: 2.32, notes: "Supreme marine and boat deck hardwood. Natural oils prevent water penetration even untreated.", caution: "High silica content blunts carbide saw blades quickly. Wipe with acetone before glue-up." },
+  { id: "mahogany", name: "Genuine Mahogany", latin: "Swietenia macrophylla", category: "exotic", janka: 900, rad: 3.0, tang: 4.1, weight: 37, tr: 1.37, notes: "One of the most dimensionally stable woods on earth (T/R = 1.37). Classic antique furniture and guitars.", caution: "CITES Appendix II protected; ensure certified sustainably sourced." },
+  { id: "purpleheart", name: "Purpleheart", latin: "Peltogyne spp.", category: "exotic", janka: 2520, rad: 3.8, tang: 6.4, weight: 56, tr: 1.68, notes: "Freshly cut dull brown oxidizes into bright vibrant purple. Ultra hard, stiff, and heavy.", caution: "Heat from dull tooling causes gum bleed that glazes blades." },
+  { id: "padauk", name: "African Padauk", latin: "Pterocarpus soyauxii", category: "exotic", janka: 1970, rad: 3.3, tang: 5.2, weight: 47, tr: 1.58, notes: "Vivid bright coral crimson-orange heartwood. Excellent dimensional stability, turns cleanly.", caution: "Bright orange dust will coat shop surfaces; protect with UV-inhibiting finish." },
+  { id: "wenge", name: "Wenge", latin: "Millettia laurentii", category: "exotic", janka: 1930, rad: 4.8, tang: 8.1, weight: 54, tr: 1.69, notes: "Dark chocolate espresso color with black veins. High contrast accents in fine jewelry boxes.", caution: "Splinters fester easily in skin; wear leather gloves when rough dimensioning." }
+];
+
+function initWoodSpeciesOptions() {
+  const select = $("#tool-wood-species");
+  if (!select || select.children.length > 0) return;
+  select.innerHTML = WOOD_SPECIES_DB.map(s => `
+    <option value="${s.id}">${s.name} (${s.category === "exotic" ? "Exotic" : s.category === "softwood" ? "Softwood" : "Hardwood"} · Janka ${s.janka})</option>
+  `).join("");
+}
+
+function updateWoodSpeciesView() {
+  initWoodSpeciesOptions();
+  const select = $("#tool-wood-species");
+  const speciesId = select?.value || "walnut";
+  const species = WOOD_SPECIES_DB.find(s => s.id === speciesId) || WOOD_SPECIES_DB[0];
+  const card = $("#tool-wood-card");
+  if (!card) return;
+
+  const jankaPct = Math.min(100, Math.round((species.janka / 2600) * 100));
+
+  card.innerHTML = `
+    <div class="wood-species-header">
+      <div>
+        <div class="wood-species-title">🌲 ${species.name}</div>
+        <div class="wood-species-latin">${species.latin}</div>
+      </div>
+      <span class="wood-species-tag ${species.category}">${species.category}</span>
+    </div>
+    <div class="janka-meter-wrap">
+      <div class="janka-meter-label">
+        <span>Hardness: <strong>${species.janka} lbf</strong> (Janka Scale)</span>
+        <span>${species.janka < 600 ? "Soft" : species.janka < 1200 ? "Medium Hard" : species.janka < 1700 ? "Hard" : "Ultra Dense"}</span>
+      </div>
+      <div class="janka-meter-track">
+        <div class="janka-meter-fill" style="width: ${jankaPct}%"></div>
+      </div>
+    </div>
+    <div class="wood-stats-grid">
+      <div class="wood-stat-item">
+        <div class="wood-stat-val">${species.tang}%</div>
+        <div class="wood-stat-lbl">Tangential (Flat)</div>
+      </div>
+      <div class="wood-stat-item">
+        <div class="wood-stat-val">${species.rad}%</div>
+        <div class="wood-stat-lbl">Radial (Quarter)</div>
+      </div>
+      <div class="wood-stat-item">
+        <div class="wood-stat-val">${species.tr}</div>
+        <div class="wood-stat-lbl">T/R Ratio (${species.tr < 1.7 ? "Stable" : "Prone to Cup"})</div>
+      </div>
+      <div class="wood-stat-item">
+        <div class="wood-stat-val">${species.weight} lbs</div>
+        <div class="wood-stat-lbl">Density (cu. ft)</div>
+      </div>
+    </div>
+    <div class="wood-workability-box">
+      <strong>Workability:</strong> ${species.notes}<br>
+      <span style="color:#b45309">⚠️ <strong>Note:</strong> ${species.caution}</span>
+    </div>
+  `;
+
+  updateWoodMovementCalc();
+}
+
+function updateWoodMovementCalc() {
+  const select = $("#tool-wood-species");
+  const speciesId = select?.value || "walnut";
+  const species = WOOD_SPECIES_DB.find(s => s.id === speciesId) || WOOD_SPECIES_DB[0];
+  const width = Math.max(1, parseFloat($("#tool-wood-width")?.value) || 36);
+  const cut = $("#tool-wood-cut")?.value || "tangential";
+  const mcPreset = $("#tool-wood-mc-swing")?.value || "6";
+  const customWrap = $("#tool-wood-custom-mc-wrap");
+
+  let deltaMC = 6;
+  if (mcPreset === "custom") {
+    if (customWrap) customWrap.style.display = "block";
+    deltaMC = parseFloat($("#tool-wood-custom-mc")?.value) || 6;
+  } else {
+    if (customWrap) customWrap.style.display = "none";
+    deltaMC = parseFloat(mcPreset) || 6;
+  }
+
+  const shrinkPercent = cut === "radial" ? species.rad : species.tang;
+  const Cr = (shrinkPercent / 30) / 100;
+  const totalChangeInches = width * Cr * deltaMC;
+  const totalChangeMm = totalChangeInches * 25.4;
+
+  const resultBox = $("#tool-wood-movement-result");
+  if (!resultBox) return;
+
+  const approxFraction = totalChangeInches < 0.04 ? "~1/32″" : totalChangeInches < 0.08 ? "~1/16″" : totalChangeInches < 0.15 ? "~1/8″" : totalChangeInches < 0.22 ? "~3/16″" : totalChangeInches < 0.30 ? "~1/4″" : totalChangeInches < 0.40 ? "~3/8″" : "~1/2″";
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:6px">
+      Expected Seasonal Movement: <span style="color:var(--green)">±${totalChangeInches.toFixed(3)}″ (${approxFraction} · ${totalChangeMm.toFixed(1)} mm)</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.5">
+      A <strong>${width}″ wide</strong> ${cut === "radial" ? "quarter-sawn" : "flat-sawn"} ${species.name} panel will expand in summer and contract in winter by approximately <strong>${totalChangeInches.toFixed(2)}″</strong> over a ${deltaMC}% moisture swing.<br>
+      ${totalChangeInches > 0.125 ? "💡 <strong>Joinery Rule:</strong> Secure tabletop to aprons using slotted figure-eight fasteners or tabletop Z-clips. Do not pocket-screw solid tops cross-grain!" : "💡 <strong>Joinery Rule:</strong> Normal tolerance. Minor seasonal movement."}
+    </div>
+  `;
+}
+
+/* ============================================================
+   💨 Dust Collection CFM & Duct Sizing Tool
+   ============================================================ */
+const DUST_MACHINE_CFM = {
+  tablesaw: 450,
+  planer12: 500,
+  planer15: 650,
+  jointer8: 450,
+  jointer12: 600,
+  router: 350,
+  bandsaw: 400,
+  drumsander: 550,
+  mitersaw: 500,
+  cnc: 350,
+  lathe: 400
+};
+
+function updateDustCalc() {
+  const machineKey = $("#tool-dust-machine")?.value || "tablesaw";
+  const customWrap = $("#tool-dust-custom-cfm-wrap");
+  let cfm = 450;
+
+  if (machineKey === "custom") {
+    if (customWrap) customWrap.style.display = "block";
+    cfm = Math.max(50, parseInt($("#tool-dust-custom-cfm")?.value, 10) || 450);
+  } else {
+    if (customWrap) customWrap.style.display = "none";
+    cfm = DUST_MACHINE_CFM[machineKey] || 450;
+  }
+
+  const diaInches = parseFloat($("#tool-dust-dia")?.value) || 4.0;
+  const straightFeet = Math.max(1, parseFloat($("#tool-dust-length")?.value) || 16);
+  const elbows90 = Math.max(0, parseInt($("#tool-dust-elbows90")?.value, 10) || 0);
+  const elbows45 = Math.max(0, parseInt($("#tool-dust-elbows45")?.value, 10) || 0);
+  const flexFeet = Math.max(0, parseFloat($("#tool-dust-flex")?.value) || 0);
+  const resultBox = $("#tool-dust-result");
+  if (!resultBox) return;
+
+  const radiusFt = (diaInches / 2) / 12;
+  const areaSqFt = Math.PI * radiusFt * radiusFt;
+  const velocityFpm = Math.round(cfm / areaSqFt);
+
+  const eqLength = straightFeet + (elbows90 * 10) + (elbows45 * 5) + (flexFeet * 3);
+  const velRatio = velocityFpm / 4005;
+  const spDrop = Math.max(0.1, eqLength * (velRatio * velRatio) * (0.02 / (diaInches / 12))).toFixed(2);
+
+  let statusClass = "optimal";
+  let statusText = "🟢 Ideal Transport Velocity (3,800–4,500 FPM)";
+  let statusAdvice = "Excellent chip and sawdust transport. Chips stay airborne without excessive friction losses.";
+
+  if (velocityFpm < 3500) {
+    statusClass = "low";
+    statusText = "🔴 Velocity Too Low (< 3,500 FPM) — Clog Risk!";
+    statusAdvice = "Heavy planer and jointer chips will settle in horizontal ductwork and choke airflow. Use a smaller diameter branch (e.g. 4″) or upgrade dust collector CFM.";
+  } else if (velocityFpm > 5200) {
+    statusClass = "high";
+    statusText = "🟡 Velocity Very High (> 5,200 FPM) — High Friction & Noise";
+    statusAdvice = "Significant air turbulence and static pressure loss. Upgrade to a 5″ or 6″ duct to reduce blower strain and air whistling.";
+  }
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">
+      💨 Airflow Analysis: <span style="font-size:16px">${cfm} CFM</span> through <span style="font-size:16px">${diaInches}″</span> Duct
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Air Velocity</div>
+        <div style="font-size:20px;font-weight:800;color:var(--ink);margin:2px 0">${velocityFpm.toLocaleString()} FPM</div>
+        <div class="velocity-status-badge ${statusClass}">${statusText}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Estimated Static Pressure Loss</div>
+        <div style="font-size:20px;font-weight:800;color:#0284c7;margin:2px 0">${spDrop}″ W.G.</div>
+        <div style="font-size:11px;color:var(--muted)">Across ${eqLength.toFixed(0)} ft equivalent duct resistance</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Collector Recommendation</div>
+        <div style="font-size:14px;font-weight:700;color:var(--ink);margin:3px 0">${cfm > 500 ? "1.5 HP – 2 HP Cyclone" : diaInches <= 2.5 ? "Shop Vac w/ Separator" : "1 HP – 1.5 HP Collector"}</div>
+        <div style="font-size:11px;color:var(--muted)">Minimum recommended rating</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--ink);background:var(--surface-subtle);padding:8px 10px;border-radius:6px">
+      ${statusAdvice}
+    </div>
+  `;
+}
+
+/* ============================================================
+   ✂️ Project Cut List Bridge
+   ============================================================ */
+function transferProjectToCutlist(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  const materials = project.materials || [];
+  const lines = [];
+
+  for (const mat of materials) {
+    const text = `${mat.name || ""} ${mat.notes || ""}`;
+    const match = text.match(/(\d+(?:\.\d+)?)\s*(?:x|\*|by|×)\s*(\d+(?:\.\d+)?)/i);
+    if (match) {
+      lines.push(`${match[1]} x ${match[2]}`);
+    } else {
+      const singleNum = text.match(/(\d+(?:\.\d+)?)\s*(?:in|inch|″|cm|mm|')/i);
+      if (singleNum) {
+        lines.push(`${singleNum[1]} x 1`);
+      }
+    }
+  }
+
+  openToolsDialog();
+  switchToolTab("cutlist");
+
+  const cutArea = $("#tool-cut-pieces");
+  if (cutArea) {
+    if (lines.length > 0) {
+      cutArea.value = lines.join("\n");
+      showToast(`✂️ Transferred ${lines.length} items from ${project.title} to Cut List Optimizer!`);
+    } else {
+      showToast(`Opened Cut List Optimizer for ${project.title}.`);
+    }
+  }
+  runCutOptimizer();
 }
 
 /* ============================================================

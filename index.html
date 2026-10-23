@@ -741,6 +741,9 @@
         <button type="button" class="tool-tab-btn" data-tool-tab="cutlist">✂️ Cut List Optimizer</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="epoxy">🧪 Epoxy &amp; Resin</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="screws">🔩 Screw &amp; Pilot Holes</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="miter">📐 Miter &amp; Polygons</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="wood">🌲 Wood Species &amp; Movement</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="dust">💨 Dust CFM &amp; Duct</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -950,6 +953,156 @@
                 <tr><td><strong>#14</strong></td><td>9/64″ (3.6 mm)</td><td>5/32″ (4.0 mm)</td><td>1/4″ (6.4 mm)</td><td>#3 Phillips / T30</td></tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 7: Miter, Bevel & Polygon Calculator -->
+      <div class="tool-tab-panel" id="tool-panel-miter" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Calculate precise miter saw fence angles, compound blade bevel tilts, and segment cut lengths for picture frames, polygon boxes, planters, and segmented turning bowls.</p>
+        <div class="tool-calc-grid">
+          <label class="field-label">Polygon Shape / Presets
+            <select id="tool-miter-preset">
+              <option value="4">Square / Rectangle (4 sides · 90°)</option>
+              <option value="3">Triangle (3 sides · 60°)</option>
+              <option value="5">Pentagon (5 sides · 108°)</option>
+              <option value="6">Hexagon (6 sides · 120°)</option>
+              <option value="8" selected>Octagon (8 sides · 135°)</option>
+              <option value="10">Decagon (10 sides · 144°)</option>
+              <option value="12">Dodecagon (12 sides · 150°)</option>
+              <option value="16">16-Segment Turning Ring (157.5°)</option>
+              <option value="24">24-Segment Turning Ring (165°)</option>
+              <option value="custom">Custom Number of Sides</option>
+            </select>
+          </label>
+          <label class="field-label">Number of Sides (N)
+            <input type="number" id="tool-miter-sides" min="3" max="60" value="8">
+          </label>
+          <label class="field-label">Side Slope / Splay Angle (°)
+            <input type="number" id="tool-miter-splay" min="0" max="60" value="0" placeholder="0 = vertical box/frame">
+          </label>
+        </div>
+        <div class="tool-calc-grid" style="margin-top:10px">
+          <label class="field-label">Desired Outer Ring Diameter (in / mm)
+            <input type="number" step="any" id="tool-miter-dia" value="10" placeholder="e.g. 10">
+          </label>
+          <label class="field-label">Wall / Ring Thickness (in / mm)
+            <input type="number" step="any" id="tool-miter-thick" value="1.25" placeholder="e.g. 1.25">
+          </label>
+          <label class="field-label">Blade Kerf (in / mm)
+            <input type="number" step="any" id="tool-miter-kerf" value="0.125" placeholder="0.125">
+          </label>
+        </div>
+        <div class="tool-result-box" id="tool-miter-result" style="margin-top:12px">
+          Select or adjust shape above to calculate miter angles and segment cut lengths.
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button type="button" class="button button-small button-outline" data-action="copy-miter-recipe">📋 Copy Angle Recipe</button>
+        </div>
+      </div>
+
+      <!-- Tab 8: Wood Species & Movement Database -->
+      <div class="tool-tab-panel" id="tool-panel-wood" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Explore wood species hardness (Janka), shrinkage rates, workability notes, and calculate seasonal wood expansion across moisture swings to prevent cracked tops and stuck drawers.</p>
+        <div class="tool-calc-grid">
+          <label class="field-label" style="grid-column: 1 / -1">Select Wood Species
+            <select id="tool-wood-species">
+              <!-- Populated dynamically from WOOD_SPECIES_DB -->
+            </select>
+          </label>
+        </div>
+
+        <div id="tool-wood-card" class="wood-species-card" style="margin-top:12px">
+          <!-- Populated dynamically -->
+        </div>
+
+        <div class="tools-quick-chart" style="margin-top:14px">
+          <div class="tools-chart-title">🌲 Live Seasonal Wood Movement &amp; Expansion Calculator</div>
+          <p class="form-hint" style="margin-bottom:8px">Predict width expansion or contraction for tabletops, solid panels, and frame-and-panel doors.</p>
+          <div class="tool-calc-grid">
+            <label class="field-label">Board / Panel Width (inches)
+              <input type="number" step="any" id="tool-wood-width" value="36" placeholder="e.g. 36">
+            </label>
+            <label class="field-label">Grain Cut Orientation
+              <select id="tool-wood-cut">
+                <option value="tangential" selected>Flat-Sawn / Plain-Sawn (Tangential - Max Movement)</option>
+                <option value="radial">Quarter-Sawn / Rift-Sawn (Radial - 50% More Stable)</option>
+              </select>
+            </label>
+            <label class="field-label">Moisture Content Swing (ΔMC %)
+              <select id="tool-wood-mc-swing">
+                <option value="4">Mild Indoor Climate (ΔMC 4% · AC/Heater)</option>
+                <option value="6" selected>Standard Seasonal Swing (ΔMC 6% · Winter 6% to Summer 12%)</option>
+                <option value="9">Severe Seasonal Swing (ΔMC 9% · Humid Summer / Dry Winter)</option>
+                <option value="custom">Custom Moisture % Swing</option>
+              </select>
+            </label>
+            <label class="field-label" id="tool-wood-custom-mc-wrap" style="display:none">Custom ΔMC %
+              <input type="number" step="any" id="tool-wood-custom-mc" value="6" placeholder="e.g. 6">
+            </label>
+          </div>
+          <div class="tool-result-box" id="tool-wood-movement-result" style="margin-top:10px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 9: Dust Collection CFM & Duct Sizing -->
+      <div class="tool-tab-panel" id="tool-panel-dust" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Determine machine CFM requirements, air velocity (FPM) to avoid duct clogging, and estimate static pressure drop across ductwork.</p>
+        <div class="tool-calc-grid">
+          <label class="field-label">Workshop Machine
+            <select id="tool-dust-machine">
+              <option value="tablesaw" selected>Table Saw (10″ Cabinet Saw) — 450 CFM</option>
+              <option value="planer12">12″–13″ Benchtop Planer — 500 CFM</option>
+              <option value="planer15">15″–20″ Stationary Planer — 650 CFM</option>
+              <option value="jointer8">6″–8″ Jointer — 450 CFM</option>
+              <option value="jointer12">12″ Stationary Jointer — 600 CFM</option>
+              <option value="router">Router Table — 350 CFM</option>
+              <option value="bandsaw">14″–18″ Bandsaw — 400 CFM</option>
+              <option value="drumsander">Drum / Wide Belt Sander — 550 CFM</option>
+              <option value="mitersaw">10″–12″ Miter Saw / Chop Hood — 500 CFM</option>
+              <option value="cnc">Shop / Desktop CNC Router — 350 CFM</option>
+              <option value="lathe">Lathe Sanding Hood — 400 CFM</option>
+              <option value="custom">Custom CFM Specification</option>
+            </select>
+          </label>
+          <label class="field-label" id="tool-dust-custom-cfm-wrap" style="display:none">Custom Machine CFM
+            <input type="number" id="tool-dust-custom-cfm" value="450" placeholder="e.g. 450">
+          </label>
+          <label class="field-label">Duct / Pipe Diameter
+            <select id="tool-dust-dia">
+              <option value="2.5">2.5″ Flex Hose (Shop Vac Standard)</option>
+              <option value="4" selected>4.0″ Duct / Branch Hose (Standard 1–1.5 HP)</option>
+              <option value="5">5.0″ Duct / Main Branch (Optimal 2–3 HP)</option>
+              <option value="6">6.0″ Main Trunk / Heavy Cyclone (3–5 HP)</option>
+            </select>
+          </label>
+        </div>
+        <div class="tool-calc-grid" style="margin-top:10px">
+          <label class="field-label">Straight Duct Length (feet)
+            <input type="number" id="tool-dust-length" value="16" min="1" max="150" placeholder="e.g. 16">
+          </label>
+          <label class="field-label">90° Elbows
+            <input type="number" id="tool-dust-elbows90" value="2" min="0" max="20" placeholder="e.g. 2">
+          </label>
+          <label class="field-label">45° Elbows
+            <input type="number" id="tool-dust-elbows45" value="1" min="0" max="20" placeholder="e.g. 1">
+          </label>
+          <label class="field-label">Flex Hose Length (feet)
+            <input type="number" id="tool-dust-flex" value="6" min="0" max="50" placeholder="e.g. 6">
+          </label>
+        </div>
+        <div class="tool-result-box" id="tool-dust-result" style="margin-top:12px">
+          <!-- Populated dynamically -->
+        </div>
+        <div class="tools-quick-chart" style="margin-top:14px">
+          <div class="tools-chart-title">💨 Woodworking Dust Collection Engineering Guidelines</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6">
+            • <strong>Branch Duct Transport Velocity:</strong> Aim for <strong>4,000 FPM</strong> to keep sawdust and chips entrained in the air. Below 3,500 FPM chips settle and block pipes.<br>
+            • <strong>Main Trunk Velocity:</strong> Aim for <strong>3,500–4,000 FPM</strong> to reduce unnecessary static friction losses.<br>
+            • <strong>Flex Hose Friction:</strong> Ribbed flex hose has <strong>3× to 5×</strong> the static friction resistance of smooth metal or PVC pipe. Keep flex runs under 6–8 feet.<br>
+            • <strong>Radius of Elbows:</strong> Use long-sweep elbows (radius = 1.5× to 2× duct diameter) instead of tight 90° plumbing elbows to halve pressure loss.
           </div>
         </div>
       </div>
