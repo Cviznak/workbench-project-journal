@@ -40,12 +40,23 @@
           <button class="nav-link" data-view="projects"><span class="nav-icon">▤</span>Projects<span class="nav-count" id="nav-project-count">0</span></button>
           <button class="nav-link" data-view="shopping"><span class="nav-icon">🛒</span>Shopping list<span class="nav-count" id="nav-shopping-count">0</span></button>
           <button class="nav-link" data-view="inventory"><span class="nav-icon">🗄</span>Inventory<span class="nav-count" id="nav-inventory-count">0</span></button>
-          <button class="nav-link" data-view="timeline"><span class="nav-icon">◷</span>Activity & Journal</button>
+          <button class="nav-link" data-view="timeline"><span class="nav-icon">◷</span>Activity &amp; Journal</button>
           <button class="nav-link" data-view="skills"><span class="nav-icon">✳</span>Skills</button>
           <button class="nav-link" data-view="gallery"><span class="nav-icon">▧</span>Gallery</button>
           <button class="nav-link" data-view="planner"><span class="nav-icon">▦</span>Planner</button>
-          <button class="nav-link" data-view="music"><span class="nav-icon">🎵</span>Music Studio</button>
-          <button class="nav-link" data-view="sync"><span class="nav-icon">⇄</span>Sync & backup</button>
+
+          <div class="sidebar-section-divider"></div>
+          <div class="sidebar-label" style="margin:10px 0 4px 10px;font-size:10px;letter-spacing:.08em;color:var(--muted)">CRAFT STUDIOS</div>
+          <button class="nav-link" data-view="woodworking"><span class="nav-icon">🪵</span>Woodworking</button>
+          <button class="nav-link" data-view="textiles"><span class="nav-icon">🧶</span>Textiles &amp; Yarn</button>
+          <button class="nav-link" data-view="music"><span class="nav-icon">🎵</span>Music &amp; Audio</button>
+          <button class="nav-link" data-view="electronics"><span class="nav-icon">⚡</span>Electronics</button>
+          <button class="nav-link" data-view="programming"><span class="nav-icon">💻</span>Programming</button>
+          <button class="nav-link" data-view="art"><span class="nav-icon">🎨</span>Art &amp; Design</button>
+
+          <div class="sidebar-section-divider"></div>
+          <div class="sidebar-label" style="margin:10px 0 4px 10px;font-size:10px;letter-spacing:.08em;color:var(--muted)">WORKSPACE</div>
+          <button class="nav-link" data-view="sync"><span class="nav-icon">⇄</span>Sync &amp; backup</button>
           <button class="nav-link admin-nav-link" id="nav-admin-link" data-view="admin" style="display:none"><span class="nav-icon">👑</span>Admin Hub</button>
         </nav>
         <div class="sidebar-bottom">
@@ -724,6 +735,540 @@
 
             </div>
           </section>
+          <!-- 🪵 Woodworking Studio View -->
+          <section class="view-section" id="woodworking-view" aria-labelledby="woodworking-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> CARPENTRY, JOINERY &amp; MILLWORK</div>
+                <h1 id="woodworking-title">Woodworking Studio<span class="heading-period">.</span></h1>
+                <p>Cut list optimization, board feet, species movement, miter angles, screw pilot guides, and dust collection.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="open-tools" data-tab="cutlist">✂️ Cut List Optimizer</button>
+                <button type="button" class="button button-primary" data-action="open-tools" data-tab="boardfeet">🪵 Board Foot Calculator</button>
+              </div>
+            </div>
+
+            <div class="studio-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+              <!-- Board Foot & Lumber Cost -->
+              <div class="panel">
+                <div class="eyebrow">LUMBER VOLUME &amp; PRICING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🪵 Board Foot (BF) Estimator</h3>
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px">
+                  <label class="field-label" style="font-size:11px">Thickness (in)
+                    <input type="number" step="any" id="wood-view-t" value="1" placeholder="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Width (in)
+                    <input type="number" step="any" id="wood-view-w" value="6" placeholder="6">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Length (ft)
+                    <input type="number" step="any" id="wood-view-l" value="8" placeholder="8">
+                  </label>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+                  <label class="field-label" style="font-size:11px">Quantity
+                    <input type="number" id="wood-view-qty" value="4" placeholder="4">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Price per BF ($)
+                    <input type="number" step="any" id="wood-view-price" value="8.50" placeholder="8.50">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="wood-view-bf-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Wood Species & Movement -->
+              <div class="panel">
+                <div class="eyebrow">MATERIAL SCIENCE &amp; MOISTURE</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🌲 Species Movement &amp; Hardness</h3>
+                <label class="field-label" style="font-size:11px">Select Species
+                  <select id="wood-view-species">
+                    <option value="white_oak" selected>White Oak (Quercus alba)</option>
+                    <option value="red_oak">Red Oak (Quercus rubra)</option>
+                    <option value="black_walnut">Black Walnut (Juglans nigra)</option>
+                    <option value="hard_maple">Hard Sugar Maple (Acer saccharum)</option>
+                    <option value="cherry">Black Cherry (Prunus serotina)</option>
+                    <option value="ash">White Ash (Fraxinus americana)</option>
+                    <option value="teak">Teak (Tectona grandis)</option>
+                    <option value="doug_fir">Douglas Fir (Pseudotsuga menziesii)</option>
+                  </select>
+                </label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+                  <label class="field-label" style="font-size:11px">Board Width (in)
+                    <input type="number" id="wood-view-width-in" value="10">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Moisture Δ (%)
+                    <input type="number" id="wood-view-rh-delta" value="4">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="wood-view-species-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Miter & Polygon Angles -->
+              <div class="panel">
+                <div class="eyebrow">JOINERY ANGLES</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📐 Miter &amp; Polygon Angle Solver</h3>
+                <label class="field-label" style="font-size:11px">Polygon Sides
+                  <select id="wood-view-sides">
+                    <option value="4" selected>4 Sides (Square / Frame · 45.0°)</option>
+                    <option value="5">5 Sides (Pentagon · 36.0°)</option>
+                    <option value="6">6 Sides (Hexagon · 30.0°)</option>
+                    <option value="8">8 Sides (Octagon · 22.5°)</option>
+                    <option value="12">12 Sides (Dodecagon · 15.0°)</option>
+                  </select>
+                </label>
+                <div class="tool-result-box" id="wood-view-miter-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Epoxy Resin & Screw Pilot -->
+              <div class="panel">
+                <div class="eyebrow">FASTENERS &amp; FINISHES</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🔩 Screw Pilot &amp; Pocket Hole Guide</h3>
+                <label class="field-label" style="font-size:11px">Screw Size
+                  <select id="wood-view-screw">
+                    <option value="6">#6 Wood Screw (0.138")</option>
+                    <option value="8" selected>#8 Wood Screw (0.164" · Most Common)</option>
+                    <option value="10">#10 Wood Screw (0.190")</option>
+                    <option value="12">#12 Wood Screw (0.216")</option>
+                  </select>
+                </label>
+                <div class="tool-result-box" id="wood-view-screw-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🧶 Textiles & Yarn Studio View -->
+          <section class="view-section" id="textiles-view" aria-labelledby="textiles-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> FIBER ARTS, WEAVING &amp; NEEDLEWORK</div>
+                <h1 id="textiles-title">Textiles &amp; Yarn Studio<span class="heading-period">.</span></h1>
+                <p>Interactive stitch &amp; pixel chart designer, digital row counter, yarn weight standards, and needle converters.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-stitch-instructions">📋 Copy Written Pattern</button>
+                <button type="button" class="button button-primary" data-action="clear-stitch-grid">Clear Chart Grid</button>
+              </div>
+            </div>
+
+            <!-- Full Stitch & Pixel Chart Studio -->
+            <div class="panel" style="margin-bottom:16px">
+              <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                <div>
+                  <div class="eyebrow">CHART DESIGNER</div>
+                  <h2 style="font-size:18px;margin:0">🧵 Pixel &amp; Stitch Pattern Designer</h2>
+                  <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Click or drag on grid to paint stitches · Written crochet/knit pattern updates live</p>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <div style="display:flex;align-items:center;gap:4px">
+                    <button type="button" class="button button-small button-primary stitch-tool-btn" data-action="set-stitch-tool" data-tool="pencil" id="stitch-view-tool-pencil">✏️ Paint</button>
+                    <button type="button" class="button button-small button-outline stitch-tool-btn" data-action="set-stitch-tool" data-tool="fill" id="stitch-view-tool-fill">🪣 Fill</button>
+                    <button type="button" class="button button-small button-outline stitch-tool-btn" data-action="set-stitch-tool" data-tool="eraser" id="stitch-view-tool-eraser">🧹 Erase</button>
+                  </div>
+                  <select id="stitch-view-preset" style="font-size:12px;padding:4px 8px">
+                    <option value="custom">Custom Pattern</option>
+                    <option value="heart" selected>❤️ Heart</option>
+                    <option value="star">⭐ Nordic Star</option>
+                    <option value="snowflake">❄️ Snowflake</option>
+                    <option value="invader">👾 Space Invader</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Color Palette -->
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0">
+                <span style="font-size:11px;font-weight:700;color:var(--muted)">YARN PALETTE:</span>
+                <div class="stitch-palette-wrap" id="stitch-view-palette" style="display:flex;gap:6px;align-items:center"></div>
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;margin-left:4px">
+                  Custom: <input type="color" id="stitch-view-custom-color" value="#ef4444" style="width:28px;height:24px;border:none;cursor:pointer;padding:0;background:none">
+                </label>
+                <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);margin-left:auto;cursor:pointer">
+                  <input type="checkbox" id="stitch-view-symbols" style="accent-color:var(--green)"> Show Stitch Symbols (×)
+                </label>
+              </div>
+
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start">
+                <div class="stitch-canvas-container" style="overflow:auto">
+                  <div class="stitch-grid-board" id="stitch-view-board"></div>
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <strong style="font-size:12px;color:var(--ink)">🧶 Row-by-Row Written Pattern:</strong>
+                    <button type="button" class="button button-small button-outline" data-action="copy-stitch-instructions">📋 Copy</button>
+                  </div>
+                  <pre class="stitch-instructions-box" id="stitch-view-instructions" style="margin:0;font-family:monospace;font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px;max-height:280px;overflow-y:auto;white-space:pre-wrap;line-height:1.4"></pre>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row Counter & Standards Grid -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+              <!-- Digital Row Counter -->
+              <div class="panel">
+                <div class="eyebrow">PRACTICE COMPANION</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🔢 Digital Row &amp; Stitch Counter</h3>
+                <div style="text-align:center;padding:16px 0">
+                  <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase">CURRENT ROW</div>
+                  <div id="textiles-row-count-display" style="font-size:52px;font-weight:900;color:var(--green);line-height:1.1;margin:6px 0">0</div>
+                  <div style="display:flex;justify-content:center;gap:12px;margin-top:12px">
+                    <button type="button" class="button button-outline" data-action="textiles-row-minus" style="width:50px;font-size:20px;font-weight:900">−1</button>
+                    <button type="button" class="button button-primary" data-action="textiles-row-plus" style="width:110px;font-size:18px;font-weight:900">＋ ROW</button>
+                    <button type="button" class="button button-outline" data-action="textiles-row-reset" style="font-size:12px">Reset</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Yarn Weight & Needle Standards -->
+              <div class="panel">
+                <div class="eyebrow">STANDARDS REFERENCE</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📏 Yarn Weight &amp; Gauge Guide</h3>
+                <label class="field-label" style="font-size:11px">Standard Yarn Weight Category
+                  <select id="textiles-yarn-weight-select">
+                    <option value="0">0 - Lace (Fingering 10-count / Crochet thread)</option>
+                    <option value="1">1 - Super Fine (Sock, Fingering, Baby)</option>
+                    <option value="2">2 - Fine (Sport, Baby 4-ply)</option>
+                    <option value="3">3 - Light (DK, Light Worsted)</option>
+                    <option value="4" selected>4 - Medium (Worsted, Afghan, Aran · Most Common)</option>
+                    <option value="5">5 - Bulky (Chunky, Craft, Rug)</option>
+                    <option value="6">6 - Super Bulky (Roving, Giant Knit)</option>
+                  </select>
+                </label>
+                <div class="tool-result-box" id="textiles-yarn-weight-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ⚡ Electronics & Circuits Studio View -->
+          <section class="view-section" id="electronics-view" aria-labelledby="electronics-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> CIRCUITS, HARDWARE &amp; POWER</div>
+                <h1 id="electronics-title">Electronics Studio<span class="heading-period">.</span></h1>
+                <p>Resistor color code bands, Ohm's law circle solver, LED resistor calculator, and battery runtime estimation.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="clear-ohms-law">Reset Ohm's Law</button>
+              </div>
+            </div>
+
+            <div class="studio-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+              <!-- Resistor Color Code Band Calculator -->
+              <div class="panel" style="grid-column: 1 / -1">
+                <div class="eyebrow">THROUGH-HOLE COMPONENT DECODER</div>
+                <h3 style="font-size:16px;margin:2px 0 10px">🌈 Resistor Color Code Calculator</h3>
+
+                <!-- Visual Resistor Display -->
+                <div class="resistor-display-wrap">
+                  <div class="resistor-graphic">
+                    <div class="resistor-lead"></div>
+                    <div class="resistor-body">
+                      <div class="resistor-stripe" id="res-band-1-vis" style="background:#ef4444"></div>
+                      <div class="resistor-stripe" id="res-band-2-vis" style="background:#000000"></div>
+                      <div class="resistor-stripe" id="res-band-3-vis" style="background:#ef4444"></div>
+                      <div class="resistor-stripe" id="res-band-tol-vis" style="background:#ca8a04"></div>
+                    </div>
+                    <div class="resistor-lead"></div>
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px">
+                  <label class="field-label" style="font-size:11px">Band 1 (1st Digit)
+                    <select id="elec-res-band1">
+                      <option value="1">1 - Brown</option>
+                      <option value="2" selected>2 - Red</option>
+                      <option value="3">3 - Orange</option>
+                      <option value="4">4 - Yellow</option>
+                      <option value="5">5 - Green</option>
+                      <option value="6">6 - Blue</option>
+                      <option value="7">7 - Violet</option>
+                      <option value="8">8 - Gray</option>
+                      <option value="9">9 - White</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Band 2 (2nd Digit)
+                    <select id="elec-res-band2">
+                      <option value="0" selected>0 - Black</option>
+                      <option value="1">1 - Brown</option>
+                      <option value="2">2 - Red</option>
+                      <option value="3">3 - Orange</option>
+                      <option value="4">4 - Yellow</option>
+                      <option value="5">5 - Green</option>
+                      <option value="6">6 - Blue</option>
+                      <option value="7">7 - Violet</option>
+                      <option value="8">8 - Gray</option>
+                      <option value="9">9 - White</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Multiplier (10ⁿ)
+                    <select id="elec-res-mult">
+                      <option value="1">×1 Ω (Black)</option>
+                      <option value="10">×10 Ω (Brown)</option>
+                      <option value="100" selected>×100 Ω (Red)</option>
+                      <option value="1000">×1 kΩ (Orange)</option>
+                      <option value="10000">×10 kΩ (Yellow)</option>
+                      <option value="100000">×100 kΩ (Green)</option>
+                      <option value="1000000">×1 MΩ (Blue)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Tolerance
+                    <select id="elec-res-tol">
+                      <option value="1">±1% (Brown)</option>
+                      <option value="2">±2% (Red)</option>
+                      <option value="5" selected>±5% (Gold)</option>
+                      <option value="10">±10% (Silver)</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="elec-res-calc-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Ohm's Law Solver -->
+              <div class="panel">
+                <div class="eyebrow">CIRCUIT LAWS</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚡ Ohm's Law Solver (V, I, R, P)</h3>
+                <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Enter any 2 values to calculate the other 2 automatically.</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Voltage V (Volts)
+                    <input type="number" step="any" id="elec-ohms-v" value="5" placeholder="5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Current I (Amps / mA)
+                    <input type="number" step="any" id="elec-ohms-i" value="0.02" placeholder="0.02">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Resistance R (Ohms)
+                    <input type="number" step="any" id="elec-ohms-r" placeholder="250">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Power P (Watts)
+                    <input type="number" step="any" id="elec-ohms-p" placeholder="0.10">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="elec-ohms-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- LED Series Resistor Calculator -->
+              <div class="panel">
+                <div class="eyebrow">LIGHT EMITTING DIODES</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">💡 LED Resistor Calculator</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Supply Voltage (V)
+                    <input type="number" step="any" id="elec-led-vs" value="5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Target Current (mA)
+                    <input type="number" step="any" id="elec-led-i" value="20">
+                  </label>
+                </div>
+                <label class="field-label" style="font-size:11px;margin-top:6px">LED Color / Forward Drop (Vf)
+                  <select id="elec-led-vf">
+                    <option value="1.8">Red (1.8V)</option>
+                    <option value="2.1">Green (2.1V)</option>
+                    <option value="2.0">Yellow / Amber (2.0V)</option>
+                    <option value="3.2" selected>Blue / Pure White (3.2V)</option>
+                  </select>
+                </label>
+                <div class="tool-result-box" id="elec-led-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Battery Runtime Estimator -->
+              <div class="panel">
+                <div class="eyebrow">PORTABLE POWER</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🔋 Battery Runtime Estimator</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Capacity (mAh)
+                    <input type="number" id="elec-batt-mah" value="2500" placeholder="e.g. 2500">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Current Draw (mA)
+                    <input type="number" id="elec-batt-ma" value="120" placeholder="e.g. 120">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="elec-batt-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 💻 Programming & Microcontrollers Studio View -->
+          <section class="view-section" id="programming-view" aria-labelledby="programming-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> EMBEDDED SYSTEMS, CODE &amp; LOGIC</div>
+                <h1 id="programming-title">Programming Studio<span class="heading-period">.</span></h1>
+                <p>Microcontroller pinouts, simultaneous number base converter, bitwise logic register, and embedded templates.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-prog-snippet">📋 Copy Code Snippet</button>
+              </div>
+            </div>
+
+            <div class="studio-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+              <!-- Live Number Base Converter -->
+              <div class="panel" style="grid-column: 1 / -1">
+                <div class="eyebrow">REAL-TIME DATA CONVERTER</div>
+                <h3 style="font-size:16px;margin:2px 0 10px">🔢 Decimal, Hexadecimal, Binary &amp; ASCII Converter</h3>
+                <div class="base-converter-grid">
+                  <div class="base-card">
+                    <div class="base-card-label">DECIMAL (Base 10)</div>
+                    <input type="number" id="prog-base-dec" value="42" placeholder="42">
+                  </div>
+                  <div class="base-card">
+                    <div class="base-card-label">HEXADECIMAL (Base 16)</div>
+                    <input type="text" id="prog-base-hex" value="2A" placeholder="2A">
+                  </div>
+                  <div class="base-card">
+                    <div class="base-card-label">BINARY (Base 2)</div>
+                    <input type="text" id="prog-base-bin" value="00101010" placeholder="00101010">
+                  </div>
+                  <div class="base-card">
+                    <div class="base-card-label">ASCII CHARACTER</div>
+                    <input type="text" id="prog-base-ascii" value="*" placeholder="*">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bitwise Logic Register -->
+              <div class="panel">
+                <div class="eyebrow">BINARY LOGIC &amp; BITMASKS</div>
+                <h3 style="font-size:16px;margin:2px 0 10px">💡 8-Bit Interactive Register</h3>
+                <div class="bit-register-wrap" id="prog-bit-register">
+                  <!-- 8 bit toggle cells -->
+                </div>
+                <div class="tool-result-box" id="prog-bit-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Microcontroller Board Reference -->
+              <div class="panel">
+                <div class="eyebrow">DEV BOARD SPECIFICATIONS</div>
+                <h3 style="font-size:16px;margin:2px 0 10px">⚡ Microcontroller Board Guide</h3>
+                <label class="field-label" style="font-size:11px">Select Board
+                  <select id="prog-mcu-select">
+                    <option value="esp32" selected>ESP32-WROOM (Dual-Core WiFi/BLE)</option>
+                    <option value="pico">Raspberry Pi Pico (RP2040 Dual M0+)</option>
+                    <option value="uno">Arduino Uno R4 (RA4M1 48MHz 5V)</option>
+                    <option value="nano">Arduino Nano (ATmega328P 5V Classic)</option>
+                    <option value="teensy">Teensy 4.0 (ARM Cortex-M7 600MHz)</option>
+                  </select>
+                </label>
+                <div id="prog-mcu-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Code Snippet Scratchpad -->
+              <div class="panel" style="grid-column: 1 / -1">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div>
+                    <div class="eyebrow">CODE SCRATCHPAD</div>
+                    <h3 style="font-size:16px;margin:0">📝 Embedded Code Quick Templates</h3>
+                  </div>
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <select id="prog-snippet-select" style="font-size:12px;padding:3px 6px">
+                      <option value="arduino_blink" selected>Arduino: Non-Blocking Millis Timer</option>
+                      <option value="arduino_i2c">Arduino: I2C Bus Device Scanner</option>
+                      <option value="pico_pwm">MicroPython: Hardware PWM LED Fade</option>
+                      <option value="esp32_wifi">MicroPython: ESP32 WiFi Station Connect</option>
+                    </select>
+                    <button type="button" class="button button-small button-outline" data-action="copy-prog-snippet">📋 Copy</button>
+                  </div>
+                </div>
+                <pre id="prog-snippet-code" style="margin:0;font-family:monospace;font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px;max-height:240px;overflow-y:auto;white-space:pre-wrap;line-height:1.4"></pre>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🎨 Art, Design & Fabrication Studio View -->
+          <section class="view-section" id="art-view" aria-labelledby="art-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> COLOR HARMONY, PROPORTIONS &amp; FABRICATION</div>
+                <h1 id="art-title">Art &amp; Design Studio<span class="heading-period">.</span></h1>
+                <p>Color harmony palettes, divine golden ratios, packaging box nets, 3D print costs, and laser cutting offsets.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-art-palette">📋 Copy Palette Hexes</button>
+              </div>
+            </div>
+
+            <div class="studio-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+              <!-- Color Harmony Wheel -->
+              <div class="panel" style="grid-column: 1 / -1">
+                <div class="eyebrow">COLOR THEORY &amp; HARMONY</div>
+                <h3 style="font-size:16px;margin:2px 0 10px">🎨 Harmonious Palette Generator</h3>
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700">
+                    Base Color:
+                    <input type="color" id="art-view-base-color" value="#0284c7" style="width:34px;height:28px;border:none;cursor:pointer;background:none;padding:0">
+                  </label>
+                  <label class="field-label" style="font-size:11px;margin:0">Harmony Rule
+                    <select id="art-view-harmony-rule">
+                      <option value="complementary" selected>Complementary (High Contrast)</option>
+                      <option value="analogous">Analogous (Serene &amp; Natural)</option>
+                      <option value="triadic">Triadic (Vibrant &amp; Balanced)</option>
+                      <option value="split">Split-Complementary</option>
+                      <option value="monochromatic">Monochromatic (Shades &amp; Tints)</option>
+                    </select>
+                  </label>
+                  <button type="button" class="button button-small button-outline" data-action="copy-art-palette">📋 Copy Hexes</button>
+                </div>
+                <div id="art-view-palette-result" class="art-palette-grid"></div>
+              </div>
+
+              <!-- Golden Ratio & Canvas Framing -->
+              <div class="panel">
+                <div class="eyebrow">DIVINE PROPORTIONS</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🖼️ Golden Ratio (Φ = 1.618) &amp; Rule of Thirds</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Base Dimension
+                    <select id="art-view-dim-mode">
+                      <option value="width" selected>Width Specified</option>
+                      <option value="height">Height Specified</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Length (in / cm)
+                    <input type="number" id="art-view-dim-val" value="24">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="art-view-golden-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Packaging Box Net -->
+              <div class="panel">
+                <div class="eyebrow">PACKAGING &amp; ORIGAMI</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📦 Custom Folding Box Net</h3>
+                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px">
+                  <label class="field-label" style="font-size:11px">Length (in)
+                    <input type="number" id="art-box-l" value="6">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Width (in)
+                    <input type="number" id="art-box-w" value="4">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Depth (in)
+                    <input type="number" id="art-box-d" value="2">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="art-box-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 3D Print Cost Estimator -->
+              <div class="panel">
+                <div class="eyebrow">RAPID PROTOTYPING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🖨️ 3D Print Cost Estimator</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Weight (grams)
+                    <input type="number" id="art-print-g" value="65">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Spool Cost ($/kg)
+                    <input type="number" id="art-print-spool" value="22">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="art-print-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- Laser Kerf Guide -->
+              <div class="panel">
+                <div class="eyebrow">CNC &amp; LASER CUTTING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚡ Laser Kerf Offset Guide</h3>
+                <label class="field-label" style="font-size:11px">Beam Spot Diameter (mm)
+                  <input type="number" step="any" id="art-laser-spot" value="0.15">
+                </label>
+                <div class="tool-result-box" id="art-laser-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->

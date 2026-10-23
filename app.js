@@ -3617,7 +3617,7 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
@@ -3634,7 +3634,12 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     shopping: "Shopping list",
     inventory: "Inventory",
     admin: "Admin Console",
-    music: "Music Studio"
+    woodworking: "Woodworking Studio",
+    textiles: "Textiles & Yarn Studio",
+    music: "Music & Audio Studio",
+    electronics: "Electronics Studio",
+    programming: "Programming Studio",
+    art: "Art & Design Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3659,6 +3664,11 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "inventory") renderInventory();
   if (targetView === "admin") renderAdminHub();
   if (targetView === "music") renderMusicStudioView();
+  if (targetView === "woodworking") renderWoodworkingView();
+  if (targetView === "textiles") renderTextilesView();
+  if (targetView === "electronics") renderElectronicsView();
+  if (targetView === "programming") renderProgrammingView();
+  if (targetView === "art") renderArtView();
   if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -9122,6 +9132,42 @@ async function handleAction(action, target) {
     void copyArtPalette();
     return;
   }
+  if (action === "copy-art-swatch") {
+    const hex = target.dataset.hex;
+    if (hex) {
+      void navigator.clipboard.writeText(hex).then(() => showToast(`Copied ${hex} to clipboard!`));
+    }
+    return;
+  }
+  if (action === "textiles-row-plus") {
+    incrementTextilesRow();
+    return;
+  }
+  if (action === "textiles-row-minus") {
+    decrementTextilesRow();
+    return;
+  }
+  if (action === "textiles-row-reset") {
+    resetTextilesRow();
+    return;
+  }
+  if (action === "copy-stitch-instructions") {
+    void copyStitchInstructions();
+    return;
+  }
+  if (action === "copy-prog-snippet") {
+    void copyProgSnippet();
+    return;
+  }
+  if (action === "prog-bit-toggle") {
+    const bit = parseInt(target.dataset.bit, 10);
+    toggleProgBit(bit);
+    return;
+  }
+  if (action === "prog-bit-op") {
+    executeProgBitOp(target.dataset.op);
+    return;
+  }
   if (action === "tap-tempo") {
     tapTempo();
     return;
@@ -13392,24 +13438,114 @@ function playChordVoicing(chordName, duration = 1.4) {
   if (!ctx) return;
   const freqs = getChordVoicingFrequencies(chordName);
   const now = ctx.currentTime;
+  const instrument = $("#music-main-instrument")?.value || localStorage.getItem("workbench_music_instrument") || "rhodes";
   const gainPerVoice = 0.28 / freqs.length;
-  freqs.forEach((freq, idx) => {
-    const osc = ctx.createOscillator();
-    const filter = ctx.createBiquadFilter();
-    const gain = ctx.createGain();
-    osc.type = idx === 0 ? "sine" : "triangle";
-    osc.frequency.setValueAtTime(freq, now);
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(idx === 0 ? 350 : 2200, now);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(gainPerVoice, now + 0.04);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + duration + 0.05);
-  });
+
+  if (instrument === "rhodes") {
+    // 🎹 Rhodes Electric Piano: Sine bass + triangle body + metallic chime tine overtone
+    freqs.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      osc.type = idx === 0 ? "sine" : "triangle";
+      osc.frequency.setValueAtTime(freq, now);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(idx === 0 ? 350 : 2400, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(gainPerVoice, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.05);
+
+      if (idx > 0) {
+        const tine = ctx.createOscillator();
+        const tineGain = ctx.createGain();
+        tine.type = "sine";
+        tine.frequency.setValueAtTime(freq * 3.5, now);
+        tineGain.gain.setValueAtTime(0.0001, now);
+        tineGain.gain.linearRampToValueAtTime(gainPerVoice * 0.26, now + 0.01);
+        tineGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        tine.connect(tineGain);
+        tineGain.connect(ctx.destination);
+        tine.start(now);
+        tine.stop(now + 0.4);
+      }
+    });
+  } else if (instrument === "pad") {
+    // 🌊 Warm Analog Pad: Dual detuned sawtooths + swept lowpass + slow swell attack
+    freqs.forEach((freq, idx) => {
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+
+      osc1.type = idx === 0 ? "triangle" : "sawtooth";
+      osc2.type = idx === 0 ? "sine" : "sawtooth";
+      osc1.frequency.setValueAtTime(freq * 0.997, now);
+      osc2.frequency.setValueAtTime(freq * 1.003, now);
+
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(idx === 0 ? 250 : 380, now);
+      filter.frequency.exponentialRampToValueAtTime(idx === 0 ? 400 : 1800, now + 0.45);
+      filter.frequency.exponentialRampToValueAtTime(idx === 0 ? 250 : 600, now + duration);
+      filter.Q.setValueAtTime(2.2, now);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(gainPerVoice * 0.55, now + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + duration + 0.1);
+      osc2.stop(now + duration + 0.1);
+    });
+  } else if (instrument === "chiptune") {
+    // 👾 8-Bit Chiptune: Pure square waves + snappy 8-bit NES decay
+    freqs.forEach((freq) => {
+      const osc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(freq, now);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(4500, now);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(gainPerVoice * 0.75, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + Math.min(duration, 0.95));
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.05);
+    });
+  } else if (instrument === "organ") {
+    // ⛪ Cathedral / Tonewheel Organ: Additive sine harmonics (1f fundamental, 2f octave, 3f fifth)
+    freqs.forEach((freq, idx) => {
+      const harmonics = idx === 0 ? [1.0] : [1.0, 2.0, 3.0];
+      harmonics.forEach((mult, hIdx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq * mult, now);
+        const amp = (gainPerVoice * 0.55) / (hIdx + 1);
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(amp, now + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration + 0.05);
+      });
+    });
+  }
 }
 
 function playDrumSound(type) {
@@ -13557,26 +13693,46 @@ async function exportGrooveWav() {
         const gainPerVoice = 0.28 / freqs.length;
         const chordDur = Math.min((60 / bpm) * 3.8, 2.4);
 
-        freqs.forEach((freq, idx) => {
-          const osc = offlineCtx.createOscillator();
-          const filter = offlineCtx.createBiquadFilter();
-          const gain = offlineCtx.createGain();
+        if (instrument === "organ") {
+          freqs.forEach((freq, idx) => {
+            const harmonics = idx === 0 ? [1.0] : [1.0, 2.0, 3.0];
+            harmonics.forEach((mult, hIdx) => {
+              const osc = offlineCtx.createOscillator();
+              const gain = offlineCtx.createGain();
+              osc.type = "sine";
+              osc.frequency.setValueAtTime(freq * mult, stepTime);
+              const amp = (gainPerVoice * 0.55) / (hIdx + 1);
+              gain.gain.setValueAtTime(0.0001, stepTime);
+              gain.gain.linearRampToValueAtTime(amp, stepTime + 0.03);
+              gain.gain.exponentialRampToValueAtTime(0.001, stepTime + chordDur);
+              osc.connect(gain);
+              gain.connect(offlineCtx.destination);
+              osc.start(stepTime);
+              osc.stop(stepTime + chordDur + 0.1);
+            });
+          });
+        } else {
+          freqs.forEach((freq, idx) => {
+            const osc = offlineCtx.createOscillator();
+            const filter = offlineCtx.createBiquadFilter();
+            const gain = offlineCtx.createGain();
 
-          osc.type = idx === 0 ? "sine" : (instrument === "chiptune" ? "square" : (instrument === "pad" ? "sawtooth" : "triangle"));
-          osc.frequency.setValueAtTime(freq, stepTime);
-          filter.type = "lowpass";
-          filter.frequency.setValueAtTime(instrument === "chiptune" ? 4500 : (idx === 0 ? 300 : 2000), stepTime);
+            osc.type = idx === 0 ? "sine" : (instrument === "chiptune" ? "square" : (instrument === "pad" ? "sawtooth" : "triangle"));
+            osc.frequency.setValueAtTime(freq, stepTime);
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(instrument === "chiptune" ? 4500 : (idx === 0 ? 300 : 2000), stepTime);
 
-          gain.gain.setValueAtTime(0.0001, stepTime);
-          gain.gain.linearRampToValueAtTime(gainPerVoice, stepTime + 0.03);
-          gain.gain.exponentialRampToValueAtTime(0.001, stepTime + chordDur);
+            gain.gain.setValueAtTime(0.0001, stepTime);
+            gain.gain.linearRampToValueAtTime(gainPerVoice, stepTime + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, stepTime + chordDur);
 
-          osc.connect(filter);
-          filter.connect(gain);
-          gain.connect(offlineCtx.destination);
-          osc.start(stepTime);
-          osc.stop(stepTime + chordDur + 0.1);
-        });
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(offlineCtx.destination);
+            osc.start(stepTime);
+            osc.stop(stepTime + chordDur + 0.1);
+          });
+        }
       }
     }
 
@@ -16781,3 +16937,1001 @@ $("#tool-cut-stock")?.addEventListener("input", () => runCutOptimizer());
 $("#tool-cut-kerf")?.addEventListener("input", () => runCutOptimizer());
 $("#detail-dialog").addEventListener("close", () => { activeProjectId = null; });
 void initialize();
+
+
+/* ============================================================
+   🎨 CRAFT STUDIOS: Woodworking, Textiles, Electronics, Programming, Art
+   ============================================================ */
+
+// --- 🪵 Woodworking Studio ---
+function updateWoodworkingStudio() {
+  // 1. Board Feet & Cost
+  const t = parseFloat($("#wood-view-t")?.value) || 1;
+  const w = parseFloat($("#wood-view-w")?.value) || 6;
+  const l = parseFloat($("#wood-view-l")?.value) || 8;
+  const qty = parseInt($("#wood-view-qty")?.value, 10) || 1;
+  const price = parseFloat($("#wood-view-price")?.value) || 0;
+
+  const bfPerBoard = (t * w * l) / 12;
+  const totalBf = bfPerBoard * qty;
+  const totalCost = totalBf * price;
+
+  const bfResult = $("#wood-view-bf-result");
+  if (bfResult) {
+    bfResult.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">TOTAL LUMBER VOLUME:</span>
+        <strong style="font-size:18px;color:var(--green)">${totalBf.toFixed(2)} BF</strong>
+      </div>
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • <strong>${bfPerBoard.toFixed(2)} BF</strong> per board (${t}" × ${w}" × ${l} ft) × ${qty} boards<br>
+        • Estimated Total Cost: <strong style="color:var(--green)">$${totalCost.toFixed(2)}</strong> ${price > 0 ? `(@ $${price.toFixed(2)}/BF)` : ""}
+      </div>
+    `;
+  }
+
+  // 2. Species Movement & Hardness
+  const speciesId = $("#wood-view-species")?.value || "white_oak";
+  const species = (typeof WOOD_SPECIES_DB !== "undefined" ? WOOD_SPECIES_DB.find(s => s.id === speciesId) : null) || {
+    name: "White Oak", latin: "Quercus alba", janka: 1360, rad: 5.6, tang: 10.5, tr: 1.88,
+    notes: "Closed tyloses make it rot and water proof. High tannins react black with iron.",
+    caution: "Pre-drilling required for all screws."
+  };
+  const widthIn = parseFloat($("#wood-view-width-in")?.value) || 10;
+  const rhDelta = parseFloat($("#wood-view-rh-delta")?.value) || 4;
+
+  const tangMovement = widthIn * (species.tang / 100) * (rhDelta / 30);
+  const radMovement = widthIn * (species.rad / 100) * (rhDelta / 30);
+  const jankaPct = Math.min(100, Math.round(((species.janka || 1000) / 2600) * 100));
+
+  const speciesResult = $("#wood-view-species-result");
+  if (speciesResult) {
+    speciesResult.innerHTML = `
+      <div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;margin-bottom:2px">
+          <span>Janka Hardness: ${species.janka} lbf</span>
+          <span>${jankaPct > 65 ? "Very Hard" : jankaPct > 40 ? "Medium Hardwood" : "Softwood"}</span>
+        </div>
+        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div style="width:${jankaPct}%;height:100%;background:var(--green);border-radius:3px"></div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • <strong>Flat-Sawn (Tangential) Δ:</strong> ±${tangMovement.toFixed(3)}" (${(tangMovement * 25.4).toFixed(2)} mm)<br>
+        • <strong>Quarter-Sawn (Radial) Δ:</strong> ±${radMovement.toFixed(3)}" (${(radMovement * 25.4).toFixed(2)} mm)<br>
+        • <em>Stability T/R Ratio:</em> ${species.tr || 1.8} (${(species.tr || 1.8) < 1.6 ? "Superbly Stable" : "Moderate Movement"})<br>
+        <span style="font-size:11px;color:var(--muted);display:block;margin-top:4px">💡 ${species.notes || ""}</span>
+      </div>
+    `;
+  }
+
+  // 3. Miter & Polygon Angle Solver
+  const sides = parseInt($("#wood-view-sides")?.value, 10) || 4;
+  const miterAngle = 180 / sides;
+  const cornerAngle = 360 / sides;
+  const interiorAngle = 180 - cornerAngle;
+
+  const miterResult = $("#wood-view-miter-result");
+  if (miterResult) {
+    miterResult.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">MITER SAW ANGLE:</span>
+        <strong style="font-size:18px;color:#0284c7">${miterAngle.toFixed(1)}°</strong>
+      </div>
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • Corner Joint Angle: <strong>${cornerAngle.toFixed(1)}°</strong><br>
+        • Interior Polygon Corner: <strong>${interiorAngle.toFixed(1)}°</strong><br>
+        • Total Joints: <strong>${sides}</strong> precision cuts (${sides * 2} miter faces)
+      </div>
+    `;
+  }
+
+  // 4. Screw Pilot Guide
+  const screwSize = $("#wood-view-screw")?.value || "8";
+  const screwData = {
+    "6": { shank: '0.138"', hardPilot: '3/32" (0.093")', softPilot: '5/64" (0.078")', clearance: '9/64" (0.140")', csk: '#6 (1/4")' },
+    "8": { shank: '0.164"', hardPilot: '7/64" (0.109")', softPilot: '3/32" (0.093")', clearance: '11/64" (0.171")', csk: '#8 (3/8")' },
+    "10": { shank: '0.190"', hardPilot: '1/8" (0.125")', softPilot: '7/64" (0.109")', clearance: '3/16" (0.187")', csk: '#10 (3/8")' },
+    "12": { shank: '0.216"', hardPilot: '9/64" (0.140")', softPilot: '1/8" (0.125")', clearance: '7/32" (0.218")', csk: '#12 (1/2")' }
+  }[screwSize] || { shank: '0.164"', hardPilot: '7/64"', softPilot: '3/32"', clearance: '11/64"', csk: '#8' };
+
+  const screwResult = $("#wood-view-screw-result");
+  if (screwResult) {
+    screwResult.innerHTML = `
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • <strong>Hardwood Pilot Hole:</strong> <span style="color:var(--green);font-weight:700">${screwData.hardPilot}</span><br>
+        • <strong>Softwood Pilot Hole:</strong> ${screwData.softPilot}<br>
+        • <strong>Clearance Hole:</strong> ${screwData.clearance}<br>
+        • <strong>Countersink Diameter:</strong> ${screwData.csk}
+      </div>
+    `;
+  }
+}
+
+function renderWoodworkingView() {
+  updateWoodworkingStudio();
+}
+
+// --- 🧶 Textiles & Yarn Studio ---
+function updateTextilesRowDisplay() {
+  let count = 0;
+  try {
+    count = parseInt(localStorage.getItem("workbench_textiles_row") || "0", 10);
+  } catch {}
+  const display = $("#textiles-row-count-display");
+  if (display) display.textContent = count;
+}
+
+function incrementTextilesRow() {
+  let count = parseInt(localStorage.getItem("workbench_textiles_row") || "0", 10) + 1;
+  try { localStorage.setItem("workbench_textiles_row", count.toString()); } catch {}
+  updateTextilesRowDisplay();
+  showToast(`Row ${count}`);
+}
+
+function decrementTextilesRow() {
+  let count = Math.max(0, parseInt(localStorage.getItem("workbench_textiles_row") || "0", 10) - 1);
+  try { localStorage.setItem("workbench_textiles_row", count.toString()); } catch {}
+  updateTextilesRowDisplay();
+}
+
+function resetTextilesRow() {
+  try { localStorage.setItem("workbench_textiles_row", "0"); } catch {}
+  updateTextilesRowDisplay();
+  showToast("Row counter reset to 0");
+}
+
+function updateTextilesYarnWeightView() {
+  const cat = $("#textiles-yarn-weight-select")?.value || "4";
+  const data = (typeof YARN_WEIGHTS_DB !== "undefined" && YARN_WEIGHTS_DB[cat]) ? YARN_WEIGHTS_DB[cat] : {
+    name: "Medium", alt: "Worsted, Afghan, Aran", needle: "4.5 - 5.5 mm (US 7-9)", hook: "5.5 - 6.5 mm (I-9 to K-10.5)",
+    knitGauge: "16-20 sts / 4 in", projects: "Sweaters, blankets, beanies, mittens"
+  };
+  const res = $("#textiles-yarn-weight-result");
+  if (res) {
+    res.innerHTML = `
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • <strong>Category ${cat}:</strong> ${data.name} (${data.alt || data.name})<br>
+        • <strong>Knitting Needles:</strong> <span style="color:var(--green);font-weight:700">${data.needle}</span><br>
+        • <strong>Crochet Hook:</strong> ${data.hook}<br>
+        • <strong>Typical Gauge:</strong> ${data.knitGauge || data.gauge || "16-20 sts / 4 in"}<br>
+        • <strong>Recommended Projects:</strong> ${data.projects}
+      </div>
+    `;
+  }
+}
+
+function syncStitchViewUI() {
+  const viewPalette = $("#stitch-view-palette");
+  if (viewPalette && typeof STITCH_PALETTE !== "undefined" && typeof stitchStudioState !== "undefined") {
+    viewPalette.innerHTML = STITCH_PALETTE.map(c => `
+      <button type="button" class="stitch-palette-swatch ${c.hex.toLowerCase() === stitchStudioState.activeColor.toLowerCase() ? "active" : ""}" 
+        data-action="select-stitch-color" 
+        data-color="${c.hex}" 
+        style="background:${c.hex}" 
+        title="${c.name} (${c.hex})"></button>
+    `).join("");
+  }
+  const viewBoard = $("#stitch-view-board");
+  if (viewBoard && typeof stitchStudioState !== "undefined") {
+    const showSymbols = $("#stitch-view-symbols")?.checked;
+    viewBoard.innerHTML = stitchStudioState.grid.map((color, idx) => {
+      const isDark = color !== "#ffffff";
+      const symbol = showSymbols && isDark ? "×" : "";
+      return `
+        <div class="stitch-grid-cell" 
+          data-action="paint-stitch-cell" 
+          data-index="${idx}" 
+          style="background:${color};color:${color === '#ffffff' || color === '#f59e0b' ? '#0f172a' : '#ffffff'}">
+          ${symbol}
+        </div>
+      `;
+    }).join("");
+  }
+  const viewInstructions = $("#stitch-view-instructions");
+  if (viewInstructions && typeof stitchStudioState !== "undefined" && typeof STITCH_PALETTE !== "undefined") {
+    const lines = [];
+    for (let r = 0; r < 16; r++) {
+      const rowCells = stitchStudioState.grid.slice(r * 16, (r + 1) * 16);
+      const groups = [];
+      let curColor = rowCells[0];
+      let curCount = 1;
+      for (let c = 1; c < 16; c++) {
+        if (rowCells[c] === curColor) {
+          curCount++;
+        } else {
+          const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || curColor;
+          groups.push(`${curCount} ${name}`);
+          curColor = rowCells[c];
+          curCount = 1;
+        }
+      }
+      const name = STITCH_PALETTE.find(p => p.hex.toLowerCase() === curColor.toLowerCase())?.name || curColor;
+      groups.push(`${curCount} ${name}`);
+      lines.push(`Row ${r + 1}: ${groups.join(", ")}`);
+    }
+    viewInstructions.textContent = lines.join("\n");
+  }
+}
+
+async function copyStitchInstructions() {
+  const box = $("#stitch-view-instructions") || $("#stitch-instructions-box");
+  if (!box || !box.textContent.trim()) {
+    showToast("Pattern is empty.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(box.textContent);
+    showToast("Copied written pattern to clipboard!");
+  } catch {
+    showToast("Pattern ready.");
+  }
+}
+
+function renderTextilesView() {
+  updateTextilesRowDisplay();
+  updateTextilesYarnWeightView();
+  syncStitchViewUI();
+}
+
+// --- ⚡ Electronics Studio ---
+const ELEC_MULTIPLIER_MAP = {
+  "1": { name: "Black (×1)", hex: "#000000" },
+  "10": { name: "Brown (×10)", hex: "#854d0e" },
+  "100": { name: "Red (×100)", hex: "#dc2626" },
+  "1000": { name: "Orange (×1k)", hex: "#ea580c" },
+  "10000": { name: "Yellow (×10k)", hex: "#eab308" },
+  "100000": { name: "Green (×100k)", hex: "#16a34a" },
+  "1000000": { name: "Blue (×1M)", hex: "#2563eb" }
+};
+const ELEC_TOLERANCE_MAP = {
+  "1": { name: "Brown (±1%)", hex: "#854d0e" },
+  "2": { name: "Red (±2%)", hex: "#dc2626" },
+  "5": { name: "Gold (±5%)", hex: "#ca8a04" },
+  "10": { name: "Silver (±10%)", hex: "#94a3b8" }
+};
+
+function updateResistorColorView() {
+  const b1 = $("#elec-res-band1")?.value || "2";
+  const b2 = $("#elec-res-band2")?.value || "0";
+  const mult = $("#elec-res-mult")?.value || "100";
+  const tol = $("#elec-res-tol")?.value || "5";
+
+  const colorMap = typeof RESISTOR_COLOR_MAP !== "undefined" ? RESISTOR_COLOR_MAP : {};
+  const c1 = colorMap[b1]?.color || colorMap[b1]?.hex || "#dc2626";
+  const c2 = colorMap[b2]?.color || colorMap[b2]?.hex || "#000000";
+  const cm = ELEC_MULTIPLIER_MAP[mult]?.hex || "#dc2626";
+  const ct = ELEC_TOLERANCE_MAP[tol]?.hex || "#ca8a04";
+
+  const s1 = $("#res-band-1-vis");
+  const s2 = $("#res-band-2-vis");
+  const sm = $("#res-band-3-vis");
+  const st = $("#res-band-tol-vis");
+  if (s1) s1.style.background = c1;
+  if (s2) s2.style.background = c2;
+  if (sm) sm.style.background = cm;
+  if (st) st.style.background = ct;
+
+  const valOhms = (parseInt(b1, 10) * 10 + parseInt(b2, 10)) * parseFloat(mult);
+  const tolPct = parseFloat(tol);
+  const minOhms = valOhms * (1 - tolPct / 100);
+  const maxOhms = valOhms * (1 + tolPct / 100);
+
+  function formatOhms(o) {
+    if (o >= 1000000) return (o / 1000000).toFixed(2).replace(/\.00$/, "") + " MΩ";
+    if (o >= 1000) return (o / 1000).toFixed(2).replace(/\.00$/, "") + " kΩ";
+    return o.toFixed(1).replace(/\.0$/, "") + " Ω";
+  }
+
+  const res = $("#elec-res-calc-result");
+  if (res) {
+    res.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">RESISTANCE:</span>
+        <strong style="font-size:20px;color:var(--green)">${formatOhms(valOhms)} ±${tolPct}%</strong>
+      </div>
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • Tolerance Range: <strong>${formatOhms(minOhms)}</strong> to <strong>${formatOhms(maxOhms)}</strong><br>
+        • Color Sequence: ${colorMap[b1]?.name || b1} – ${colorMap[b2]?.name || b2} – ${ELEC_MULTIPLIER_MAP[mult]?.name.split(" ")[0]} – ${ELEC_TOLERANCE_MAP[tol]?.name.split(" ")[0]}<br>
+        • Standard EIA E24 Series component
+      </div>
+    `;
+  }
+}
+
+function updateOhmsLawStudio() {
+  const vInput = $("#elec-ohms-v");
+  const iInput = $("#elec-ohms-i");
+  const rInput = $("#elec-ohms-r");
+  const pInput = $("#elec-ohms-p");
+
+  let v = parseFloat(vInput?.value);
+  let i = parseFloat(iInput?.value);
+  let r = parseFloat(rInput?.value);
+  let p = parseFloat(pInput?.value);
+
+  const res = $("#elec-ohms-result");
+  if (!res) return;
+
+  let knowns = 0;
+  if (!isNaN(v) && v > 0) knowns++;
+  if (!isNaN(i) && i > 0) knowns++;
+  if (!isNaN(r) && r > 0) knowns++;
+  if (!isNaN(p) && p > 0) knowns++;
+
+  if (knowns < 2) {
+    res.innerHTML = `<span style="font-size:12px;color:var(--muted)">Enter any 2 values above to calculate the other two.</span>`;
+    return;
+  }
+
+  if (!isNaN(v) && !isNaN(i)) {
+    r = v / i;
+    p = v * i;
+  } else if (!isNaN(v) && !isNaN(r)) {
+    i = v / r;
+    p = (v * v) / r;
+  } else if (!isNaN(v) && !isNaN(p)) {
+    i = p / v;
+    r = (v * v) / p;
+  } else if (!isNaN(i) && !isNaN(r)) {
+    v = i * r;
+    p = i * i * r;
+  } else if (!isNaN(i) && !isNaN(p)) {
+    v = p / i;
+    r = p / (i * i);
+  } else if (!isNaN(r) && !isNaN(p)) {
+    v = Math.sqrt(p * r);
+    i = Math.sqrt(p / r);
+  }
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:6px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">VOLTAGE V</div>
+        <div style="font-size:16px;font-weight:800;color:var(--ink)">${v.toFixed(2)} V</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">CURRENT I</div>
+        <div style="font-size:16px;font-weight:800;color:var(--green)">${i < 1 ? (i * 1000).toFixed(1) + " mA" : i.toFixed(3) + " A"}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">RESISTANCE R</div>
+        <div style="font-size:16px;font-weight:800;color:#0284c7">${r >= 1000 ? (r / 1000).toFixed(2) + " kΩ" : r.toFixed(1) + " Ω"}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">POWER P</div>
+        <div style="font-size:16px;font-weight:800;color:#d97706">${p < 1 ? (p * 1000).toFixed(1) + " mW" : p.toFixed(2) + " W"}</div>
+      </div>
+    </div>
+  `;
+}
+
+function resetOhmsLawAll() {
+  ["#elec-ohms-v", "#elec-ohms-i", "#elec-ohms-r", "#elec-ohms-p", "#tool-elec-v", "#tool-elec-i", "#tool-elec-r", "#tool-elec-p"].forEach(id => {
+    const el = $(id);
+    if (el) el.value = "";
+  });
+  const res1 = $("#elec-ohms-result");
+  if (res1) res1.innerHTML = `<span style="font-size:12px;color:var(--muted)">Enter any 2 values above to calculate the other two.</span>`;
+  const res2 = $("#tool-elec-ohms-result");
+  if (res2) res2.innerHTML = "Enter 2 parameters above and click Solve Circuit.";
+}
+
+function updateLedResistorView() {
+  const vs = parseFloat($("#elec-led-vs")?.value) || 5;
+  const vf = parseFloat($("#elec-led-vf")?.value) || 2.0;
+  const iMa = parseFloat($("#elec-led-i")?.value) || 20;
+
+  const res = $("#elec-led-result");
+  if (!res) return;
+
+  if (vs <= vf) {
+    res.innerHTML = `<span style="color:#ef4444;font-size:12px">⚠️ Supply voltage (${vs}V) must exceed LED forward drop (${vf}V).</span>`;
+    return;
+  }
+
+  const iAmps = iMa / 1000;
+  const rExact = (vs - vf) / iAmps;
+  const pWatts = (vs - vf) * iAmps;
+
+  const e12 = [10, 12, 15, 18, 22, 27, 33, 39, 47, 56, 68, 82];
+  let standardR = 220;
+  let mult = 1;
+  while (mult <= 100000) {
+    for (const base of e12) {
+      if (base * mult >= rExact) {
+        standardR = base * mult;
+        break;
+      }
+    }
+    if (standardR >= rExact) break;
+    mult *= 10;
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">REQUIRED RESISTOR:</span>
+      <strong style="font-size:18px;color:var(--green)">${standardR >= 1000 ? (standardR / 1000) + " kΩ" : standardR + " Ω"}</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • Calculated Exact: <strong>${rExact.toFixed(1)} Ω</strong><br>
+      • Dissipation: <strong>${(pWatts * 1000).toFixed(1)} mW</strong> → Standard <strong>1/4 Watt (0.25W)</strong> resistor<br>
+      • Actual LED current with ${standardR}Ω: ${(((vs - vf) / standardR) * 1000).toFixed(1)} mA
+    </div>
+  `;
+}
+
+function updateBatteryRuntimeView() {
+  const mah = parseFloat($("#elec-batt-mah")?.value) || 2500;
+  const ma = parseFloat($("#elec-batt-ma")?.value) || 120;
+
+  const res = $("#elec-batt-result");
+  if (!res) return;
+
+  if (ma <= 0) {
+    res.innerHTML = `<span style="font-size:12px;color:var(--muted)">Enter load current to calculate.</span>`;
+    return;
+  }
+
+  const hours = (mah * 0.85) / ma;
+  const wholeHours = Math.floor(hours);
+  const minutes = Math.round((hours - wholeHours) * 60);
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">ESTIMATED RUNTIME:</span>
+      <strong style="font-size:18px;color:var(--green)">${wholeHours}h ${minutes}m</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • Continuous Life: <strong>${hours.toFixed(1)} hours</strong> (${(hours / 24).toFixed(1)} days)<br>
+      • Includes 15% safety discharge derating buffer<br>
+      • Energy capacity: ~<strong>${((mah * 3.7) / 1000).toFixed(1)} Watt-hours</strong> (@ 3.7V LiPo nominal)
+    </div>
+  `;
+}
+
+function renderElectronicsView() {
+  updateResistorColorView();
+  updateOhmsLawStudio();
+  updateLedResistorView();
+  updateBatteryRuntimeView();
+}
+
+// --- 💻 Programming & Microcontrollers Studio ---
+let progRegisterValue = 42;
+
+function renderProgBitRegister() {
+  const regWrap = $("#prog-bit-register");
+  if (!regWrap) return;
+
+  const bits = [];
+  for (let i = 7; i >= 0; i--) {
+    const isBitSet = (progRegisterValue & (1 << i)) !== 0;
+    const weight = 1 << i;
+    bits.push(`
+      <div class="bit-toggle-cell" data-action="prog-bit-toggle" data-bit="${i}" title="Bit ${i} (Weight ${weight})">
+        <div class="bit-led ${isBitSet ? "on" : ""}">${isBitSet ? "1" : "0"}</div>
+        <span style="font-size:9px;color:var(--muted);font-weight:700">b${i}</span>
+      </div>
+    `);
+  }
+
+  regWrap.innerHTML = `
+    <div style="display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap">
+      ${bits.join("")}
+    </div>
+    <div style="display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap">
+      <button type="button" class="button button-small button-outline" data-action="prog-bit-op" data-op="not">NOT (~)</button>
+      <button type="button" class="button button-small button-outline" data-action="prog-bit-op" data-op="shl">&lt;&lt; 1</button>
+      <button type="button" class="button button-small button-outline" data-action="prog-bit-op" data-op="shr">&gt;&gt; 1</button>
+      <button type="button" class="button button-small button-outline" data-action="prog-bit-op" data-op="clear">Clear (0)</button>
+      <button type="button" class="button button-small button-outline" data-action="prog-bit-op" data-op="set255">All 1s</button>
+    </div>
+  `;
+
+  const bitResult = $("#prog-bit-result");
+  if (bitResult) {
+    const signed8 = progRegisterValue > 127 ? progRegisterValue - 256 : progRegisterValue;
+    bitResult.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink)">
+        <span>Unsigned: <strong style="color:var(--green)">${progRegisterValue}</strong></span>
+        <span>Signed (Two's Comp): <strong>${signed8}</strong></span>
+        <span>Octal: <strong>0o${progRegisterValue.toString(8).padStart(3, "0")}</strong></span>
+        <span>Nibbles: <strong>0x${((progRegisterValue >> 4) & 0xF).toString(16).toUpperCase()} : 0x${(progRegisterValue & 0xF).toString(16).toUpperCase()}</strong></span>
+      </div>
+    `;
+  }
+}
+
+function updateProgBaseFromValue(val, source) {
+  val = Math.max(0, Math.min(255, Math.floor(val) || 0));
+  progRegisterValue = val;
+
+  if (source !== "dec") {
+    const d = $("#prog-base-dec");
+    if (d) d.value = val;
+  }
+  if (source !== "hex") {
+    const h = $("#prog-base-hex");
+    if (h) h.value = val.toString(16).toUpperCase().padStart(2, "0");
+  }
+  if (source !== "bin") {
+    const b = $("#prog-base-bin");
+    if (b) b.value = val.toString(2).padStart(8, "0");
+  }
+  if (source !== "ascii") {
+    const a = $("#prog-base-ascii");
+    if (a) a.value = (val >= 32 && val <= 126) ? String.fromCharCode(val) : (val === 0 ? "NUL" : "·");
+  }
+
+  renderProgBitRegister();
+}
+
+function toggleProgBit(bit) {
+  progRegisterValue ^= (1 << bit);
+  updateProgBaseFromValue(progRegisterValue, "register");
+}
+
+function executeProgBitOp(op) {
+  if (op === "not") progRegisterValue = (~progRegisterValue) & 0xFF;
+  else if (op === "shl") progRegisterValue = (progRegisterValue << 1) & 0xFF;
+  else if (op === "shr") progRegisterValue = (progRegisterValue >> 1) & 0xFF;
+  else if (op === "clear") progRegisterValue = 0;
+  else if (op === "set255") progRegisterValue = 255;
+
+  updateProgBaseFromValue(progRegisterValue, "register");
+}
+
+const MCU_BOARDS_DB = {
+  esp32: {
+    name: "ESP32-WROOM-32",
+    cpu: "Tensilica Xtensa Dual-Core 32-bit LX6 @ 240 MHz",
+    ram: "520 KB SRAM · 4 MB SPI Flash",
+    logic: "3.3V Logic (NOT 5V tolerant! Use level shifter)",
+    wireless: "Wi-Fi 802.11 b/g/n (150 Mbps) + Bluetooth 4.2 / BLE",
+    pins: "34 GPIOs · 18 ADC channels (12-bit) · 2 DACs · 16 PWM",
+    notes: "Premier powerhouse for IoT, home automation, and web dashboards."
+  },
+  pico: {
+    name: "Raspberry Pi Pico (RP2040)",
+    cpu: "Dual-Core ARM Cortex-M0+ @ 133 MHz",
+    ram: "264 KB SRAM · 2 MB QSPI Flash",
+    logic: "3.3V Logic (3.3V power out, 1.8V-5.5V VSYS input)",
+    wireless: "Pico Standard (None) / Pico W (2.4GHz WiFi)",
+    pins: "26 GPIOs · 8 Programmable I/O (PIO) state machines · 3 ADC (12-bit)",
+    notes: "Unique PIO machines handle custom protocols with zero CPU cycle overhead."
+  },
+  uno: {
+    name: "Arduino Uno R4 (RA4M1)",
+    cpu: "Renesas RA4M1 32-bit ARM Cortex-M4 @ 48 MHz",
+    ram: "32 KB SRAM · 256 KB Flash · 8 KB EEPROM",
+    logic: "5V Logic (Fully 5V tolerant for classic shields)",
+    wireless: "Minima (None) / WiFi (ESP32-S3 Co-processor)",
+    pins: "14 Digital I/O · 6 Analog Inputs (14-bit) · 12-bit DAC · CAN bus",
+    notes: "Modern 32-bit speed with legendary plug-and-play 5V pinout durability."
+  },
+  nano: {
+    name: "Arduino Nano (Classic ATmega328P)",
+    cpu: "Microchip ATmega328P 8-bit AVR @ 16 MHz",
+    ram: "2 KB SRAM · 32 KB Flash · 1 KB EEPROM",
+    logic: "5V Logic (5V logic level, 7-12V VIN pin)",
+    wireless: "None",
+    pins: "22 Digital I/O (6 PWM) · 8 Analog Inputs (10-bit)",
+    notes: "Compact breadboard form factor. Low standby power, indestructible simplicity."
+  },
+  teensy: {
+    name: "Teensy 4.0",
+    cpu: "NXP i.MXRT1062 ARM Cortex-M7 @ 600 MHz (Blazing Fast)",
+    ram: "1024 KB RAM · 2048 KB Flash · Hardware FPU (Floating Point)",
+    logic: "3.3V Logic (NOT 5V tolerant)",
+    wireless: "None",
+    pins: "40 Digital Pins (31 PWM) · 14 Analog Pins · 7 Serial ports · 3 SPI",
+    notes: "Fastest microcontroller on the market. Ideal for polyphonic audio DSP and synth."
+  }
+};
+
+function updateMcuBoardView() {
+  const boardKey = $("#prog-mcu-select")?.value || "esp32";
+  const b = MCU_BOARDS_DB[boardKey] || MCU_BOARDS_DB.esp32;
+  const res = $("#prog-mcu-result");
+  if (!res) return;
+
+  res.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;line-height:1.5">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong style="font-size:15px;color:var(--ink)">${b.name}</strong>
+        <span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:${b.logic.includes("5V") ? "rgba(34,197,94,0.15);color:var(--green)" : "rgba(239,68,68,0.15);color:#ef4444"}">${b.logic.split(" ")[0]}</span>
+      </div>
+      • <strong>CPU:</strong> ${b.cpu}<br>
+      • <strong>Memory:</strong> ${b.ram}<br>
+      • <strong>Logic Level:</strong> <span style="font-weight:700">${b.logic}</span><br>
+      • <strong>Connectivity:</strong> ${b.wireless}<br>
+      • <strong>Peripherals:</strong> ${b.pins}<br>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;border-top:1px dashed var(--border);padding-top:4px">💡 ${b.notes}</div>
+    </div>
+  `;
+}
+
+const PROG_SNIPPETS = {
+  arduino_blink: `// Non-blocking timer using millis() - Arduino C++
+const int LED_PIN = 13;
+const unsigned long INTERVAL = 500; // ms
+unsigned long prevMillis = 0;
+int ledState = LOW;
+
+void setup() {
+  pinMode(LED_PIN, OUTPUT);
+}
+
+void loop() {
+  unsigned long curMillis = millis();
+  if (curMillis - prevMillis >= INTERVAL) {
+    prevMillis = curMillis;
+    ledState = (ledState == LOW) ? HIGH : LOW;
+    digitalWrite(LED_PIN, ledState);
+  }
+}`,
+  arduino_i2c: `// I2C Bus Address Scanner - Arduino C++
+#include <Wire.h>
+
+void setup() {
+  Wire.begin();
+  Serial.begin(115200);
+  while (!Serial);
+  Serial.println("\n--- Scanning I2C Bus ---");
+  byte count = 0;
+  for (byte address = 1; address < 127; ++address) {
+    Wire.beginTransmission(address);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("Device found at 0x");
+      if (address < 16) Serial.print("0");
+      Serial.println(address, HEX);
+      count++;
+    }
+  }
+  Serial.print("Done. Found ");
+  Serial.print(count);
+  Serial.println(" device(s).");
+}
+
+void loop() {}`,
+  pico_pwm: `# Hardware PWM LED Breathing Fade - MicroPython (RP2040)
+from machine import Pin, PWM
+import time, math
+
+led = PWM(Pin(25)) # Onboard LED
+led.freq(1000)
+
+step = 0
+while True:
+    # Smooth sinusoidal breathing curve
+    brightness = int((math.sin(step) + 1) / 2 * 65535)
+    led.duty_u16(brightness)
+    step += 0.05
+    time.sleep(0.02)`,
+  esp32_wifi: `# WiFi Station Connect with Auto-Retry - MicroPython (ESP32)
+import network, time
+
+def connect_wifi(ssid, password):
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print(f"Connecting to {ssid}...")
+        wlan.connect(ssid, password)
+        timeout = 10
+        while not wlan.isconnected() and timeout > 0:
+            time.sleep(1)
+            timeout -= 1
+    if wlan.isconnected():
+        print(f"Connected! IP: {wlan.ifconfig()[0]}")
+    else:
+        print("Connection failed. Check credentials.")
+    return wlan.isconnected()
+
+# Usage: connect_wifi("MyNetwork", "SecretPass")`
+};
+
+function updateProgSnippetView() {
+  const key = $("#prog-snippet-select")?.value || "arduino_blink";
+  const codeBox = $("#prog-snippet-code");
+  if (codeBox) {
+    codeBox.textContent = PROG_SNIPPETS[key] || PROG_SNIPPETS.arduino_blink;
+  }
+}
+
+async function copyProgSnippet() {
+  const codeBox = $("#prog-snippet-code");
+  if (!codeBox) return;
+  try {
+    await navigator.clipboard.writeText(codeBox.textContent);
+    showToast("Copied code snippet to clipboard!");
+  } catch {
+    showToast("Code ready.");
+  }
+}
+
+function renderProgrammingView() {
+  updateProgBaseFromValue(progRegisterValue, "init");
+  updateMcuBoardView();
+  updateProgSnippetView();
+}
+
+// --- 🎨 Art & Design Studio ---
+let currentStudioPaletteHexes = [];
+
+function updateArtStudioPalette() {
+  const baseHex = $("#art-view-base-color")?.value || "#0284c7";
+  const rule = $("#art-view-harmony-rule")?.value || "complementary";
+  const [h, s, l] = typeof hexToHsl === "function" ? hexToHsl(baseHex) : [200, 80, 50];
+
+  let swatches = [];
+  if (rule === "complementary") {
+    swatches = [
+      { h, s, l: Math.min(90, l + 18) },
+      { h, s, l },
+      { h: (h + 180) % 360, s, l },
+      { h: (h + 180) % 360, s: Math.max(20, s - 15), l: Math.max(15, l - 18) },
+      { h, s: Math.max(15, s - 30), l: 88 }
+    ];
+  } else if (rule === "analogous") {
+    swatches = [
+      { h: (h - 30) % 360, s, l },
+      { h, s, l },
+      { h: (h + 30) % 360, s, l },
+      { h: (h + 60) % 360, s, l },
+      { h: (h + 90) % 360, s: Math.max(20, s - 20), l: Math.min(85, l + 15) }
+    ];
+  } else if (rule === "triadic") {
+    swatches = [
+      { h, s, l },
+      { h: (h + 120) % 360, s, l },
+      { h: (h + 240) % 360, s, l },
+      { h: (h + 120) % 360, s: Math.max(25, s - 25), l: Math.min(88, l + 20) },
+      { h: (h + 240) % 360, s: Math.max(25, s - 25), l: Math.max(20, l - 20) }
+    ];
+  } else if (rule === "split") {
+    swatches = [
+      { h, s, l },
+      { h: (h + 150) % 360, s, l },
+      { h: (h + 210) % 360, s, l },
+      { h: (h + 150) % 360, s: Math.max(20, s - 25), l: Math.max(20, l - 15) },
+      { h, s: Math.max(10, s - 35), l: 90 }
+    ];
+  } else if (rule === "monochromatic") {
+    swatches = [
+      { h, s, l: 85 },
+      { h, s, l: 65 },
+      { h, s, l },
+      { h, s: Math.min(100, s + 10), l: Math.max(25, l - 20) },
+      { h, s: Math.min(100, s + 15), l: Math.max(12, l - 35) }
+    ];
+  }
+
+  currentStudioPaletteHexes = swatches.map(item => typeof hslToHex === "function" ? hslToHex(item.h, item.s, item.l) : "#0284c7");
+  if (typeof currentArtPaletteHexes !== "undefined") {
+    currentArtPaletteHexes = [...currentStudioPaletteHexes];
+  }
+
+  const container = $("#art-view-palette-result");
+  if (container) {
+    container.innerHTML = swatches.map(item => {
+      const hex = typeof hslToHex === "function" ? hslToHex(item.h, item.s, item.l) : "#0284c7";
+      const pigment = typeof matchPigmentName === "function" ? matchPigmentName(item.h, item.s, item.l) : "Art Pigment";
+      return `
+        <div class="art-swatch" data-action="copy-art-swatch" data-hex="${hex}" style="cursor:pointer" title="Click to copy ${hex}">
+          <div class="art-swatch-color" style="background:${hex}"></div>
+          <div class="art-swatch-info">
+            <div class="art-swatch-hex">${hex.toUpperCase()}</div>
+            <div class="art-swatch-pigment">${pigment}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+}
+
+function updateArtGoldenRatioView() {
+  const mode = $("#art-view-dim-mode")?.value || "width";
+  const val = parseFloat($("#art-view-dim-val")?.value) || 24;
+  const res = $("#art-view-golden-result");
+  if (!res) return;
+
+  const PHI = 1.61803398875;
+  const paired = mode === "width" ? (val / PHI) : (val * PHI);
+  const alternate = mode === "width" ? (val * PHI) : (val / PHI);
+
+  const third1 = (val / 3).toFixed(2);
+  const third2 = (val * (2 / 3)).toFixed(2);
+
+  res.innerHTML = `
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • <strong>Golden Section Dimension (1:1.618):</strong> <span style="color:var(--green);font-weight:700">${val} × ${paired.toFixed(2)}</span><br>
+      • Extended Aspect: ${val} × ${alternate.toFixed(2)}<br>
+      • <strong>Rule of Thirds Gridlines:</strong> ${third1} and ${third2} from edge<br>
+      • Standard Canvas Matches: 16×20, 18×24, 24×36 (3:2 / 4:3 proximity)
+    </div>
+  `;
+}
+
+function updateArtBoxNetView() {
+  const l = parseFloat($("#art-box-l")?.value) || 6;
+  const w = parseFloat($("#art-box-w")?.value) || 4;
+  const d = parseFloat($("#art-box-d")?.value) || 2;
+  const res = $("#art-box-result");
+  if (!res) return;
+
+  const glueTab = 0.75;
+  const totalSheetWidth = (2 * l) + (2 * w) + glueTab;
+  const totalSheetHeight = d + (2 * w) + (2 * 0.6);
+  const volumeCuIn = l * w * d;
+  const volumeMl = volumeCuIn * 16.387;
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">FLAT CARDSTOCK CUT SIZE:</span>
+      <strong style="font-size:18px;color:#0284c7">${totalSheetWidth.toFixed(2)}" × ${totalSheetHeight.toFixed(2)}"</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • Internal Box Volume: <strong>${volumeCuIn.toFixed(1)} cu in</strong> (~${Math.round(volumeMl)} mL / ${(volumeMl / 29.573).toFixed(1)} fl oz)<br>
+      • Glue Tab Allowance: ${glueTab}" side seam flap<br>
+      • Recommended Stock: 250 - 350 GSM Cardstock or 1.5mm E-Flute corrugated board
+    </div>
+  `;
+}
+
+function updateArt3DPrintView() {
+  const weightG = parseFloat($("#art-print-g")?.value) || 65;
+  const spoolCost = parseFloat($("#art-print-spool")?.value) || 22;
+  const res = $("#art-print-result");
+  if (!res) return;
+
+  const materialCost = (weightG / 1000) * spoolCost;
+  const electricityEst = 0.35;
+  const totalCost = materialCost + electricityEst;
+  const makerRetail = totalCost * 2.5;
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">NET PRODUCTION COST:</span>
+      <strong style="font-size:18px;color:var(--green)">$${totalCost.toFixed(2)}</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • Filament Cost: <strong>$${materialCost.toFixed(2)}</strong> (@ $${spoolCost}/kg PLA)<br>
+      • Power & Maintenance Buffer: $${electricityEst.toFixed(2)}<br>
+      • Suggested Maker Price: <strong style="color:var(--green)">$${makerRetail.toFixed(2)}</strong> (2.5× hobbyist markup)
+    </div>
+  `;
+}
+
+function updateArtLaserKerfView() {
+  const spotMm = parseFloat($("#art-laser-spot")?.value) || 0.15;
+  const res = $("#art-laser-result");
+  if (!res) return;
+
+  const halfKerf = spotMm / 2;
+  res.innerHTML = `
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • <strong>Inside Cutout Compensation:</strong> Expand vector path by <strong style="color:var(--green)">+${halfKerf.toFixed(3)} mm</strong><br>
+      • <strong>Outside Perimeter Offset:</strong> Shrink vector path by <strong>-${halfKerf.toFixed(3)} mm</strong><br>
+      • Finger-Joint Press Fit: Adjust slot width by -${(spotMm * 0.8).toFixed(3)} mm for snug friction lock
+    </div>
+  `;
+}
+
+function renderArtView() {
+  updateArtStudioPalette();
+  updateArtGoldenRatioView();
+  updateArtBoxNetView();
+  updateArt3DPrintView();
+  updateArtLaserKerfView();
+}
+
+// --- Initialize All Craft Studios ---
+function initCraftStudios() {
+  const instSelect = $("#music-main-instrument");
+  if (instSelect) {
+    const saved = localStorage.getItem("workbench_music_instrument");
+    if (saved) instSelect.value = saved;
+    instSelect.addEventListener("change", (e) => {
+      const val = e.target.value;
+      try { localStorage.setItem("workbench_music_instrument", val); } catch {}
+      const activeChord = chordStudioState.slots[chordStudioState.selectedSlotIndex]?.chord || "Cmaj7";
+      playChordVoicing(activeChord, 1.2);
+      const names = { rhodes: "🎹 Rhodes E-Piano", pad: "🌊 Warm Analog Pad", chiptune: "👾 8-Bit Chiptune", organ: "⛪ Cathedral Organ" };
+      showToast(`Sound changed to ${names[val] || val}`);
+    });
+  }
+
+  ["#wood-view-t", "#wood-view-w", "#wood-view-l", "#wood-view-qty", "#wood-view-price", "#wood-view-species", "#wood-view-width-in", "#wood-view-rh-delta", "#wood-view-sides", "#wood-view-screw"].forEach(sel => {
+    $(sel)?.addEventListener("input", updateWoodworkingStudio);
+    $(sel)?.addEventListener("change", updateWoodworkingStudio);
+  });
+
+  $("#textiles-yarn-weight-select")?.addEventListener("change", updateTextilesYarnWeightView);
+  $("#stitch-view-preset")?.addEventListener("change", (e) => {
+    if (typeof loadStitchPreset === "function") {
+      loadStitchPreset(e.target.value);
+      syncStitchViewUI();
+    }
+  });
+  $("#stitch-view-custom-color")?.addEventListener("input", (e) => {
+    if (typeof stitchStudioState !== "undefined") {
+      stitchStudioState.activeColor = e.target.value;
+      syncStitchViewUI();
+    }
+  });
+  $("#stitch-view-symbols")?.addEventListener("change", syncStitchViewUI);
+
+  const stitchViewBoard = $("#stitch-view-board");
+  if (stitchViewBoard) {
+    stitchViewBoard.addEventListener("mousedown", (e) => {
+      if (typeof stitchStudioState !== "undefined") {
+        stitchStudioState.isMouseDown = true;
+        const cell = e.target.closest(".stitch-grid-cell");
+        if (cell && typeof applyStitchTool === "function") {
+          applyStitchTool(parseInt(cell.dataset.index, 10));
+          syncStitchViewUI();
+        }
+      }
+    });
+    stitchViewBoard.addEventListener("mouseover", (e) => {
+      if (typeof stitchStudioState !== "undefined" && stitchStudioState.isMouseDown) {
+        const cell = e.target.closest(".stitch-grid-cell");
+        if (cell && stitchStudioState.activeTool !== "fill" && typeof applyStitchTool === "function") {
+          applyStitchTool(parseInt(cell.dataset.index, 10));
+          syncStitchViewUI();
+        }
+      }
+    });
+  }
+
+  ["#elec-res-band1", "#elec-res-band2", "#elec-res-mult", "#elec-res-tol"].forEach(sel => {
+    $(sel)?.addEventListener("change", updateResistorColorView);
+  });
+  ["#elec-ohms-v", "#elec-ohms-i", "#elec-ohms-r", "#elec-ohms-p"].forEach(sel => {
+    $(sel)?.addEventListener("input", updateOhmsLawStudio);
+  });
+  ["#elec-led-vs", "#elec-led-vf", "#elec-led-i"].forEach(sel => {
+    $(sel)?.addEventListener("input", updateLedResistorView);
+    $(sel)?.addEventListener("change", updateLedResistorView);
+  });
+  ["#elec-batt-mah", "#elec-batt-ma"].forEach(sel => {
+    $(sel)?.addEventListener("input", updateBatteryRuntimeView);
+  });
+
+  $("#prog-base-dec")?.addEventListener("input", (e) => updateProgBaseFromValue(parseInt(e.target.value, 10) || 0, "dec"));
+  $("#prog-base-hex")?.addEventListener("input", (e) => updateProgBaseFromValue(parseInt(e.target.value.replace(/^0x/i, ''), 16) || 0, "hex"));
+  $("#prog-base-bin")?.addEventListener("input", (e) => updateProgBaseFromValue(parseInt(e.target.value.replace(/[^01]/g, ''), 2) || 0, "bin"));
+  $("#prog-base-ascii")?.addEventListener("input", (e) => updateProgBaseFromValue(e.target.value.charCodeAt(0) || 0, "ascii"));
+  $("#prog-mcu-select")?.addEventListener("change", updateMcuBoardView);
+  $("#prog-snippet-select")?.addEventListener("change", updateProgSnippetView);
+
+  $("#art-view-base-color")?.addEventListener("input", updateArtStudioPalette);
+  $("#art-view-harmony-rule")?.addEventListener("change", updateArtStudioPalette);
+  $("#art-view-dim-mode")?.addEventListener("change", updateArtGoldenRatioView);
+  $("#art-view-dim-val")?.addEventListener("input", updateArtGoldenRatioView);
+  ["#art-box-l", "#art-box-w", "#art-box-d"].forEach(sel => $(sel)?.addEventListener("input", updateArtBoxNetView));
+  ["#art-print-g", "#art-print-spool"].forEach(sel => $(sel)?.addEventListener("input", updateArt3DPrintView));
+  $("#art-laser-spot")?.addEventListener("input", updateArtLaserKerfView);
+
+  updateWoodworkingStudio();
+  updateTextilesRowDisplay();
+  updateTextilesYarnWeightView();
+  updateResistorColorView();
+  updateOhmsLawStudio();
+  updateLedResistorView();
+  updateBatteryRuntimeView();
+  updateProgBaseFromValue(progRegisterValue, "init");
+  updateMcuBoardView();
+  updateProgSnippetView();
+  updateArtStudioPalette();
+  updateArtGoldenRatioView();
+  updateArtBoxNetView();
+  updateArt3DPrintView();
+  updateArtLaserKerfView();
+}
+
+window.addEventListener("DOMContentLoaded", initCraftStudios);
+if (document.readyState === "complete" || document.readyState === "interactive") {
+  initCraftStudios();
+}
