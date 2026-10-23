@@ -9505,5 +9505,102 @@ body.theme-dark .resin-alert-warn {
   to { box-shadow: 0 0 10px 2px rgba(239, 68, 68, 0.5); }
 }
 
+/* ============================================================
+   📂 Collapsible Sidebar Sections (Your Space & Craft Studios)
+   ============================================================ */
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-section-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px 8px 10px;
+  color: var(--muted, #a0a095);
+  font-size: 9.5px;
+  letter-spacing: 1.45px;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: color 0.18s ease, background 0.18s ease;
+  user-select: none;
+  border-radius: 6px;
+  margin: 2px 0 4px;
+}
+
+.sidebar-section-header:hover {
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .sidebar-section-header:hover,
+body.theme-dark .sidebar-section-header:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-section-toggle-icon {
+  font-size: 11px;
+  line-height: 1;
+  display: inline-block;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--muted);
+}
+
+.sidebar-section.collapsed .sidebar-section-toggle-icon {
+  transform: rotate(-90deg);
+}
+
+.sidebar-section.collapsed .sidebar-section-content {
+  display: none !important;
+}
+
+.sidebar-section-content {
+  display: grid;
+  gap: 5px;
+}
+
+/* Maintain accessibility when whole sidebar is in mini icon-rail mode */
+.app-shell.sidebar-minimized .sidebar-section-header {
+  display: none !important;
+}
+.app-shell.sidebar-minimized .sidebar-section-content {
+  display: grid !important;
+}
+
+/* ============================================================
+   🖨️ 3D Printing Studio & Volumetric Flow Meter
+   ============================================================ */
+.print-flow-gauge {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 10px;
+}
+.print-flow-bar-wrap {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin: 10px 0 6px;
+}
+.print-flow-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+.print-cost-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 
 

@@ -39,25 +39,44 @@
             <span class="sidebar-collapse-icon" aria-hidden="true">⇤</span>
           </button>
         </div>
-        <div class="sidebar-label">YOUR SPACE</div>
         <nav class="main-nav" aria-label="Main navigation">
-          <button class="nav-link active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
-          <button class="nav-link" data-view="projects"><span class="nav-icon">▤</span>Projects<span class="nav-count" id="nav-project-count">0</span></button>
-          <button class="nav-link" data-view="shopping"><span class="nav-icon">🛒</span>Shopping list<span class="nav-count" id="nav-shopping-count">0</span></button>
-          <button class="nav-link" data-view="inventory"><span class="nav-icon">🗄</span>Inventory<span class="nav-count" id="nav-inventory-count">0</span></button>
-          <button class="nav-link" data-view="timeline"><span class="nav-icon">◷</span>Activity &amp; Journal</button>
-          <button class="nav-link" data-view="skills"><span class="nav-icon">✳</span>Skills</button>
-          <button class="nav-link" data-view="gallery"><span class="nav-icon">▧</span>Gallery</button>
-          <button class="nav-link" data-view="planner"><span class="nav-icon">▦</span>Planner</button>
+          <!-- 📂 Collapsible: Your Space -->
+          <div class="sidebar-section" id="sidebar-section-your-space">
+            <button type="button" class="sidebar-section-header" data-action="toggle-sidebar-section" data-section="your-space" aria-expanded="true" title="Minimize or expand Your Space list">
+              <span>YOUR SPACE</span>
+              <span class="sidebar-section-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="sidebar-section-content" id="sidebar-content-your-space">
+              <button class="nav-link active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
+              <button class="nav-link" data-view="projects"><span class="nav-icon">▤</span>Projects<span class="nav-count" id="nav-project-count">0</span></button>
+              <button class="nav-link" data-view="shopping"><span class="nav-icon">🛒</span>Shopping list<span class="nav-count" id="nav-shopping-count">0</span></button>
+              <button class="nav-link" data-view="inventory"><span class="nav-icon">🗄</span>Inventory<span class="nav-count" id="nav-inventory-count">0</span></button>
+              <button class="nav-link" data-view="timeline"><span class="nav-icon">◷</span>Activity &amp; Journal</button>
+              <button class="nav-link" data-view="skills"><span class="nav-icon">✳</span>Skills</button>
+              <button class="nav-link" data-view="gallery"><span class="nav-icon">▧</span>Gallery</button>
+              <button class="nav-link" data-view="planner"><span class="nav-icon">▦</span>Planner</button>
+            </div>
+          </div>
 
           <div class="sidebar-section-divider"></div>
-          <div class="sidebar-label" style="margin:10px 0 4px 10px;font-size:10px;letter-spacing:.08em;color:var(--muted)">CRAFT STUDIOS</div>
-          <button class="nav-link" data-view="woodworking"><span class="nav-icon">🪵</span>Woodworking</button>
-          <button class="nav-link" data-view="textiles"><span class="nav-icon">🧶</span>Textiles &amp; Yarn</button>
-          <button class="nav-link" data-view="music"><span class="nav-icon">🎵</span>Music &amp; Audio</button>
-          <button class="nav-link" data-view="electronics"><span class="nav-icon">⚡</span>Electronics</button>
-          <button class="nav-link" data-view="programming"><span class="nav-icon">💻</span>Programming</button>
-          <button class="nav-link" data-view="art"><span class="nav-icon">🎨</span>Art &amp; Design</button>
+
+          <!-- 🎨 Collapsible: Craft Studios -->
+          <div class="sidebar-section" id="sidebar-section-craft-studios">
+            <button type="button" class="sidebar-section-header" data-action="toggle-sidebar-section" data-section="craft-studios" aria-expanded="true" title="Minimize or expand Craft Studios list">
+              <span>CRAFT STUDIOS</span>
+              <span class="sidebar-section-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="sidebar-section-content" id="sidebar-content-craft-studios">
+              <button class="nav-link" data-view="woodworking"><span class="nav-icon">🪵</span>Woodworking</button>
+              <button class="nav-link" data-view="textiles"><span class="nav-icon">🧶</span>Textiles &amp; Yarn</button>
+              <button class="nav-link" data-view="music"><span class="nav-icon">🎵</span>Music &amp; Audio</button>
+              <button class="nav-link" data-view="electronics"><span class="nav-icon">⚡</span>Electronics</button>
+              <button class="nav-link" data-view="programming"><span class="nav-icon">💻</span>Programming</button>
+              <button class="nav-link" data-view="art"><span class="nav-icon">🎨</span>Art &amp; Design</button>
+              <button class="nav-link" data-view="resin"><span class="nav-icon">🧪</span>Epoxy &amp; Silicone</button>
+              <button class="nav-link" data-view="printing"><span class="nav-icon">🖨️</span>3D Printing</button>
+            </div>
+          </div>
 
           <div class="sidebar-section-divider"></div>
           <div class="sidebar-label" style="margin:10px 0 4px 10px;font-size:10px;letter-spacing:.08em;color:var(--muted)">WORKSPACE</div>
@@ -3294,21 +3313,6 @@
                 <div class="tool-result-box" id="art-box-result" style="margin-top:10px"></div>
               </div>
 
-              <!-- 3D Print Cost Estimator -->
-              <div class="panel">
-                <div class="eyebrow">RAPID PROTOTYPING</div>
-                <h3 style="font-size:16px;margin:2px 0 8px">🖨️ 3D Print Cost Estimator</h3>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-                  <label class="field-label" style="font-size:11px">Weight (grams)
-                    <input type="number" id="art-print-g" value="65">
-                  </label>
-                  <label class="field-label" style="font-size:11px">Spool Cost ($/kg)
-                    <input type="number" id="art-print-spool" value="22">
-                  </label>
-                </div>
-                <div class="tool-result-box" id="art-print-result" style="margin-top:10px"></div>
-              </div>
-
               <!-- Laser Kerf Guide -->
               <div class="panel">
                 <div class="eyebrow">CNC &amp; LASER CUTTING</div>
@@ -3509,13 +3513,30 @@
 
                 <div class="tool-result-box" id="art-pigment-result" style="margin-top:12px"></div>
               </div>
+            </div>
+          </section>
 
+          <!-- 🧪 Epoxy, Resin & Silicone Studio View -->
+          <section class="view-section" id="resin-view" aria-labelledby="resin-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> EPOXY, CASTING RESIN &amp; SILICONE MOLD MAKING</div>
+                <h1 id="resin-title">Resin &amp; Silicone Studio<span class="heading-period">.</span></h1>
+                <p>Precision Part A &amp; B mix ratios by weight and volume, thermal exotherm runaway watchdogs, vacuum degassing, and mold-making matrices.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-resin-mix">📋 Copy Active Mix Sheet</button>
+                <button type="button" class="button button-primary" data-action="add-resin-to-materials">🛒 Add Resin to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
               <!-- 🧪 Epoxy Resin, Silicone & Casting Mix Calculator -->
-              <div class="panel" id="panel-art-resin" style="grid-column: 1 / -1">
-                <div class="eyebrow">EPOXY, RESIN &amp; SILICONE CASTING</div>
+              <div class="panel" id="panel-resin-calc" style="grid-column: 1 / -1">
+                <div class="eyebrow">MIX RATIOS &amp; VOLUMES</div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
                   <h3 style="font-size:16px;margin:0">🧪 Epoxy Resin, Silicone &amp; Casting Mix Calculator</h3>
-                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-art-resin" title="Minimize panel">— Minimize</button>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-resin-calc" title="Minimize panel">— Minimize</button>
                 </div>
                 <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact Part A (Resin/Base) and Part B (Hardener/Catalyst) by weight or volume, mold capacity (rectangular slabs, cylinders, custom molds), overage safety margin, and thermal exotherm danger thresholds.</p>
 
@@ -3555,7 +3576,6 @@
                   </label>
                 </div>
 
-                <!-- Dimension Inputs based on shape -->
                 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:8px;margin-top:8px" id="resin-dim-inputs">
                   <label class="field-label" style="font-size:11px" id="resin-lbl-dim1">
                     <span id="resin-text-dim1">Length (in)</span>
@@ -3581,6 +3601,218 @@
                 </div>
 
                 <div class="tool-result-box" id="resin-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 💨 Vacuum Degassing & Pressure Pot Chamber Guide -->
+              <div class="panel" id="panel-resin-degas">
+                <div class="eyebrow">DE-AIRING &amp; BUBBLE REMOVAL</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">💨 Vacuum Degassing vs. Pressure Pot</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Chamber Method
+                    <select id="resin-degas-method">
+                      <option value="vacuum" selected>Vacuum Chamber (-29 in-Hg)</option>
+                      <option value="pressure">Pressure Curing Pot (45-60 PSI)</option>
+                      <option value="torch">Heat Gun / Torch Only (Surface)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Viscosity Class
+                    <select id="resin-viscosity">
+                      <option value="high" selected>High Viscosity (Silicone / Tabletop)</option>
+                      <option value="low">Low Viscosity (Deep Pour / Water-Thin)</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="resin-degas-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🎨 Pigments, Dyes & Mica Powder Guide -->
+              <div class="panel" id="panel-resin-pigment">
+                <div class="eyebrow">COLORANTS &amp; METALLICS</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🎨 Pigment Dyes &amp; Mica Powder Ratios</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Colorant Type
+                    <select id="resin-pigment-type">
+                      <option value="mica" selected>Mica Powder (Pearlescent / Metallic)</option>
+                      <option value="liquid_dye">Translucent Liquid Dye (Stained Glass)</option>
+                      <option value="alcohol_ink">Alcohol Ink (Petri Bloom Effect)</option>
+                      <option value="paste">Opaque Pigment Paste (Solid Cover)</option>
+                      <option value="glow">Glow-in-the-Dark Phosphor Powder</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Total Batch (g / ml)
+                    <input type="number" id="resin-pigment-batch" value="500" min="10" step="50">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="resin-pigment-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🛡️ Silicone Mold Release & Cure Inhibition Matrix -->
+              <div class="panel" id="panel-resin-inhibition" style="grid-column: 1 / -1">
+                <div class="eyebrow">MOLD RUBBER COMPATIBILITY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🛡️ Silicone Mold Release &amp; Cure Inhibition Safeguards</h3>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Master Pattern Material
+                    <select id="resin-master-mat">
+                      <option value="sla_print" selected>3D Printed UV SLA Resin (High Risk!)</option>
+                      <option value="fdm_pla">3D Printed FDM Plastic (PLA / PETG)</option>
+                      <option value="wood_sealed">Sealed Wood / MDF</option>
+                      <option value="clay_sulfur">Clay (Sulfur / Non-Sulfur)</option>
+                      <option value="metal_glass">Metal / Polished Glass</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Casting Rubber Class
+                    <select id="resin-rubber-class">
+                      <option value="platinum" selected>Platinum (Addition Cure · Food/Skin Safe)</option>
+                      <option value="tin">Tin (Condensation Cure · Resistant to Poison)</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="resin-inhibition-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🖨️ 3D Printing Studio View -->
+          <section class="view-section" id="printing-view" aria-labelledby="printing-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> ADDITIVE MANUFACTURING &amp; RAPID PROTOTYPING</div>
+                <h1 id="printing-title">3D Printing Studio<span class="heading-period">.</span></h1>
+                <p>FDM &amp; MSLA print cost quoting, volumetric flow limits, spool remaining length &amp; weight, and wash/cure guidelines.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-print-quote">📋 Copy Job Quote</button>
+                <button type="button" class="button button-primary" data-action="add-filament-to-materials">🛒 Add Spool to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 💰 Advanced 3D Print Cost & Job Quoting Estimator -->
+              <div class="panel" id="panel-print-cost" style="grid-column: 1 / -1">
+                <div class="eyebrow">JOB QUOTING &amp; PRODUCTION COSTS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">💰 3D Print Cost &amp; Client Estimate Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-print-cost" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact material consumption, heated bed electricity, machine amortization, consumables, and commercial markup for FDM and Resin prints.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Technology
+                    <select id="print-tech">
+                      <option value="fdm" selected>FDM (Fused Filament Fabrication)</option>
+                      <option value="sla">MSLA / SLA (Photopolymer Resin)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Material Used
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="print-weight-g" value="85" min="1" step="any" style="flex:1">
+                      <span style="font-size:11px;padding:6px;color:var(--muted)" id="print-weight-unit">grams</span>
+                    </div>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Spool / Bottle Price ($)
+                    <input type="number" id="print-spool-price" value="22" min="1" step="any">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Print Time (Hours)
+                    <input type="number" id="print-time-hours" value="4.5" min="0.1" step="0.25">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Machine Rate ($/hr)
+                    <input type="number" id="print-machine-rate" value="2.50" min="0" step="0.5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Profit Markup %
+                    <input type="number" id="print-markup-pct" value="40" min="0" max="300" step="5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="print-cost-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- ⚡ Hotend Max Volumetric Flow Rate & Speed Matcher -->
+              <div class="panel" id="panel-print-flow">
+                <div class="eyebrow">HOTEND MELT CAPACITY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚡ Max Volumetric Flow Rate (mm³/s)</h3>
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:6px">
+                  <label class="field-label" style="font-size:11px">Hotend Class
+                    <select id="print-hotend-type">
+                      <option value="standard">Standard V6 / Stock (12-15 mm³/s)</option>
+                      <option value="volcano">Volcano / CHT High-Flow (25-30 mm³/s)</option>
+                      <option value="bambu" selected>Bambu Lab Hotend (30-35 mm³/s)</option>
+                      <option value="supervolcano">SuperVolcano / UHF (60+ mm³/s)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Nozzle Size (mm)
+                    <select id="print-nozzle-dia">
+                      <option value="0.2">0.2 mm (Detail / Miniatures)</option>
+                      <option value="0.4" selected>0.4 mm (Standard)</option>
+                      <option value="0.6">0.6 mm (Fast / Strong)</option>
+                      <option value="0.8">0.8 mm (Giant Slabs)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Layer Height (mm)
+                    <input type="number" id="print-layer-h" value="0.20" step="0.04" min="0.04" max="0.8">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Print Speed (mm/s)
+                    <input type="number" id="print-speed-mms" value="200" step="10" min="10" max="600">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="print-flow-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ⚖️ Filament Spool Remaining Length & Weight -->
+              <div class="panel" id="panel-print-spool-calc">
+                <div class="eyebrow">SPOOL INVENTORY METER</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚖️ Spool Weight &amp; Remaining Meters</h3>
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:6px">
+                  <label class="field-label" style="font-size:11px">Scale Reading (Total g)
+                    <input type="number" id="print-spool-gross" value="480" min="1" step="5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Empty Spool Tare (g)
+                    <select id="print-spool-tare">
+                      <option value="250" selected>Bambu Reusable Plastic (~250g)</option>
+                      <option value="200">Prusament / Standard (~200g)</option>
+                      <option value="180">Polymaker Cardboard (~180g)</option>
+                      <option value="140">Overture Cardboard (~140g)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Polymer Density
+                    <select id="print-polymer-type">
+                      <option value="1.24" selected>PLA (1.24 g/cm³)</option>
+                      <option value="1.27">PETG (1.27 g/cm³)</option>
+                      <option value="1.04">ABS (1.04 g/cm³)</option>
+                      <option value="1.07">ASA (1.07 g/cm³)</option>
+                      <option value="1.21">TPU 95A (1.21 g/cm³)</option>
+                      <option value="1.14">PA Nylon (1.14 g/cm³)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Planned Print Weight (g)
+                    <input type="number" id="print-spool-check" value="120" min="0" step="5">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="print-spool-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🧼 SLA / UV Resin Wash, Cure & Shrinkage -->
+              <div class="panel" id="panel-print-sla" style="grid-column: 1 / -1">
+                <div class="eyebrow">POST-PROCESSING &amp; RESIN SAFETY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧼 SLA Wash, UV Curing &amp; Shrinkage Compensation</h3>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Resin Chemistry
+                    <select id="print-resin-chem">
+                      <option value="standard" selected>Standard Photopolymer (405nm · 1.5% shrinkage)</option>
+                      <option value="abs_like">ABS-Like / Tough Resin (405nm · 1.2% shrinkage)</option>
+                      <option value="water_washable">Water-Washable Resin (Fast rinse · 2.0% shrinkage)</option>
+                      <option value="plant_based">Plant-Based / Eco Resin (Low odor · 1.8% shrinkage)</option>
+                      <option value="flexible">Flexible / Elastic Resin (Extended UV cure required)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Part Geometry
+                    <select id="print-sla-geometry">
+                      <option value="solid" selected>Solid Part (High UV penetration needed)</option>
+                      <option value="hollow">Hollowed Model with Drain Holes</option>
+                      <option value="thin_walls">Thin-Walled / Miniature (Warpage risk)</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="print-sla-result" style="margin-top:10px"></div>
               </div>
             </div>
           </section>
@@ -4163,6 +4395,10 @@
               <input type="number" id="quote-labor-hours" value="8" min="0" step="0.25">
             </label>
           </div>
+
+          <label class="field-label" style="font-size:11px">Labor Service Description
+            <input type="text" id="quote-labor-desc" placeholder="e.g. Design, Fabrication, Assembly &amp; Finishing" maxlength="100">
+          </label>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
             <label class="field-label" style="font-size:11px">Materials Markup %
@@ -5014,7 +5250,17 @@
         <button type="button" class="mobile-studio-card" data-view="art" data-action="select-mobile-studio">
           <span class="mobile-studio-icon" aria-hidden="true">🎨</span>
           <strong>Art &amp; Design</strong>
-          <span class="mobile-studio-desc">Palette, contrast, 3D print</span>
+          <span class="mobile-studio-desc">Palette, contrast, framing</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="resin" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🧪</span>
+          <strong>Epoxy &amp; Silicone</strong>
+          <span class="mobile-studio-desc">Mix ratios, degassing, exotherm watch</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="printing" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🖨️</span>
+          <strong>3D Printing</strong>
+          <span class="mobile-studio-desc">FDM &amp; resin cost, flow rate, wash</span>
         </button>
       </div>
     </dialog>

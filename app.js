@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3872,6 +3872,21 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
       btn.classList.toggle("active", studioViews.has(targetView));
     }
   });
+
+  // Ensure containing sidebar section is uncollapsed when navigated into
+  if (studioViews.has(targetView)) {
+    const studiosSec = $("#sidebar-section-craft-studios");
+    if (studiosSec?.classList.contains("collapsed")) {
+      studiosSec.classList.remove("collapsed");
+      $("[data-action='toggle-sidebar-section'][data-section='craft-studios']")?.setAttribute("aria-expanded", "true");
+    }
+  } else {
+    const spaceSec = $("#sidebar-section-your-space");
+    if (spaceSec?.classList.contains("collapsed")) {
+      spaceSec.classList.remove("collapsed");
+      $("[data-action='toggle-sidebar-section'][data-section='your-space']")?.setAttribute("aria-expanded", "true");
+    }
+  }
 
   // Close mobile navigation drawer if open
   $(".sidebar")?.classList.remove("open");
@@ -3892,7 +3907,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     music: "Music & Audio Studio",
     electronics: "Electronics Studio",
     programming: "Programming Studio",
-    art: "Art & Design Studio"
+    art: "Art & Design Studio",
+    resin: "Epoxy & Silicone Studio",
+    printing: "3D Printing Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -8595,6 +8612,28 @@ function openQuoteDialog(projectId) {
       const hrs = project.timeSpent ? (project.timeSpent / 60).toFixed(1) : "8";
       $("#quote-labor-hours").value = hrs;
     }
+
+    // Determine smart labor service description from project keywords & category
+    let defaultLaborDesc = "Custom Design, Fabrication, Assembly & Finishing";
+    const corpus = `${project.title} ${project.description || ""} ${(project.tags || []).join(" ")}`.toLowerCase();
+    if (corpus.includes("3d print") || corpus.includes("filament") || corpus.includes("slice") || corpus.includes("stl") || corpus.includes("sla")) {
+      defaultLaborDesc = "3D CAD Modeling, Slicing, Print Supervision & Post-Processing";
+    } else if (corpus.includes("code") || corpus.includes("firmware") || corpus.includes("software") || corpus.includes("mcu") || corpus.includes("esp32")) {
+      defaultLaborDesc = "Software Architecture, Firmware Development, Integration & Testing";
+    } else if (corpus.includes("resin") || corpus.includes("silicone") || corpus.includes("epoxy") || corpus.includes("cast")) {
+      defaultLaborDesc = "Mold Preparation, Resin/Silicone Formulation, Vacuum Casting & Finishing";
+    } else if (corpus.includes("wood") || corpus.includes("joinery") || corpus.includes("cabinet") || corpus.includes("lumber") || corpus.includes("timber")) {
+      defaultLaborDesc = "Custom Millwork, Precision Joinery, Assembly & Hand Finishing";
+    } else if (corpus.includes("textile") || corpus.includes("knit") || corpus.includes("crochet") || corpus.includes("sew") || corpus.includes("yarn")) {
+      defaultLaborDesc = "Pattern Drafting, Garment Construction, Stitching & Finishing";
+    } else if (corpus.includes("music") || corpus.includes("audio") || corpus.includes("mix") || corpus.includes("track")) {
+      defaultLaborDesc = "Audio Production, Sound Engineering, Recording & Mastering";
+    } else if (corpus.includes("circuit") || corpus.includes("pcb") || corpus.includes("solder") || corpus.includes("electronic")) {
+      defaultLaborDesc = "Schematic Design, PCB Assembly, Hand Soldering & Diagnostics";
+    }
+    if ($("#quote-labor-desc")) {
+      $("#quote-labor-desc").value = defaultLaborDesc;
+    }
   }
 
   renderQuoteInvoice();
@@ -8617,7 +8656,7 @@ function renderQuoteInvoice() {
   const project = state.projects.find(p => p.id === activeQuoteProjectId) || state.projects[0] || {
     id: "proj_demo",
     title: "Custom Workshop Commission",
-    description: "Handcrafted woodworking / fabrication project.",
+    description: "Custom fabrication and design project.",
     materials: []
   };
 
@@ -8625,6 +8664,7 @@ function renderQuoteInvoice() {
   const clientContact = $("#quote-client-contact")?.value || "client@example.com";
   const laborRate = parseFloat($("#quote-labor-rate")?.value) || 65;
   const laborHours = parseFloat($("#quote-labor-hours")?.value) || 8;
+  const laborDesc = $("#quote-labor-desc")?.value || "Custom Fabrication, Assembly & Finishing";
   const matMarkupPct = parseFloat($("#quote-material-markup")?.value) || 20;
   const shopFee = parseFloat($("#quote-shop-fee")?.value) || 50;
   const taxRate = parseFloat($("#quote-tax-rate")?.value) || 7.5;
@@ -8652,15 +8692,11 @@ function renderQuoteInvoice() {
     paid_full: "PAID IN FULL · Receipt of payment confirmed with thanks."
   }[paymentTermsVal] || "50% deposit required.";
 
-  // Calculate Materials
-  const rawMaterials = (project.materials && project.materials.length > 0) ? project.materials : [
-    { name: "Primary Stock / Lumber", quantity: "1 lot", cost: 120 },
-    { name: "Hardware, Fasteners & Joinery", quantity: "1 pkg", cost: 35 },
-    { name: "Abrasives & Clear Finish Coat", quantity: "1 kit", cost: 28 }
-  ];
+  // Calculate Materials: Only use real project materials; if empty, do NOT inject lumberjacking placeholders
+  const rawMaterials = (project.materials && project.materials.length > 0) ? project.materials : [];
 
   let rawMatTotal = 0;
-  const matRows = rawMaterials.map(m => {
+  const matRows = rawMaterials.length > 0 ? rawMaterials.map(m => {
     const cost = parseFloat(m.cost) || 0;
     rawMatTotal += cost;
     const billedCost = cost * (1 + (matMarkupPct / 100));
@@ -8672,7 +8708,13 @@ function renderQuoteInvoice() {
         <td class="text-right">${formatMoney(billedCost)}</td>
       </tr>
     `;
-  }).join("");
+  }).join("") : `
+    <tr>
+      <td colspan="4" style="color:#64748b;font-style:italic;text-align:center;padding:12px 8px">
+        No specific depot materials logged for this project. Only labor, equipment and services are billed.
+      </td>
+    </tr>
+  `;
 
   const markedUpMaterials = rawMatTotal * (1 + (matMarkupPct / 100));
   const laborTotal = laborHours * laborRate;
@@ -8688,8 +8730,8 @@ function renderQuoteInvoice() {
   sheet.innerHTML = `
     <div class="quote-sheet-header">
       <div class="quote-sheet-brand">
-        <h2>WORKBENCH FABRICATION ATELIER</h2>
-        <div class="quote-sheet-tagline">Craftsmanship · Digital Fabrication · Design</div>
+        <h2>WORKBENCH ATELIER &amp; FABRICATION LAB</h2>
+        <div class="quote-sheet-tagline">Custom Making · Rapid Prototyping · Design</div>
       </div>
       <div class="quote-sheet-doc-badge">
         <div class="quote-doc-title">${docTitles[activeQuoteMode]}</div>
@@ -8744,7 +8786,7 @@ function renderQuoteInvoice() {
       </thead>
       <tbody>
         <tr>
-          <td>Precision Fabrication, Joinery, Assembly &amp; Hand Finishing</td>
+          <td>${escapeHTML(laborDesc)}</td>
           <td>${laborHours} hrs</td>
           <td class="text-right">${formatMoney(laborRate)}/hr</td>
           <td class="text-right">${formatMoney(laborTotal)}</td>
@@ -8811,7 +8853,7 @@ function renderQuoteInvoice() {
     <!-- Terms Box -->
     <div class="quote-terms-box">
       <strong>Terms &amp; Payment Agreement:</strong> ${escapeHTML(paymentTermsText)}
-      <br>All custom commission pieces are guaranteed against structural defects in joinery and workmanship for 1 year from delivery date.
+      <br>All custom commission work is guaranteed against defects in craftsmanship, assembly, and materials for 1 year from delivery date.
     </div>
 
     <!-- Signatures -->
@@ -9060,6 +9102,33 @@ function updateSidebarCollapseBtn(isMin) {
     const icon = btn.querySelector(".sidebar-collapse-icon");
     if (icon) icon.textContent = isMin ? "⇥" : "⇤";
   }
+}
+
+/* 📂 Collapsible Sidebar Group Sections (Your Space & Craft Studios) */
+function toggleSidebarSection(sectionName) {
+  const sec = $(`#sidebar-section-${sectionName}`);
+  const btn = $(`[data-action="toggle-sidebar-section"][data-section="${sectionName}"]`);
+  if (!sec) return;
+  const isNowCollapsed = !sec.classList.contains("collapsed");
+  sec.classList.toggle("collapsed", isNowCollapsed);
+  if (btn) btn.setAttribute("aria-expanded", isNowCollapsed ? "false" : "true");
+  try {
+    localStorage.setItem(`workbench_sidebar_${sectionName}_collapsed`, isNowCollapsed ? "true" : "false");
+  } catch {}
+}
+
+function restoreSidebarSections() {
+  ["your-space", "craft-studios"].forEach(sec => {
+    try {
+      const saved = localStorage.getItem(`workbench_sidebar_${sec}_collapsed`);
+      if (saved === "true") {
+        const el = $(`#sidebar-section-${sec}`);
+        const btn = $(`[data-action="toggle-sidebar-section"][data-section="${sec}"]`);
+        if (el) el.classList.add("collapsed");
+        if (btn) btn.setAttribute("aria-expanded", "false");
+      }
+    } catch {}
+  });
 }
 
 /* 🔔 In-App Notification Center */
@@ -10361,6 +10430,36 @@ async function handleAction(action, target) {
     if (recipe) {
       void navigator.clipboard.writeText(recipe).then(() => showToast("Copied Resin & Silicone mix recipe!"));
     }
+    return;
+  }
+  if (action === "toggle-sidebar-section") {
+    const sec = target.dataset.section || target.closest("[data-section]")?.dataset.section;
+    if (sec) toggleSidebarSection(sec);
+    return;
+  }
+  if (action === "copy-print-quote") {
+    const quoteTxt = $("#print-cost-result")?.innerText || "";
+    if (quoteTxt) {
+      void navigator.clipboard.writeText(quoteTxt).then(() => showToast("Copied 3D print cost quote to clipboard!"));
+    }
+    return;
+  }
+  if (action === "copy-print-specs") {
+    const specs = $("#print-flow-result")?.innerText || "";
+    if (specs) {
+      void navigator.clipboard.writeText(specs).then(() => showToast("Copied 3D print flow specs to clipboard!"));
+    }
+    return;
+  }
+  if (action === "add-filament-to-materials") {
+    const price = parseFloat($("#print-spool-price")?.value) || 22;
+    const poly = $("#print-polymer-type option:checked")?.textContent.split("(")[0].trim() || "PLA";
+    await addMaterialToProjectShopping(`${poly} 3D Printer Filament (1kg Spool)`, "1 spool", price, "3D Printing & Filament");
+    return;
+  }
+  if (action === "add-resin-to-materials") {
+    const preset = $("#resin-type-preset option:checked")?.textContent.split("(")[0].trim() || "Casting Resin";
+    await addMaterialToProjectShopping(`${preset} (Part A + Part B Kit)`, "1 kit", 35, "Finishes & Adhesives");
     return;
   }
   if (action === "add-fastener-to-project") {
@@ -26827,6 +26926,278 @@ function updateResinCalc() {
   `;
 }
 
+function updateResinDegas() {
+  const method = $("#resin-degas-method")?.value || "vacuum";
+  const visc = $("#resin-viscosity")?.value || "high";
+  const res = $("#resin-degas-result");
+  if (!res) return;
+
+  if (method === "vacuum") {
+    res.innerHTML = `
+      <div style="font-size:12px;line-height:1.5;color:var(--ink)">
+        <strong>🎯 Vacuum Chamber Target:</strong> Pull full vacuum to <strong>-29 to -30 in-Hg (0.98 bar)</strong>.<br>
+        • <strong>Moffat Rise &amp; Fall:</strong> Material will expand <strong>3× to 4× in volume</strong> as air boils out. Use a mixing cup with at least 4× headspace!<br>
+        • <strong>Window:</strong> De-air for 90–120 seconds after the foam head collapses. Ensure pour is complete before pot life window ends.<br>
+        • <strong>Best for:</strong> ${visc === "high" ? "High-viscosity platinum/tin silicones, clear encapsulation blocks" : "Deep pour epoxy mixes and low-viscosity urethane rubbers"}.
+      </div>
+    `;
+  } else if (method === "pressure") {
+    res.innerHTML = `
+      <div style="font-size:12px;line-height:1.5;color:var(--ink)">
+        <strong>🎯 Pressure Pot Target:</strong> Charge tank with clean compressed air to <strong>45 – 55 PSI (3.1 – 3.8 bar)</strong>.<br>
+        • <strong>Physics:</strong> Compresses air bubbles down to microscopic size (&lt; 0.05mm), making them invisible to the human eye.<br>
+        • <strong>Crucial Rule:</strong> Leave under continuous pressure for the <strong>ENTIRE cure cycle</strong> (do not vent early or bubbles will re-expand!).<br>
+        • <strong>Safety Check:</strong> Verify safety pop-off pressure valve (60 PSI max) is certified before pressurizing!
+      </div>
+    `;
+  } else {
+    res.innerHTML = `
+      <div style="font-size:12px;line-height:1.5;color:var(--ink)">
+        <strong>🎯 Surface Torch / Heat Gun:</strong> Pass flame or hot air 6–8 inches above surface in swift sweeping motions.<br>
+        • <strong>Mechanism:</strong> Breaks surface tension to pop surface bubbles. Does NOT remove deep trapped air bubbles.<br>
+        • <strong>Warning:</strong> Never hold torch in one spot (ignites alcohol inks or scorches epoxy yellow).
+      </div>
+    `;
+  }
+}
+
+function updateResinPigment() {
+  const type = $("#resin-pigment-type")?.value || "mica";
+  const batchG = Math.max(10, parseFloat($("#resin-pigment-batch")?.value) || 500);
+  const res = $("#resin-pigment-result");
+  if (!res) return;
+
+  let advice = "";
+  let targetAmount = "";
+  if (type === "mica") {
+    const minG = (batchG * 0.01).toFixed(1);
+    const maxG = (batchG * 0.025).toFixed(1);
+    targetAmount = `${minG}g – ${maxG}g (1.0% – 2.5%)`;
+    advice = "Produces brilliant metallic, pearlescent shimmer and river table ribbons. Mix thoroughly into Part A before adding Part B hardener.";
+  } else if (type === "liquid_dye") {
+    const drops = Math.max(2, Math.round(batchG / 50));
+    targetAmount = `~${drops} – ${drops * 3} drops (0.2% – 0.8%)`;
+    advice = "Maintains crystal clear stained-glass transparency. Add drop-by-drop with tooth-pick until desired optical depth is achieved.";
+  } else if (type === "alcohol_ink") {
+    targetAmount = "5 – 15 drops on surface";
+    advice = "Used for Petri dish cell bloom effects. Drop color inks followed by heavy white alcohol ink (Piñata White) to drive cells downwards.";
+  } else if (type === "paste") {
+    const pasteG = (batchG * 0.04).toFixed(1);
+    targetAmount = `~${pasteG}g (3.0% – 5.0%)`;
+    advice = "Provides 100% solid non-translucent blockout color. Excellent for coaster bottoms, ocean waves, and high-contrast resin art.";
+  } else {
+    const glowG = (batchG * 0.10).toFixed(1);
+    targetAmount = `~${glowG}g (8% – 12%)`;
+    advice = "Strontium aluminate glow crystals are heavy and sink. Let resin reach early gel state before stirring in powder for even suspension.";
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">RECOMMENDED DOSAGE:</span>
+      <strong style="font-size:16px;color:var(--primary)">${targetAmount}</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.45">${advice}</div>
+  `;
+}
+
+function updateResinInhibition() {
+  const master = $("#resin-master-mat")?.value || "sla_print";
+  const rubber = $("#resin-rubber-class")?.value || "platinum";
+  const res = $("#resin-inhibition-result");
+  if (!res) return;
+
+  if (master === "sla_print" && rubber === "platinum") {
+    res.innerHTML = `
+      <div class="resin-exotherm-alert resin-alert-warn">
+        <span style="font-size:20px;line-height:1">🚫</span>
+        <div>
+          <strong>CRITICAL CURE INHIBITION DANGER:</strong><br>
+          UV SLA / DLP resin 3D prints contain residual photoinitiators and sulfur compounds that permanently poison platinum silicone catalysts! The mold rubber touching the print will remain a sticky, un-cured gooey mess forever.<br>
+          • <strong>Required Remedy:</strong> Bake the SLA print in an oven at 60°C (140°F) for 2 hours, post-cure under UV for 30 mins, and coat thoroughly with 2 coats of gloss acrylic lacquer or Inhibit X before pouring silicone! Or switch to Tin-Cure silicone.
+        </div>
+      </div>
+    `;
+  } else if (master === "clay_sulfur" && rubber === "platinum") {
+    res.innerHTML = `
+      <div class="resin-exotherm-alert resin-alert-warn">
+        <span style="font-size:20px;line-height:1">🚫</span>
+        <div>
+          <strong>SULFUR INHIBITION ALERT:</strong> Traditional sulfur-based clay (Plasteline) poisons platinum silicone. Use only sulfur-free clay (Monster Clay / Chavant NSP) or seal clay with shellac.
+        </div>
+      </div>
+    `;
+  } else {
+    res.innerHTML = `
+      <div class="resin-exotherm-alert resin-alert-safe">
+        <span style="font-size:18px;line-height:1">✅</span>
+        <div>
+          <strong>Cure Chemistry Compatible:</strong> Low risk of chemical cure inhibition. Apply 2 light coats of mold release (Mann Ease Release 200 or PVA) and allow solvent to dry for 10 minutes before pouring rubber.
+        </div>
+      </div>
+    `;
+  }
+}
+
+// --- 🖨️ 3D Printing Studio Tools ---
+function update3DPrintCostCalc() {
+  const tech = $("#print-tech")?.value || "fdm";
+  const weightG = Math.max(1, parseFloat($("#print-weight-g")?.value) || 85);
+  const spoolPrice = Math.max(1, parseFloat($("#print-spool-price")?.value) || 22);
+  const timeHours = Math.max(0.1, parseFloat($("#print-time-hours")?.value) || 4.5);
+  const machineRate = Math.max(0, parseFloat($("#print-machine-rate")?.value) || 2.50);
+  const markupPct = Math.max(0, parseFloat($("#print-markup-pct")?.value) || 40);
+  const res = $("#print-cost-result");
+  const unitSpan = $("#print-weight-unit");
+  if (unitSpan) unitSpan.textContent = tech === "fdm" ? "grams" : "ml";
+  if (!res) return;
+
+  const costPerUnit = spoolPrice / 1000;
+  const materialCost = weightG * costPerUnit;
+  const powerKw = tech === "fdm" ? 0.16 : 0.06;
+  const powerKwh = timeHours * powerKw;
+  const powerCost = powerKwh * 0.15;
+  const machineCost = timeHours * machineRate;
+  const consumablesCost = tech === "fdm" ? 0.50 : 1.50;
+  const baseCost = materialCost + powerCost + machineCost + consumablesCost;
+  const profit = baseCost * (markupPct / 100);
+  const quoteTotal = baseCost + profit;
+
+  res.innerHTML = `
+    <div class="print-cost-card">
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Material Cost</span>
+        <span class="cnc-stat-pill-val">$${materialCost.toFixed(2)}</span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Power &amp; Wear</span>
+        <span class="cnc-stat-pill-val">$${(powerCost + consumablesCost).toFixed(2)}</span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Machine Run Time</span>
+        <span class="cnc-stat-pill-val">$${machineCost.toFixed(2)}</span>
+      </div>
+      <div class="cnc-stat-pill">
+        <span class="cnc-stat-pill-label">Base Cost</span>
+        <span class="cnc-stat-pill-val">$${baseCost.toFixed(2)}</span>
+      </div>
+      <div class="cnc-stat-pill" style="border-color:var(--primary)">
+        <span class="cnc-stat-pill-label">Quote with Markup (${markupPct}%)</span>
+        <span class="cnc-stat-pill-val" style="color:var(--primary)">$${quoteTotal.toFixed(2)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function update3DFlowCalc() {
+  const hotend = $("#print-hotend-type")?.value || "bambu";
+  const nozzle = parseFloat($("#print-nozzle-dia")?.value) || 0.4;
+  const layerH = parseFloat($("#print-layer-h")?.value) || 0.20;
+  const speed = parseFloat($("#print-speed-mms")?.value) || 200;
+  const res = $("#print-flow-result");
+  if (!res) return;
+
+  const hotendLimits = {
+    standard: 14,
+    volcano: 28,
+    bambu: 32,
+    supervolcano: 65
+  };
+  const limit = hotendLimits[hotend] || 32;
+
+  const lineWidth = nozzle * 1.05;
+  const flowMm3s = layerH * lineWidth * speed;
+  const pct = Math.min(100, Math.round((flowMm3s / limit) * 100));
+  const isOverLimit = flowMm3s > limit;
+  const maxSafeSpeed = Math.floor(limit / (layerH * lineWidth));
+
+  const barColor = isOverLimit ? "#ef4444" : (pct > 80 ? "#f59e0b" : "#10b981");
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:11px;font-weight:700">EXTRUSION MELT FLOW:</span>
+      <strong style="font-size:16px;color:${barColor}">${flowMm3s.toFixed(1)} mm³/s <span style="font-size:11px;font-weight:normal;color:var(--muted)">/ ${limit} mm³/s max</span></strong>
+    </div>
+
+    <div class="print-flow-bar-wrap">
+      <div class="print-flow-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+    </div>
+
+    ${isOverLimit ? `
+      <div style="font-size:11px;color:#ef4444;font-weight:700;margin-top:6px">
+        ⚠️ FLOW RATE OVERLOAD: Speed (${speed} mm/s) exceeds hotend capacity! Reduce print speed to maximum <strong>${maxSafeSpeed} mm/s</strong> to prevent skipped steps and under-extrusion.
+      </div>
+    ` : `
+      <div style="font-size:11px;color:#10b981;font-weight:600;margin-top:6px">
+        ✅ Melt Flow Optimal: Safe headroom remaining. Max achievable speed at this layer height: <strong>${maxSafeSpeed} mm/s</strong>.
+      </div>
+    `}
+  `;
+}
+
+function update3DSpoolCalc() {
+  const grossG = Math.max(0, parseFloat($("#print-spool-gross")?.value) || 480);
+  const tareG = parseFloat($("#print-spool-tare")?.value) || 250;
+  const density = parseFloat($("#print-polymer-type")?.value) || 1.24;
+  const checkG = Math.max(0, parseFloat($("#print-spool-check")?.value) || 120);
+  const res = $("#print-spool-result");
+  if (!res) return;
+
+  const netG = Math.max(0, grossG - tareG);
+  const volCm3 = netG / density;
+  const areaMm2 = Math.PI * Math.pow(0.875, 2);
+  const lengthM = Math.round((volCm3 * 1000) / areaMm2 / 1000);
+  const lengthFt = Math.round(lengthM * 3.28084);
+  const canFinish = netG >= checkG;
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700">NET FILAMENT REMAINING:</span>
+      <strong style="font-size:18px;color:var(--ink)">${netG} g <span style="font-size:12px;font-weight:normal;color:var(--muted)">(~${lengthM} m / ${lengthFt} ft)</span></strong>
+    </div>
+
+    <div style="padding:8px 10px;border-radius:6px;font-size:12px;${canFinish ? 'background:rgba(16,185,129,0.12);color:#065f46;border:1px solid #10b981' : 'background:rgba(239,68,68,0.12);color:#991b1b;border:1px solid #ef4444'}">
+      ${canFinish ? `
+        ✅ <strong>Sufficient Filament:</strong> You have <strong>${netG}g</strong> available, which easily covers your planned <strong>${checkG}g</strong> print with ${(netG - checkG)}g remaining!
+      ` : `
+        ⚠️ <strong>RUNOUT WARNING:</strong> You need <strong>${checkG}g</strong>, but only have <strong>${netG}g</strong> on this spool. You will run out <strong>${(checkG - netG)}g</strong> before completion!
+      `}
+    </div>
+  `;
+}
+
+function update3DSlaGuide() {
+  const chem = $("#print-resin-chem")?.value || "standard";
+  const geom = $("#print-sla-geometry")?.value || "solid";
+  const res = $("#print-sla-result");
+  if (!res) return;
+
+  const guideMap = {
+    standard: { wash: "6 – 8 mins in 99% IPA (2-stage bath)", cure: "3 – 5 mins under 405nm UV chamber", shrink: "1.5%", slicerScale: "101.52%" },
+    abs_like: { wash: "8 – 10 mins in 99% IPA", cure: "8 – 12 mins (rotate halfway)", shrink: "1.2%", slicerScale: "101.21%" },
+    water_washable: { wash: "3 – 5 mins warm tap water (rinse bucket)", cure: "5 – 8 mins UV", shrink: "2.0%", slicerScale: "102.04%" },
+    plant_based: { wash: "6 – 8 mins in 95%+ IPA", cure: "4 – 6 mins UV", shrink: "1.8%", slicerScale: "101.83%" },
+    flexible: { wash: "5 mins in IPA + dry thoroughly", cure: "15 – 25 mins UV submerged in clean water", shrink: "2.5%", slicerScale: "102.56%" }
+  };
+  const g = guideMap[chem] || guideMap.standard;
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px;font-size:12px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px">
+        <span style="font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700">1. Solvent Wash Time</span>
+        <div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:2px">${g.wash}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px">
+        <span style="font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700">2. UV 405nm Final Cure</span>
+        <div style="font-size:14px;font-weight:700;color:var(--ink);margin-top:2px">${g.cure}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px">
+        <span style="font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:700">3. Dimensional Slicer Scale</span>
+        <div style="font-size:14px;font-weight:700;color:var(--primary);margin-top:2px">Scale to ${g.slicerScale} (+${g.shrink})</div>
+      </div>
+    </div>
+  `;
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -27328,10 +27699,33 @@ function initCraftStudios() {
   ["#serial-baud", "#serial-framing", "#serial-data-format"].forEach(s => $(s)?.addEventListener("change", updateSerialCalc));
   $("#serial-payload-input")?.addEventListener("input", updateSerialCalc);
 
-  // Art Epoxy Resin & Silicone Casting Mix Calculator
+  // Resin & Silicone Studio
   updateResinCalc();
+  updateResinDegas();
+  updateResinPigment();
+  updateResinInhibition();
   ["#resin-type-preset", "#resin-shape", "#resin-measure-mode", "#resin-units", "#resin-waste"].forEach(s => $(s)?.addEventListener("change", updateResinCalc));
   ["#resin-dim1", "#resin-dim2", "#resin-dim3"].forEach(s => $(s)?.addEventListener("input", updateResinCalc));
+  ["#resin-degas-method", "#resin-viscosity"].forEach(s => $(s)?.addEventListener("change", updateResinDegas));
+  $("#resin-pigment-type")?.addEventListener("change", updateResinPigment);
+  $("#resin-pigment-batch")?.addEventListener("input", updateResinPigment);
+  ["#resin-master-mat", "#resin-rubber-class"].forEach(s => $(s)?.addEventListener("change", updateResinInhibition));
+
+  // 3D Printing Studio
+  update3DPrintCostCalc();
+  update3DFlowCalc();
+  update3DSpoolCalc();
+  update3DSlaGuide();
+  ["#print-tech", "#print-spool-price", "#print-machine-rate", "#print-markup-pct"].forEach(s => $(s)?.addEventListener("change", update3DPrintCostCalc));
+  ["#print-weight-g", "#print-time-hours", "#print-spool-price", "#print-machine-rate", "#print-markup-pct"].forEach(s => $(s)?.addEventListener("input", update3DPrintCostCalc));
+  ["#print-hotend-type", "#print-nozzle-dia"].forEach(s => $(s)?.addEventListener("change", update3DFlowCalc));
+  ["#print-layer-h", "#print-speed-mms"].forEach(s => $(s)?.addEventListener("input", update3DFlowCalc));
+  ["#print-spool-tare", "#print-polymer-type"].forEach(s => $(s)?.addEventListener("change", update3DSpoolCalc));
+  ["#print-spool-gross", "#print-spool-check"].forEach(s => $(s)?.addEventListener("input", update3DSpoolCalc));
+  ["#print-resin-chem", "#print-sla-geometry"].forEach(s => $(s)?.addEventListener("change", update3DSlaGuide));
+
+  // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
+  restoreSidebarSections();
 
   // Client Quote & Estimate Form Listeners
   ["#quote-project-select", "#quote-payment-terms"].forEach(s => $(s)?.addEventListener("change", (e) => {
@@ -27344,7 +27738,7 @@ function initCraftStudios() {
     }
     renderQuoteInvoice();
   }));
-  ["#quote-client-name", "#quote-client-contact", "#quote-labor-rate", "#quote-labor-hours", "#quote-material-markup", "#quote-shop-fee", "#quote-tax-rate", "#quote-deposit-pct", "#quote-scope-notes"].forEach(s => $(s)?.addEventListener("input", renderQuoteInvoice));
+  ["#quote-client-name", "#quote-client-contact", "#quote-labor-rate", "#quote-labor-hours", "#quote-labor-desc", "#quote-material-markup", "#quote-shop-fee", "#quote-tax-rate", "#quote-deposit-pct", "#quote-scope-notes"].forEach(s => $(s)?.addEventListener("input", renderQuoteInvoice));
 
   const instSelect = $("#music-main-instrument");
   if (instSelect) {
