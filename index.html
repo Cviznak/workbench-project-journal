@@ -421,6 +421,9 @@
                 </select>
               </label>
               <button type="button" class="button button-outline button-small" id="inventory-alert-toggle" data-action="toggle-inventory-alerts" title="Show only items needing attention (low stock or care due)">⚠️ Alerts Only</button>
+              <button type="button" class="button button-outline button-small" data-action="open-starter-kits" title="Quickly import common tool sets and maker kits">⚡ Starter Kits</button>
+              <button type="button" class="button button-outline button-small" data-action="restock-low-stock" title="Add all low-stock depot supplies to your shopping list">🛒 Restock Supplies</button>
+              <button type="button" class="button button-outline button-small" data-action="print-equipment-tags" title="Print physical asset tags and QR labels for workshop tools">🏷️ Print Asset Tags</button>
               <span class="result-count" id="inventory-result-count"></span>
             </div>
 
@@ -1058,6 +1061,48 @@
       <div id="inventory-pick-list"></div>
       <div class="dialog-actions">
         <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+      </div>
+    </dialog>
+
+    <!-- Equipment Logbook & History Dialog -->
+    <dialog class="app-dialog" id="equipment-dossier-dialog" aria-label="Equipment Logbook & Care History" style="width:min(640px, calc(100% - 28px));">
+      <div class="dialog-heading">
+        <div><div class="eyebrow" id="equipment-dossier-eyebrow">EQUIPMENT DOSSIER</div><h2 id="equipment-dossier-title">Tool Logbook &amp; History</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div id="equipment-dossier-body"></div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-outline" id="equipment-dossier-print-btn" data-action="print-single-tool-tag">🏷️ Print Asset Tag</button>
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+    </dialog>
+
+    <!-- Workshop Starter Kits Dialog -->
+    <dialog class="app-dialog" id="starter-kits-dialog" aria-label="Workshop Starter Kits" style="width:min(720px, calc(100% - 28px));">
+      <div class="dialog-heading">
+        <div><div class="eyebrow">WORKSHOP SETUP PRESETS</div><h2>1-Click Starter Kits</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 14px">Populate your workshop depot with curated toolsets, machinery, and initial supplies with a single click. These will be merged safely into your existing inventory.</p>
+      <div id="starter-kits-list" class="starter-kits-grid"></div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+      </div>
+    </dialog>
+
+    <!-- Print Asset Tags Dialog -->
+    <dialog class="app-dialog" id="equipment-print-dialog" aria-label="Print Workshop Asset Tags" style="width:min(780px, calc(100% - 28px));">
+      <div class="dialog-heading no-print">
+        <div><div class="eyebrow">PHYSICAL LABELS</div><h2>Workshop Tool Asset Tags</h2></div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+      <div class="no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <span style="font-size:12px;color:var(--muted)">Print tags with scannable QR codes to stick onto tools, power cables, and equipment carts.</span>
+        <button type="button" class="button button-primary" data-action="trigger-print-tags">🖶 Print Asset Tags Sheet</button>
+      </div>
+      <div id="equipment-print-sheet" class="equipment-tags-sheet"></div>
+      <div class="dialog-actions no-print">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
       </div>
     </dialog>
 

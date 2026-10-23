@@ -246,6 +246,7 @@ function resetWorkspaceStateToDefault() {
   state.activity = [];
   state.practiceLog = [];
   state.inventory = [];
+  state.depotRestockList = [];
   state.customTemplates = [];
   state.makerGoals = [];
   state.maintenance = [];
@@ -1928,6 +1929,7 @@ async function loadUserScopedState() {
     state.activity = Array.isArray(saved.activity) ? saved.activity : [];
     state.practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
     state.inventory = Array.isArray(saved.inventory) ? saved.inventory : [];
+    state.depotRestockList = Array.isArray(saved.depotRestockList) ? saved.depotRestockList : [];
     state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved.makerGoals) ? saved.makerGoals : [];
     state.maintenance = Array.isArray(saved.maintenance) ? saved.maintenance : [];
@@ -2555,6 +2557,7 @@ async function importBackup(file) {
   state.activity = Array.isArray(restored.activity) ? restored.activity : [];
   state.practiceLog = restored.practiceLog;
   state.inventory = Array.isArray(restored.inventory) ? restored.inventory : [];
+  state.depotRestockList = Array.isArray(restored.depotRestockList) ? restored.depotRestockList : [];
   state.customTemplates = Array.isArray(restored.customTemplates) ? restored.customTemplates : [];
   state.makerGoals = Array.isArray(restored.makerGoals) ? restored.makerGoals : [];
   state.maintenance = Array.isArray(restored.maintenance) ? restored.maintenance : [];
@@ -5306,6 +5309,12 @@ function checkHashRouting() {
     openTimerDialog();
     return;
   }
+  const toolMatch = hash.match(/^#tool=([a-zA-Z0-9_-]+)/);
+  if (toolMatch) {
+    switchView("inventory");
+    openEquipmentLogbook(toolMatch[1]);
+    return;
+  }
   const viewMatch = hash.match(/^#view=([a-z-]+)/);
   if (viewMatch) {
     switchView(viewMatch[1]);
@@ -5396,11 +5405,19 @@ function renderShoppingList() {
     }
   }
 
+  const restockItems = state.depotRestockList || [];
+  const filteredRestock = restockItems.filter(item => {
+    if (projectFilter !== "all" && projectFilter !== "depot") return false;
+    if (search && !item.name.toLowerCase().includes(search) && !(item.category || "").toLowerCase().includes(search)) return false;
+    return true;
+  });
+
   const projectSelect = $("#shopping-project-filter");
   if (projectSelect) {
     const activeProjects = state.projects.filter(p => (p.materials || []).length > 0);
     const prevVal = projectSelect.value;
-    projectSelect.innerHTML = `<option value="all">All projects (${allMaterials.length})</option>` +
+    projectSelect.innerHTML = `<option value="all">All shopping (${allMaterials.length + restockItems.length})</option>` +
+      (restockItems.length ? `<option value="depot">📦 Workshop Depot Restock (${restockItems.length})</option>` : "") +
       activeProjects.map(p => `<option value="${p.id}">${escapeHTML(p.title)}</option>`).join("");
     if (prevVal) projectSelect.value = prevVal;
   }
@@ -5408,16 +5425,19 @@ function renderShoppingList() {
   const filtered = allMaterials.filter(item => {
     if (statusFilter === "need" && item.status !== "need") return false;
     if (statusFilter === "ordered" && item.status !== "ordered") return false;
+    if (projectFilter === "depot") return false;
     if (projectFilter !== "all" && item.projectId !== projectFilter) return false;
     if (search && !item.name.toLowerCase().includes(search) && !item.projectTitle.toLowerCase().includes(search)) return false;
     return true;
   });
 
   const countEl = $("#shopping-result-count");
-  if (countEl) countEl.textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}`;
+  const totalDisplayCount = filtered.length + (projectFilter === "all" || projectFilter === "depot" ? filteredRestock.length : 0);
+  if (countEl) countEl.textContent = `${totalDisplayCount} item${totalDisplayCount === 1 ? "" : "s"}`;
 
-  const totalNeedCost = allMaterials.filter(m => m.status === "need").reduce((s, m) => s + (Number(m.cost) || 0), 0);
-  const totalNeedCount = allMaterials.filter(m => m.status === "need").length;
+  const restockCost = filteredRestock.reduce((s, r) => s + ((Number(r.price) || 0) * (Number(r.restockQty) || 1)), 0);
+  const totalNeedCost = allMaterials.filter(m => m.status === "need").reduce((s, m) => s + (Number(m.cost) || 0), 0) + restockCost;
+  const totalNeedCount = allMaterials.filter(m => m.status === "need").length + restockItems.length;
   const orderedCost = allMaterials.filter(m => m.status === "ordered").reduce((s, m) => s + (Number(m.cost) || 0), 0);
   const orderedCount = allMaterials.filter(m => m.status === "ordered").length;
   const acquiredCost = allMaterials.filter(m => m.status === "have").reduce((s, m) => s + (Number(m.cost) || 0), 0);
@@ -5435,14 +5455,55 @@ function renderShoppingList() {
   const itemsContainer = $("#shopping-list-items");
   if (!itemsContainer) return;
 
-  if (filtered.length === 0) {
+  if (filtered.length === 0 && filteredRestock.length === 0) {
     itemsContainer.innerHTML = `
       <div class="shopping-empty">
         <p>No shopping items match your filter.</p>
-        <span style="font-size:12px;color:var(--muted)">Add supplies in any project's detail view under "Materials &amp; Supplies".</span>
+        <span style="font-size:12px;color:var(--muted)">Add supplies in project details or click "🛒 Restock Supplies" in the Inventory Depot.</span>
       </div>
     `;
     return;
+  }
+
+  let restockHtml = "";
+  if (filteredRestock.length > 0 && (projectFilter === "all" || projectFilter === "depot")) {
+    restockHtml = `
+      <div class="shopping-project-group depot-restock-card" style="margin-bottom:18px">
+        <div class="shopping-group-head" style="background:var(--surface-hover)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="depot-restock-badge">📦 WORKSHOP DEPOT</span>
+            <span class="shopping-group-title">Depot Stock Restock List</span>
+          </div>
+          <span style="font-size:11px;color:var(--muted)">${filteredRestock.length} supplies needed</span>
+        </div>
+        <div class="shopping-group-items">
+          ${filteredRestock.map(item => {
+            const cost = (Number(item.price) || 0) * (Number(item.restockQty) || 1);
+            return `
+              <div class="shopping-item-card">
+                <div class="shopping-item-body">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <strong style="font-size:13px">${escapeHTML(item.name)}</strong>
+                    <span class="inventory-category-badge">${escapeHTML(item.category || "Supplies")}</span>
+                  </div>
+                  <div class="shopping-item-meta" style="margin-top:3px">
+                    <span class="shopping-qty-badge">Need: ${item.restockQty || 1} ${escapeHTML(item.unit || "units")}</span>
+                    <span style="font-size:10px;color:var(--muted)">In depot: ${item.currentQty ?? 0}</span>
+                    ${cost > 0 ? `<span class="shopping-cost-badge">$${cost.toFixed(2)}</span>` : ""}
+                    ${item.supplier ? `<span>🏷️ ${escapeHTML(item.supplier)}</span>` : ""}
+                    ${item.location ? `<span>📍 ${escapeHTML(item.location)}</span>` : ""}
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                  <button type="button" class="button button-primary button-small" data-action="complete-depot-restock" data-id="${item.id}" data-qty="${item.restockQty || 1}" title="Mark bought and add to inventory depot stock">✓ Restocked</button>
+                  <button type="button" class="icon-link-btn danger-hover" data-action="dismiss-depot-restock" data-id="${item.id}" title="Remove from restock list">×</button>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
   }
 
   const byProject = new Map();
@@ -5451,7 +5512,7 @@ function renderShoppingList() {
     byProject.get(item.projectId).push(item);
   }
 
-  itemsContainer.innerHTML = Array.from(byProject.entries()).map(([pid, items]) => {
+  const projectsHtml = Array.from(byProject.entries()).map(([pid, items]) => {
     const proj = state.projects.find(p => p.id === pid);
     const pTitle = proj?.title || "Project";
     return `
@@ -5484,6 +5545,8 @@ function renderShoppingList() {
       </div>
     `;
   }).join("");
+
+  itemsContainer.innerHTML = restockHtml + projectsHtml;
 }
 
 function copyShoppingList() {
@@ -5691,7 +5754,10 @@ function renderInventory() {
         </div>
 
         <div class="inventory-card-bottom">
-          <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">📥 Use in Project</button>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">📥 Use in Project</button>
+            <button type="button" class="small-action" data-action="restock-material" data-id="${item.id}" title="Send this item to Shopping List">🛒 Restock</button>
+          </div>
           <div style="display:flex;gap:4px">
             <button type="button" class="icon-link-btn" data-action="edit-inventory-item" data-id="${item.id}" title="Edit material">✎</button>
             <button type="button" class="icon-link-btn danger-hover" data-action="delete-inventory-item" data-id="${item.id}" title="Delete material">×</button>
@@ -5716,6 +5782,7 @@ function renderInventory() {
 
     // Check if overdue maintenance exists
     const hasOverdueMaint = (state.maintenance || []).some(m => m.toolName && m.toolName.toLowerCase() === item.name.toLowerCase() && isMaintOverdue(m));
+    const logbookCount = Array.isArray(item.logbook) ? item.logbook.length : 0;
 
     return `
       <div class="inventory-card inventory-card-equipment">
@@ -5731,7 +5798,11 @@ function renderInventory() {
         <div>
           <h3 class="inventory-card-title">${escapeHTML(item.name)}</h3>
           ${item.brand || item.model ? `<div class="inventory-card-brand">${escapeHTML(item.brand || "")}${item.model ? ` · ${escapeHTML(item.model)}` : ""}</div>` : ""}
-          ${item.notes ? `<p class="inventory-card-notes">${escapeHTML(item.notes)}</p>` : ""}
+          ${item.notes ? `
+            <div class="inventory-sop-badge" data-action="open-equipment-logbook" data-id="${item.id}" title="Click to view full SOP in logbook">
+              🦺 SOP: ${escapeHTML(item.notes.slice(0, 36))}${item.notes.length > 36 ? "…" : ""}
+            </div>
+          ` : ""}
         </div>
 
         <div class="inventory-chips-row">
@@ -5749,8 +5820,10 @@ function renderInventory() {
         ` : ""}
 
         <div class="inventory-card-bottom">
-          <div style="display:flex;gap:6px">
-            <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">Assign / Check Out</button>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">Assign</button>
+            <button type="button" class="small-action" data-action="open-equipment-logbook" data-id="${item.id}" title="View lifetime logbook & service entries">📖 Log (${logbookCount})</button>
+            <button type="button" class="small-action" data-action="open-tool-tag" data-id="${item.id}" title="Print tool asset tag with QR code">🏷️ Tag</button>
             <button type="button" class="small-action" data-action="schedule-tool-care" data-id="${item.id}" title="Open care schedule for this tool">🔧 Care</button>
           </div>
           <div style="display:flex;gap:4px">
@@ -6002,6 +6075,16 @@ async function checkinEquipment(id) {
   item.assignedProjectId = null;
   item.assignedProjectTitle = null;
   if (item.condition === "in_use") item.condition = "operational";
+
+  item.logbook = Array.isArray(item.logbook) ? item.logbook : [];
+  item.logbook.push({
+    id: uid(),
+    date: new Date().toISOString(),
+    type: "checkin",
+    title: `Returned from ${prevProj} to depot`,
+    notes: "Equipment operational and returned to shop station."
+  });
+
   item.updatedAt = new Date().toISOString();
 
   makeActivity("note", `Returned ${item.name} from ${prevProj} to shop depot`);
@@ -6094,6 +6177,497 @@ function exportInventoryCSV() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
   showToast("📋 Exported Workshop Inventory & Equipment to CSV!");
+}
+
+/* ============================================================
+   FEATURE: Workshop Starter Kits (1-Click Shop Setup Presets)
+   ============================================================ */
+const WORKSHOP_STARTER_KITS = {
+  woodworking: {
+    title: "Fine Woodworking Shop",
+    icon: "🪵",
+    category: "Woodworking",
+    description: "Standard machinery and essentials for solid lumber & cabinetry builds.",
+    items: [
+      { type: "equipment", name: "10\" Contractor Table Saw", category: "Stationary Machinery", brand: "DeWalt", model: "DWE7491RS", cost: 599, condition: "operational", location: "Machine Bay 1", specs: "15A 120V · 10\" 24T/50T", notes: "Always use push sticks; check fence parallelism" },
+      { type: "equipment", name: "12\" Dual-Bevel Sliding Miter Saw", category: "Stationary Machinery", brand: "Bosch", model: "GCM12SD", cost: 449, condition: "operational", location: "Miter Station", specs: "15A 120V · Axial-Glide", notes: "Keep throat plate clear of offcuts" },
+      { type: "equipment", name: "2.25 HP Plunge & Fixed Base Router", category: "Power Hand Tools", brand: "Bosch", model: "1617EVSPK", cost: 199, condition: "operational", location: "Bench 1 Cabinet", specs: "12A 120V · 1/4\" & 1/2\" collets", notes: "Includes edge guide; feed against bit rotation" },
+      { type: "equipment", name: "5\" Random Orbit Sander", category: "Power Hand Tools", brand: "Makita", model: "BO5041", cost: 89, condition: "operational", location: "Sand Shelf", specs: "3A 120V · 8-hole hook & loop", notes: "Connect dust hose before sanding" },
+      { type: "material", name: "3/4\" Baltic Birch Plywood (5x5)", category: "Lumber / Scrap", quantity: 3, unit: "sheets", price: 68.00, lowStockThreshold: 1, location: "Lumber Rack A", supplier: "Local Hardwood Yard" },
+      { type: "material", name: "Titebond II Wood Glue (16 oz)", category: "Finishes & Adhesives", quantity: 2, unit: "bottles", price: 8.50, lowStockThreshold: 1, location: "Glue Caddy", supplier: "Hardware Store" }
+    ]
+  },
+  digital_fab: {
+    title: "3D Printing & Digital Fab Lab",
+    icon: "🖨️",
+    category: "Digital Fabrication",
+    description: "High-speed 3D printing, desktop CNC routing, and digital precision tools.",
+    items: [
+      { type: "equipment", name: "CoreXY 3D Printer", category: "3D Printers & CNC", brand: "Bambu Lab", model: "P1S Combo", cost: 699, condition: "operational", location: "Print Farm Bench", specs: "256x256x256mm · 0.4mm Hardened Nozzle", notes: "Clean textured PEI plate with IPA; calibrate flow per filament" },
+      { type: "equipment", name: "Desktop CNC Router", category: "3D Printers & CNC", brand: "Shapeoko", model: "Pro 4 Standard", cost: 899, condition: "operational", location: "CNC Bay", specs: "Hybrid table · Sweepy 2.0 dust boot", notes: "Double check Z-zero and collet tightness before spindle start" },
+      { type: "equipment", name: "6\" Stainless Digital Calipers", category: "Hand Tools & Measuring", brand: "Mitutoyo", model: "500-196-30", cost: 110, condition: "operational", location: "Drawer 1", specs: "0.01mm / 0.0005\" accuracy", notes: "Zero jaws before measurement; store in protective case" },
+      { type: "material", name: "PLA Tough Filament 1.75mm (Black)", category: "3D Printing & Filament", quantity: 4, unit: "spools", price: 19.99, lowStockThreshold: 1, location: "Filament Dry Box", supplier: "Amazon / Bambu" },
+      { type: "material", name: "PETG Filament 1.75mm (White)", category: "3D Printing & Filament", quantity: 2, unit: "spools", price: 21.50, lowStockThreshold: 1, location: "Filament Dry Box", supplier: "Amazon / Bambu" }
+    ]
+  },
+  electronics: {
+    title: "Electronics & Prototyping Bench",
+    icon: "⚡",
+    category: "Electronics",
+    description: "Soldering, test instruments, DC power, and benchtop maker electronics.",
+    items: [
+      { type: "equipment", name: "Digital Soldering Station", category: "Power Hand Tools", brand: "Hakko", model: "FX-888D", cost: 115, condition: "operational", location: "Electronics Bench", specs: "70W 120V · 50-480°C", notes: "Tin tip before turning off; use brass wire wool" },
+      { type: "equipment", name: "True-RMS Digital Multimeter", category: "Hand Tools & Measuring", brand: "Fluke", model: "117 Electrician", cost: 195, condition: "operational", location: "Electronics Bench", specs: "CAT III 600V · Non-contact volt alert", notes: "Check fuse and test leads before high current measurements" },
+      { type: "equipment", name: "Adjustable Bench DC Power Supply", category: "Power Hand Tools", brand: "Korad", model: "KD3005D", cost: 95, condition: "operational", location: "Electronics Shelf", specs: "0-30V 0-5A Constant Current", notes: "Always verify voltage setting before connecting sensitive circuits" },
+      { type: "material", name: "60/40 Rosin Core Solder Wire 0.8mm", category: "Electronics & Wiring", quantity: 2, unit: "spools", price: 14.50, lowStockThreshold: 1, location: "Solder Station Drawer", supplier: "Adafruit" },
+      { type: "material", name: "Heat Shrink Tubing Assortment (150 pcs)", category: "Electronics & Wiring", quantity: 1, unit: "kits", price: 9.99, lowStockThreshold: 1, location: "Electronics Drawer 2", supplier: "Amazon" }
+    ]
+  },
+  safety_air: {
+    title: "Safety, Air Quality & Dust Care",
+    icon: "🦺",
+    category: "Safety & Dust",
+    description: "Keep shop air clean, lungs protected, and machinery dust-free.",
+    items: [
+      { type: "equipment", name: "1.5 HP Mobile Cyclone Dust Collector", category: "Dust Collection & Air", brand: "Laguna", model: "CFlux:1", cost: 650, condition: "operational", location: "Main Bay", specs: "1 Micron canister · 900 CFM", notes: "Empty collection drum when 3/4 full; pulse clean filter regularly" },
+      { type: "equipment", name: "3-Speed Ceiling Air Filtration Unit", category: "Dust Collection & Air", brand: "WEN", model: "3410", cost: 140, condition: "operational", location: "Ceiling Mount Center", specs: "400 CFM with RF remote control", notes: "Wash electrostatic outer filter monthly; replace inner filter yearly" },
+      { type: "equipment", name: "Professional Half-Face Respirator (P100)", category: "Safety Gear & PPE", brand: "3M", model: "Rugged Comfort 6502QL", cost: 38, condition: "operational", location: "PPE Hook 1", specs: "P100 organic vapor filters", notes: "Store in airtight ziplock bag when not in use to preserve filters" },
+      { type: "material", name: "Nitrile Gloves 5-mil (Box of 100)", category: "Other Supplies", quantity: 2, unit: "boxes", price: 12.50, lowStockThreshold: 1, location: "Safety Cabinet", supplier: "Costco / Harbor Freight" }
+    ]
+  }
+};
+
+function openStarterKitsDialog() {
+  const dialog = $("#starter-kits-dialog");
+  const list = $("#starter-kits-list");
+  if (!dialog || !list) return;
+
+  list.innerHTML = Object.entries(WORKSHOP_STARTER_KITS).map(([key, kit]) => {
+    const totalVal = kit.items.reduce((sum, i) => sum + (Number(i.cost || i.price) || 0), 0);
+    const equipCount = kit.items.filter(i => i.type === "equipment").length;
+    const matCount = kit.items.filter(i => i.type === "material").length;
+
+    return `
+      <div class="starter-kit-card">
+        <div class="starter-kit-header">
+          <div class="starter-kit-icon">${kit.icon}</div>
+          <div class="starter-kit-header-text">
+            <h3>${escapeHTML(kit.title)}</h3>
+            <p>${escapeHTML(kit.description)}</p>
+          </div>
+        </div>
+
+        <div class="starter-kit-items-list">
+          ${kit.items.map(item => `
+            <div class="starter-kit-item-row">
+              <span>${item.type === "equipment" ? "⚙️" : "📦"} ${escapeHTML(item.name)}</span>
+              <span>${item.cost ? `$${item.cost.toFixed(2)}` : (item.quantity ? `${item.quantity} ${item.unit}` : "")}</span>
+            </div>
+          `).join("")}
+        </div>
+
+        <div class="starter-kit-footer">
+          <div class="starter-kit-cost">
+            <span>${equipCount} tools, ${matCount} supplies · </span>
+            <strong>${formatMoney(totalVal)}</strong>
+          </div>
+          <button type="button" class="button button-primary button-small" data-action="import-starter-kit" data-kit="${key}">Import Kit <span>→</span></button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  dialog.showModal();
+}
+
+async function importStarterKit(kitKey) {
+  const kit = WORKSHOP_STARTER_KITS[kitKey];
+  if (!kit) return;
+
+  state.inventory = state.inventory || [];
+  let addedCount = 0;
+
+  for (const itemDef of kit.items) {
+    const existing = state.inventory.find(i => i.name.toLowerCase() === itemDef.name.toLowerCase());
+    if (existing) {
+      if (itemDef.type === "material") {
+        existing.quantity = (existing.quantity || 0) + (itemDef.quantity || 1);
+        addedCount++;
+      }
+      continue;
+    }
+
+    const newItem = {
+      id: uid(),
+      type: itemDef.type || "material",
+      name: itemDef.name,
+      category: itemDef.category || "General",
+      brand: itemDef.brand || "",
+      model: itemDef.model || "",
+      cost: itemDef.cost || 0,
+      price: itemDef.cost || itemDef.price || 0,
+      quantity: itemDef.quantity || 1,
+      unit: itemDef.unit || (itemDef.type === "equipment" ? "unit" : "pcs"),
+      condition: itemDef.condition || "operational",
+      location: itemDef.location || "Shop",
+      specs: itemDef.specs || "",
+      notes: itemDef.notes || "",
+      lowStockThreshold: itemDef.lowStockThreshold || 1,
+      supplier: itemDef.supplier || "",
+      assignedProjectId: null,
+      assignedProjectTitle: null,
+      logbook: [
+        {
+          id: uid(),
+          date: new Date().toISOString(),
+          type: "service",
+          title: "Added to workshop depot via " + kit.title,
+          notes: "Initial inventory setup."
+        }
+      ],
+      updatedAt: new Date().toISOString()
+    };
+
+    state.inventory.unshift(newItem);
+    addedCount++;
+  }
+
+  makeActivity("note", `Imported ${kit.title} with ${addedCount} tools and supplies`);
+
+  try {
+    await persistState();
+    $("#starter-kits-dialog")?.close();
+    renderInventory();
+    showToast(`🎉 Imported "${kit.title}" with ${addedCount} items!`);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not import starter kit.");
+  }
+}
+
+/* ============================================================
+   FEATURE: Equipment Logbook & Care History
+   ============================================================ */
+
+function openEquipmentLogbook(equipmentId) {
+  const item = (state.inventory || []).find(i => i.id === equipmentId);
+  if (!item) return;
+
+  const dialog = $("#equipment-dossier-dialog");
+  const body = $("#equipment-dossier-body");
+  const title = $("#equipment-dossier-title");
+  const eyebrow = $("#equipment-dossier-eyebrow");
+  const printBtn = $("#equipment-dossier-print-btn");
+  if (!dialog || !body) return;
+
+  if (title) title.textContent = `${item.name}`;
+  if (eyebrow) eyebrow.textContent = `EQUIPMENT DOSSIER · ${item.category || "TOOL"}`;
+  if (printBtn) printBtn.dataset.id = item.id;
+
+  item.logbook = Array.isArray(item.logbook) ? item.logbook : [];
+
+  const projectsUsed = new Set();
+  if (item.assignedProjectId) projectsUsed.add(item.assignedProjectId);
+  let serviceCount = 0;
+  for (const entry of item.logbook) {
+    if (entry.type === "checkout" && entry.projectId) projectsUsed.add(entry.projectId);
+    if (entry.type === "service" || entry.type === "repair") serviceCount++;
+  }
+
+  const cost = Number(item.cost || item.price) || 0;
+  const condLabels = {
+    operational: "🟢 Operational",
+    maintenance_needed: "🟡 Needs Care",
+    in_use: "🔵 In Use",
+    repair: "🔴 Out of Service",
+    borrowed: "🟣 Loaned Out"
+  };
+
+  body.innerHTML = `
+    <div style="background:var(--surface-hover);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0 0 2px 0;font-size:16px">${escapeHTML(item.name)}</h3>
+          <div style="font-size:12px;color:var(--muted)">
+            ${item.brand ? `<strong>${escapeHTML(item.brand)}</strong> ` : ""}${item.model ? `Model: ${escapeHTML(item.model)} ` : ""}
+            ${item.serialNumber ? `· Tag: ${escapeHTML(item.serialNumber)} ` : ""}
+          </div>
+        </div>
+        <span class="inventory-condition-pill condition-${item.condition || "operational"}">
+          ${condLabels[item.condition || "operational"] || item.condition}
+        </span>
+      </div>
+
+      <div class="inventory-chips-row" style="margin-top:8px">
+        ${item.location ? `<span class="inventory-chip">📍 Location: ${escapeHTML(item.location)}</span>` : ""}
+        ${item.specs ? `<span class="inventory-chip">⚡ Specs: ${escapeHTML(item.specs)}</span>` : ""}
+        ${cost > 0 ? `<span class="inventory-chip highlight">Valuation: $${cost.toFixed(2)}</span>` : ""}
+        ${item.purchaseDate ? `<span class="inventory-chip">📅 In Service: ${escapeHTML(item.purchaseDate)}</span>` : ""}
+      </div>
+
+      ${item.notes ? `
+        <div style="font-size:11px;color:var(--muted);background:var(--surface);padding:6px 10px;border-radius:6px;border-left:3px solid var(--accent);margin-top:8px">
+          🦺 <strong>Safety SOP &amp; Notes:</strong> ${escapeHTML(item.notes)}
+        </div>
+      ` : ""}
+    </div>
+
+    <div class="equipment-logbook-stats">
+      <div class="equipment-logbook-stat">
+        <strong>${serviceCount}</strong>
+        <span>Services Logged</span>
+      </div>
+      <div class="equipment-logbook-stat">
+        <strong>${projectsUsed.size}</strong>
+        <span>Projects Involved</span>
+      </div>
+      <div class="equipment-logbook-stat">
+        <strong>${cost > 0 ? `$${cost.toFixed(0)}` : "—"}</strong>
+        <span>Asset Value</span>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h4 style="margin:0;font-size:13px;font-weight:700">Service &amp; Usage Logbook (${item.logbook.length})</h4>
+      <button type="button" class="button button-outline button-small" data-action="quick-log-service" data-id="${item.id}">＋ Log Care Today</button>
+    </div>
+
+    <div class="equipment-logbook-timeline">
+      ${item.logbook.length === 0 ? `
+        <div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--border);border-radius:6px">
+          No logbook entries recorded yet. Add service notes, maintenance completions, or check out this tool to a project.
+        </div>
+      ` : [...item.logbook].reverse().map(entry => {
+        const icon = entry.type === "checkout" ? "📌" : entry.type === "checkin" ? "↩" : entry.type === "repair" ? "⚠️" : "🔧";
+        return `
+          <div class="equipment-logbook-entry">
+            <div class="logbook-icon">${icon}</div>
+            <div class="logbook-entry-main">
+              <div class="logbook-entry-title">${escapeHTML(entry.title || "Log Entry")}</div>
+              <div class="logbook-entry-meta">${formatFullDateTime(entry.date || new Date().toISOString())}</div>
+              ${entry.notes ? `<div class="logbook-entry-notes">${escapeHTML(entry.notes)}</div>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+
+    <form class="equipment-logbook-add-form" data-id="${item.id}">
+      <select name="entryType" style="font-size:11px;min-height:32px">
+        <option value="service">🔧 Service / Care</option>
+        <option value="note">📝 Note / Spec</option>
+        <option value="repair">⚠️ Repair / Part</option>
+      </select>
+      <input type="text" name="entryTitle" placeholder="e.g. Swapped 50T blade, calibrated fence..." required maxlength="120" style="font-size:11px;min-height:32px;padding:4px 8px">
+      <button type="submit" class="button button-primary button-small" style="min-height:32px">Add Entry</button>
+    </form>
+  `;
+
+  // Bind add form
+  const form = $(".equipment-logbook-add-form", body);
+  form?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const type = form.elements.entryType.value;
+    const titleText = form.elements.entryTitle.value.trim();
+    if (!titleText) return;
+
+    item.logbook.push({
+      id: uid(),
+      date: new Date().toISOString(),
+      type,
+      title: titleText,
+      notes: ""
+    });
+    item.updatedAt = new Date().toISOString();
+
+    makeActivity("note", `Added logbook entry for ${item.name}: ${titleText}`);
+    try {
+      await persistState();
+      openEquipmentLogbook(equipmentId);
+      showToast(`Added logbook entry for “${item.name}”!`);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  dialog.showModal();
+}
+
+async function quickLogServiceForTool(id) {
+  const item = (state.inventory || []).find(i => i.id === id);
+  if (!item) return;
+
+  const note = window.prompt(`Enter service completed for “${item.name}”:`, "Routine cleaning, inspection & safety check");
+  if (!note || !note.trim()) return;
+
+  item.logbook = Array.isArray(item.logbook) ? item.logbook : [];
+  item.logbook.push({
+    id: uid(),
+    date: new Date().toISOString(),
+    type: "service",
+    title: note.trim(),
+    notes: ""
+  });
+  if (item.condition === "maintenance_needed") item.condition = "operational";
+  item.updatedAt = new Date().toISOString();
+
+  makeActivity("project", `Serviced ${item.name}: ${note.trim()}`);
+  try {
+    await persistState();
+    openEquipmentLogbook(id);
+    renderInventory();
+    showToast(`✓ Logged service for “${item.name}”!`);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+/* ============================================================
+   FEATURE: Printable Equipment Asset Tags & Barcodes
+   ============================================================ */
+
+function renderEquipmentAssetTagHtml(item) {
+  const url = `${window.location.origin}${window.location.pathname}#tool=${item.id}`;
+  const qrSvg = window.QR && typeof window.QR.toSVG === "function"
+    ? window.QR.toSVG(url, { cellSize: 3, margin: 1 })
+    : "";
+
+  const cost = Number(item.cost || item.price) || 0;
+
+  return `
+    <div class="equipment-asset-tag">
+      <div class="asset-tag-qr-col">
+        ${qrSvg}
+        <span class="asset-tag-scan-tip">Scan Logbook</span>
+      </div>
+      <div class="asset-tag-info-col">
+        <span class="asset-tag-eyebrow">WORKBENCH · TOOL ASSET TAG</span>
+        <h4 class="asset-tag-title">${escapeHTML(item.name)}</h4>
+        <div class="asset-tag-brand">${escapeHTML(item.brand || "")}${item.model ? ` · Model: ${escapeHTML(item.model)}` : ""}</div>
+        <div class="asset-tag-chips">
+          ${item.serialNumber ? `<span class="asset-tag-chip">TAG #${escapeHTML(item.serialNumber)}</span>` : `<span class="asset-tag-chip">ID #${item.id.slice(0, 8)}</span>`}
+          ${item.location ? `<span class="asset-tag-chip">📍 ${escapeHTML(item.location)}</span>` : ""}
+          ${item.specs ? `<span class="asset-tag-chip">⚡ ${escapeHTML(item.specs)}</span>` : ""}
+          ${cost > 0 ? `<span class="asset-tag-chip">$${cost.toFixed(0)}</span>` : ""}
+        </div>
+        <div class="asset-tag-safety-strip">
+          <span>🥽 EYE</span>
+          <span>🎧 EAR</span>
+          <span>🦺 GUARD</span>
+          <span style="color:#0284c7;margin-left:auto;font-size:8px">WB-ASSET</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openSingleToolTag(equipmentId) {
+  const item = (state.inventory || []).find(i => i.id === equipmentId);
+  if (!item) return;
+
+  const dialog = $("#equipment-print-dialog");
+  const sheet = $("#equipment-print-sheet");
+  if (!dialog || !sheet) return;
+
+  sheet.innerHTML = renderEquipmentAssetTagHtml(item);
+  dialog.showModal();
+}
+
+function printAllEquipmentTags() {
+  const tools = (state.inventory || []).filter(i => i.type === "equipment");
+  if (tools.length === 0) {
+    showToast("No equipment items in depot to print tags for.", "warning");
+    return;
+  }
+
+  const dialog = $("#equipment-print-dialog");
+  const sheet = $("#equipment-print-sheet");
+  if (!dialog || !sheet) return;
+
+  sheet.innerHTML = tools.map(renderEquipmentAssetTagHtml).join("");
+  dialog.showModal();
+}
+
+/* ============================================================
+   FEATURE: Depot Restock to Shopping List
+   ============================================================ */
+
+function restockLowStockMaterials(specificItemId = null) {
+  const materials = (state.inventory || []).filter(i => (i.type || "material") === "material");
+
+  let targetItems = [];
+  if (specificItemId) {
+    const item = materials.find(m => m.id === specificItemId);
+    if (item) targetItems = [item];
+  } else {
+    targetItems = materials.filter(m => (Number(m.quantity) || 0) <= (Number(m.lowStockThreshold) || 1));
+  }
+
+  if (targetItems.length === 0) {
+    showToast("All materials in your workshop depot are well-stocked! ✓");
+    return;
+  }
+
+  state.depotRestockList = state.depotRestockList || [];
+
+  let newCount = 0;
+  for (const m of targetItems) {
+    const existing = state.depotRestockList.find(r => r.id === m.id);
+    if (!existing) {
+      const suggestQty = Math.max(1, ((Number(m.lowStockThreshold) || 1) * 2) - (Number(m.quantity) || 0));
+      state.depotRestockList.push({
+        id: m.id,
+        name: m.name,
+        category: m.category,
+        currentQty: m.quantity || 0,
+        restockQty: suggestQty,
+        unit: m.unit || "units",
+        price: m.price || 0,
+        supplier: m.supplier || "",
+        location: m.location || "",
+        addedAt: new Date().toISOString()
+      });
+      newCount++;
+    }
+  }
+
+  void persistState();
+  switchView("shopping");
+  showToast(`🛒 Sent ${targetItems.length} supply items to your shopping checklist!`);
+}
+
+async function completeDepotRestock(inventoryId, qtyToAdd = 1) {
+  const item = (state.inventory || []).find(i => i.id === inventoryId);
+  if (!item) return;
+
+  const added = Number(qtyToAdd) || 1;
+  item.quantity = (Number(item.quantity) || 0) + added;
+  item.updatedAt = new Date().toISOString();
+
+  // Remove from restock list
+  state.depotRestockList = (state.depotRestockList || []).filter(r => r.id !== inventoryId);
+
+  makeActivity("note", `Restocked ${item.name} (+${added} ${item.unit || "units"}) in workshop depot`);
+
+  try {
+    await persistState();
+    renderShoppingList();
+    renderInventory();
+    showToast(`✓ Restocked "${item.name}"! New stock: ${item.quantity} ${item.unit || "units"}.`);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function dismissDepotRestock(id) {
+  state.depotRestockList = (state.depotRestockList || []).filter(r => r.id !== id);
+  try {
+    await persistState();
+    renderShoppingList();
+    showToast("Removed from depot restock list.");
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 /* ============================================================
@@ -6280,6 +6854,17 @@ async function pickInventoryForProject(projectId, inventoryId) {
     item.condition = "in_use";
     item.assignedProjectId = project.id;
     item.assignedProjectTitle = project.title;
+
+    item.logbook = Array.isArray(item.logbook) ? item.logbook : [];
+    item.logbook.push({
+      id: uid(),
+      date: new Date().toISOString(),
+      type: "checkout",
+      projectId: project.id,
+      title: `Checked out to ${project.title}`,
+      notes: `Assigned tool to active project workspace.`
+    });
+
     item.updatedAt = new Date().toISOString();
 
     makeActivity("project", `Checked out ${item.name} for ${project.title}`);
@@ -8054,6 +8639,60 @@ async function handleAction(action, target) {
     target.classList.toggle("button-primary", state.inventoryAlertsOnly);
     target.classList.toggle("button-outline", !state.inventoryAlertsOnly);
     renderInventory();
+    return;
+  }
+  if (action === "open-starter-kits") {
+    openStarterKitsDialog();
+    return;
+  }
+  if (action === "import-starter-kit") {
+    const kitKey = target.dataset.kit || target.dataset.kitId;
+    if (kitKey) void importStarterKit(kitKey);
+    return;
+  }
+  if (action === "restock-low-stock") {
+    restockLowStockMaterials();
+    return;
+  }
+  if (action === "restock-material") {
+    restockLowStockMaterials(id || target.dataset.id);
+    return;
+  }
+  if (action === "complete-depot-restock") {
+    const qty = parseFloat(target.dataset.qty) || 1;
+    void completeDepotRestock(id || target.dataset.id, qty);
+    return;
+  }
+  if (action === "dismiss-depot-restock") {
+    void dismissDepotRestock(id || target.dataset.id);
+    return;
+  }
+  if (action === "open-equipment-logbook") {
+    openEquipmentLogbook(id || target.dataset.id);
+    return;
+  }
+  if (action === "quick-log-service") {
+    void quickLogServiceForTool(id || target.dataset.id);
+    return;
+  }
+  if (action === "print-equipment-tags") {
+    printAllEquipmentTags();
+    return;
+  }
+  if (action === "open-tool-tag") {
+    openSingleToolTag(id || target.dataset.id);
+    return;
+  }
+  if (action === "print-single-tool-tag") {
+    const equipId = target.dataset.id || id;
+    if (equipId) {
+      openSingleToolTag(equipId);
+      setTimeout(() => window.print(), 250);
+    }
+    return;
+  }
+  if (action === "trigger-print-tags") {
+    window.print();
     return;
   }
   if (action === "add-inventory-to-project") {
@@ -10306,10 +10945,32 @@ async function logServiceToday(id) {
   if (!item) return;
 
   item.lastServiced = new Date().toISOString().slice(0, 10);
+
+  // Cross-link with equipment inventory logbook if matching tool exists in depot
+  const eq = (state.inventory || []).find(i => i.type === "equipment" && (
+    (item.inventoryId && i.id === item.inventoryId) ||
+    i.name.trim().toLowerCase() === item.toolName.trim().toLowerCase()
+  ));
+  if (eq) {
+    eq.logbook = Array.isArray(eq.logbook) ? eq.logbook : [];
+    eq.logbook.push({
+      id: uid(),
+      date: new Date().toISOString(),
+      type: "service",
+      title: `Scheduled Care: ${item.task || "Routine maintenance"}`,
+      notes: `Logged via Workshop Maintenance Schedule (${item.intervalDays || 30} day interval).`
+    });
+    if (eq.condition === "maintenance_needed") {
+      eq.condition = "operational";
+    }
+    eq.updatedAt = new Date().toISOString();
+  }
+
   try {
     await persistState();
     makeActivity("project", `Serviced ${item.toolName}: ${item.task}`);
     renderToolMaintenance();
+    renderInventory();
     showToast(`✓ Logged maintenance for “${item.toolName}” today!`);
   } catch (err) {
     console.error(err);
