@@ -764,6 +764,99 @@ function toggleSpeechDictation(button, targetInput) {
   }
 }
 
+/* ============================================================
+   🎙️ Hands-Free Workshop Voice Memos (Local Audio Recording)
+   ============================================================ */
+let journalMediaRecorder = null;
+let journalAudioChunks = [];
+let journalRecordStartTime = 0;
+let journalRecordTimerInterval = null;
+
+async function startJournalVoiceMemo(projectId) {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast("Audio recording is not supported in this browser.");
+      return;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    journalAudioChunks = [];
+    journalMediaRecorder = new MediaRecorder(stream);
+
+    journalMediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) journalAudioChunks.push(e.data);
+    };
+
+    journalMediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const audioBlob = new Blob(journalAudioChunks, { type: "audio/webm" });
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Data = reader.result;
+        const durationSec = Math.max(1, Math.round((Date.now() - journalRecordStartTime) / 1000));
+        await saveVoiceMemoNote(projectId, base64Data, durationSec);
+      };
+      reader.readAsDataURL(audioBlob);
+    };
+
+    journalRecordStartTime = Date.now();
+    journalMediaRecorder.start();
+
+    const ind = $("#journal-voice-recording-indicator");
+    if (ind) ind.style.display = "flex";
+    const timerLbl = $("#journal-voice-timer");
+    if (timerLbl) timerLbl.textContent = "00:00";
+
+    if (journalRecordTimerInterval) clearInterval(journalRecordTimerInterval);
+    journalRecordTimerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - journalRecordStartTime) / 1000);
+      const m = Math.floor(elapsed / 60).toString().padStart(2, "0");
+      const s = (elapsed % 60).toString().padStart(2, "0");
+      if (timerLbl) timerLbl.textContent = `${m}:${s}`;
+    }, 1000);
+
+    showToast("🔴 Recording audio memo... Speak your note.");
+  } catch (err) {
+    console.error(err);
+    showToast("Microphone access denied or unavailable.");
+  }
+}
+
+function stopJournalVoiceMemo() {
+  if (journalMediaRecorder && journalMediaRecorder.state !== "inactive") {
+    journalMediaRecorder.stop();
+  }
+  if (journalRecordTimerInterval) {
+    clearInterval(journalRecordTimerInterval);
+    journalRecordTimerInterval = null;
+  }
+  const ind = $("#journal-voice-recording-indicator");
+  if (ind) ind.style.display = "none";
+}
+
+async function saveVoiceMemoNote(projectId, audioDataUrl, durationSec) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  if (!Array.isArray(project.notes)) project.notes = [];
+
+  const m = Math.floor(durationSec / 60);
+  const s = (durationSec % 60).toString().padStart(2, "0");
+  const timeStr = `${m}:${s}`;
+
+  const note = {
+    id: "note-" + uid(),
+    text: `🎙️ Voice Memo (${timeStr})`,
+    audioUrl: audioDataUrl,
+    audioDuration: durationSec,
+    at: new Date().toISOString()
+  };
+
+  project.notes.unshift(note);
+  project.updatedAt = new Date().toISOString();
+  await persistState();
+  renderProjectDetail(project.id);
+  showToast(`Attached ${timeStr} audio voice memo to journal!`);
+}
+
 try {
   applyTheme(getSavedTheme());
 } catch {}
@@ -3692,8 +3785,8 @@ function renderProjectDetail(projectId) {
       </div>
     ` : `<div class="folder-empty"><span style="font-size:16px;margin-right:6px">⚙️</span>No tools currently checked out for this build. <button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}" style="margin-left:6px">＋ Check out from depot</button></div>`}
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
-    <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="form-hint">A dated note, just for this project.</span><div style="display:flex;gap:6px"><button type="button" class="small-action mic-btn" data-action="dictate-note" data-project="${project.id}" title="Voice dictate note">🎙 Dictate</button><button class="button button-outline" type="submit">＋ Add note</button></div></div></form>
-    ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p><div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
+    <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="form-hint">A dated note, just for this project.</span><div style="display:flex;gap:6px"><button type="button" class="small-action mic-btn" data-action="dictate-note" data-project="${project.id}" title="Voice dictate note">🎙 Dictate</button><button type="button" class="small-action voice-record-btn" data-action="start-voice-memo" data-project="${project.id}" title="Record audio voice memo directly">🔴 Voice Memo</button><button class="button button-outline" type="submit">＋ Add note</button></div></div><div id="journal-voice-recording-indicator" style="display:none;margin-top:8px;padding:6px 12px;background:rgba(239,68,68,0.12);border:1px solid #ef4444;border-radius:6px;align-items:center;justify-content:space-between"><span class="voice-memo-recording-active" style="font-size:12px;color:#ef4444;font-weight:700">🔴 Recording audio memo... <span id="journal-voice-timer">00:00</span></span><button type="button" class="button button-small button-primary" data-action="stop-voice-memo">■ Stop &amp; Save</button></div></form>
+    ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p>${note.audioUrl ? `<audio controls src="${note.audioUrl}" class="journal-audio-player"></audio>` : ""}<div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
     <div class="detail-section-heading"><h3>Project photos</h3><div><button class="small-action" data-action="new-folder" data-id="${project.id}">＋ Folder</button> <button class="small-action" data-action="open-compare-photos" data-project="${project.id}">↔️ Compare</button> <button class="small-action" data-action="snap-photo" data-id="${project.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}">＋ Add photos</button></div></div>
     ${folders.map(folder => `<div class="folder-block"><div class="folder-heading"><div class="folder-title-wrap"><span class="folder-name-text">${escapeHTML(folder.name)}</span><button type="button" class="icon-link-btn" data-action="rename-folder" data-project="${project.id}" data-folder="${folder.id}" title="Rename folder" aria-label="Rename folder">✎</button>${folders.length > 1 ? `<button type="button" class="icon-link-btn danger-hover" data-action="delete-folder" data-project="${project.id}" data-folder="${folder.id}" title="Delete folder" aria-label="Delete folder">×</button>` : ""}</div><span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="snap-photo" data-id="${project.id}" data-folder="${folder.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button type="button" class="photo-annotate-badge" data-action="annotate-photo" data-image-id="${image.id}" title="Annotate photo" style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer">✏️</button><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
     <div class="detail-footer"><button class="danger-button" data-action="delete-project" data-id="${project.id}">Delete project</button><span class="project-card-meta">${projectImageCount(project)} photos · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}</span></div>
@@ -9776,6 +9869,26 @@ async function handleAction(action, target) {
     openWorkshopBlueprint(id || target.dataset.project || activeProjectId);
     return;
   }
+  if (action === "add-fastener-to-project") {
+    const size = target.dataset.size || "M4";
+    await addMaterialToProjectShopping(`${size} Fasteners & Machine Screws`, "1 box (50 pcs)", 0, "Fasteners & Hardware");
+    return;
+  }
+  if (action === "copy-fastener-specs") {
+    const specs = $("#fastener-result")?.innerText || "";
+    if (specs) {
+      void navigator.clipboard.writeText(specs).then(() => showToast("Copied Fastener Drilling Specs to clipboard!"));
+    }
+    return;
+  }
+  if (action === "add-nest-sheets-to-project") {
+    const count = parseInt(target.dataset.sheets, 10) || 1;
+    const w = $("#wood-nest-sheet-w")?.value || "48";
+    const h = $("#wood-nest-sheet-h")?.value || "96";
+    const u = $("#wood-nest-unit")?.value || "in";
+    await addMaterialToProjectShopping(`Sheet Stock (${w}" × ${h}" ${u})`, `${count} sheet(s)`, 0, "Lumber & Sheet Goods");
+    return;
+  }
   if (action === "print-workshop-blueprint") {
     printWorkshopBlueprint();
     return;
@@ -9827,6 +9940,42 @@ async function handleAction(action, target) {
   }
   if (action === "dictate-note") {
     toggleSpeechDictation(target, $("#journal-entry"));
+    return;
+  }
+  if (action === "start-voice-memo") {
+    const pid = target.dataset.project || activeProjectId;
+    if (pid) void startJournalVoiceMemo(pid);
+    return;
+  }
+  if (action === "stop-voice-memo") {
+    stopJournalVoiceMemo();
+    return;
+  }
+  if (action === "wood-run-2d-nesting") {
+    if (typeof run2DSheetNestingOptimizer === "function") run2DSheetNestingOptimizer();
+    return;
+  }
+  if (action === "wood-2d-sample-cabinets") {
+    const el = $("#wood-nest-parts");
+    if (el) {
+      el.value = "Cabinet Top: 24 x 36 x 1\nCabinet Bottom: 24 x 36 x 1\nCabinet Side: 24 x 30 x 2\nAdjustable Shelf: 22 x 34.5 x 2\nBack Panel: 30 x 36 x 1";
+      if (typeof run2DSheetNestingOptimizer === "function") run2DSheetNestingOptimizer();
+    }
+    return;
+  }
+  if (action === "wood-2d-sample-bookshelf") {
+    const el = $("#wood-nest-parts");
+    if (el) {
+      el.value = "Top/Bottom: 12 x 36 x 2\nSide Panel: 12 x 72 x 2\nMiddle Fixed Shelf: 12 x 34.5 x 1\nAdjustable Shelf: 11.5 x 34.5 x 4\nBacking: 36 x 72 x 1";
+      if (typeof run2DSheetNestingOptimizer === "function") run2DSheetNestingOptimizer();
+    }
+    return;
+  }
+  if (action === "copy-2d-nest-plan") {
+    const text = $("#wood-nest-result")?.innerText || "";
+    if (text) {
+      void navigator.clipboard.writeText(text).then(() => showToast("Copied 2D Sheet Nesting Plan to clipboard!"));
+    }
     return;
   }
   if (action === "dictate-practice") {
@@ -20186,12 +20335,439 @@ async function copyEmcSpecs() {
   }
 }
 
+// --- 🔩 Fastener, Bolt & Tap Drill Precision Finder ---
+const FASTENER_DATABASE = {
+  metric: [
+    { size: "M1.6", pitch: 0.35, majorMm: 1.6, tapSoftMm: 1.25, tapHardMm: 1.30, closeMm: 1.7, freeMm: 1.8, hexKey: "1.5mm", tpi: 72.6 },
+    { size: "M2", pitch: 0.40, majorMm: 2.0, tapSoftMm: 1.60, tapHardMm: 1.65, closeMm: 2.1, freeMm: 2.2, hexKey: "1.5mm", tpi: 63.5 },
+    { size: "M2.5", pitch: 0.45, majorMm: 2.5, tapSoftMm: 2.05, tapHardMm: 2.10, closeMm: 2.6, freeMm: 2.8, hexKey: "2.0mm", tpi: 56.4 },
+    { size: "M3", pitch: 0.50, majorMm: 3.0, tapSoftMm: 2.50, tapHardMm: 2.60, closeMm: 3.2, freeMm: 3.4, hexKey: "2.5mm", tpi: 50.8 },
+    { size: "M4", pitch: 0.70, majorMm: 4.0, tapSoftMm: 3.30, tapHardMm: 3.40, closeMm: 4.2, freeMm: 4.5, hexKey: "3.0mm", tpi: 36.3 },
+    { size: "M5", pitch: 0.80, majorMm: 5.0, tapSoftMm: 4.20, tapHardMm: 4.30, closeMm: 5.3, freeMm: 5.5, hexKey: "4.0mm", tpi: 31.8 },
+    { size: "M6", pitch: 1.00, majorMm: 6.0, tapSoftMm: 5.00, tapHardMm: 5.20, closeMm: 6.3, freeMm: 6.6, hexKey: "5.0mm", tpi: 25.4 },
+    { size: "M8", pitch: 1.25, majorMm: 8.0, tapSoftMm: 6.80, tapHardMm: 7.00, closeMm: 8.4, freeMm: 9.0, hexKey: "6.0mm", tpi: 20.3 },
+    { size: "M10", pitch: 1.50, majorMm: 10.0, tapSoftMm: 8.50, tapHardMm: 8.80, closeMm: 10.5, freeMm: 11.0, hexKey: "8.0mm", tpi: 16.9 },
+    { size: "M12", pitch: 1.75, majorMm: 12.0, tapSoftMm: 10.20, tapHardMm: 10.50, closeMm: 12.5, freeMm: 13.5, hexKey: "10.0mm", tpi: 14.5 }
+  ],
+  imperial_unc: [
+    { size: "#2-56 UNC", pitch: 0.454, majorIn: 0.086, majorMm: 2.18, tapSoft: "#50 (0.070\")", tapHard: "#49 (0.073\")", closeIn: "#43 (0.089\")", freeIn: "#41 (0.096\")", hexKey: "5/64\"", tpi: 56 },
+    { size: "#4-40 UNC", pitch: 0.635, majorIn: 0.112, majorMm: 2.84, tapSoft: "#43 (0.089\")", tapHard: "#42 (0.093\")", closeIn: "#32 (0.116\")", freeIn: "#30 (0.128\")", hexKey: "3/32\"", tpi: 40 },
+    { size: "#6-32 UNC", pitch: 0.794, majorIn: 0.138, majorMm: 3.51, tapSoft: "#36 (0.106\")", tapHard: "#35 (0.110\")", closeIn: "#27 (0.144\")", freeIn: "#25 (0.149\")", hexKey: "7/64\"", tpi: 32 },
+    { size: "#8-32 UNC", pitch: 0.794, majorIn: 0.164, majorMm: 4.17, tapSoft: "#29 (0.136\")", tapHard: "#28 (0.140\")", closeIn: "#18 (0.169\")", freeIn: "#16 (0.177\")", hexKey: "9/64\"", tpi: 32 },
+    { size: "#10-24 UNC", pitch: 1.058, majorIn: 0.190, majorMm: 4.83, tapSoft: "#25 (0.149\")", tapHard: "#21 (0.159\")", closeIn: "#8 (0.199\")", freeIn: "#6 (0.204\")", hexKey: "5/32\"", tpi: 24 },
+    { size: "1/4\"-20 UNC", pitch: 1.270, majorIn: 0.250, majorMm: 6.35, tapSoft: "#7 (0.201\")", tapHard: "13/64\" (0.203\")", closeIn: "F (0.257\")", freeIn: "9/32\" (0.281\")", hexKey: "3/16\"", tpi: 20 },
+    { size: "5/16\"-18 UNC", pitch: 1.411, majorIn: 0.312, majorMm: 7.94, tapSoft: "F (0.257\")", tapHard: "G (0.261\")", closeIn: "21/64\" (0.328\")", freeIn: "11/32\" (0.344\")", hexKey: "1/4\"", tpi: 18 },
+    { size: "3/8\"-16 UNC", pitch: 1.588, majorIn: 0.375, majorMm: 9.53, tapSoft: "5/16\" (0.312\")", tapHard: "Q (0.332\")", closeIn: "25/64\" (0.391\")", freeIn: "13/32\" (0.406\")", hexKey: "5/16\"", tpi: 16 },
+    { size: "1/2\"-13 UNC", pitch: 1.954, majorIn: 0.500, majorMm: 12.70, tapSoft: "27/64\" (0.422\")", tapHard: "7/16\" (0.437\")", closeIn: "17/32\" (0.531\")", freeIn: "9/16\" (0.562\")", hexKey: "3/8\"", tpi: 13 }
+  ],
+  imperial_unf: [
+    { size: "#10-32 UNF", pitch: 0.794, majorIn: 0.190, majorMm: 4.83, tapSoft: "#21 (0.159\")", tapHard: "#19 (0.166\")", closeIn: "#8 (0.199\")", freeIn: "#6 (0.204\")", hexKey: "5/32\"", tpi: 32 },
+    { size: "1/4\"-28 UNF", pitch: 0.907, majorIn: 0.250, majorMm: 6.35, tapSoft: "#3 (0.213\")", tapHard: "7/32\" (0.218\")", closeIn: "F (0.257\")", freeIn: "9/32\" (0.281\")", hexKey: "3/16\"", tpi: 28 },
+    { size: "5/16\"-24 UNF", pitch: 1.058, majorIn: 0.312, majorMm: 7.94, tapSoft: "I (0.272\")", tapHard: "17/64\" (0.266\")", closeIn: "21/64\" (0.328\")", freeIn: "11/32\" (0.344\")", hexKey: "1/4\"", tpi: 24 },
+    { size: "3/8\"-24 UNF", pitch: 1.058, majorIn: 0.375, majorMm: 9.53, tapSoft: "Q (0.332\")", tapHard: "21/64\" (0.328\")", closeIn: "25/64\" (0.391\")", freeIn: "13/32\" (0.406\")", hexKey: "5/16\"", tpi: 24 }
+  ]
+};
+
+function populateFastenerSizes() {
+  const sys = $("#fastener-system")?.value || "metric";
+  const sizeSelect = $("#fastener-size");
+  if (!sizeSelect) return;
+
+  const list = FASTENER_DATABASE[sys] || FASTENER_DATABASE.metric;
+  const curVal = sizeSelect.value;
+  sizeSelect.innerHTML = list.map(item => `
+    <option value="${item.size}" ${item.size === curVal ? "selected" : ""}>
+      ${item.size} (${sys === "metric" ? `${item.majorMm} mm` : `${item.majorIn}" / ${item.majorMm} mm`})
+    </option>
+  `).join("");
+}
+
+function updateFastenerFinder() {
+  populateFastenerSizes();
+  const sys = $("#fastener-system")?.value || "metric";
+  const sizeKey = $("#fastener-size")?.value;
+  const headType = $("#fastener-head-type")?.value || "socket_cap";
+  const material = $("#fastener-material")?.value || "soft";
+  const res = $("#fastener-result");
+  if (!res) return;
+
+  const list = FASTENER_DATABASE[sys] || FASTENER_DATABASE.metric;
+  const f = list.find(item => item.size === sizeKey) || list[3] || list[0];
+
+  let tapDrill = "";
+  if (sys === "metric") {
+    tapDrill = (material === "hard") ? `${f.tapHardMm} mm (65% thread depth)` : `${f.tapSoftMm} mm (75% thread depth)`;
+  } else {
+    tapDrill = (material === "hard") ? `${f.tapHard} (65% depth)` : `${f.tapSoft} (75% depth)`;
+  }
+  const closeFit = sys === "metric" ? `${f.closeMm} mm` : f.closeIn;
+  const freeFit = sys === "metric" ? `${f.freeMm} mm` : f.freeIn;
+  const countersinkAngle = sys === "metric" ? "90° (DIN / ISO)" : "82° (ANSI / ASME)";
+
+  const diaMm = f.majorMm;
+  const scale = 8;
+  const shankW = diaMm * scale;
+  const headW = diaMm * scale * (headType === "hex_bolt" ? 1.7 : 1.5);
+  const headH = diaMm * scale * 0.8;
+  const shankL = 70;
+
+  let headPath = "";
+  if (headType === "countersunk") {
+    headPath = `<polygon points="${150 - headW/2},15 ${150 + headW/2},15 ${150 + shankW/2},${15 + headH} ${150 - shankW/2},${15 + headH}" fill="#38bdf8" opacity="0.85"/>`;
+  } else if (headType === "hex_bolt") {
+    headPath = `<rect x="${150 - headW/2}" y="${25 - headH}" width="${headW}" height="${headH}" rx="1" fill="#f59e0b" opacity="0.85"/>`;
+  } else {
+    headPath = `<rect x="${150 - headW/2}" y="${25 - headH}" width="${headW}" height="${headH}" rx="3" fill="#38bdf8" opacity="0.85"/>`;
+  }
+
+  const svgSilhouette = `
+    <div class="fastener-silhouette-wrap">
+      <svg viewBox="0 0 300 130" width="100%" height="110">
+        <line x1="20" y1="25" x2="280" y2="25" stroke="#334155" stroke-dasharray="2,2"/>
+        ${headPath}
+        <rect x="${150 - shankW/2}" y="25" width="${shankW}" height="${shankL}" fill="#64748b" opacity="0.75" rx="1"/>
+        ${Array.from({ length: 8 }).map((_, i) => `
+          <line x1="${150 - shankW/2}" y1="${32 + i * 6}" x2="${150 + shankW/2}" y2="${35 + i * 6}" stroke="#94a3b8" stroke-width="1.5"/>
+        `).join("")}
+        <line x1="${150 + headW/2 + 10}" y1="25" x2="${150 + headW/2 + 10}" y2="${25 + shankL}" stroke="#38bdf8" stroke-width="1"/>
+        <text x="${150 + headW/2 + 16}" y="${25 + shankL/2 + 4}" font-size="10" font-weight="700" fill="#38bdf8">Ø ${diaMm.toFixed(2)}mm (${(diaMm / 25.4).toFixed(3)}")</text>
+        <text x="150" y="118" text-anchor="middle" font-size="10" font-weight="700" fill="#94a3b8">
+          ${f.size} · Pitch ${f.pitch} mm (${f.tpi.toFixed(1)} TPI)
+        </text>
+      </svg>
+    </div>
+  `;
+
+  res.innerHTML = `
+    ${svgSilhouette}
+
+    <div class="fastener-spec-grid">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Recommended Tap Drill</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green);margin:2px 0">
+          ${tapDrill}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">For threading ${material === "hard" ? "hard steels" : "soft aluminum/brass/plastics"}</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Clearance Hole (Through)</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);margin:2px 0">
+          ${closeFit} <span style="font-size:12px;color:var(--muted)">(Close)</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Free fit clearance: ${freeFit}</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Drive Tool / Hex Key</div>
+        <div style="font-size:18px;font-weight:800;color:#0284c7;margin:2px 0">
+          ${f.hexKey} Allen Key
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Countersink angle: ${countersinkAngle}</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Thread Pitch &amp; TPI</div>
+        <div style="font-size:18px;font-weight:800;color:#f59e0b;margin:2px 0">
+          ${f.pitch} mm / thread
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${f.tpi.toFixed(1)} Threads Per Inch</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="button button-outline" data-action="add-fastener-to-project" data-size="${f.size}" style="font-size:12px">
+        + Add ${f.size} Fasteners to Project Shopping
+      </button>
+      <button type="button" class="button button-outline" data-action="copy-fastener-specs" style="font-size:12px">
+        📋 Copy Drilling Specs
+      </button>
+    </div>
+  `;
+}
+
+// --- 🪚 2D Guillotine Sheet Goods & Plywood Nesting Optimizer ---
+const NEST_PALETTE = ["#38bdf8", "#34d399", "#f59e0b", "#ec4899", "#a855f7", "#06b6d4", "#f97316", "#10b981", "#818cf8"];
+
+function pack2DSheetNesting(sheetW, sheetH, parts, kerf, allowRotation) {
+  const items = [];
+  let colorIdx = 0;
+  parts.forEach(p => {
+    const col = NEST_PALETTE[colorIdx % NEST_PALETTE.length];
+    colorIdx++;
+    for (let i = 0; i < p.qty; i++) {
+      items.push({
+        id: p.id,
+        label: p.label || `Part ${p.id}`,
+        w: p.w,
+        h: p.h,
+        area: p.w * p.h,
+        color: col
+      });
+    }
+  });
+
+  items.sort((a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h));
+  const sheets = [];
+
+  for (const item of items) {
+    let placed = false;
+    for (const sheet of sheets) {
+      const fit = findBestNestingPlacement(sheet.freeRects, item.w, item.h, kerf, allowRotation);
+      if (fit) {
+        placeNestingRectangle(sheet, fit, item, kerf);
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      const newSheet = {
+        sheetIndex: sheets.length + 1,
+        w: sheetW,
+        h: sheetH,
+        placedItems: [],
+        freeRects: [{ x: 0, y: 0, w: sheetW, h: sheetH }]
+      };
+      const fit = findBestNestingPlacement(newSheet.freeRects, item.w, item.h, kerf, allowRotation);
+      if (fit) {
+        placeNestingRectangle(newSheet, fit, item, kerf);
+        sheets.push(newSheet);
+        placed = true;
+      } else {
+        item.oversized = true;
+      }
+    }
+  }
+
+  return { sheets, unplaced: items.filter(it => it.oversized) };
+}
+
+function findBestNestingPlacement(freeRects, itemW, itemH, kerf, allowRotation) {
+  let bestFit = null;
+  let bestShortSideFit = Infinity;
+
+  freeRects.forEach((rect, idx) => {
+    if (itemW <= rect.w && itemH <= rect.h) {
+      const leftoverShort = Math.min(rect.w - itemW, rect.h - itemH);
+      if (leftoverShort < bestShortSideFit) {
+        bestShortSideFit = leftoverShort;
+        bestFit = { rectIdx: idx, rotated: false, w: itemW, h: itemH };
+      }
+    }
+
+    if (allowRotation && itemH <= rect.w && itemW <= rect.h) {
+      const leftoverShort = Math.min(rect.w - itemH, rect.h - itemW);
+      if (leftoverShort < bestShortSideFit) {
+        bestShortSideFit = leftoverShort;
+        bestFit = { rectIdx: idx, rotated: true, w: itemH, h: itemW };
+      }
+    }
+  });
+
+  return bestFit;
+}
+
+function placeNestingRectangle(sheet, fit, item, kerf) {
+  const free = sheet.freeRects.splice(fit.rectIdx, 1)[0];
+  const placed = {
+    label: item.label,
+    x: free.x,
+    y: free.y,
+    w: fit.w,
+    h: fit.h,
+    origW: item.w,
+    origH: item.h,
+    rotated: fit.rotated,
+    color: item.color
+  };
+  sheet.placedItems.push(placed);
+
+  const rightW = free.w - fit.w - kerf;
+  const bottomH = free.h - fit.h - kerf;
+
+  if (rightW > 0) {
+    sheet.freeRects.push({
+      x: free.x + fit.w + kerf,
+      y: free.y,
+      w: rightW,
+      h: fit.h
+    });
+  }
+  if (bottomH > 0) {
+    sheet.freeRects.push({
+      x: free.x,
+      y: free.y + fit.h + kerf,
+      w: free.w,
+      h: bottomH
+    });
+  }
+}
+
+function run2DSheetNestingOptimizer() {
+  const sheetW = Math.max(12, parseFloat($("#wood-nest-sheet-w")?.value) || 48);
+  const sheetH = Math.max(12, parseFloat($("#wood-nest-sheet-h")?.value) || 96);
+  const unit = $("#wood-nest-unit")?.value || "in";
+  const kerf = Math.max(0, parseFloat($("#wood-nest-kerf")?.value) || (unit === "mm" ? 3.2 : 0.125));
+  const allowRotation = $("#wood-nest-rotation")?.value !== "strict";
+  const rawPartsText = $("#wood-nest-parts")?.value || "";
+  const res = $("#wood-nest-result");
+  if (!res) return;
+
+  const lines = rawPartsText.split("\n");
+  const parts = [];
+  let partCounter = 1;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    let label = `Part ${partCounter}`;
+    let rest = line;
+    if (line.includes(":")) {
+      const partsArr = line.split(":");
+      label = partsArr[0].trim();
+      rest = partsArr.slice(1).join(":");
+    }
+
+    const match = rest.match(/([0-9.]+)\s*[xX*×]\s*([0-9.]+)(?:\s*[xX*×]\s*([0-9]+))?/);
+    if (match) {
+      const w = parseFloat(match[1]);
+      const h = parseFloat(match[2]);
+      const qty = match[3] ? parseInt(match[3], 10) : 1;
+      if (w > 0 && h > 0 && qty > 0) {
+        parts.push({ id: partCounter++, label, w, h, qty });
+      }
+    }
+  }
+
+  if (parts.length === 0) {
+    res.innerHTML = `<div style="padding:10px;border:1px dashed #ef4444;color:#ef4444;border-radius:6px">Please enter at least one cut piece (Format: <code>Top: 30 x 54 x 1</code>).</div>`;
+    return;
+  }
+
+  const { sheets, unplaced } = pack2DSheetNesting(sheetW, sheetH, parts, kerf, allowRotation);
+
+  let totalPartsArea = 0;
+  parts.forEach(p => { totalPartsArea += (p.w * p.h * p.qty); });
+  const singleSheetArea = sheetW * sheetH;
+  const totalSheetsArea = sheets.length * singleSheetArea;
+  const overallYield = totalSheetsArea > 0 ? ((totalPartsArea / totalSheetsArea) * 100).toFixed(1) : 0;
+  const totalWasteArea = totalSheetsArea - totalPartsArea;
+
+  let sheetsHtml = "";
+  sheets.forEach(sheet => {
+    const svgW = 580;
+    const svgScale = svgW / sheet.w;
+    const svgH = Math.round(sheet.h * svgScale);
+
+    let rectsSvg = "";
+    sheet.placedItems.forEach(item => {
+      const rx = item.x * svgScale;
+      const ry = item.y * svgScale;
+      const rw = item.w * svgScale;
+      const rh = item.h * svgScale;
+
+      rectsSvg += `
+        <g>
+          <rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${item.color}" opacity="0.8" stroke="#0f172a" stroke-width="1.5"/>
+          <text x="${rx + rw/2}" y="${ry + rh/2 - 2}" text-anchor="middle" font-size="${Math.min(11, Math.max(8, rw/8))}" font-weight="800" fill="#0f172a">
+            ${escapeHTML(item.label)} ${item.rotated ? "↻" : ""}
+          </text>
+          <text x="${rx + rw/2}" y="${ry + rh/2 + 10}" text-anchor="middle" font-size="${Math.min(9, Math.max(7, rw/10))}" font-weight="600" fill="#1e293b">
+            ${item.w}${unit} × ${item.h}${unit}
+          </text>
+        </g>
+      `;
+    });
+
+    let offcutsSvg = "";
+    sheet.freeRects.forEach(fr => {
+      const fx = fr.x * svgScale;
+      const fy = fr.y * svgScale;
+      const fw = fr.w * svgScale;
+      const fh = fr.h * svgScale;
+      if (fw > 10 && fh > 10) {
+        offcutsSvg += `
+          <g>
+            <rect x="${fx}" y="${fy}" width="${fw}" height="${fh}" fill="#334155" opacity="0.3" stroke="#475569" stroke-width="1" stroke-dasharray="3,3"/>
+            <text x="${fx + fw/2}" y="${fy + fh/2 + 3}" text-anchor="middle" font-size="8" fill="#94a3b8">
+              ${fr.w.toFixed(1)}×${fr.h.toFixed(1)}${unit} offcut
+            </text>
+          </g>
+        `;
+      }
+    });
+
+    sheetsHtml += `
+      <div class="nest-sheet-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <strong>Sheet ${sheet.sheetIndex} of ${sheets.length} (${sheet.w}${unit} × ${sheet.h}${unit})</strong>
+          <span style="font-size:11px;color:var(--muted)">${sheet.placedItems.length} parts nested</span>
+        </div>
+        <svg class="nest-sheet-svg" viewBox="0 0 ${svgW} ${svgH}" width="100%">
+          <rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#1e293b" stroke="#64748b" stroke-width="2"/>
+          ${offcutsSvg}
+          ${rectsSvg}
+        </svg>
+      </div>
+    `;
+  });
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Raw Sheets Required</div>
+        <div style="font-size:20px;font-weight:800;color:var(--green);margin:2px 0">
+          ${sheets.length} Sheet${sheets.length === 1 ? "" : "s"}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${sheetW}" × ${sheetH}" (${unit})</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Overall Material Yield</div>
+        <div style="font-size:20px;font-weight:800;color:var(--ink);margin:2px 0">
+          ${overallYield}%
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${totalWasteArea.toFixed(1)} ${unit}² scrap / kerf</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Parts Successfully Nested</div>
+        <div style="font-size:20px;font-weight:800;color:#0284c7;margin:2px 0">
+          ${parts.reduce((sum, p) => sum + p.qty, 0)} Parts
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${unplaced.length === 0 ? "100% of parts placed" : `${unplaced.length} oversized`}</div>
+      </div>
+    </div>
+
+    ${unplaced.length > 0 ? `
+      <div style="padding:8px 12px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;border-radius:6px;color:#ef4444;font-size:12px;margin-bottom:10px">
+        ⚠️ Warning: ${unplaced.length} part(s) are larger than the raw sheet dimensions (${sheetW}×${sheetH}${unit}).
+      </div>
+    ` : ""}
+
+    ${sheetsHtml}
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button type="button" class="button button-outline" data-action="copy-2d-nest-plan" style="font-size:12px">
+        📋 Copy Nesting Plan
+      </button>
+      <button type="button" class="button button-outline" data-action="add-nest-sheets-to-project" data-sheets="${sheets.length}" style="font-size:12px">
+        + Add ${sheets.length} Plywood Sheet(s) to Materials
+      </button>
+    </div>
+  `;
+}
+
 function renderWoodworkingView() {
   updateWoodworkingStudio();
   updateWoodSafetyGuide();
   if (typeof updateSagulatorCalc === "function") updateSagulatorCalc();
   if (typeof updateWoodEmcCalc === "function") updateWoodEmcCalc();
   if (typeof updateDovetailCalc === "function") updateDovetailCalc();
+  if (typeof updateFastenerFinder === "function") updateFastenerFinder();
+  if (typeof run2DSheetNestingOptimizer === "function") run2DSheetNestingOptimizer();
 }
 
 // --- 🧶 Textiles & Yarn Studio ---
@@ -24997,6 +25573,36 @@ function initCraftStudios() {
   updateDovetailCalc();
   ["#wood-dt-type", "#wood-dt-unit", "#wood-dt-slope"].forEach(s => $(s)?.addEventListener("change", updateDovetailCalc));
   ["#wood-dt-width", "#wood-dt-thick", "#wood-dt-tails", "#wood-dt-halfpin"].forEach(s => $(s)?.addEventListener("input", updateDovetailCalc));
+
+  // Fastener, Bolt & Tap Drill Precision Finder
+  updateFastenerFinder();
+  $("#fastener-system")?.addEventListener("change", () => {
+    populateFastenerSizes();
+    updateFastenerFinder();
+  });
+  ["#fastener-size", "#fastener-head-type", "#fastener-material"].forEach(s => $(s)?.addEventListener("change", updateFastenerFinder));
+
+  // 2D Sheet Goods & Plywood Nesting Optimizer
+  run2DSheetNestingOptimizer();
+  $("#wood-nest-preset")?.addEventListener("change", (e) => {
+    const map = {
+      "4x8": [48, 96, "in"],
+      "5x5": [60, 60, "in"],
+      "half_sheet": [48, 48, "in"],
+      "quarter_sheet": [24, 48, "in"],
+      "laser_bed": [24, 12, "in"]
+    };
+    const pair = map[e.target.value];
+    if (pair) {
+      if ($("#wood-nest-sheet-w")) $("#wood-nest-sheet-w").value = pair[0];
+      if ($("#wood-nest-sheet-h")) $("#wood-nest-sheet-h").value = pair[1];
+      if ($("#wood-nest-unit")) $("#wood-nest-unit").value = pair[2];
+      run2DSheetNestingOptimizer();
+    }
+  });
+  ["#wood-nest-sheet-w", "#wood-nest-sheet-h", "#wood-nest-kerf"].forEach(s => $(s)?.addEventListener("input", run2DSheetNestingOptimizer));
+  ["#wood-nest-unit", "#wood-nest-rotation"].forEach(s => $(s)?.addEventListener("change", run2DSheetNestingOptimizer));
+  $("#wood-nest-parts")?.addEventListener("input", run2DSheetNestingOptimizer);
 
   // Textiles Yardage, Gauge, Fiber Guide, Skein, Hat Sizing & Planned Pooling
   updateTextilesYardageEstimator();

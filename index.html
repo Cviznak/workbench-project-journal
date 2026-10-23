@@ -1084,6 +1084,51 @@
                 <div class="tool-result-box" id="wood-view-screw-result" style="margin-top:10px"></div>
               </div>
 
+              <!-- 🔩 Fastener, Screw & Tap Drill Precision Finder -->
+              <div class="panel" id="panel-wood-fasteners" style="grid-column: 1 / -1">
+                <div class="eyebrow">HARDWARE STANDARDS &amp; THREAD PITCH</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🔩 Fastener, Bolt &amp; Tap Drill Precision Finder</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-fasteners" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Find exact tap drill bit sizes for soft vs. hard materials, close/free clearance holes, countersink angles, driver tool sizes, and 1:1 scale on-screen bolt silhouettes.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Thread System
+                    <select id="fastener-system">
+                      <option value="metric" selected>Metric ISO Standard (M1.6 – M12)</option>
+                      <option value="imperial_unc">Imperial UNC (Coarse: #2-56 to 1/2"-13)</option>
+                      <option value="imperial_unf">Imperial UNF (Fine: #10-32, 1/4"-28, etc.)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Fastener Size
+                    <select id="fastener-size">
+                      <!-- Populated dynamically based on system -->
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Head Style
+                    <select id="fastener-head-type">
+                      <option value="socket_cap" selected>Socket Head Cap Screw (Allen / Hex Key)</option>
+                      <option value="countersunk">Flat Countersunk (90° Metric / 82° Imperial)</option>
+                      <option value="pan_head">Pan Head / Button Head</option>
+                      <option value="hex_bolt">Standard Hex Head Bolt</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Target Material
+                    <select id="fastener-material">
+                      <option value="soft" selected>Aluminum, Brass, Plastics / 3D Print (75% engagement)</option>
+                      <option value="hard">Steel, Stainless, Cast Iron (65% engagement)</option>
+                      <option value="wood">Hardwood / Softwood (Wood screw pilot &amp; shank)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="fastener-result" style="margin-top:12px"></div>
+              </div>
+
               <!-- ✂️ Cut List Optimizer Panel -->
               <div class="panel" style="grid-column:1 / -1" id="wood-cutlist-panel">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">
@@ -1110,6 +1155,66 @@
                 <div class="tool-result-box" id="wood-cutlist-result" style="margin-top:10px">
                   <!-- Generated dynamically -->
                 </div>
+              </div>
+
+              <!-- 🪚 2D Sheet Goods & Plywood Nesting Cut Optimizer -->
+              <div class="panel" style="grid-column: 1 / -1" id="panel-wood-2d-nesting">
+                <div class="eyebrow">2D GUILLOTINE SHEET NESTING &amp; YIELD OPTIMIZER</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🪚 2D Sheet Goods &amp; Plywood Nesting Optimizer</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-2d-nesting" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Optimize cutting layouts for 4×8 sheets of plywood, acrylic, or sheet goods. Minimizes saw kerf waste, maximizes yield, and generates visual CAD cutting diagrams.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Raw Sheet Preset
+                    <select id="wood-nest-preset">
+                      <option value="4x8" selected>4' × 8' Full Sheet (48" × 96" / 1220 × 2440 mm)</option>
+                      <option value="5x5">5' × 5' Baltic Birch (60" × 60" / 1525 × 1525 mm)</option>
+                      <option value="half_sheet">4' × 4' Half Sheet (48" × 48")</option>
+                      <option value="quarter_sheet">2' × 4' Quarter Sheet (24" × 48")</option>
+                      <option value="laser_bed">24" × 12" Laser / CNC Bed</option>
+                      <option value="custom">Custom Dimensions...</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Sheet Dimensions
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="wood-nest-sheet-w" value="48" min="6" max="240" step="any" style="flex:1" placeholder="W">
+                      <span style="display:flex;align-items:center;font-size:12px;color:var(--muted)">×</span>
+                      <input type="number" id="wood-nest-sheet-h" value="96" min="6" max="240" step="any" style="flex:1" placeholder="H">
+                      <select id="wood-nest-unit" style="width:65px">
+                        <option value="in" selected>in</option>
+                        <option value="mm">mm</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Saw Blade / Tool Kerf
+                    <input type="number" id="wood-nest-kerf" value="0.125" min="0" max="1" step="0.001" placeholder="e.g. 0.125">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Grain / Rotation Constraint
+                    <select id="wood-nest-rotation">
+                      <option value="allow" selected>Allow Part Rotation 90° (Best Yield)</option>
+                      <option value="strict">Strict Grain Direction (No Rotation)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div style="margin-top:8px">
+                  <label class="field-label" style="font-size:11px">Parts Cut List (Format: <code>Label: Width x Length x Qty</code> or <code>Width x Length x Qty</code>)
+                    <textarea id="wood-nest-parts" rows="3" style="font-family:monospace;font-size:12px;padding:6px 8px;width:100%" placeholder="Top: 30 x 54 x 1&#10;Side: 22 x 36 x 2&#10;Shelf: 20 x 34.5 x 3&#10;Divider: 18 x 22 x 2">Top: 30 x 54 x 1&#10;Side: 22 x 36 x 2&#10;Shelf: 20 x 34.5 x 3&#10;Divider: 18 x 22 x 2</textarea>
+                  </label>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                  <button type="button" class="button button-small button-primary" data-action="wood-run-2d-nesting">🪚 Calculate Sheet Nesting</button>
+                  <button type="button" class="button button-small button-outline" data-action="wood-2d-sample-cabinets">📂 Load Cabinet Carcass Sample</button>
+                  <button type="button" class="button button-small button-outline" data-action="wood-2d-sample-bookshelf">📚 Load Bookshelf Sample</button>
+                </div>
+
+                <div class="tool-result-box" id="wood-nest-result" style="margin-top:12px"></div>
               </div>
 
               <!-- 💨 Dust Collection CFM & Duct Velocity -->
