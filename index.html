@@ -753,6 +753,7 @@
         <button type="button" class="tool-tab-btn" data-tool-tab="electronics">⚡ Electronics &amp; Circuits</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="art">🎨 Art &amp; Color Studio</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="music">🎵 Music &amp; Audio Studio</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="chords">🎹 Chords &amp; Drum Machine</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -1392,7 +1393,8 @@
               <input type="number" min="20" max="320" id="tool-music-bpm" value="120" placeholder="120">
             </label>
             <div style="display:flex;align-items:flex-end;gap:6px">
-              <button type="button" class="button button-small button-outline" data-action="tap-tempo" style="height:34px;width:100%">🥁 Tap Tempo</button>
+              <button type="button" class="button button-small button-outline" data-action="tap-tempo" style="height:34px;flex:1">🥁 Tap Tempo</button>
+              <button type="button" class="button button-small button-primary" data-action="toggle-metronome" id="tool-music-metronome-btn" style="height:34px;flex:1">🔊 Metronome: Off</button>
             </div>
           </div>
           <div class="tool-result-box" id="tool-music-timing-result" style="margin-top:12px">
@@ -1427,6 +1429,9 @@
           <div class="tool-result-box" id="tool-music-note-result" style="margin-top:10px">
             <!-- Populated dynamically -->
           </div>
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button type="button" class="button button-small button-primary" data-action="play-pitch-tone">🔊 Play Note Tone</button>
+          </div>
         </div>
 
         <!-- Sample Pitch & Speed Shifter -->
@@ -1442,6 +1447,107 @@
           </div>
           <div class="tool-result-box" id="tool-music-stretch-result" style="margin-top:10px">
             <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 14: Chord Progressions & Drum Machine Studio -->
+      <div class="tool-tab-panel" id="tool-panel-chords" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Build, audition, and loop custom chord progressions paired with a synchronized 16-step drum machine beat.</p>
+
+        <!-- Master Transport & Settings -->
+        <div class="chord-transport-bar" style="margin-bottom:14px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button type="button" class="button button-primary" data-action="toggle-chord-playback" id="tool-chord-play-btn" style="min-width:120px">
+              ▶ Play Groove
+            </button>
+            <button type="button" class="button button-outline" data-action="stop-chord-playback">
+              ⏹ Stop
+            </button>
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="tool-chords-bpm" style="font-size:12px;font-weight:700;color:var(--muted)">TEMPO:</label>
+              <input type="number" id="tool-chords-bpm" min="50" max="220" value="105" style="width:65px;padding:4px 6px;font-size:13px;font-weight:700">
+              <span style="font-size:11px;color:var(--muted)">BPM</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="tool-chords-preset" style="font-size:12px;font-weight:700;color:var(--muted)">PRESET:</label>
+              <select id="tool-chords-preset" style="font-size:12px;padding:4px 8px">
+                <option value="pop" selected>Pop 4-Chord (I – V – vi – IV)</option>
+                <option value="ballad">Emotional Sad (vi – IV – I – V)</option>
+                <option value="doowop">50s Doo-Wop (I – vi – IV – V)</option>
+                <option value="jazz">Jazz Turnaround (ii – V – I – vi)</option>
+                <option value="rock">Classic Rock (I – IV – V – IV)</option>
+                <option value="flamenco">Andalusian Descent (i – VII – VI – V)</option>
+                <option value="rnb">Neo-Soul / R&amp;B (IV – iii – vi – I)</option>
+                <option value="custom">Custom Progression</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <label for="tool-chords-key" style="font-size:12px;font-weight:700;color:var(--muted)">KEY:</label>
+              <select id="tool-chords-key" style="font-size:12px;padding:4px 8px">
+                <option value="C" selected>C Major</option>
+                <option value="G">G Major</option>
+                <option value="D">D Major</option>
+                <option value="A">A Major</option>
+                <option value="F">F Major</option>
+                <option value="Am">A Minor</option>
+                <option value="Em">E Minor</option>
+                <option value="Dm">D Minor</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chord Progression Slots -->
+        <div class="tools-quick-chart" style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="tools-chart-title">🎹 4-Bar Chord Progression</div>
+            <div style="font-size:11px;color:var(--muted)">Click a chord card to audition it · Plays 1 bar each</div>
+          </div>
+          <div class="chord-slots-grid" id="tool-chord-slots-container">
+            <!-- Populated dynamically -->
+          </div>
+          <!-- Quick Diatonic Chord Picker for Active Slot -->
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">
+              QUICK SWAP CHORDS IN KEY (<span id="tool-chords-active-slot-lbl">Slot 1</span>):
+            </div>
+            <div class="diatonic-chords-wrap" id="tool-diatonic-chords-wrap">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 16-Step Drum Machine Sequencer -->
+        <div class="tools-quick-chart">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+            <div>
+              <div class="tools-chart-title">🥁 16-Step Drum Machine Sequencer</div>
+              <div style="font-size:11px;color:var(--muted)">Click steps to toggle hits · Synced to progression loop</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <label for="tool-drum-preset" style="font-size:11px;font-weight:700;color:var(--muted)">BEAT PRESET:</label>
+              <select id="tool-drum-preset" style="font-size:11px;padding:3px 6px">
+                <option value="rock" selected>Pop / Rock 2 &amp; 4</option>
+                <option value="fourfloor">Four-on-the-Floor (House/Dance)</option>
+                <option value="boombap">Hip-Hop Boom Bap</option>
+                <option value="trap">Trap Half-Time Beat</option>
+                <option value="lofi">Lo-Fi Chill Groove</option>
+                <option value="clear">Clear All Steps</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Sequencer Grid -->
+          <div class="sequencer-grid-wrap" id="tool-sequencer-grid">
+            <!-- Populated dynamically -->
+          </div>
+
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <button type="button" class="button button-small button-outline" data-action="copy-chord-progression">📋 Copy Progression Details</button>
+            <div style="font-size:11px;color:var(--muted)">
+              Tip: Loop plays continuously while tweaking chords or drum patterns in real time!
+            </div>
           </div>
         </div>
       </div>

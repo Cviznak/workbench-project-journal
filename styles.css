@@ -5877,6 +5877,170 @@ body.theme-dark .version-tag {
   color: var(--green);
 }
 
+/* 🎹 Chords & Drum Sequencer Studio */
+.chord-transport-bar {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.chord-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+.chord-slot-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .15s ease;
+  position: relative;
+}
+.chord-slot-card:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+}
+.chord-slot-card.active-slot {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+.chord-slot-card.playing-chord {
+  border-color: var(--green);
+  background: rgba(34, 197, 94, 0.08);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.3);
+  transform: scale(1.02);
+}
+.chord-slot-bar-num {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: .05em;
+  margin-bottom: 2px;
+}
+.chord-slot-name {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--ink);
+  line-height: 1.1;
+  margin: 2px 0;
+  font-family: var(--font-display, inherit);
+}
+.chord-slot-degree {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0284c7;
+}
+
+.diatonic-chords-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.diatonic-chord-pill {
+  padding: 5px 10px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all .12s ease;
+}
+.diatonic-chord-pill:hover {
+  background: var(--green);
+  color: white;
+  border-color: var(--green);
+}
+.diatonic-chord-pill span {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 4px;
+  font-weight: 600;
+}
+.diatonic-chord-pill:hover span {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Drum Sequencer Grid */
+.sequencer-grid-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+.sequencer-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sequencer-label {
+  width: 95px;
+  min-width: 95px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.sequencer-step-btn {
+  width: 28px;
+  height: 32px;
+  min-width: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all .1s ease;
+}
+.sequencer-step-btn:hover {
+  border-color: var(--ink);
+}
+.sequencer-step-btn.beat-start {
+  border-left: 2px solid #94a3b8;
+}
+.sequencer-step-btn.active {
+  background: var(--green);
+  color: white;
+  border-color: var(--green);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.sequencer-step-btn.active.kick {
+  background: #ea580c;
+  border-color: #ea580c;
+}
+.sequencer-step-btn.active.snare {
+  background: #0284c7;
+  border-color: #0284c7;
+}
+.sequencer-step-btn.active.hat {
+  background: #ca8a04;
+  border-color: #ca8a04;
+}
+.sequencer-step-btn.active.clap {
+  background: #9333ea;
+  border-color: #9333ea;
+}
+.sequencer-step-btn.playhead {
+  outline: 2px solid #22c55e;
+  outline-offset: 1px;
+}
+
+
 
 
 
