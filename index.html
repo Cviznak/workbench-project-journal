@@ -410,6 +410,8 @@
                 <select id="inventory-category-filter">
                   <option value="all">All categories</option>
                   <optgroup label="Materials &amp; Supplies">
+                    <option value="Yarn, Fibers &amp; Fabric">🧶 Yarn, Fibers &amp; Fabric</option>
+                    <option value="Sensors, MCUs &amp; Modules">⚡ Sensors, MCUs &amp; Modules</option>
                     <option value="Lumber / Scrap">Lumber / Scrap</option>
                     <option value="Fasteners &amp; Hardware">Fasteners &amp; Hardware</option>
                     <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
@@ -1529,6 +1531,38 @@
                 <div class="tool-result-box" id="textiles-fiber-result" style="margin-top:10px"></div>
               </div>
 
+              <!-- 🧶 Yarn Skein Weight & Remaining Stash Calculator -->
+              <div class="panel" id="panel-textiles-skein">
+                <div class="eyebrow">YARN STASH &amp; SKEIN ESTIMATION</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px">
+                  <h3 style="font-size:16px;margin:0">🧶 Yarn Skein &amp; Remaining Yardage Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-textiles-skein" title="Minimize panel">— Minimize</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Full Skein Weight (g)
+                    <input type="number" id="textiles-skein-full-wt" value="100" min="1" placeholder="e.g. 100 or 50">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Full Skein Length
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="textiles-skein-full-len" value="220" min="1" placeholder="e.g. 220" style="flex:1">
+                      <select id="textiles-skein-len-unit" style="width:75px">
+                        <option value="yds" selected>Yds</option>
+                        <option value="m">Meters</option>
+                      </select>
+                    </div>
+                  </label>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">
+                  <label class="field-label" style="font-size:11px">Current Weight on Scale (g)
+                    <input type="number" id="textiles-skein-cur-wt" value="64" min="0" placeholder="e.g. 64">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Pattern Requirement <span class="optional">(optional)</span>
+                    <input type="number" id="textiles-skein-target-len" value="120" min="0" placeholder="e.g. 120 yds">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="textiles-skein-result" style="margin-top:10px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -1836,6 +1870,57 @@
                 <div class="tool-result-box" id="elec-filter-result" style="margin-top:10px"></div>
               </div>
 
+              <!-- ⚡ Sensor & Module I2C Bus Address Guide & Conflict Checker -->
+              <div class="panel" id="panel-elec-sensors">
+                <div class="eyebrow">MAKER SENSOR INTEGRATION &amp; I2C ADDRESSING</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px">
+                  <h3 style="font-size:16px;margin:0">⚡ Sensor &amp; Module I2C Bus Guide</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-elec-sensors" title="Minimize panel">— Minimize</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Primary Sensor / Module
+                    <select id="elec-sensor-primary">
+                      <option value="bme280" selected>BME280 / BMP280 · Pressure, Temp, Humidity (0x76 / 0x77)</option>
+                      <option value="mpu6050">MPU6050 · 6-DOF IMU Gyro + Accelerometer (0x68 / 0x69)</option>
+                      <option value="ssd1306">SSD1306 · 0.96" OLED 128x64 Display (0x3C / 0x3D)</option>
+                      <option value="bme680">BME680 · Gas, VOC, Air Quality, Pressure (0x77 / 0x76)</option>
+                      <option value="vl53l0x">VL53L0X · Laser Time-of-Flight Distance (0x29)</option>
+                      <option value="ina219">INA219 · DC Current &amp; Power Monitor (0x40 - 0x45)</option>
+                      <option value="ads1115">ADS1115 · 16-Bit 4-Channel Precision ADC (0x48 - 0x4B)</option>
+                      <option value="ds3231">DS3231 · Precision Real-Time Clock RTC (0x68)</option>
+                      <option value="tcs34725">TCS34725 · RGB Color Sensor + IR Filter (0x29)</option>
+                      <option value="apds9960">APDS9960 · Gesture, Proximity &amp; RGB (0x39)</option>
+                      <option value="max30102">MAX30102 · Pulse Oximeter &amp; Heart Rate (0x57)</option>
+                      <option value="sht31">SHT31-D · Digital Humidity &amp; Temp (0x44 / 0x45)</option>
+                      <option value="mcp23017">MCP23017 · 16-Bit I2C I/O Expander (0x20 - 0x27)</option>
+                      <option value="pca9685">PCA9685 · 16-Channel 12-Bit PWM/Servo (0x40 - 0x7F)</option>
+                      <option value="aht20">AHT20 · Precision Temp &amp; Humidity (0x38)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Check Bus Conflict with Sensor 2 <span class="optional">(optional)</span>
+                    <select id="elec-sensor-secondary">
+                      <option value="none" selected>— None (Single Sensor) —</option>
+                      <option value="bme280">BME280 / BMP280 (0x76 / 0x77)</option>
+                      <option value="mpu6050">MPU6050 6-DOF IMU (0x68 / 0x69)</option>
+                      <option value="ssd1306">SSD1306 OLED Display (0x3C / 0x3D)</option>
+                      <option value="bme680">BME680 Environmental Gas (0x77 / 0x76)</option>
+                      <option value="vl53l0x">VL53L0X Laser Distance (0x29)</option>
+                      <option value="ina219">INA219 Current &amp; Power (0x40)</option>
+                      <option value="ads1115">ADS1115 16-Bit ADC (0x48)</option>
+                      <option value="ds3231">DS3231 Precision RTC (0x68)</option>
+                      <option value="tcs34725">TCS34725 Color Sensor (0x29)</option>
+                      <option value="apds9960">APDS9960 Gesture (0x39)</option>
+                      <option value="max30102">MAX30102 Heart Rate (0x57)</option>
+                      <option value="sht31">SHT31-D Humidity (0x44)</option>
+                      <option value="mcp23017">MCP23017 16-Bit Expander (0x20)</option>
+                      <option value="pca9685">PCA9685 16-Ch PWM Servo (0x40)</option>
+                      <option value="aht20">AHT20 Temp &amp; Humidity (0x38)</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="elec-sensor-result" style="margin-top:10px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -2060,6 +2145,79 @@
             </div>
 
             <div class="studio-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+              <!-- 📷 Live Camera Color Eyedropper & Screen Dominant Color Analyzer -->
+              <div class="panel" id="panel-art-camera-picker" style="grid-column: 1 / -1">
+                <div class="eyebrow">REAL-TIME COLOR EYE DROPPER &amp; SCREEN PALETTE</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+                  <h3 style="font-size:16px;margin:0">📷 Live Camera Color Eyedropper &amp; Screen Analyzer</h3>
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-art-camera-picker" title="Minimize panel">— Minimize</button>
+                  </div>
+                </div>
+
+                <div class="art-camera-container">
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;align-items:start">
+                    
+                    <!-- Left: Camera Viewport -->
+                    <div>
+                      <div class="art-camera-viewport-wrap" id="art-camera-viewport-wrap">
+                        <video id="art-camera-video" playsinline autoplay muted></video>
+                        <canvas id="art-camera-canvas" class="art-camera-canvas"></canvas>
+                        <div class="art-camera-reticle" id="art-camera-reticle">
+                          <div class="art-camera-reticle-dot"></div>
+                        </div>
+                        <div class="art-camera-hud-badge" id="art-camera-hud-badge">
+                          <span class="hud-status-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8"></span>
+                          <span id="art-camera-status-text">Camera Inactive</span>
+                        </div>
+                        <div class="art-camera-tap-hint">🎯 Tap screen or target object to sample color</div>
+                      </div>
+
+                      <div class="art-camera-controls-strip">
+                        <button type="button" class="button button-primary" data-action="toggle-art-camera" id="art-camera-toggle-btn">📷 Start Camera</button>
+                        <button type="button" class="button button-outline button-small" data-action="freeze-art-camera" id="art-camera-freeze-btn" style="display:none">📸 Freeze Frame</button>
+                        <button type="button" class="button button-outline button-small" data-action="switch-art-camera" id="art-camera-flip-btn" style="display:none">🔄 Flip Camera</button>
+                        <label class="button button-outline button-small" style="cursor:pointer;margin:0">
+                          📁 Pick from Photo
+                          <input type="file" id="art-camera-file-input" accept="image/*" style="display:none">
+                        </label>
+                      </div>
+                    </div>
+
+                    <!-- Right: Extracted Color & Screen Dominant Palette -->
+                    <div class="art-camera-analysis-card">
+                      <div class="art-camera-color-hero">
+                        <div class="art-camera-swatch-box" id="art-camera-swatch-box" style="background:#0284c7"></div>
+                        <div class="art-camera-code-details">
+                          <div class="art-camera-color-name" id="art-camera-color-name">Sky Blue (Dominant)</div>
+                          <div class="art-camera-hex-val" id="art-camera-hex-val">#0284C7</div>
+                          <div class="art-camera-sub-codes">
+                            <span id="art-camera-rgb-val">rgb(2, 132, 199)</span>
+                            <span id="art-camera-hsl-val">hsl(200, 98%, 39%)</span>
+                            <span id="art-camera-luma-val">Luma: 42%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Top Dominant Colors on Screen -->
+                      <div>
+                        <div class="art-camera-palette-title">SCREEN DOMINANT PALETTE (TOP 5 CLUSTERS):</div>
+                        <div class="art-camera-palette-strip" id="art-camera-palette-strip">
+                          <!-- Filled dynamically with 5 palette chips -->
+                        </div>
+                      </div>
+
+                      <!-- Action buttons -->
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+                        <button type="button" class="button button-primary button-small" data-action="set-camera-base-color" title="Use as Base Studio Color for palette harmony &amp; contrast">🎨 Set as Studio Base Color</button>
+                        <button type="button" class="button button-outline button-small" data-action="copy-camera-hex">📋 Copy HEX</button>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
               <!-- Color Harmony Wheel -->
               <div class="panel" style="grid-column: 1 / -1">
                 <div class="eyebrow">COLOR THEORY &amp; HARMONY</div>
@@ -2748,6 +2906,8 @@
           <div class="form-row">
             <label class="field-label">Category
               <select name="category">
+                <option value="Yarn, Fibers &amp; Fabric">🧶 Yarn, Fibers &amp; Fabric</option>
+                <option value="Sensors, MCUs &amp; Modules">⚡ Sensors, MCUs &amp; Modules</option>
                 <option value="Lumber / Scrap">Lumber / Scrap</option>
                 <option value="Fasteners &amp; Hardware">Fasteners &amp; Hardware</option>
                 <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>

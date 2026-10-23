@@ -3303,6 +3303,41 @@ function renderGallery() {
     </section>`).join("") : `<div class="gallery-empty"><div class="empty-state-mark">▧</div><h3>Your making, in the making</h3><p>Add photos to any project to build a visual journal of the process. Create folders for prototypes, materials, finished pieces, and everything in between.</p><button class="button button-primary" data-view="projects">Explore projects <span>→</span></button></div>`;
 }
 
+function inferMaterialGroup(name = "") {
+  const n = (name || "").toLowerCase();
+  if (n.includes("yarn") || n.includes("wool") || n.includes("skein") || n.includes("cotton") || n.includes("acrylic") || n.includes("alpaca") || n.includes("thread") || n.includes("merino") || n.includes("fabric") || n.includes("linen") || n.includes("cashmere") || n.includes("silk") || n.includes("stitch") || n.includes("fiber")) return "Yarn & Fibers";
+  if (n.includes("sensor") || n.includes("bme280") || n.includes("bmp280") || n.includes("bme680") || n.includes("mpu6050") || n.includes("oled") || n.includes("esp32") || n.includes("arduino") || n.includes("module") || n.includes("i2c") || n.includes("spi") || n.includes("imu") || n.includes("tof") || n.includes("sonar") || n.includes("ultrasonic") || n.includes("dht") || n.includes("thermistor") || n.includes("ina219") || n.includes("ads1115") || n.includes("rtc") || n.includes("ds3231") || n.includes("mcu")) return "Sensors & Modules";
+  if (n.includes("plywood") || n.includes("oak") || n.includes("walnut") || n.includes("board") || n.includes("pine") || n.includes("lumber") || n.includes("maple") || n.includes("cedar") || n.includes("wood") || n.includes("dowel") || n.includes("timber") || n.includes("mdf") || n.includes("sheet")) return "Lumber & Sheet Goods";
+  if (n.includes("screw") || n.includes("bolt") || n.includes("nut") || n.includes("washer") || n.includes("hinge") || n.includes("bracket") || n.includes("hardware") || n.includes("fastener") || n.includes("pin") || n.includes("pull") || n.includes("handle")) return "Fasteners & Hardware";
+  if (n.includes("finish") || n.includes("oil") || n.includes("poly") || n.includes("stain") || n.includes("paint") || n.includes("epoxy") || n.includes("glue") || n.includes("hardwax") || n.includes("varnish") || n.includes("primer") || n.includes("lacquer") || n.includes("shellac") || n.includes("adhesive")) return "Finishes & Adhesives";
+  if (n.includes("resistor") || n.includes("capacitor") || n.includes("led") || n.includes("diode") || n.includes("wire") || n.includes("pcb") || n.includes("breadboard") || n.includes("ic") || n.includes("potentiometer") || n.includes("switch") || n.includes("header") || n.includes("jumper")) return "Electronics & Wiring";
+  if (n.includes("sandpaper") || n.includes("blade") || n.includes("bit") || n.includes("rag") || n.includes("abrasive") || n.includes("tape") || n.includes("consumable")) return "Consumables";
+  return "General Supplies";
+}
+
+function getGroupIcon(group = "") {
+  const g = (group || "").toLowerCase();
+  if (g.includes("yarn") || g.includes("fiber") || g.includes("fabric") || g.includes("textile")) return "🧶";
+  if (g.includes("sensor") || g.includes("mcu") || g.includes("module")) return "⚡";
+  if (g.includes("lumber") || g.includes("wood") || g.includes("sheet")) return "🪵";
+  if (g.includes("fastener") || g.includes("hardware") || g.includes("screw")) return "🔩";
+  if (g.includes("finish") || g.includes("adhesive") || g.includes("glue") || g.includes("oil")) return "🧪";
+  if (g.includes("electronic") || g.includes("wiring") || g.includes("circuit")) return "🔌";
+  if (g.includes("print") || g.includes("filament")) return "🖨️";
+  return "📦";
+}
+
+function getGroupBadgeClass(group = "") {
+  const g = (group || "").toLowerCase();
+  if (g.includes("yarn") || g.includes("fiber") || g.includes("fabric")) return "group-yarn";
+  if (g.includes("sensor") || g.includes("mcu") || g.includes("module")) return "group-sensors";
+  if (g.includes("lumber") || g.includes("wood")) return "group-lumber";
+  if (g.includes("hardware") || g.includes("fastener")) return "group-hardware";
+  if (g.includes("finish") || g.includes("adhesive")) return "group-finishes";
+  if (g.includes("electronic") || g.includes("wire")) return "group-electronics";
+  return "";
+}
+
 function renderProjectDetail(projectId) {
   const project = state.projects.find(item => item.id === projectId);
   if (!project) {
@@ -3324,18 +3359,22 @@ function renderProjectDetail(projectId) {
   const budgetPercent = budget > 0 ? Math.min(100, Math.round((totalCost / budget) * 100)) : 0;
   const isOverBudget = budget > 0 && totalCost > budget;
 
-  const catTotals = { lumber: 0, hardware: 0, finishes: 0, consumables: 0, other: 0 };
+  const catTotals = { yarn: 0, sensors: 0, lumber: 0, hardware: 0, finishes: 0, consumables: 0, other: 0 };
   for (const m of materials) {
     const cost = Number(m.cost) || 0;
     const nameLow = (m.name || "").toLowerCase();
-    const typeLow = (m.type || m.category || "").toLowerCase();
-    if (nameLow.includes("plywood") || nameLow.includes("oak") || nameLow.includes("walnut") || nameLow.includes("board") || nameLow.includes("pine") || nameLow.includes("lumber") || nameLow.includes("maple") || nameLow.includes("cedar") || nameLow.includes("wood") || typeLow.includes("lumber") || typeLow.includes("wood") || typeLow.includes("sheet")) {
+    const groupLow = (m.group || m.type || m.category || inferMaterialGroup(m.name)).toLowerCase();
+    if (groupLow.includes("yarn") || groupLow.includes("fiber")) {
+      catTotals.yarn += cost;
+    } else if (groupLow.includes("sensor") || groupLow.includes("mcu") || groupLow.includes("module")) {
+      catTotals.sensors += cost;
+    } else if (groupLow.includes("lumber") || groupLow.includes("wood") || groupLow.includes("sheet")) {
       catTotals.lumber += cost;
-    } else if (nameLow.includes("screw") || nameLow.includes("bolt") || nameLow.includes("hinge") || nameLow.includes("pull") || nameLow.includes("handle") || nameLow.includes("hardware") || nameLow.includes("fastener") || typeLow.includes("fastener") || typeLow.includes("hardware")) {
+    } else if (groupLow.includes("fastener") || groupLow.includes("hardware")) {
       catTotals.hardware += cost;
-    } else if (nameLow.includes("finish") || nameLow.includes("oil") || nameLow.includes("poly") || nameLow.includes("stain") || nameLow.includes("paint") || nameLow.includes("epoxy") || nameLow.includes("glue") || typeLow.includes("finish") || typeLow.includes("adhesive")) {
+    } else if (groupLow.includes("finish") || groupLow.includes("adhesive")) {
       catTotals.finishes += cost;
-    } else if (nameLow.includes("sandpaper") || nameLow.includes("blade") || nameLow.includes("bit") || nameLow.includes("rag") || typeLow.includes("abrasive") || typeLow.includes("consumable")) {
+    } else if (groupLow.includes("consumable") || groupLow.includes("abrasive")) {
       catTotals.consumables += cost;
     } else {
       catTotals.other += cost;
@@ -3345,6 +3384,8 @@ function renderProjectDetail(projectId) {
   const catBreakdownHtml = (totalCost > 0) ? `
     <div class="supplies-cat-bar-wrap">
       <div class="supplies-cat-bar" title="Category Cost Distribution">
+        ${catTotals.yarn > 0 ? `<div class="supplies-cat-segment yarn" style="width:${(catTotals.yarn / totalCost) * 100}%" title="Yarn &amp; Fibers: ${formatMoney(catTotals.yarn)}"></div>` : ""}
+        ${catTotals.sensors > 0 ? `<div class="supplies-cat-segment sensors" style="width:${(catTotals.sensors / totalCost) * 100}%" title="Sensors &amp; Modules: ${formatMoney(catTotals.sensors)}"></div>` : ""}
         ${catTotals.lumber > 0 ? `<div class="supplies-cat-segment lumber" style="width:${(catTotals.lumber / totalCost) * 100}%" title="Lumber: ${formatMoney(catTotals.lumber)}"></div>` : ""}
         ${catTotals.hardware > 0 ? `<div class="supplies-cat-segment hardware" style="width:${(catTotals.hardware / totalCost) * 100}%" title="Hardware: ${formatMoney(catTotals.hardware)}"></div>` : ""}
         ${catTotals.finishes > 0 ? `<div class="supplies-cat-segment finishes" style="width:${(catTotals.finishes / totalCost) * 100}%" title="Finishes: ${formatMoney(catTotals.finishes)}"></div>` : ""}
@@ -3352,6 +3393,8 @@ function renderProjectDetail(projectId) {
         ${catTotals.other > 0 ? `<div class="supplies-cat-segment other" style="width:${(catTotals.other / totalCost) * 100}%" title="Other: ${formatMoney(catTotals.other)}"></div>` : ""}
       </div>
       <div class="supplies-cat-legend">
+        ${catTotals.yarn > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot yarn"></span> Yarn: <strong>${formatMoney(catTotals.yarn)}</strong></span>` : ""}
+        ${catTotals.sensors > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot sensors"></span> Sensors: <strong>${formatMoney(catTotals.sensors)}</strong></span>` : ""}
         ${catTotals.lumber > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot lumber"></span> Lumber: <strong>${formatMoney(catTotals.lumber)}</strong></span>` : ""}
         ${catTotals.hardware > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot hardware"></span> Hardware: <strong>${formatMoney(catTotals.hardware)}</strong></span>` : ""}
         ${catTotals.finishes > 0 ? `<span class="supplies-cat-pill"><span class="cat-dot finishes"></span> Finishes: <strong>${formatMoney(catTotals.finishes)}</strong></span>` : ""}
@@ -3542,9 +3585,20 @@ function renderProjectDetail(projectId) {
         <div><span>${haveCount}/${materials.length} items in hand</span></div>
       </div>
     ` : ""}
+    <datalist id="material-groups-datalist">
+      <option value="Yarn &amp; Fibers">
+      <option value="Sensors &amp; Modules">
+      <option value="Lumber &amp; Sheet Goods">
+      <option value="Fasteners &amp; Hardware">
+      <option value="Finishes &amp; Adhesives">
+      <option value="Electronics &amp; Wiring">
+      <option value="3D Print &amp; Filament">
+      <option value="Consumables &amp; Other">
+    </datalist>
     <form class="materials-add-form" data-project="${project.id}">
-      <input name="materialName" required maxlength="80" placeholder="Part or material name (e.g. 1/4&quot; Walnut ply)..." aria-label="Material name">
-      <input name="materialQty" maxlength="30" placeholder="Qty (e.g. 2 pcs)" aria-label="Quantity">
+      <input name="materialName" required maxlength="80" placeholder="Part or material name (e.g. 1/4&quot; Walnut ply, Merino wool, BME280)..." aria-label="Material name">
+      <input name="materialGroup" list="material-groups-datalist" maxlength="40" placeholder="Group (e.g. Yarn, Sensors)..." aria-label="Group">
+      <input name="materialQty" maxlength="30" placeholder="Qty (e.g. 2 pcs, 100g)" aria-label="Quantity">
       <input name="materialCost" type="number" step="0.01" min="0" placeholder="${getCurrencySymbol()} Price" aria-label="Price">
       <select name="materialStatus" aria-label="Status">
         <option value="need">Need to buy</option>
@@ -3554,11 +3608,26 @@ function renderProjectDetail(projectId) {
       <button class="button button-primary" type="submit">＋ Add</button>
     </form>
     ${materials.length ? `
+      ${(() => {
+        const groups = Array.from(new Set(materials.map(m => m.group || inferMaterialGroup(m.name)))).filter(Boolean);
+        const activeFilter = state.activeMaterialGroupFilter || "all";
+        if (groups.length <= 1) return "";
+        return `
+          <div class="materials-filter-bar">
+            <button type="button" class="materials-filter-pill ${activeFilter === "all" ? "active" : ""}" data-action="filter-material-group" data-group="all" data-project="${project.id}">All (${materials.length})</button>
+            ${groups.map(grp => {
+              const count = materials.filter(m => (m.group || inferMaterialGroup(m.name)) === grp).length;
+              return `<button type="button" class="materials-filter-pill ${activeFilter === grp ? "active" : ""}" data-action="filter-material-group" data-group="${escapeHTML(grp)}" data-project="${project.id}">${getGroupIcon(grp)} ${escapeHTML(grp)} (${count})</button>`;
+            }).join("")}
+          </div>
+        `;
+      })()}
       <div class="materials-table-wrap">
         <table class="materials-table">
           <thead>
             <tr>
               <th>Item</th>
+              <th>Group</th>
               <th>Qty</th>
               <th>Est. Cost</th>
               <th>Status</th>
@@ -3566,21 +3635,35 @@ function renderProjectDetail(projectId) {
             </tr>
           </thead>
           <tbody>
-            ${materials.map(mat => `
-              <tr>
-                <td><strong>${escapeHTML(mat.name)}</strong></td>
-                <td>${escapeHTML(mat.qty || "-")}</td>
-                <td>${Number(mat.cost) > 0 ? formatMoney(mat.cost) : "-"}</td>
-                <td>
-                  <span class="materials-status-tag status-${mat.status || "need"}" data-action="cycle-material-status" data-project="${project.id}" data-id="${mat.id}" title="Click to cycle status">
-                    ${mat.status === "have" ? "✓ Have / In stock" : mat.status === "ordered" ? "↗ Ordered" : "○ Need to buy"}
-                  </span>
-                </td>
-                <td style="text-align:right">
-                  <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
-                </td>
-              </tr>
-            `).join("")}
+            ${(() => {
+              const activeFilter = state.activeMaterialGroupFilter || "all";
+              const displayed = activeFilter === "all"
+                ? materials
+                : materials.filter(m => (m.group || inferMaterialGroup(m.name)) === activeFilter);
+              return displayed.map(mat => {
+                const grp = mat.group || inferMaterialGroup(mat.name);
+                return `
+                <tr>
+                  <td><strong>${escapeHTML(mat.name)}</strong></td>
+                  <td>
+                    <span class="materials-group-badge ${getGroupBadgeClass(grp)}" data-action="edit-material-group" data-project="${project.id}" data-id="${mat.id}" title="Click to change group">
+                      ${getGroupIcon(grp)} ${escapeHTML(grp)}
+                    </span>
+                  </td>
+                  <td>${escapeHTML(mat.qty || "-")}</td>
+                  <td>${Number(mat.cost) > 0 ? formatMoney(mat.cost) : "-"}</td>
+                  <td>
+                    <span class="materials-status-tag status-${mat.status || "need"}" data-action="cycle-material-status" data-project="${project.id}" data-id="${mat.id}" title="Click to cycle status">
+                      ${mat.status === "have" ? "✓ Have / In stock" : mat.status === "ordered" ? "↗ Ordered" : "○ Need to buy"}
+                    </span>
+                  </td>
+                  <td style="text-align:right">
+                    <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
+                  </td>
+                </tr>
+              `;
+              }).join("");
+            })()}
           </tbody>
         </table>
       </div>
@@ -3997,6 +4080,8 @@ async function handleProjectEntrySubmit(event) {
     const qty = form.elements.materialQty?.value.trim() || "";
     const cost = parseFloat(form.elements.materialCost?.value) || 0;
     const status = form.elements.materialStatus?.value || "need";
+    const groupVal = form.elements.materialGroup?.value.trim();
+    const group = groupVal || inferMaterialGroup(name);
     project.materials = Array.isArray(project.materials) ? project.materials : [];
     project.materials.push({
       id: uid(),
@@ -4004,16 +4089,17 @@ async function handleProjectEntrySubmit(event) {
       qty,
       cost,
       status,
+      group: group || "General Supplies",
       createdAt: new Date().toISOString()
     });
     project.updatedAt = new Date().toISOString();
-    makeActivity("project", `Added ${name} to materials for ${project.title}`);
+    makeActivity("project", `Added ${name} (${group}) to materials for ${project.title}`);
     try {
       await persistState();
       form.reset();
       render();
       renderProjectDetail(project.id);
-      showToast(`Added “${name}” to supplies.`);
+      showToast(`Added “${name}” to ${group}.`);
     } catch (error) {
       console.error(error);
       showToast("Could not save material item.");
@@ -5936,7 +6022,12 @@ function renderShoppingList() {
                 <span class="shopping-check-custom"></span>
               </label>
               <div class="shopping-item-body">
-                <div class="shopping-item-name">${escapeHTML(m.name)}</div>
+                <div class="shopping-item-name">
+                  ${escapeHTML(m.name)}
+                  <span class="materials-group-badge ${getGroupBadgeClass(m.group || inferMaterialGroup(m.name))}" style="margin-left:6px;font-size:9.5px;padding:1px 6px">
+                    ${getGroupIcon(m.group || inferMaterialGroup(m.name))} ${escapeHTML(m.group || inferMaterialGroup(m.name))}
+                  </span>
+                </div>
                 <div class="shopping-item-meta">
                   ${m.qty ? `<span class="shopping-qty-badge">Qty: ${escapeHTML(m.qty)}</span>` : ""}
                   ${Number(m.cost) > 0 ? `<span class="shopping-cost-badge">${formatMoney(m.cost)}</span>` : ""}
@@ -7295,6 +7386,7 @@ async function pickInventoryForProject(projectId, inventoryId) {
       qty: item.unit ? `${qtyToAllocate} ${item.unit}` : `${qtyToAllocate}`,
       cost: totalCost,
       status: "have",
+      group: item.category || inferMaterialGroup(item.name),
       inventoryId: item.id,
       createdAt: new Date().toISOString()
     });
@@ -9329,6 +9421,32 @@ async function handleAction(action, target) {
     }
     return;
   }
+  if (action === "filter-material-group") {
+    state.activeMaterialGroupFilter = target.dataset.group || "all";
+    const projId = target.dataset.project || activeProjectId;
+    if (projId) renderProjectDetail(projId);
+    return;
+  }
+  if (action === "edit-material-group") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    const material = project?.materials?.find(item => item.id === id);
+    if (!project || !material) return;
+    const currentGroup = material.group || inferMaterialGroup(material.name);
+    const newGroup = prompt("Enter group for this material (e.g. Yarn & Fibers, Sensors & Modules, Hardware, Lumber):", currentGroup);
+    if (newGroup !== null) {
+      material.group = newGroup.trim() || "General Supplies";
+      project.updatedAt = new Date().toISOString();
+      try {
+        await persistState();
+        render();
+        renderProjectDetail(project.id);
+        showToast(`Updated ${material.name} group to "${material.group}".`);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    return;
+  }
   if (action === "delete-material") {
     const project = state.projects.find(item => item.id === target.dataset.project);
     if (!project || !project.materials) return;
@@ -9452,7 +9570,7 @@ async function handleAction(action, target) {
     const totalCost = totalBf * price;
     const speciesSel = $("#wood-view-species");
     const species = speciesSel ? speciesSel.selectedOptions[0]?.text.split("(")[0].trim() : "Hardwood";
-    void addMaterialToProjectShopping(`${species} Lumber (${t}" × ${w}" × ${l}')`, `${qty} boards (${totalBf.toFixed(1)} BF)`, totalCost);
+    void addMaterialToProjectShopping(`${species} Lumber (${t}" × ${w}" × ${l}')`, `${qty} boards (${totalBf.toFixed(1)} BF)`, totalCost, "Lumber & Sheet Goods");
     return;
   }
   if (action === "textiles-add-to-shopping") {
@@ -9464,7 +9582,7 @@ async function handleAction(action, target) {
       ? TEXTILE_PROJECT_YARDAGE_DB[projSel?.value][wtSel?.value] : 200;
     const totalYds = Math.round(baseYds * 1.10);
     const skeins = Math.ceil(totalYds / 210);
-    void addMaterialToProjectShopping(`${wtName} Yarn for ${projName}`, `${skeins} skeins (~${totalYds} yds)`, 0);
+    void addMaterialToProjectShopping(`${wtName} Yarn for ${projName}`, `${skeins} skeins (~${totalYds} yds)`, 0, "Yarn & Fibers");
     return;
   }
   if (action === "elec-add-to-shopping") {
@@ -9477,7 +9595,53 @@ async function handleAction(action, target) {
     const base = is5 ? parseInt(b1, 10) * 100 + parseInt(b2, 10) * 10 + parseInt(b3, 10) : parseInt(b1, 10) * 10 + parseInt(b2, 10);
     const ohms = base * mult;
     const valStr = ohms >= 1e6 ? `${(ohms/1e6).toFixed(2).replace(/\.00$/,'')} MΩ` : ohms >= 1e3 ? `${(ohms/1e3).toFixed(2).replace(/\.00$/,'')} kΩ` : `${ohms} Ω`;
-    void addMaterialToProjectShopping(`${valStr} ±${tol}% Resistors`, "10 pcs pack", 0.50);
+    void addMaterialToProjectShopping(`${valStr} ±${tol}% Resistors`, "10 pcs pack", 0.50, "Electronics & Wiring");
+    return;
+  }
+  if (action === "toggle-art-camera") {
+    toggleArtCamera();
+    return;
+  }
+  if (action === "freeze-art-camera") {
+    freezeArtCamera();
+    return;
+  }
+  if (action === "switch-art-camera") {
+    void switchArtCameraFacing();
+    return;
+  }
+  if (action === "set-camera-base-color") {
+    setCameraColorAsStudioBase();
+    return;
+  }
+  if (action === "copy-camera-hex") {
+    const hex = artCameraState.activeColor || "#0284c7";
+    try {
+      await navigator.clipboard.writeText(hex.toUpperCase());
+      showToast(`Copied ${hex.toUpperCase()} to clipboard!`);
+    } catch {
+      showToast(hex.toUpperCase());
+    }
+    return;
+  }
+  if (action === "pick-camera-chip") {
+    const hex = target.dataset.hex;
+    if (hex) {
+      artCameraState.activeColor = hex;
+      renderArtCameraDetails(hex, artCameraState.topClusters, artCameraState.screenDominantColor);
+    }
+    return;
+  }
+  if (action === "copy-i2c-scanner") {
+    void copyI2cScannerSketch();
+    return;
+  }
+  if (action === "save-sensor-to-materials") {
+    void saveSensorToProjectMaterials();
+    return;
+  }
+  if (action === "save-skein-to-materials") {
+    void saveSkeinToProjectMaterials();
     return;
   }
   if (action === "copy-crc-result") {
@@ -19135,6 +19299,7 @@ function renderTextilesView() {
   updateTextilesYarnWeightView();
   if (typeof updateTextilesYardageCalc === "function") updateTextilesYardageCalc();
   if (typeof updateTextilesGaugeCalc === "function") updateTextilesGaugeCalc();
+  if (typeof updateYarnSkeinCalculator === "function") updateYarnSkeinCalculator();
   updateAmigurumiGenerator();
   updateSewingCuttingCalc();
   updateSewingNeedleGuide();
@@ -19390,6 +19555,7 @@ function renderElectronicsView() {
   if (typeof updateWireAwgView === "function") updateWireAwgView();
   if (typeof update555TimerCalc === "function") update555TimerCalc();
   if (typeof updatePassiveFilterCalc === "function") updatePassiveFilterCalc();
+  if (typeof updateI2cSensorGuide === "function") updateI2cSensorGuide();
 }
 
 // --- 💻 Programming & Microcontrollers Studio ---
@@ -19830,6 +19996,9 @@ function renderArtView() {
   updateArtGradientStudio();
   updateArtPrintResCalc();
   updateArtCvdView();
+  if (typeof renderArtCameraDetails === "function" && typeof artCameraState !== "undefined") {
+    renderArtCameraDetails(artCameraState.activeColor, artCameraState.topClusters, artCameraState.screenDominantColor);
+  }
 }
 
 // --- Initialize All Craft Studios ---
@@ -20051,6 +20220,73 @@ function updateTextilesGaugeCalc() {
     '• <strong>Adjusted Cast-On to Hit ' + targetW + '":</strong> <span style="color:var(--green);font-weight:800">' + adjustedCastOn + ' stitches</span><br>' +
     '• ' + (actSts > patSts ? 'Your gauge is tighter: Go UP 1 needle size (e.g. US 7 → US 8).' : actSts < patSts ? 'Your gauge is looser: Go DOWN 1 needle size (e.g. US 8 → US 7).' : 'Spot on! Your gauge perfectly matches the pattern.') +
   '</div>';
+}
+
+function updateYarnSkeinCalculator() {
+  const fullWt = parseFloat($("#textiles-skein-full-wt")?.value) || 100;
+  const fullLen = parseFloat($("#textiles-skein-full-len")?.value) || 220;
+  const unit = $("#textiles-skein-len-unit")?.value || "yds";
+  const curWt = parseFloat($("#textiles-skein-cur-wt")?.value) || 0;
+  const targetLen = parseFloat($("#textiles-skein-target-len")?.value) || 0;
+  const res = $("#textiles-skein-result");
+  if (!res) return;
+
+  if (fullWt <= 0 || fullLen <= 0) {
+    res.innerHTML = '<span style="font-size:12px;color:var(--muted)">Enter valid full skein weight and length.</span>';
+    return;
+  }
+
+  const fractionLeft = Math.max(0, Math.min(1.0, curWt / fullWt));
+  const remainingLen = fractionLeft * fullLen;
+  const usedWt = Math.max(0, fullWt - curWt);
+  const usedLen = fullLen - remainingLen;
+  const pctLeft = Math.round(fractionLeft * 100);
+
+  const remainingYds = unit === "yds" ? remainingLen : remainingLen * 1.09361;
+  const remainingM = unit === "m" ? remainingLen : remainingLen * 0.9144;
+
+  let patternStatus = "";
+  if (targetLen > 0) {
+    if (remainingLen >= targetLen) {
+      const extra = remainingLen - targetLen;
+      patternStatus = `<div style="margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(34,197,94,0.12);color:var(--green);font-weight:700;font-size:12px">
+        ✅ Sufficient yarn! You have +${extra.toFixed(1)} ${unit} surplus for this pattern.
+      </div>`;
+    } else {
+      const shortage = targetLen - remainingLen;
+      patternStatus = `<div style="margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(239,68,68,0.12);color:#ef4444;font-weight:700;font-size:12px">
+        ⚠️ Yarn Shortage: You are ${shortage.toFixed(1)} ${unit} short of pattern requirement. Wind another skein or reduce repeat!
+      </div>`;
+    }
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">REMAINING YARDAGE ON SKEIN:</span>
+      <strong style="font-size:18px;color:#ec4899">~${remainingLen.toFixed(1)} ${unit} (${unit === "yds" ? remainingM.toFixed(1) + " m" : remainingYds.toFixed(1) + " yds"})</strong>
+    </div>
+    <div class="skein-meter-bar">
+      <div class="skein-meter-fill" style="width:${pctLeft}%"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:8px">
+      <span>Used: ${usedWt.toFixed(1)}g (${usedLen.toFixed(1)} ${unit})</span>
+      <strong style="color:var(--ink)">${pctLeft}% Remaining (${curWt.toFixed(1)}g)</strong>
+    </div>
+    ${patternStatus}
+    <div style="margin-top:8px;display:flex;justify-content:flex-end">
+      <button type="button" class="button button-small button-outline" data-action="save-skein-to-materials" title="Add this stash yarn to your active project supplies">➕ Add Stash Yarn to Materials</button>
+    </div>
+  `;
+}
+
+async function saveSkeinToProjectMaterials() {
+  const fullWt = parseFloat($("#textiles-skein-full-wt")?.value) || 100;
+  const fullLen = parseFloat($("#textiles-skein-full-len")?.value) || 220;
+  const unit = $("#textiles-skein-len-unit")?.value || "yds";
+  const curWt = parseFloat($("#textiles-skein-cur-wt")?.value) || 0;
+  const remainingLen = (fullWt > 0) ? (Math.max(0, Math.min(1.0, curWt / fullWt)) * fullLen) : curWt;
+
+  await addMaterialToProjectShopping(`Partial Skein Stash Yarn (${curWt.toFixed(0)}g)`, `~${remainingLen.toFixed(0)} ${unit}`, 0, "Yarn & Fibers");
 }
 
 function exportStitchChartPng() {
@@ -20583,6 +20819,277 @@ function updatePassiveFilterCalc() {
   `;
 }
 
+// --- ⚡ Sensor & Module I2C Bus Address Guide & Conflict Checker ---
+const I2C_SENSORS_DB = {
+  bme280: {
+    name: "BME280 / BMP280",
+    function: "Barometric Pressure, Altitude, Ambient Temperature & Humidity",
+    defaultAddr: "0x76",
+    altAddr: "0x77 (SDO -> VCC)",
+    voltage: "3.3V (Logic level shifter required for 5V Arduino Uno)",
+    pins: ["VCC", "GND", "SCL", "SDA", "SDO/ADDR", "CSB"],
+    speed: "Standard 100 kHz / Fast 400 kHz",
+    notes: "BMP280 measures pressure & temp; BME280 adds relative humidity. High accuracy for weather stations & altimeters."
+  },
+  mpu6050: {
+    name: "MPU6050",
+    function: "6-Axis MotionTracking (3-Axis Gyroscope + 3-Axis Accelerometer + DMP)",
+    defaultAddr: "0x68",
+    altAddr: "0x69 (Pull AD0 pin HIGH to 3.3V)",
+    voltage: "3.3V - 5V (Onboard regulator on GY-521; I2C bus is 3.3V logic)",
+    pins: ["VCC", "GND", "SCL", "SDA", "XDA", "XCL", "AD0", "INT"],
+    speed: "Up to 400 kHz Fast Mode",
+    notes: "Shares address 0x68 with DS3231 RTC. Tie AD0 to 3.3V to change MPU6050 address to 0x69."
+  },
+  ssd1306: {
+    name: "SSD1306 OLED Display (128x64)",
+    function: "Monochrome Graphics & Text Display",
+    defaultAddr: "0x3C",
+    altAddr: "0x3D (Resolder 0-ohm jumper on PCB)",
+    voltage: "3.3V - 5V (Includes onboard charge pump)",
+    pins: ["VCC", "GND", "SCL", "SDA"],
+    speed: "Up to 400 kHz (Supports 1 MHz on fast MCUs)",
+    notes: "Draws ~25mA when all pixels lit. Compatible with Adafruit_SSD1306 and U8g2 libraries."
+  },
+  bme680: {
+    name: "BME680 Environmental Sensor",
+    function: "Gas (VOC / IAQ), Pressure, Temperature & Humidity",
+    defaultAddr: "0x77",
+    altAddr: "0x76 (SDO -> GND)",
+    voltage: "3.3V (Strict 1.71V - 3.6V range; do not apply 5V)",
+    pins: ["VCC", "GND", "SCL", "SDA", "SDO", "CS"],
+    speed: "Up to 3.4 MHz High-Speed Mode",
+    notes: "Internal metal-oxide plate for VOC sensing. Requires Bosch BSEC library for calculated Indoor Air Quality (IAQ) index."
+  },
+  vl53l0x: {
+    name: "VL53L0X Time-of-Flight (ToF)",
+    function: "Laser Distance Measuring (Up to 2 meters / 6.5 ft)",
+    defaultAddr: "0x29",
+    altAddr: "Software programmable via XSHUT pin",
+    voltage: "2.8V internal core; module breakout boards include 5V level shifter",
+    pins: ["VCC", "GND", "SCL", "SDA", "XSHUT", "GPIO1"],
+    speed: "Up to 400 kHz Fast Mode",
+    notes: "Conflicts with TCS34725 color sensor (both 0x29). To use multiple ToF sensors, hold XSHUT LOW and initialize sequentially."
+  },
+  ina219: {
+    name: "INA219 High-Side Current & Power",
+    function: "Measures 0-26V DC up to ±3.2A with 0.8mA resolution",
+    defaultAddr: "0x40",
+    altAddr: "0x40 - 0x45 (Jumpers A0 & A1)",
+    voltage: "3.0V - 5.5V Supply",
+    pins: ["VCC", "GND", "SCL", "SDA", "Vin+", "Vin-"],
+    speed: "Up to 2.56 MHz High-Speed Mode",
+    notes: "Measures across precision 0.1Ω 1% shunt resistor. Ideal for battery discharge and solar charge logging."
+  },
+  ads1115: {
+    name: "ADS1115 16-Bit 4-Channel ADC",
+    function: "Ultra-High Resolution Analog-to-Digital Converter with PGA",
+    defaultAddr: "0x48",
+    altAddr: "0x48 (GND), 0x49 (VDD), 0x4A (SDA), 0x4B (SCL)",
+    voltage: "2.0V - 5.5V",
+    pins: ["VDD", "GND", "SCL", "SDA", "ADDR", "ALRT", "A0", "A1", "A2", "A3"],
+    speed: "Up to 3.4 MHz",
+    notes: "Offers 860 samples/sec with programmable gain amplifier up to 16x. Up to 4 chips can run on one I2C bus."
+  },
+  ds3231: {
+    name: "DS3231 Precision RTC",
+    function: "Extremely Accurate I2C Real-Time Clock with TCXO & crystal",
+    defaultAddr: "0x68",
+    altAddr: "Fixed 0x68 (EEPROM on board is 0x57)",
+    voltage: "2.3V - 5.5V (CR2032 coin cell backup)",
+    pins: ["VCC", "GND", "SCL", "SDA", "SQW", "32K"],
+    speed: "Standard 100 kHz & Fast 400 kHz",
+    notes: "Drifts less than 1 minute per year. Avoid MPU6050 address collision by shifting MPU6050 to 0x69."
+  },
+  tcs34725: {
+    name: "TCS34725 RGB Color Sensor",
+    function: "RGB and Clear Light Sensing with IR Blocking Filter",
+    defaultAddr: "0x29",
+    altAddr: "Fixed 0x29",
+    voltage: "3.3V (Board regulator handles 3.3V - 5V)",
+    pins: ["VIN", "GND", "SCL", "SDA", "INT", "LED"],
+    speed: "Up to 400 kHz",
+    notes: "Features 3,800,000:1 dynamic range. Tie LED pin LOW to extinguish bright white illumination LED."
+  },
+  apds9960: {
+    name: "APDS9960 Gesture & Proximity",
+    function: "Directional Gesture (Up/Down/Left/Right), Color, Light & Proximity",
+    defaultAddr: "0x39",
+    altAddr: "Fixed 0x39",
+    voltage: "3.3V (Not 5V tolerant! Use 3.3V supply and logic level shifter)",
+    pins: ["VL", "VCC", "GND", "SDA", "SCL", "INT"],
+    speed: "Up to 400 kHz",
+    notes: "Integrated IR LED emitter enables contactless hand gesture detection up to 10-20 cm."
+  },
+  max30102: {
+    name: "MAX30102 Pulse Oximeter",
+    function: "SpO2 Blood Oxygen & Photoplethysmography (PPG) Heart Rate",
+    defaultAddr: "0x57",
+    altAddr: "Fixed 0x57",
+    voltage: "1.8V core, 3.3V - 5V module input with dual LDOs",
+    pins: ["VIN", "GND", "SCL", "SDA", "INT", "RD", "IRD"],
+    speed: "Up to 400 kHz",
+    notes: "Emits Red (660nm) and Infrared (880nm) light to calculate oxygenated hemoglobin ratio in capillary blood."
+  },
+  sht31: {
+    name: "SHT31-D Digital Humidity & Temp",
+    function: "±2% Relative Humidity and ±0.3°C Temperature Sensor",
+    defaultAddr: "0x44",
+    altAddr: "0x45 (ADR -> VDD)",
+    voltage: "2.4V - 5.5V Wide voltage supply",
+    pins: ["VIN", "GND", "SCL", "SDA", "ALR", "ADR"],
+    speed: "Up to 1.0 MHz Fast Mode Plus",
+    notes: "True I2C interface with multiple measurement modes and internal heater for de-fogging condensation."
+  },
+  mcp23017: {
+    name: "MCP23017 16-Bit I/O Expander",
+    function: "Adds 16 GPIO pins over I2C (Two 8-bit ports GPA & GPB)",
+    defaultAddr: "0x20",
+    altAddr: "0x20 - 0x27 (Pins A0, A1, A2)",
+    voltage: "1.8V - 5.5V",
+    pins: ["VDD", "VSS", "SCL", "SDA", "A0", "A1", "A2", "RESET", "INTA", "INTB", "GPA0-7", "GPB0-7"],
+    speed: "100 kHz, 400 kHz, 1.7 MHz",
+    notes: "Run up to 8 chips on one I2C bus to expand an Arduino or Raspberry Pi by 128 digital I/O pins."
+  },
+  pca9685: {
+    name: "PCA9685 16-Channel 12-Bit PWM",
+    function: "Drives 16 Servos or LEDs with free-running clock",
+    defaultAddr: "0x40",
+    altAddr: "0x40 - 0x7F (Solder pads A0-A5)",
+    voltage: "3.3V - 5V Logic, separate V+ servo terminal up to 6V",
+    pins: ["VCC", "GND", "SCL", "SDA", "OE", "V+"],
+    speed: "Up to 1 MHz Fast Mode Plus",
+    notes: "Completely offloads servo pulse timing from the microcontroller. Up to 62 boards can be chained."
+  },
+  aht20: {
+    name: "AHT20 Digital Temp & Humidity",
+    function: "Next-Generation MEMS Temperature & Humidity",
+    defaultAddr: "0x38",
+    altAddr: "Fixed 0x38",
+    voltage: "2.0V - 5.5V",
+    pins: ["VIN", "GND", "SCL", "SDA"],
+    speed: "Standard 100 kHz & Fast 400 kHz",
+    notes: "Calibrated digital output; significantly faster response and stability compared to older DHT11/DHT22."
+  }
+};
+
+function updateI2cSensorGuide() {
+  const s1Key = $("#elec-sensor-primary")?.value || "bme280";
+  const s2Key = $("#elec-sensor-secondary")?.value || "none";
+  const res = $("#elec-sensor-result");
+  if (!res) return;
+
+  const s1 = I2C_SENSORS_DB[s1Key] || I2C_SENSORS_DB.bme280;
+  const s2 = (s2Key !== "none" && I2C_SENSORS_DB[s2Key]) ? I2C_SENSORS_DB[s2Key] : null;
+
+  let conflictHtml = "";
+  if (s2) {
+    const isConflict = s1.defaultAddr.toLowerCase() === s2.defaultAddr.toLowerCase();
+    if (isConflict) {
+      conflictHtml = `
+        <div style="background:rgba(239,68,68,0.12);border:1px solid #ef4444;border-radius:6px;padding:8px 12px;margin-bottom:10px;color:#dc2626;font-size:12px">
+          <strong>⚠️ I2C BUS ADDRESS CONFLICT DETECTED!</strong><br>
+          Both <strong>${s1.name}</strong> and <strong>${s2.name}</strong> share the default 7-bit address <code>${s1.defaultAddr}</code>.<br>
+          <span style="font-size:11px;color:var(--ink);margin-top:4px;display:block">
+            🔧 <strong>Hardware Solution:</strong> ${s1.altAddr !== "Fixed " + s1.defaultAddr ? `Change ${s1.name} address to <strong>${s1.altAddr}</strong>` : `Change ${s2.name} address to <strong>${s2.altAddr}</strong>`} or use an I2C Multiplexer (TCA9548A).
+          </span>
+        </div>
+      `;
+    } else {
+      conflictHtml = `
+        <div style="background:rgba(34,197,94,0.12);border:1px solid var(--green);border-radius:6px;padding:8px 12px;margin-bottom:10px;color:var(--green);font-size:12px">
+          <strong>✅ Compatible on Same I2C Bus!</strong><br>
+          ${s1.name} (<code>${s1.defaultAddr}</code>) and ${s2.name} (<code>${s2.defaultAddr}</code>) use distinct addresses and can share SDA/SCL lines freely.
+        </div>
+      `;
+    }
+  }
+
+  const pinChips = s1.pins.map(p => {
+    const pLow = p.toLowerCase();
+    let cls = "sensor-pin-chip";
+    if (pLow.includes("vcc") || pLow.includes("vdd") || pLow.includes("vin")) cls += " vcc";
+    else if (pLow.includes("gnd") || pLow.includes("vss")) cls += " gnd";
+    else if (pLow.includes("sda")) cls += " sda";
+    else if (pLow.includes("scl")) cls += " scl";
+    return `<span class="${cls}">${p}</span>`;
+  }).join(" ");
+
+  res.innerHTML = `
+    ${conflictHtml}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+      <div>
+        <strong style="font-size:15px;color:var(--ink)">${s1.name}</strong>
+        <span style="font-size:11px;color:var(--muted);margin-left:6px">${s1.function}</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:monospace;font-size:12px;font-weight:800;color:var(--green)">
+          ADDR: ${s1.defaultAddr}
+        </span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.45">
+      • <strong>Alternate Address:</strong> ${s1.altAddr}<br>
+      • <strong>Supply &amp; Logic Level:</strong> ${s1.voltage}<br>
+      • <strong>Max Bus Speed:</strong> ${s1.speed}<br>
+      • <strong>Integration &amp; Quirks:</strong> ${s1.notes}<br>
+      <div style="margin-top:8px">
+        <strong style="font-size:11px;color:var(--muted)">HEADER PINOUT:</strong>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+          ${pinChips}
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <button type="button" class="button button-small button-outline" data-action="copy-i2c-scanner" title="Copy Arduino C++ I2C Bus Scanner Sketch">📋 Copy Arduino I2C Scanner</button>
+      <button type="button" class="button button-small button-outline" data-action="save-sensor-to-materials" title="Add this sensor to your project materials">➕ Add Sensor to Materials</button>
+    </div>
+  `;
+}
+
+async function copyI2cScannerSketch() {
+  const code = `#include <Wire.h>
+
+void setup() {
+  Wire.begin();
+  Serial.begin(115200);
+  while (!Serial);
+  Serial.println("\\n--- Arduino I2C Bus Scanner ---");
+}
+
+void loop() {
+  byte error, address;
+  int nDevices = 0;
+  Serial.println("Scanning I2C bus...");
+  for (address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+    if (error == 0) {
+      Serial.print("  [+] I2C device found at address 0x");
+      if (address < 16) Serial.print("0");
+      Serial.print(address, HEX);
+      Serial.println(" !");
+      nDevices++;
+    }
+  }
+  if (nDevices == 0) Serial.println("  [-] No I2C devices found. Check wiring & pull-ups.");
+  delay(5000);
+}`;
+
+  try {
+    await navigator.clipboard.writeText(code);
+    showToast("Copied Arduino I2C Scanner code to clipboard!");
+  } catch {
+    showToast("I2C Scanner ready.");
+  }
+}
+
+async function saveSensorToProjectMaterials() {
+  const s1Key = $("#elec-sensor-primary")?.value || "bme280";
+  const s1 = I2C_SENSORS_DB[s1Key] || I2C_SENSORS_DB.bme280;
+  await addMaterialToProjectShopping(`${s1.name} Sensor Module`, "1 unit", 0, "Sensors & Modules");
+}
+
 // --- 💻 Programming Studio: ALU, ASCII Search, Array Formatter ---
 function updateProgAluCalc() {
   const a = Math.max(0, Math.min(255, parseInt($("#prog-alu-rega")?.value, 10) || 0));
@@ -20822,7 +21329,7 @@ async function copyCrcResult() {
 }
 
 // --- 🛒 Studio to Project Supplies Helper ---
-async function addMaterialToProjectShopping(itemName, qty, cost = 0) {
+async function addMaterialToProjectShopping(itemName, qty, cost = 0, groupOverride = null) {
   let project = (typeof state !== "undefined" && state.projects) ? (state.projects.find(p => p.status === "in-progress") || state.projects[0]) : null;
   if (!project && typeof state !== "undefined") {
     state.projects = state.projects || [];
@@ -20843,6 +21350,7 @@ async function addMaterialToProjectShopping(itemName, qty, cost = 0) {
   }
   if (!project) return;
 
+  const grp = groupOverride || (typeof inferMaterialGroup === "function" ? inferMaterialGroup(itemName) : "General Supplies");
   project.materials = Array.isArray(project.materials) ? project.materials : [];
   project.materials.push({
     id: uid(),
@@ -20850,15 +21358,16 @@ async function addMaterialToProjectShopping(itemName, qty, cost = 0) {
     qty: String(qty),
     cost: Number(cost) || 0,
     status: "need",
+    group: grp,
     createdAt: new Date().toISOString()
   });
   project.updatedAt = new Date().toISOString();
   if (typeof makeActivity === "function") {
-    makeActivity("project", `Added ${itemName} to supplies for ${project.title}`);
+    makeActivity("project", `Added ${itemName} (${grp}) to supplies for ${project.title}`);
   }
   await persistState();
   if (typeof renderShoppingList === "function") renderShoppingList();
-  showToast(`🛒 Added "${itemName}" (${qty}) to project "${project.title}" shopping checklist!`);
+  showToast(`🛒 Added "${itemName}" (${qty}) to project "${project.title}" supplies!`);
 }
 
 // --- 🎨 Art & Design Studio: WCAG Contrast, CSS Gradient, DPI Print Scaler ---
@@ -21029,6 +21538,409 @@ function updateArtCvdView() {
   `;
 }
 
+// --- 📷 Live Camera Color Eyedropper & Screen Dominant Color Analyzer ---
+function rgbToHex(r, g, b) {
+  const toByte = (v) => Math.max(0, Math.min(255, Math.round(v)));
+  const toHex = (v) => toByte(v).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) {
+    h = s = 0;
+  } else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+function getColorNameApprox(r, g, b) {
+  const [h, s, l] = rgbToHsl(r, g, b);
+  if (s < 12) {
+    if (l < 15) return "Obsidian Black";
+    if (l < 35) return "Charcoal Gray";
+    if (l < 65) return "Medium Gray";
+    if (l < 88) return "Silver Gray";
+    return "Pure White";
+  }
+  if (l < 15) return "Very Dark Shadow";
+  if (l > 88) return "Pale Pastel";
+
+  if (h >= 350 || h < 12) return l < 40 ? "Burgundy / Maroon" : "Crimson Red";
+  if (h >= 12 && h < 38) return l < 40 ? "Rust Brown" : "Vibrant Orange";
+  if (h >= 38 && h < 65) return l < 45 ? "Raw Umber / Ochre" : "Golden Amber";
+  if (h >= 65 && h < 85) return "Lime Yellow";
+  if (h >= 85 && h < 160) return l < 35 ? "Deep Forest Green" : "Emerald Green";
+  if (h >= 160 && h < 195) return "Teal / Cyan";
+  if (h >= 195 && h < 245) return l < 35 ? "Navy Blue" : "Sky / Azure Blue";
+  if (h >= 245 && h < 275) return "Indigo / Royal Blue";
+  if (h >= 275 && h < 315) return "Plum / Purple";
+  if (h >= 315 && h < 350) return "Rose / Magenta";
+  return "Custom Hue";
+}
+
+const artCameraState = {
+  stream: null,
+  active: false,
+  facingMode: "environment",
+  frozen: false,
+  activeColor: "#0284c7",
+  screenDominantColor: "#0284c7",
+  topClusters: ["#0284c7", "#38bdf8", "#0369a1", "#024a73", "#e0f2fe"],
+  rafId: null,
+  tapX: null,
+  tapY: null
+};
+
+async function startArtCamera() {
+  const video = $("#art-camera-video");
+  const canvas = $("#art-camera-canvas");
+  const btn = $("#art-camera-toggle-btn");
+  const flipBtn = $("#art-camera-flip-btn");
+  const freezeBtn = $("#art-camera-freeze-btn");
+  const hudBadge = $("#art-camera-hud-badge");
+  const statusText = $("#art-camera-status-text");
+  if (!video) return;
+
+  if (artCameraState.stream) {
+    stopArtCamera();
+    return;
+  }
+
+  try {
+    const constraints = {
+      video: {
+        facingMode: artCameraState.facingMode,
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+      },
+      audio: false
+    };
+
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
+
+    artCameraState.stream = stream;
+    artCameraState.active = true;
+    artCameraState.frozen = false;
+    video.srcObject = stream;
+    await video.play();
+
+    if (canvas) canvas.classList.remove("active");
+    if (btn) {
+      btn.textContent = "⏹ Stop Camera";
+      btn.classList.add("button-outline");
+    }
+    if (flipBtn) flipBtn.style.display = "inline-flex";
+    if (freezeBtn) {
+      freezeBtn.style.display = "inline-flex";
+      freezeBtn.textContent = "📸 Freeze Frame";
+    }
+    if (hudBadge) {
+      hudBadge.classList.remove("frozen");
+      const dot = hudBadge.querySelector(".hud-status-dot");
+      if (dot) dot.style.background = "#22c55e";
+    }
+    if (statusText) statusText.textContent = "Live Camera Active";
+
+    initCameraViewportTap();
+    runArtCameraFrameLoop();
+    showToast("Camera active. Point at any subject to extract dominant color!");
+  } catch (err) {
+    console.error("Camera access failed:", err);
+    showToast("Could not access camera. Please check browser permissions, or use 'Pick from Photo'.", "warning");
+  }
+}
+
+function stopArtCamera() {
+  if (artCameraState.stream) {
+    artCameraState.stream.getTracks().forEach(t => t.stop());
+    artCameraState.stream = null;
+  }
+  if (artCameraState.rafId) {
+    cancelAnimationFrame(artCameraState.rafId);
+    artCameraState.rafId = null;
+  }
+  artCameraState.active = false;
+  artCameraState.frozen = false;
+
+  const video = $("#art-camera-video");
+  const canvas = $("#art-camera-canvas");
+  const btn = $("#art-camera-toggle-btn");
+  const flipBtn = $("#art-camera-flip-btn");
+  const freezeBtn = $("#art-camera-freeze-btn");
+  const hudBadge = $("#art-camera-hud-badge");
+  const statusText = $("#art-camera-status-text");
+
+  if (video) video.srcObject = null;
+  if (canvas) canvas.classList.remove("active");
+  if (btn) {
+    btn.textContent = "📷 Start Camera";
+    btn.classList.remove("button-outline");
+  }
+  if (flipBtn) flipBtn.style.display = "none";
+  if (freezeBtn) freezeBtn.style.display = "none";
+  if (hudBadge) {
+    hudBadge.classList.remove("frozen");
+    const dot = hudBadge.querySelector(".hud-status-dot");
+    if (dot) dot.style.background = "#94a3b8";
+  }
+  if (statusText) statusText.textContent = "Camera Inactive";
+}
+
+function toggleArtCamera() {
+  if (artCameraState.active) {
+    stopArtCamera();
+  } else {
+    void startArtCamera();
+  }
+}
+
+async function switchArtCameraFacing() {
+  artCameraState.facingMode = (artCameraState.facingMode === "environment") ? "user" : "environment";
+  if (artCameraState.active) {
+    stopArtCamera();
+    await startArtCamera();
+  }
+}
+
+function freezeArtCamera() {
+  const video = $("#art-camera-video");
+  const canvas = $("#art-camera-canvas");
+  const freezeBtn = $("#art-camera-freeze-btn");
+  const hudBadge = $("#art-camera-hud-badge");
+  const statusText = $("#art-camera-status-text");
+  if (!video || !canvas) return;
+
+  if (!artCameraState.frozen) {
+    artCameraState.frozen = true;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.classList.add("active");
+
+    if (freezeBtn) freezeBtn.textContent = "▶ Resume Video";
+    if (hudBadge) {
+      hudBadge.classList.add("frozen");
+      const dot = hudBadge.querySelector(".hud-status-dot");
+      if (dot) dot.style.background = "#38bdf8";
+    }
+    if (statusText) statusText.textContent = "Frame Frozen";
+    showToast("Snapshot frozen! Tap anywhere to sample colors.");
+  } else {
+    artCameraState.frozen = false;
+    canvas.classList.remove("active");
+    if (freezeBtn) freezeBtn.textContent = "📸 Freeze Frame";
+    if (hudBadge) {
+      hudBadge.classList.remove("frozen");
+      const dot = hudBadge.querySelector(".hud-status-dot");
+      if (dot) dot.style.background = "#22c55e";
+    }
+    if (statusText) statusText.textContent = "Live Camera Active";
+    runArtCameraFrameLoop();
+  }
+}
+
+function runArtCameraFrameLoop() {
+  if (!artCameraState.active || artCameraState.frozen) return;
+  const video = $("#art-camera-video");
+  if (video && video.readyState >= 2) {
+    analyzeVideoFrame(video);
+  }
+  artCameraState.rafId = requestAnimationFrame(runArtCameraFrameLoop);
+}
+
+function analyzeVideoFrame(videoSource) {
+  if (!window._artCameraOffscreen) {
+    window._artCameraOffscreen = document.createElement("canvas");
+    window._artCameraOffscreen.width = 48;
+    window._artCameraOffscreen.height = 36;
+  }
+  const oc = window._artCameraOffscreen;
+  const octx = oc.getContext("2d", { willReadFrequently: true });
+  octx.drawImage(videoSource, 0, 0, oc.width, oc.height);
+
+  const imgData = octx.getImageData(0, 0, oc.width, oc.height).data;
+  const colorBuckets = {};
+
+  let rx = Math.floor(oc.width / 2);
+  let ry = Math.floor(oc.height / 2);
+  if (artCameraState.tapX !== null && artCameraState.tapY !== null) {
+    rx = Math.max(0, Math.min(oc.width - 1, Math.floor(artCameraState.tapX * oc.width)));
+    ry = Math.max(0, Math.min(oc.height - 1, Math.floor(artCameraState.tapY * oc.height)));
+  }
+
+  const reticleIdx = (ry * oc.width + rx) * 4;
+  const rRet = imgData[reticleIdx];
+  const gRet = imgData[reticleIdx + 1];
+  const bRet = imgData[reticleIdx + 2];
+  const reticleHex = rgbToHex(rRet, gRet, bRet);
+
+  for (let i = 0; i < imgData.length; i += 4) {
+    const r = imgData[i];
+    const g = imgData[i + 1];
+    const b = imgData[i + 2];
+    const qr = Math.round(r / 24) * 24;
+    const qg = Math.round(g / 24) * 24;
+    const qb = Math.round(b / 24) * 24;
+    const key = `${Math.min(255, qr)},${Math.min(255, qg)},${Math.min(255, qb)}`;
+    colorBuckets[key] = (colorBuckets[key] || 0) + 1;
+  }
+
+  const sorted = Object.entries(colorBuckets).sort((a, b) => b[1] - a[1]);
+  if (!sorted.length) return;
+
+  const domRgb = sorted[0][0].split(",").map(Number);
+  const domHex = rgbToHex(domRgb[0], domRgb[1], domRgb[2]);
+  artCameraState.screenDominantColor = domHex;
+
+  const activeColor = (artCameraState.tapX !== null) ? reticleHex : domHex;
+  artCameraState.activeColor = activeColor;
+
+  const top5 = sorted.slice(0, 5).map(entry => {
+    const [r, g, b] = entry[0].split(",").map(Number);
+    return rgbToHex(r, g, b);
+  });
+  artCameraState.topClusters = top5;
+
+  renderArtCameraDetails(activeColor, top5, domHex);
+}
+
+function renderArtCameraDetails(activeHex, top5Hexes = [], domHex = null) {
+  const swatchBox = $("#art-camera-swatch-box");
+  const hexVal = $("#art-camera-hex-val");
+  const nameVal = $("#art-camera-color-name");
+  const rgbVal = $("#art-camera-rgb-val");
+  const hslVal = $("#art-camera-hsl-val");
+  const lumaVal = $("#art-camera-luma-val");
+  const strip = $("#art-camera-palette-strip");
+
+  const hex = (activeHex || "#0284c7").toLowerCase();
+  const c = hex.replace("#", "");
+  const num = parseInt(c.length === 3 ? c.split("").map(x => x + x).join("") : c, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+
+  const [h, s, l] = rgbToHsl(r, g, b);
+  const luma = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  const lumaPct = Math.round((luma / 255) * 100);
+  const colorName = getColorNameApprox(r, g, b);
+
+  if (swatchBox) swatchBox.style.background = hex;
+  if (hexVal) hexVal.textContent = hex.toUpperCase();
+  if (nameVal) nameVal.textContent = `${colorName} ${domHex && hex.toLowerCase() === domHex.toLowerCase() ? "(Dominant)" : ""}`;
+  if (rgbVal) rgbVal.textContent = `rgb(${r}, ${g}, ${b})`;
+  if (hslVal) hslVal.textContent = `hsl(${h}, ${s}%, ${l}%)`;
+  if (lumaVal) lumaVal.textContent = `Luma: ${lumaPct}% (${lumaPct > 50 ? "Light" : "Dark"})`;
+
+  if (strip && top5Hexes.length > 0) {
+    const roles = ["Main Dominant", "Secondary", "Accent", "Muted", "Highlight"];
+    strip.innerHTML = top5Hexes.map((chipHex, idx) => {
+      const isSelected = chipHex.toLowerCase() === hex;
+      return `
+        <div class="art-camera-palette-chip ${isSelected ? "active" : ""}" data-action="pick-camera-chip" data-hex="${chipHex}" title="${roles[idx] || "Cluster"}: ${chipHex}">
+          <div class="art-camera-chip-swatch" style="background:${chipHex}"></div>
+          <span class="art-camera-chip-hex">${chipHex.toUpperCase()}</span>
+          <span class="art-camera-chip-role">${roles[idx] || ""}</span>
+        </div>
+      `;
+    }).join("");
+  }
+}
+
+function handleArtCameraFileUpload(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      stopArtCamera();
+      const canvas = $("#art-camera-canvas");
+      const freezeBtn = $("#art-camera-freeze-btn");
+      const hudBadge = $("#art-camera-hud-badge");
+      const statusText = $("#art-camera-status-text");
+      if (!canvas) return;
+
+      canvas.width = img.naturalWidth || 640;
+      canvas.height = img.naturalHeight || 480;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.classList.add("active");
+
+      artCameraState.frozen = true;
+      artCameraState.active = true;
+
+      if (freezeBtn) {
+        freezeBtn.style.display = "inline-flex";
+        freezeBtn.textContent = "▶ Resume Camera";
+      }
+      if (hudBadge) {
+        hudBadge.classList.add("frozen");
+        const dot = hudBadge.querySelector(".hud-status-dot");
+        if (dot) dot.style.background = "#38bdf8";
+      }
+      if (statusText) statusText.textContent = "Photo Loaded";
+
+      analyzeVideoFrame(canvas);
+      initCameraViewportTap();
+      showToast("Photo analyzed! Extracted main color on screen.");
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function initCameraViewportTap() {
+  const wrap = $("#art-camera-viewport-wrap");
+  const reticle = $("#art-camera-reticle");
+  if (!wrap || wrap.dataset.tapBound) return;
+  wrap.dataset.tapBound = "true";
+
+  wrap.addEventListener("pointerdown", (e) => {
+    const rect = wrap.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    artCameraState.tapX = x;
+    artCameraState.tapY = y;
+
+    if (reticle) {
+      reticle.style.left = `${(x * 100).toFixed(1)}%`;
+      reticle.style.top = `${(y * 100).toFixed(1)}%`;
+    }
+
+    const video = $("#art-camera-video");
+    const canvas = $("#art-camera-canvas");
+    const source = (artCameraState.frozen && canvas) ? canvas : video;
+    if (source) analyzeVideoFrame(source);
+  });
+}
+
+function setCameraColorAsStudioBase() {
+  const hex = artCameraState.activeColor || artCameraState.screenDominantColor || "#0284c7";
+  const baseInput = $("#art-view-base-color");
+  if (baseInput) {
+    baseInput.value = hex;
+    updateArtStudioPalette();
+  }
+  showToast(`Updated Studio Base Color to ${hex.toUpperCase()}! Harmonious palette regenerated.`);
+}
+
 function initCraftStudios() {
   // Piano keyboard & Music Theory & Fretboard Studio
   renderPianoKeyboardUI();
@@ -21065,22 +21977,26 @@ function initCraftStudios() {
   $("#wood-sand-finish-type")?.addEventListener("change", updateWoodSandingGuide);
   $("#wood-safety-process-select")?.addEventListener("change", updateWoodSafetyGuide);
 
-  // Textiles Yardage, Gauge & Fiber Guide
+  // Textiles Yardage, Gauge, Fiber Guide & Skein Calculator
   updateTextilesYardageEstimator();
   updateTextilesGaugeCalc();
   updateTextilesFiberGuide();
+  updateYarnSkeinCalculator();
   $("#textiles-est-project")?.addEventListener("change", updateTextilesYardageEstimator);
   $("#textiles-est-yarn-wt")?.addEventListener("change", updateTextilesYardageEstimator);
   ["#textiles-gauge-pattern", "#textiles-gauge-actual", "#textiles-gauge-target-w"].forEach(s => $(s)?.addEventListener("input", updateTextilesGaugeCalc));
   $("#textiles-fiber-select")?.addEventListener("change", updateTextilesFiberGuide);
   $("#textiles-garment-select")?.addEventListener("change", updateTextilesFiberGuide);
+  ["#textiles-skein-full-wt", "#textiles-skein-full-len", "#textiles-skein-cur-wt", "#textiles-skein-target-len"].forEach(s => $(s)?.addEventListener("input", updateYarnSkeinCalculator));
+  $("#textiles-skein-len-unit")?.addEventListener("change", updateYarnSkeinCalculator);
 
-  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer & Passive RC Filter
+  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer, Passive RC Filter & I2C Sensors
   updateVoltageDividerCalc();
   updateCapacitorCodeView();
   updateWireAwgView();
   update555TimerCalc();
   updatePassiveFilterCalc();
+  updateI2cSensorGuide();
   ["#elec-div-vin", "#elec-div-r1", "#elec-div-r2"].forEach(s => $(s)?.addEventListener("input", updateVoltageDividerCalc));
   $("#elec-cap-code")?.addEventListener("input", updateCapacitorCodeView);
   $("#elec-cap-preset")?.addEventListener("change", (e) => {
@@ -21115,6 +22031,8 @@ function initCraftStudios() {
     else if (val === "ultrasonic") { if (r) r.value = 3.3; if (c) c.value = 2.2; }
     updatePassiveFilterCalc();
   });
+  $("#elec-sensor-primary")?.addEventListener("change", updateI2cSensorGuide);
+  $("#elec-sensor-secondary")?.addEventListener("change", updateI2cSensorGuide);
 
   // Programming ALU, ASCII, Array Formatter, Baud, CRC
   updateProgAluCalc();
@@ -21131,11 +22049,12 @@ function initCraftStudios() {
   $("#prog-crc-input")?.addEventListener("input", updateProgCrcCalc);
   ["#prog-crc-format", "#prog-crc-algo"].forEach(s => $(s)?.addEventListener("change", updateProgCrcCalc));
 
-  // Art Contrast, Gradient, Print Scaler, CVD Preview
+  // Art Contrast, Gradient, Print Scaler, CVD Preview & Camera Color Picker
   updateArtContrastCalc();
   updateArtGradientStudio();
   updateArtPrintResCalc();
   updateArtCvdView();
+  renderArtCameraDetails(artCameraState.activeColor, artCameraState.topClusters, artCameraState.screenDominantColor);
   $("#art-contrast-text")?.addEventListener("input", updateArtContrastCalc);
   $("#art-contrast-bg")?.addEventListener("input", updateArtContrastCalc);
   $("#art-gradient-type")?.addEventListener("change", updateArtGradientStudio);
@@ -21143,6 +22062,9 @@ function initCraftStudios() {
   $("#art-print-size")?.addEventListener("change", updateArtPrintResCalc);
   $("#art-print-dpi")?.addEventListener("change", updateArtPrintResCalc);
   $("#art-cvd-type")?.addEventListener("change", updateArtCvdView);
+  $("#art-camera-file-input")?.addEventListener("change", (e) => {
+    if (e.target.files && e.target.files[0]) handleArtCameraFileUpload(e.target.files[0]);
+  });
 
   const instSelect = $("#music-main-instrument");
   if (instSelect) {

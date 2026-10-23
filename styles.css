@@ -7324,3 +7324,385 @@ body.theme-dark .version-tag {
   display: flex;
   justify-content: center;
 }
+
+/* ============================================================
+   🏷️ Material Groups & Filtering
+   ============================================================ */
+.supplies-cat-segment.yarn { background: #ec4899; }
+.supplies-cat-segment.sensors { background: #06b6d4; }
+.cat-dot.yarn { background: #ec4899; }
+.cat-dot.sensors { background: #06b6d4; }
+
+.materials-group-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.materials-group-badge.group-yarn {
+  background: rgba(236, 72, 153, 0.12);
+  border-color: rgba(236, 72, 153, 0.3);
+  color: #db2777;
+}
+.materials-group-badge.group-sensors {
+  background: rgba(6, 182, 212, 0.12);
+  border-color: rgba(6, 182, 212, 0.3);
+  color: #0891b2;
+}
+.materials-group-badge.group-lumber {
+  background: rgba(180, 83, 9, 0.12);
+  border-color: rgba(180, 83, 9, 0.3);
+  color: #b45309;
+}
+.materials-group-badge.group-hardware {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #2563eb;
+}
+.materials-group-badge.group-finishes {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #059669;
+}
+.materials-group-badge.group-electronics {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #4f46e5;
+}
+
+[data-theme="dark"] .materials-group-badge.group-yarn,
+body.theme-dark .materials-group-badge.group-yarn {
+  color: #f472b6;
+}
+[data-theme="dark"] .materials-group-badge.group-sensors,
+body.theme-dark .materials-group-badge.group-sensors {
+  color: #22d3ee;
+}
+[data-theme="dark"] .materials-group-badge.group-lumber,
+body.theme-dark .materials-group-badge.group-lumber {
+  color: #fbbf24;
+}
+[data-theme="dark"] .materials-group-badge.group-hardware,
+body.theme-dark .materials-group-badge.group-hardware {
+  color: #60a5fa;
+}
+[data-theme="dark"] .materials-group-badge.group-finishes,
+body.theme-dark .materials-group-badge.group-finishes {
+  color: #34d399;
+}
+[data-theme="dark"] .materials-group-badge.group-electronics,
+body.theme-dark .materials-group-badge.group-electronics {
+  color: #818cf8;
+}
+
+.materials-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0 10px;
+  margin-bottom: 4px;
+}
+.materials-filter-pill {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 9999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s ease;
+}
+.materials-filter-pill:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+.materials-filter-pill.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.materials-group-header-row th {
+  background: var(--surface-subtle) !important;
+  color: var(--ink) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 6px 10px !important;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border) !important;
+}
+
+/* ============================================================
+   📷 Live Camera Color Picker & Screen Analyzer
+   ============================================================ */
+.art-camera-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.art-camera-viewport-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  height: 280px;
+  background: #090d16;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  margin: 0 auto;
+}
+.art-camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.art-camera-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  object-fit: cover;
+}
+.art-camera-canvas.active {
+  display: block;
+}
+.art-camera-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(0,0,0,0.6);
+  pointer-events: none;
+  transition: transform .08s ease, top .08s ease, left .08s ease;
+  z-index: 10;
+}
+.art-camera-reticle::before,
+.art-camera-reticle::after {
+  content: "";
+  position: absolute;
+  background: #ffffff;
+  box-shadow: 0 0 2px rgba(0,0,0,0.8);
+}
+.art-camera-reticle::before {
+  top: 50%;
+  left: -8px;
+  right: -8px;
+  height: 1.5px;
+  transform: translateY(-50%);
+}
+.art-camera-reticle::after {
+  left: 50%;
+  top: -8px;
+  bottom: -8px;
+  width: 1.5px;
+  transform: translateX(-50%);
+}
+.art-camera-reticle-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #000;
+}
+.art-camera-hud-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 12;
+}
+.art-camera-hud-badge.frozen {
+  background: rgba(2, 132, 199, 0.85);
+}
+.art-camera-tap-hint {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 12;
+}
+.art-camera-controls-strip {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.art-camera-analysis-card {
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.art-camera-color-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.art-camera-swatch-box {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(0,0,0,0.1);
+  flex-shrink: 0;
+  transition: background .12s ease;
+}
+.art-camera-code-details {
+  flex: 1;
+  min-width: 180px;
+}
+.art-camera-hex-val {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+  color: var(--ink);
+}
+.art-camera-color-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: capitalize;
+  margin-bottom: 2px;
+}
+.art-camera-sub-codes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+  font-family: monospace;
+  margin-top: 4px;
+}
+.art-camera-sub-codes span {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.art-camera-palette-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.art-camera-palette-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.art-camera-palette-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  transition: all .15s ease;
+}
+.art-camera-palette-chip:hover,
+.art-camera-palette-chip.active {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.art-camera-chip-swatch {
+  width: 100%;
+  height: 32px;
+  border-radius: 5px;
+  border: 1px solid rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.art-camera-chip-hex {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--ink);
+}
+.art-camera-chip-role {
+  font-size: 8.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   ⚡ Sensor & I2C Bus Guide & 🧶 Yarn Skein Stash
+   ============================================================ */
+.sensor-pin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 700;
+}
+.sensor-pin-chip.vcc { color: #dc2626; border-color: rgba(220, 38, 38, 0.3); }
+.sensor-pin-chip.gnd { color: #475569; border-color: rgba(71, 85, 105, 0.3); }
+.sensor-pin-chip.sda { color: #2563eb; border-color: rgba(37, 99, 235, 0.3); }
+.sensor-pin-chip.scl { color: #d97706; border-color: rgba(217, 119, 6, 0.3); }
+
+.skein-meter-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--border);
+  overflow: hidden;
+  margin: 8px 0;
+}
+.skein-meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ec4899, #db2777);
+  border-radius: 9999px;
+  transition: width .2s ease;
+}
