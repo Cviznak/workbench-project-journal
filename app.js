@@ -418,6 +418,67 @@ function escapeHTML(value = "") {
 }
 const escapeHtml = escapeHTML;
 
+function safeMediaUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (
+    trimmed.startsWith("blob:") ||
+    /^data:audio\/(?:wav|mp3|ogg|webm|m4a|aac);base64,/i.test(trimmed) ||
+    /^https?:\/\//i.test(trimmed)
+  ) {
+    return escapeHTML(trimmed);
+  }
+  return "";
+}
+
+function decodeBase64Utf8(str) {
+  if (!str || typeof str !== "string") return null;
+  try {
+    let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const binStr = atob(b64);
+    try {
+      return decodeURIComponent(binStr);
+    } catch {
+      return binStr;
+    }
+  } catch (e) {
+    return null;
+  }
+}
+
+function sanitizeProjectObject(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  try {
+    const clean = JSON.parse(JSON.stringify(raw), (key, value) => {
+      if (key === "__proto__" || key === "constructor" || key === "prototype") {
+        return undefined;
+      }
+      return value;
+    });
+
+    if (!clean.id || typeof clean.id !== "string") return null;
+    clean.id = String(clean.id).trim();
+    if (!clean.id) return null;
+
+    clean.title = typeof clean.title === "string" ? clean.title.slice(0, 300) : "Untitled Project";
+    clean.description = typeof clean.description === "string" ? clean.description.slice(0, 5000) : "";
+    clean.status = typeof safeStatus === "function" ? safeStatus(clean.status) : (clean.status || "planned");
+    clean.priority = typeof safePriority === "function" ? safePriority(clean.priority) : "normal";
+    clean.tags = Array.isArray(clean.tags) ? clean.tags.filter(t => typeof t === "string").map(t => t.slice(0, 50)) : [];
+    clean.tasks = Array.isArray(clean.tasks) ? clean.tasks : [];
+    clean.notes = Array.isArray(clean.notes) ? clean.notes : [];
+    clean.materials = Array.isArray(clean.materials) ? clean.materials : [];
+    clean.folders = Array.isArray(clean.folders) ? clean.folders : [];
+    clean.coCreators = Array.isArray(clean.coCreators) ? clean.coCreators : [];
+    clean.pinned = Boolean(clean.pinned);
+    clean.timeSpent = Number.isFinite(clean.timeSpent) ? clean.timeSpent : 0;
+    return clean;
+  } catch (e) {
+    return null;
+  }
+}
+
 function formatDate(value) {
   if (!value) return "";
   const date = new Date(`${value}T12:00:00`);
@@ -1307,7 +1368,7 @@ function renderProfileModalContent() {
           <strong style="font-size:15px">${escapeHTML(user.displayName)}</strong>
           <span>${escapeHTML(user.email)}</span>
           <div style="margin-top:4px;display:flex;gap:6px;align-items:center">
-            <span class="role-pill role-${user.role}">${roleLabel}</span>
+            <span class="role-pill role-${escapeHTML(user.role)}">${roleLabel}</span>
             ${isOwner ? '<span style="font-size:11px;color:#d69e2e;font-weight:600">● Primary Admin</span>' : ''}
           </div>
         </div>
@@ -2725,6 +2786,7 @@ async function importBackup(file) {
   restored.practiceLog = Array.isArray(restored.practiceLog)
     ? restored.practiceLog.filter(item => item?.kind === "xp" && typeof item.text === "string")
     : migratePracticeLog(restored.activity, restored.skills);
+  restored.projects = restored.projects.map(p => sanitizeProjectObject(p)).filter(Boolean);
   for (const project of restored.projects) {
     project.priority = safePriority(project.priority);
     project.tags = Array.isArray(project.tags) ? project.tags.filter(tag => typeof tag === "string") : [];
@@ -2854,7 +2916,7 @@ function renderOverview() {
 }
 
 function emptyState(title, description, action, buttonText = "Get started") {
-  return `<div class="empty-state"><div class="empty-state-mark">✳</div><h3>${title}</h3><p>${description}</p><button class="button button-primary" data-action="${action}">＋ ${buttonText}</button></div>`;
+  return `<div class="empty-state"><div class="empty-state-mark">✳</div><h3>${escapeHTML(title)}</h3><p>${escapeHTML(description)}</p><button class="button button-primary" data-action="${escapeHTML(action)}">＋ ${escapeHTML(buttonText)}</button></div>`;
 }
 
 function renderProjects() {
@@ -3786,7 +3848,7 @@ function renderProjectDetail(projectId) {
     ` : `<div class="folder-empty"><span style="font-size:16px;margin-right:6px">⚙️</span>No tools currently checked out for this build. <button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}" style="margin-left:6px">＋ Check out from depot</button></div>`}
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
     <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="form-hint">A dated note, just for this project.</span><div style="display:flex;gap:6px"><button type="button" class="small-action mic-btn" data-action="dictate-note" data-project="${project.id}" title="Voice dictate note">🎙 Dictate</button><button type="button" class="small-action voice-record-btn" data-action="start-voice-memo" data-project="${project.id}" title="Record audio voice memo directly">🔴 Voice Memo</button><button class="button button-outline" type="submit">＋ Add note</button></div></div><div id="journal-voice-recording-indicator" style="display:none;margin-top:8px;padding:6px 12px;background:rgba(239,68,68,0.12);border:1px solid #ef4444;border-radius:6px;align-items:center;justify-content:space-between"><span class="voice-memo-recording-active" style="font-size:12px;color:#ef4444;font-weight:700">🔴 Recording audio memo... <span id="journal-voice-timer">00:00</span></span><button type="button" class="button button-small button-primary" data-action="stop-voice-memo">■ Stop &amp; Save</button></div></form>
-    ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p>${note.audioUrl ? `<audio controls src="${note.audioUrl}" class="journal-audio-player"></audio>` : ""}<div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
+    ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p>${safeMediaUrl(note.audioUrl) ? `<audio controls src="${safeMediaUrl(note.audioUrl)}" class="journal-audio-player"></audio>` : ""}<div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
     <div class="detail-section-heading"><h3>Project photos</h3><div><button class="small-action" data-action="new-folder" data-id="${project.id}">＋ Folder</button> <button class="small-action" data-action="open-compare-photos" data-project="${project.id}">↔️ Compare</button> <button class="small-action" data-action="snap-photo" data-id="${project.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}">＋ Add photos</button></div></div>
     ${folders.map(folder => `<div class="folder-block"><div class="folder-heading"><div class="folder-title-wrap"><span class="folder-name-text">${escapeHTML(folder.name)}</span><button type="button" class="icon-link-btn" data-action="rename-folder" data-project="${project.id}" data-folder="${folder.id}" title="Rename folder" aria-label="Rename folder">✎</button>${folders.length > 1 ? `<button type="button" class="icon-link-btn danger-hover" data-action="delete-folder" data-project="${project.id}" data-folder="${folder.id}" title="Delete folder" aria-label="Delete folder">×</button>` : ""}</div><span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="snap-photo" data-id="${project.id}" data-folder="${folder.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button type="button" class="photo-annotate-badge" data-action="annotate-photo" data-image-id="${image.id}" title="Annotate photo" style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer">✏️</button><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
     <div class="detail-footer"><button class="danger-button" data-action="delete-project" data-id="${project.id}">Delete project</button><span class="project-card-meta">${projectImageCount(project)} photos · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}</span></div>
@@ -4292,25 +4354,40 @@ const timer = {
   completedCycles: parseInt(localStorage.getItem("workbench-pomodoro-cycles") || "0", 10)
 };
 
+let timerAudioCtx = null;
+function getTimerAudioCtx() {
+  if (typeof getMusicAudioCtx === "function") return getMusicAudioCtx();
+  if (!timerAudioCtx || timerAudioCtx.state === "closed") {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    timerAudioCtx = new AudioCtx();
+  }
+  if (timerAudioCtx.state === "suspended") {
+    void timerAudioCtx.resume();
+  }
+  return timerAudioCtx;
+}
+
 function playTimerChime() {
   if (!timer.soundEnabled) return;
   try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+    const ctx = getTimerAudioCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
     const notes = [523.25, 659.25, 783.99, 1046.50];
     notes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
-      gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.12);
-      gain.gain.linearRampToValueAtTime(0.2, ctx.currentTime + idx * 0.12 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.4);
+      const startAt = now + idx * 0.12;
+      osc.frequency.setValueAtTime(freq, startAt);
+      gain.gain.setValueAtTime(0, startAt);
+      gain.gain.linearRampToValueAtTime(0.2, startAt + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, startAt + 0.4);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(ctx.currentTime + idx * 0.12);
-      osc.stop(ctx.currentTime + idx * 0.12 + 0.45);
+      osc.start(startAt);
+      osc.stop(startAt + 0.45);
     });
   } catch (e) {
     console.warn("Audio chime not available", e);
@@ -4722,20 +4799,26 @@ function updateUniversalUnitConverter() {
 }
 
 function parseFraction(str) {
-  if (!str) return NaN;
+  if (str == null) return NaN;
   str = String(str).trim();
-  const mixedMatch = str.match(/^(\d+)\s+([0-9]+)\/([0-9]+)$/);
+  if (!str) return NaN;
+
+  const isNeg = str.startsWith("-");
+  const sign = isNeg ? -1 : 1;
+  const cleanStr = isNeg ? str.slice(1).trim() : str;
+
+  const mixedMatch = cleanStr.match(/^(\d+)\s+([0-9]+)\/([0-9]+)$/);
   if (mixedMatch) {
     const whole = parseFloat(mixedMatch[1]);
     const num = parseFloat(mixedMatch[2]);
     const den = parseFloat(mixedMatch[3]);
-    return den ? whole + num / den : NaN;
+    return den ? sign * (whole + num / den) : NaN;
   }
-  const fracMatch = str.match(/^([0-9]+)\/([0-9]+)$/);
+  const fracMatch = cleanStr.match(/^([0-9]+)\/([0-9]+)$/);
   if (fracMatch) {
     const num = parseFloat(fracMatch[1]);
     const den = parseFloat(fracMatch[2]);
-    return den ? num / den : NaN;
+    return den ? sign * (num / den) : NaN;
   }
   return parseFloat(str);
 }
@@ -5379,7 +5462,7 @@ function renderKanban(projects) {
           ${colProjects.length ? colProjects.map(project => {
             const progress = projectTaskProgress(project);
             return `
-              <div class="kanban-card ${project.pinned ? "is-pinned" : ""}" draggable="true" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
+              <div class="kanban-card ${project.pinned ? "is-pinned" : ""}" draggable="true" data-project="${escapeHTML(project.id)}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
                 <div class="kanban-card-top">
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                     <span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>
@@ -5387,7 +5470,7 @@ function renderKanban(projects) {
                     ${project.pinned ? `<span class="pin-badge">📌</span>` : ""}
                   </div>
                   <div class="kanban-card-quickshift" onclick="event.stopPropagation()">
-                    <select class="kanban-shift-select" data-project="${project.id}" title="Move project status" aria-label="Move project status">
+                    <select class="kanban-shift-select" data-project="${escapeHTML(project.id)}" title="Move project status" aria-label="Move project status">
                       <option value="" disabled selected>Move ▾</option>
                       ${statuses.filter(s => s.key !== st.key).map(s => `<option value="${s.key}">→ ${s.label}</option>`).join("")}
                     </select>
@@ -5844,40 +5927,42 @@ function checkHashRouting() {
   const teamMatch = hash.match(/^#(?:team-project|import-project)[=/]([a-zA-Z0-9+/=_-]+)/);
   if (teamMatch) {
     try {
-      const raw = decodeURIComponent(atob(teamMatch[1]));
-      const data = JSON.parse(raw);
-      const incomingProject = data?.p;
-      if (incomingProject && incomingProject.id) {
-        history.replaceState(null, "", `${window.location.origin}${window.location.pathname}`);
-        ensureProjectCreator(incomingProject);
-        const curUser = getActiveUser();
-        if (curUser && curUser.id !== "local-maker") {
-          const already = (incomingProject.coCreators || []).some(c => c.id === curUser.id || (c.email && curUser.email && c.email.toLowerCase() === curUser.email.toLowerCase()));
-          if (!already && incomingProject.creator?.id !== curUser.id) {
-            incomingProject.coCreators = incomingProject.coCreators || [];
-            incomingProject.coCreators.push({
-              id: curUser.id,
-              name: curUser.displayName || "Maker",
-              email: curUser.email || "",
-              role: "Editor",
-              addedAt: new Date().toISOString()
-            });
+      const raw = decodeBase64Utf8(teamMatch[1]);
+      if (raw) {
+        const data = JSON.parse(raw);
+        const incomingProject = sanitizeProjectObject(data?.p);
+        if (incomingProject && incomingProject.id) {
+          history.replaceState(null, "", `${window.location.origin}${window.location.pathname}`);
+          ensureProjectCreator(incomingProject);
+          const curUser = getActiveUser();
+          if (curUser && curUser.id !== "local-maker") {
+            const already = (incomingProject.coCreators || []).some(c => c.id === curUser.id || (c.email && curUser.email && c.email.toLowerCase() === curUser.email.toLowerCase()));
+            if (!already && incomingProject.creator?.id !== curUser.id) {
+              incomingProject.coCreators = incomingProject.coCreators || [];
+              incomingProject.coCreators.push({
+                id: curUser.id,
+                name: curUser.displayName || "Maker",
+                email: curUser.email || "",
+                role: "Editor",
+                addedAt: new Date().toISOString()
+              });
+            }
           }
-        }
-        const existingIdx = state.projects.findIndex(p => p.id === incomingProject.id);
-        if (existingIdx >= 0) {
-          state.projects[existingIdx] = incomingProject;
-        } else {
-          state.projects.unshift(incomingProject);
-        }
-        syncSharedCollaborations();
+          const existingIdx = state.projects.findIndex(p => p.id === incomingProject.id);
+          if (existingIdx >= 0) {
+            state.projects[existingIdx] = incomingProject;
+          } else {
+            state.projects.unshift(incomingProject);
+          }
+          syncSharedCollaborations();
 
-        void persistState();
-        render();
-        switchView("projects", { updateHistory: false, scroll: false });
-        openProjectDetail(incomingProject.id);
-        showToast(`👥 Joined team project: ${incomingProject.title}!`);
-        return;
+          void persistState();
+          render();
+          switchView("projects", { updateHistory: false, scroll: false });
+          openProjectDetail(incomingProject.id);
+          showToast(`👥 Joined team project: ${incomingProject.title}!`);
+          return;
+        }
       }
     } catch (e) {
       console.warn("Could not import team project from link:", e);
@@ -6741,7 +6826,11 @@ function exportInventoryCSV() {
 
   const escapeCSV = val => {
     if (val == null) return '""';
-    const s = String(val).replace(/"/g, '""');
+    let s = String(val);
+    if (/^[=+\-@\t\r]/.test(s)) {
+      s = "'" + s;
+    }
+    s = s.replace(/"/g, '""');
     return `"${s}"`;
   };
 
@@ -11325,17 +11414,22 @@ async function handleAction(action, target) {
     state.practiceLog = (state.practiceLog || []).filter(l => l.projectId !== projectId);
 
     makeActivity("project", `Removed ${project.title}`);
+
+    if (activeProjectId === projectId) {
+      activeProjectId = null;
+    }
+    $("#detail-dialog")?.close();
+    $("#project-dialog")?.close();
+
     try {
       await persistState({ syncCloud: true });
       void pushProjectDeletionToCollaboratorWorkspaces(projectId);
-      $("#detail-dialog")?.close();
-      $("#project-dialog")?.close();
-      activeProjectId = null;
       render();
       showToast("Project deleted.");
     } catch (error) {
       console.error("Unable to delete project.", error);
-      showToast("Could not delete the project. Please try again.");
+      render();
+      showToast("Could not sync project deletion to cloud, but project removed locally.");
     }
     return;
   }
@@ -18911,9 +19005,9 @@ async function renderCollaboratorsDialog(project) {
               </div>
               <div class="collab-member-actions">
                 ${canManage ? `
-                  <button type="button" class="button button-outline button-small" data-action="toggle-co-creator-role" data-project="${project.id}" data-id="${c.id}" title="Toggle between Editor and Viewer">Role: ${c.role || "Editor"}</button>
-                  <button type="button" class="button button-outline button-small" data-action="pass-creator-status" data-project="${project.id}" data-id="${c.id}" title="Pass immutable creator role to this member">👑 Transfer Creator</button>
-                  <button type="button" class="danger-button" style="padding:4px 8px;font-size:11px" data-action="remove-co-creator" data-project="${project.id}" data-id="${c.id}" title="Remove co-creator">×</button>
+                  <button type="button" class="button button-outline button-small" data-action="toggle-co-creator-role" data-project="${escapeHTML(project.id)}" data-id="${escapeHTML(c.id)}" title="Toggle between Editor and Viewer">Role: ${escapeHTML(c.role || "Editor")}</button>
+                  <button type="button" class="button button-outline button-small" data-action="pass-creator-status" data-project="${escapeHTML(project.id)}" data-id="${escapeHTML(c.id)}" title="Pass immutable creator role to this member">👑 Transfer Creator</button>
+                  <button type="button" class="danger-button" style="padding:4px 8px;font-size:11px" data-action="remove-co-creator" data-project="${escapeHTML(project.id)}" data-id="${escapeHTML(c.id)}" title="Remove co-creator">×</button>
                 ` : `
                   <span style="font-size:12px;color:var(--muted)">${escapeHTML(c.role || "Editor")}</span>
                 `}
@@ -18934,13 +19028,13 @@ async function renderCollaboratorsDialog(project) {
             <option value="Viewer">Viewer</option>
             <option value="Contributor">Contributor</option>
           </select>
-          <button type="button" class="button button-primary button-small add-collab-btn" data-action="add-co-creator" data-project="${project.id}">＋ Add</button>
+          <button type="button" class="button button-primary button-small add-collab-btn" data-action="add-co-creator" data-project="${escapeHTML(project.id)}">＋ Add</button>
         </div>
         ${knownMakers.length > 0 ? `
           <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
             <span>Quick add known makers:</span>
             ${knownMakers.slice(0, 4).map(m => `
-              <button type="button" class="mini-tag clickable" data-action="quick-add-collab" data-project="${project.id}" data-name="${escapeHTML(m.displayName || m.email)}" data-email="${escapeHTML(m.email || "")}" data-id="${escapeHTML(m.id)}">＋ ${escapeHTML(m.displayName || m.email)}</button>
+              <button type="button" class="mini-tag clickable" data-action="quick-add-collab" data-project="${escapeHTML(project.id)}" data-name="${escapeHTML(m.displayName || m.email)}" data-email="${escapeHTML(m.email || "")}" data-id="${escapeHTML(m.id)}">＋ ${escapeHTML(m.displayName || m.email)}</button>
             `).join("")}
           </div>
         ` : ""}
@@ -21013,17 +21107,27 @@ function updateSewingCuttingCalc() {
 }
 
 function toNearestFraction(val) {
-  const whole = Math.floor(val);
-  const dec = val - whole;
-  if (dec < 0.0625) return whole > 0 ? `${whole}` : "0";
-  if (dec < 0.1875) return whole > 0 ? `${whole} 1/8` : "1/8";
-  if (dec < 0.3125) return whole > 0 ? `${whole} 1/4` : "1/4";
-  if (dec < 0.4375) return whole > 0 ? `${whole} 3/8` : "3/8";
-  if (dec < 0.5625) return whole > 0 ? `${whole} 1/2` : "1/2";
-  if (dec < 0.6875) return whole > 0 ? `${whole} 5/8` : "5/8";
-  if (dec < 0.8125) return whole > 0 ? `${whole} 3/4` : "3/4";
-  if (dec < 0.9375) return whole > 0 ? `${whole} 7/8` : "7/8";
-  return `${whole + 1}`;
+  const num = Number(val);
+  if (!Number.isFinite(num)) return "0";
+  const sign = num < 0 ? "-" : "";
+  const abs = Math.abs(num);
+  const whole = Math.floor(abs);
+  const dec = abs - whole;
+  let frac = "";
+  if (dec < 0.0625) frac = "";
+  else if (dec < 0.1875) frac = "1/8";
+  else if (dec < 0.3125) frac = "1/4";
+  else if (dec < 0.4375) frac = "3/8";
+  else if (dec < 0.5625) frac = "1/2";
+  else if (dec < 0.6875) frac = "5/8";
+  else if (dec < 0.8125) frac = "3/4";
+  else if (dec < 0.9375) frac = "7/8";
+  else return `${sign}${whole + 1}`;
+
+  if (whole === 0) {
+    return frac ? `${sign}${frac}` : "0";
+  }
+  return frac ? `${sign}${whole} ${frac}` : `${sign}${whole}`;
 }
 
 const SEWING_NEEDLE_DB = {
@@ -23275,16 +23379,25 @@ function setResistorBandMode(mode) {
 }
 
 function updateVoltageDividerCalc() {
-  const vin = parseFloat($("#elec-div-vin")?.value) || 5;
-  const r1 = parseFloat($("#elec-div-r1")?.value) || 10000;
-  const r2 = parseFloat($("#elec-div-r2")?.value) || 10000;
+  const vinInput = $("#elec-div-vin");
+  const r1Input = $("#elec-div-r1");
+  const r2Input = $("#elec-div-r2");
+  const vin = parseFloat(vinInput?.value ?? "5") || 0;
+  const r1 = parseFloat(r1Input?.value ?? "10000") || 0;
+  const r2 = parseFloat(r2Input?.value ?? "10000") || 0;
   const res = $("#elec-div-result");
   if (!res) return;
 
+  if (r1 <= 0 || r2 <= 0 || (r1 + r2) <= 0) {
+    res.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:6px 0;">Please enter positive resistor values (R1 &gt; 0 Ω and R2 &gt; 0 Ω).</div>';
+    return;
+  }
+
   const vout = vin * (r2 / (r1 + r2));
   const currentMa = (vin / (r1 + r2)) * 1000;
-  const p1Mw = Math.pow(vin - vout, 2) / r1 * 1000;
-  const p2Mw = Math.pow(vout, 2) / r2 * 1000;
+  const p1Mw = (Math.pow(vin - vout, 2) / r1) * 1000;
+  const p2Mw = (Math.pow(vout, 2) / r2) * 1000;
+  const zOut = (r1 * r2) / (r1 + r2);
 
   res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
     '<span style="font-size:11px;font-weight:700;color:var(--muted)">OUTPUT VOUT:</span>' +
@@ -23293,7 +23406,7 @@ function updateVoltageDividerCalc() {
   '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
     '• Quiescent Current: <strong>' + (currentMa < 1 ? (currentMa * 1000).toFixed(1) + " µA" : currentMa.toFixed(2) + " mA") + '</strong><br>' +
     '• Dissipation: R1 = ' + p1Mw.toFixed(1) + ' mW · R2 = ' + p2Mw.toFixed(1) + ' mW<br>' +
-    '• Thevenin Output Impedance: <strong>' + ((r1 * r2) / (r1 + r2)).toFixed(0) + ' Ω</strong>' +
+    '• Thevenin Output Impedance: <strong>' + zOut.toFixed(0) + ' Ω</strong>' +
   '</div>';
 }
 
