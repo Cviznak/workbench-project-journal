@@ -886,6 +886,61 @@
                     <span id="fretboard-info-label">Active: C Major / Guitar Standard</span>
                   </div>
                 </div>
+
+                <!-- 🥁 Interactive 16-Step Beat Sequencer & Tap Tempo BPM Finder -->
+                <div class="panel music-card-panel" id="panel-beat-sequencer" style="grid-column: 1 / -1">
+                  <div class="eyebrow">RHYTHM ENGINE &amp; METRONOME COMPANION</div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+                    <h3 style="font-size:16px;margin:0">🥁 16-Step Beat Sequencer &amp; Tap Tempo</h3>
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                      <button type="button" class="button button-small button-primary" id="beat-seq-play-btn" data-action="toggle-beat-sequencer">▶ Play Beat</button>
+                      <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-beat-sequencer" title="Minimize panel">— Minimize</button>
+                    </div>
+                  </div>
+
+                  <!-- Tap Tempo Bar -->
+                  <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;flex-wrap:wrap">
+                    <button type="button" class="button button-outline" data-action="tap-beat-tempo" id="beat-tap-btn" style="min-width:130px;font-weight:700;letter-spacing:0.5px">🥁 TAP TEMPO</button>
+                    <div style="display:flex;align-items:baseline;gap:6px">
+                      <span id="beat-tap-bpm-display" style="font-size:22px;font-weight:900;color:var(--green)">120</span>
+                      <span style="font-size:11px;color:var(--muted)">BPM</span>
+                      <span id="beat-tap-ms-display" style="font-size:11px;color:var(--muted);margin-left:4px">(500 ms)</span>
+                      <span id="beat-tap-name-display" class="materials-group-badge" style="margin-left:6px;font-size:10px">Moderato</span>
+                    </div>
+                    <div style="display:flex;gap:6px;margin-left:auto;align-items:center;flex-wrap:wrap">
+                      <button type="button" class="button button-small button-quiet" data-action="reset-beat-tap">Reset Tap</button>
+                      <button type="button" class="button button-small button-outline" data-action="apply-beat-tempo-to-studio">⏱️ Sync Studio BPM</button>
+                    </div>
+                  </div>
+
+                  <!-- Sequencer Controls -->
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                      <span style="font-size:11px;color:var(--muted);font-weight:700">Rhythm Presets:</span>
+                      <button type="button" class="button button-small button-quiet" data-action="load-beat-preset" data-preset="four_on_floor">4-on-Floor</button>
+                      <button type="button" class="button button-small button-quiet" data-action="load-beat-preset" data-preset="boom_bap">Boom Bap</button>
+                      <button type="button" class="button button-small button-quiet" data-action="load-beat-preset" data-preset="rock">Rock</button>
+                      <button type="button" class="button button-small button-quiet" data-action="load-beat-preset" data-preset="trap">Trap</button>
+                      <button type="button" class="button button-small button-quiet" data-action="load-beat-preset" data-preset="clear" style="color:#ef4444">Clear</button>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <label class="field-label" style="font-size:11px;margin:0;display:flex;align-items:center;gap:6px">Swing Groove:
+                        <input type="range" id="beat-seq-swing" min="0" max="50" value="0" style="width:70px">
+                        <span id="beat-seq-swing-val" style="font-size:11px;color:var(--muted);min-width:24px">0%</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- 16-Step Grid -->
+                  <div class="beat-seq-container" id="beat-seq-grid">
+                    <!-- Populated dynamically via renderBeatSequencerGrid() -->
+                  </div>
+
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:11px;color:var(--muted);flex-wrap:wrap;gap:6px">
+                    <span>💡 <em>Click any step pad to toggle on/off. Click instrument icons to audition sound. Audio synthesized via Web Audio.</em></span>
+                    <span id="beat-seq-status-text">Stopped · 120 BPM · 16 Steps</span>
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -1136,6 +1191,97 @@
                   </select>
                 </label>
                 <div class="tool-result-box" id="wood-safety-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🪵 Shelf Sag & Beam Deflection Calculator ("The Sagulator") -->
+              <div class="panel" id="panel-wood-sagulator" style="grid-column: 1 / -1">
+                <div class="eyebrow">STRUCTURAL MECHANICS &amp; BEAM DEFLECTION</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🪵 Shelf Sag &amp; Beam Deflection Calculator (The Sagulator)</h3>
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-sagulator" title="Minimize panel">— Minimize</button>
+                  </div>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate elastic beam deflection for shelves, tabletops, and floating mantels under load to prevent unsightly sagging or creep failure.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Wood Species / Core Material
+                    <select id="wood-sag-species">
+                      <option value="pine" selected>Eastern White Pine · Softwood (E = 1.24 Mpsi)</option>
+                      <option value="doug_fir">Douglas Fir · Structural (E = 1.95 Mpsi)</option>
+                      <option value="red_oak">Red Oak · Northern Hardwood (E = 1.82 Mpsi)</option>
+                      <option value="white_oak">White Oak · High Density (E = 1.78 Mpsi)</option>
+                      <option value="hard_maple">Hard Sugar Maple · Dense (E = 1.83 Mpsi)</option>
+                      <option value="walnut">Black Walnut · Furniture (E = 1.68 Mpsi)</option>
+                      <option value="cherry">Black Cherry · Hardwood (E = 1.49 Mpsi)</option>
+                      <option value="baltic_birch">Baltic Birch Plywood · Multi-ply (E = 1.25 Mpsi)</option>
+                      <option value="hardwood_ply">Cabinet Hardwood Plywood (E = 1.10 Mpsi)</option>
+                      <option value="mdf">MDF · Medium Density Fiberboard (E = 0.55 Mpsi)</option>
+                      <option value="particle">Particle Board / Melamine (E = 0.40 Mpsi)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Span Length (Distance Between Supports)
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="wood-sag-span" value="36" min="6" max="144" step="any" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">inches</span>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Shelf Depth (Front to Back)
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="wood-sag-depth" value="10" min="2" max="48" step="any" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">inches</span>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Shelf Thickness
+                    <select id="wood-sag-thick">
+                      <option value="0.5">1/2" (0.500 in / 12.7 mm)</option>
+                      <option value="0.75" selected>3/4" (0.750 in / 19.0 mm standard)</option>
+                      <option value="1.0">1" 4/4 S4S (1.000 in / 25.4 mm)</option>
+                      <option value="1.25">1-1/4" 5/4 S4S (1.250 in / 31.8 mm)</option>
+                      <option value="1.5">1-1/2" 2x Stock (1.500 in / 38.1 mm)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;margin-top:8px">
+                  <label class="field-label" style="font-size:11px">Front Stiffener / Edge Banding
+                    <select id="wood-sag-edge">
+                      <option value="none" selected>None · Plain Raw Shelf</option>
+                      <option value="lip_1x1.5">1" × 1.5" Solid Hardwood Front Lip (+280% stiffness)</option>
+                      <option value="lip_1x2">1" × 2" Solid Hardwood Front Lip (+450% stiffness)</option>
+                      <option value="cleat_bottom">0.75" × 1.5" Bottom Cleat (+210% stiffness)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Load Distribution
+                    <select id="wood-sag-load-type">
+                      <option value="uniform" selected>Uniform Total Weight (Books, Pantry Cans)</option>
+                      <option value="center">Center Point Load (Single Heavy Object/Amp)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Total Weight
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="wood-sag-weight" value="45" min="1" max="1000" step="any" style="flex:1">
+                      <select id="wood-sag-wt-unit" style="width:75px">
+                        <option value="lbs" selected>lbs</option>
+                        <option value="kg">kg</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">End Support Fastening
+                    <select id="wood-sag-support">
+                      <option value="floating" selected>Simply Supported (Resting on shelf pins / brackets)</option>
+                      <option value="fixed">Fixed Ends (Glued into dadoes / screwed to gables)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="wood-sag-result" style="margin-top:12px"></div>
               </div>
 
             </div>
@@ -1563,6 +1709,85 @@
                 <div class="tool-result-box" id="textiles-skein-result" style="margin-top:10px"></div>
               </div>
 
+              <!-- 🧢 Beanie Hat & Sock Cast-On Sizing Calculator -->
+              <div class="panel" id="panel-textiles-hat-calc" style="grid-column: 1 / -1">
+                <div class="eyebrow">CUSTOM FIT SIZING &amp; SHAPING ARCHITECTURE</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🧢 Beanie Hat &amp; Sock Cast-On Sizing Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-textiles-hat-calc" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact cast-on stitch counts and dynamic crown decrease schedules based on your gauge swatch and negative ease so your beanies and socks fit without slouching or sliding.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Project Type
+                    <select id="textiles-hat-type">
+                      <option value="beanie" selected>🧢 Beanie / Watchcap / Toque</option>
+                      <option value="slouchy">🧢 Slouchy Beanie (Extra Body Length)</option>
+                      <option value="sock">🧦 Handknit Socks (Cuff-Down / Heel-Flap)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Target Head / Foot Size Preset
+                    <select id="textiles-hat-size-preset">
+                      <option value="adult_m" selected>Adult Medium (22" / 56 cm head)</option>
+                      <option value="adult_s">Adult Small (20.5" / 52 cm head)</option>
+                      <option value="adult_l">Adult Large (23.5" / 60 cm head)</option>
+                      <option value="child">Child 4-10 yrs (19.5" / 50 cm head)</option>
+                      <option value="toddler">Toddler 1-3 yrs (18" / 46 cm head)</option>
+                      <option value="baby">Baby 6-12 mos (16" / 41 cm head)</option>
+                      <option value="custom">Custom Measurement</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Actual Circumference
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="textiles-hat-circ" value="22" min="10" max="30" step="any" style="flex:1">
+                      <select id="textiles-hat-circ-unit" style="width:75px">
+                        <option value="in" selected>in</option>
+                        <option value="cm">cm</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Negative Ease (Stretch Factor)
+                    <select id="textiles-hat-ease">
+                      <option value="0.15" selected>-15% (Standard snug hat fit)</option>
+                      <option value="0.10">-10% (Gentle relaxed fit)</option>
+                      <option value="0.20">-20% (Firm athletic fit / ribbed)</option>
+                      <option value="0.0">0% (Zero ease / loose fit)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;margin-top:8px">
+                  <label class="field-label" style="font-size:11px">Gauge: Stitches per 4" (10 cm)
+                    <input type="number" id="textiles-hat-gauge-sts" value="20" min="5" max="60" step="any" placeholder="e.g. 20">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Gauge: Rows per 4" (10 cm)
+                    <input type="number" id="textiles-hat-gauge-rows" value="28" min="5" max="80" step="any" placeholder="e.g. 28">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Ribbing Stitch Multiple
+                    <select id="textiles-hat-multiple">
+                      <option value="4" selected>Multiple of 4 (Ideal for 2x2 Ribbing)</option>
+                      <option value="2">Multiple of 2 (Ideal for 1x1 Ribbing)</option>
+                      <option value="8">Multiple of 8 (8-Wedge Crown Decrease)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Brim Style
+                    <select id="textiles-hat-brim">
+                      <option value="folded" selected>Folded Brim (+2.5" / 6.5 cm cuff)</option>
+                      <option value="single">Single Unfolded Ribbed Brim (1.5" / 4 cm)</option>
+                      <option value="rolled">Rolled Stockinette Brim</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="textiles-hat-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -1919,6 +2144,44 @@
                   </label>
                 </div>
                 <div class="tool-result-box" id="elec-sensor-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🔬 SMD Resistor & Capacitor Code Decoder -->
+              <div class="panel" id="panel-elec-smd" style="grid-column: 1 / -1">
+                <div class="eyebrow">SURFACE MOUNT TECHNOLOGY (SMT) &amp; PACKAGE SIZING</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🔬 SMD Component Code &amp; Package Decoder</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-elec-smd" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Instantly decode 3-digit EIA, 4-digit precision (1%), EIA-96 high-accuracy codes, and SMD capacitor markings with package size dimensions.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Decoder Mode
+                    <select id="elec-smd-mode">
+                      <option value="res_3digit" selected>SMD Resistor · 3-Digit EIA (Standard 5% / e.g. 472, 104, 0R5)</option>
+                      <option value="res_4digit">SMD Resistor · 4-Digit EIA (Precision 1% / e.g. 1002, 4701, 1R00)</option>
+                      <option value="res_eia96">SMD Resistor · EIA-96 High Precision (e.g. 01C, 68A, 01Y)</option>
+                      <option value="cap_3digit">SMD Capacitor · 3-Digit pF Code (e.g. 104, 223, 475)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Printed Marking on Chip
+                    <input type="text" id="elec-smd-code" value="472" maxlength="6" placeholder="e.g. 472 or 01C" style="text-transform:uppercase;font-weight:700;letter-spacing:1px;font-family:monospace">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Package Footprint / Size
+                    <select id="elec-smd-package">
+                      <option value="0805" selected>0805 (2012 Metric) · 1/8W (2.0 × 1.25 mm) · Most Common Maker Size</option>
+                      <option value="0603">0603 (1608 Metric) · 1/10W (1.6 × 0.8 mm) · Compact Hand-Solderable</option>
+                      <option value="1206">1206 (3216 Metric) · 1/4W (3.2 × 1.6 mm) · Easy Hand Soldering</option>
+                      <option value="0402">0402 (1005 Metric) · 1/16W (1.0 × 0.5 mm) · Microscopic High Density</option>
+                      <option value="1210">1210 (3225 Metric) · 1/2W (3.2 × 2.5 mm) · High Power / Filter</option>
+                      <option value="2512">2512 (6432 Metric) · 1W (6.4 × 3.2 mm) · Current Sense Shunt</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="elec-smd-result" style="margin-top:12px"></div>
               </div>
 
             </div>
@@ -2382,6 +2645,84 @@
                 </div>
                 <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Live simulation of your active 5-swatch palette under various color vision conditions.</p>
                 <div id="art-cvd-preview-wrap"></div>
+              </div>
+
+              <!-- 🖼️ Mat Board, Border & Picture Frame Sizing Calculator -->
+              <div class="panel" id="panel-art-frame" style="grid-column: 1 / -1">
+                <div class="eyebrow">CUSTOM FRAMING &amp; MAT BOARD PROPORTIONS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🖼️ Mat Board, Border &amp; Picture Frame Sizing Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-art-frame" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact mat opening cutouts, glass/mat outer dimensions, optical center margins, and outside frame wall footprint for custom framing.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Standard Artwork Size Preset
+                    <select id="art-frame-preset">
+                      <option value="8x10" selected>8" × 10" (Classic Portrait Print)</option>
+                      <option value="5x7">5" × 7" (Small Desk Photo)</option>
+                      <option value="4x6">4" × 6" (Standard Photo Snapshot)</option>
+                      <option value="11x14">11" × 14" (Medium Fine Art)</option>
+                      <option value="12x16">12" × 16" (Standard Canvas)</option>
+                      <option value="16x20">16" × 20" (Gallery Exhibition)</option>
+                      <option value="18x24">18" × 24" (Large Poster / Painting)</option>
+                      <option value="A4">A4 (210 × 297 mm / 8.27 × 11.69 in)</option>
+                      <option value="A3">A3 (297 × 420 mm / 11.69 × 16.54 in)</option>
+                      <option value="custom">Custom Dimensions</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Artwork Width
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="art-frame-art-w" value="8" min="1" max="120" step="any" style="flex:1">
+                      <select id="art-frame-dim-unit" style="width:75px">
+                        <option value="in" selected>in</option>
+                        <option value="cm">cm</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Artwork Height
+                    <input type="number" id="art-frame-art-h" value="10" min="1" max="120" step="any">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Mat Board Border Width
+                    <input type="number" id="art-frame-mat-w" value="2.5" min="0.5" max="12" step="any" placeholder="e.g. 2.5">
+                  </label>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;margin-top:8px">
+                  <label class="field-label" style="font-size:11px">Frame Molding Width
+                    <input type="number" id="art-frame-molding-w" value="0.75" min="0.25" max="6" step="any" placeholder="e.g. 0.75">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Mat Window Overlap
+                    <select id="art-frame-overlap">
+                      <option value="0.25" selected>1/4" (0.25 in / 6 mm standard)</option>
+                      <option value="0.125">1/8" (0.125 in / 3 mm narrow)</option>
+                      <option value="0.375">3/8" (0.375 in / 9 mm wide)</option>
+                      <option value="0.0">0" (Flush / Floating Mount)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Optical Center Bottom Weighting
+                    <select id="art-frame-bottom-weight">
+                      <option value="optical" selected>Yes · +0.5" Extra Bottom (Prevents Visual Sag)</option>
+                      <option value="equal">No · Uniform Equal Borders (Modern Minimalist)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Mat Board Color
+                    <select id="art-frame-mat-color">
+                      <option value="#f8fafc" selected>Warm White / Cream Mat</option>
+                      <option value="#ffffff">Pure Bright White Mat</option>
+                      <option value="#1e293b">Slate Charcoal Black Mat</option>
+                      <option value="#d6c7b2">Natural Linen / Oatmeal</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="art-frame-result" style="margin-top:12px"></div>
               </div>
             </div>
           </section>

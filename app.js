@@ -9644,6 +9644,76 @@ async function handleAction(action, target) {
     void saveSkeinToProjectMaterials();
     return;
   }
+  if (action === "copy-sag-specs") {
+    void copySagSpecs();
+    return;
+  }
+  if (action === "save-sag-to-materials") {
+    void saveSagToProjectMaterials();
+    return;
+  }
+  if (action === "toggle-beat-sequencer") {
+    toggleBeatSequencer();
+    return;
+  }
+  if (action === "tap-beat-tempo") {
+    tapBeatTempo();
+    return;
+  }
+  if (action === "reset-beat-tap") {
+    resetBeatTap();
+    return;
+  }
+  if (action === "apply-beat-tempo-to-studio") {
+    applyBeatTempoToStudio();
+    return;
+  }
+  if (action === "load-beat-preset") {
+    const preset = target.dataset.preset || "four_on_floor";
+    loadBeatPreset(preset);
+    return;
+  }
+  if (action === "toggle-beat-step") {
+    const track = target.dataset.track;
+    const step = parseInt(target.dataset.step, 10);
+    if (track && !isNaN(step) && beatSeqState.tracks[track]) {
+      beatSeqState.tracks[track][step] = beatSeqState.tracks[track][step] ? 0 : 1;
+      target.classList.toggle("active", Boolean(beatSeqState.tracks[track][step]));
+      if (beatSeqState.tracks[track][step]) {
+        playDrumSound(track === "hihat" ? "hat" : track);
+      }
+    }
+    return;
+  }
+  if (action === "audition-beat-track") {
+    const track = target.dataset.track || target.closest("[data-track]")?.dataset.track;
+    if (track) playDrumSound(track === "hihat" ? "hat" : track);
+    return;
+  }
+  if (action === "copy-smd-specs") {
+    void copySmdSpecs();
+    return;
+  }
+  if (action === "save-smd-to-materials") {
+    void saveSmdToMaterials();
+    return;
+  }
+  if (action === "copy-frame-specs") {
+    void copyFrameSpecs();
+    return;
+  }
+  if (action === "save-frame-to-materials") {
+    void saveFrameToMaterials();
+    return;
+  }
+  if (action === "copy-hat-specs") {
+    void copyHatSpecs();
+    return;
+  }
+  if (action === "save-hat-to-materials") {
+    void saveHatToProjectMaterials();
+    return;
+  }
   if (action === "copy-crc-result") {
     void copyCrcResult();
     return;
@@ -15577,10 +15647,226 @@ function strumFretboardTuning() {
   });
 }
 
+// --- 🥁 Music Studio: 16-Step Beat Sequencer & Tap Tempo ---
+const beatSeqState = {
+  bpm: 120,
+  isPlaying: false,
+  currentStep: 0,
+  swing: 0,
+  timerId: null,
+  tracks: {
+    kick:  [1, 0, 0, 0,  1, 0, 0, 0,  1, 0, 0, 0,  1, 0, 0, 0],
+    snare: [0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0],
+    hihat: [1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1],
+    clap:  [0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 1, 0]
+  }
+};
+
+const beatTapTracker = {
+  taps: [],
+  lastTapTime: 0
+};
+
+function renderBeatSequencerGrid() {
+  const container = $("#beat-seq-grid");
+  if (!container) return;
+
+  const trackDefs = [
+    { id: "kick", label: "🥁 Kick", icon: "kick" },
+    { id: "snare", label: "💥 Snare", icon: "snare" },
+    { id: "hihat", label: "🎩 Hi-Hat", icon: "hihat" },
+    { id: "clap", label: "👏 Clap", icon: "clap" }
+  ];
+
+  let html = "";
+  trackDefs.forEach(tr => {
+    const pattern = beatSeqState.tracks[tr.id] || [];
+    let stepsHtml = "";
+    for (let i = 0; i < 16; i++) {
+      const active = pattern[i] ? "active" : "";
+      const playhead = (beatSeqState.isPlaying && beatSeqState.currentStep === i) ? "playhead-active" : "";
+      stepsHtml += `
+        <button type="button" 
+          class="beat-step-pad ${tr.id} ${active} ${playhead}" 
+          data-action="toggle-beat-step" 
+          data-track="${tr.id}" 
+          data-step="${i}" 
+          title="${tr.label} · Step ${i + 1}">
+          ${i + 1}
+        </button>
+      `;
+    }
+    html += `
+      <div class="beat-seq-row">
+        <div class="beat-seq-label" data-action="audition-beat-track" data-track="${tr.id}" title="Click to test ${tr.label}">
+          <span>${tr.label}</span>
+          <span style="font-size:10px;color:var(--muted)">▶</span>
+        </div>
+        <div class="beat-seq-steps-wrap">
+          ${stepsHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function toggleBeatSequencer() {
+  beatSeqState.isPlaying = !beatSeqState.isPlaying;
+  const btn = $("#beat-seq-play-btn");
+  const status = $("#beat-seq-status-text");
+
+  if (beatSeqState.isPlaying) {
+    if (btn) {
+      btn.textContent = "⏹ Stop Beat";
+      btn.classList.add("button-danger");
+    }
+    beatSeqState.currentStep = 0;
+    scheduleNextBeatStep();
+    if (status) status.textContent = `Playing · ${beatSeqState.bpm} BPM · 16 Steps`;
+  } else {
+    if (btn) {
+      btn.textContent = "▶ Play Beat";
+      btn.classList.remove("button-danger");
+    }
+    if (beatSeqState.timerId) {
+      clearTimeout(beatSeqState.timerId);
+      beatSeqState.timerId = null;
+    }
+    document.querySelectorAll(".beat-step-pad.playhead-active").forEach(el => el.classList.remove("playhead-active"));
+    if (status) status.textContent = `Stopped · ${beatSeqState.bpm} BPM · 16 Steps`;
+  }
+}
+
+function scheduleNextBeatStep() {
+  if (!beatSeqState.isPlaying) return;
+
+  const step = beatSeqState.currentStep;
+  ["kick", "snare", "hihat", "clap"].forEach(tr => {
+    if (beatSeqState.tracks[tr] && beatSeqState.tracks[tr][step]) {
+      const mapped = tr === "hihat" ? "hat" : tr;
+      playDrumSound(mapped);
+    }
+  });
+
+  document.querySelectorAll(".beat-step-pad.playhead-active").forEach(el => el.classList.remove("playhead-active"));
+  document.querySelectorAll(`.beat-step-pad[data-step="${step}"]`).forEach(el => el.classList.add("playhead-active"));
+
+  const base16thMs = (60000 / beatSeqState.bpm) / 4;
+  let interval = base16thMs;
+  if (beatSeqState.swing > 0) {
+    const swingFactor = (beatSeqState.swing / 100) * 0.45;
+    interval = (step % 2 === 0) ? (base16thMs * (1 + swingFactor)) : (base16thMs * (1 - swingFactor));
+  }
+
+  beatSeqState.currentStep = (step + 1) % 16;
+  beatSeqState.timerId = setTimeout(scheduleNextBeatStep, interval);
+}
+
+function tapBeatTempo() {
+  const now = Date.now();
+  if (beatTapTracker.lastTapTime && (now - beatTapTracker.lastTapTime > 2200)) {
+    beatTapTracker.taps = [];
+  }
+  beatTapTracker.taps.push(now);
+  beatTapTracker.lastTapTime = now;
+
+  if (beatTapTracker.taps.length > 6) {
+    beatTapTracker.taps.shift();
+  }
+
+  if (beatTapTracker.taps.length >= 2) {
+    let diffs = [];
+    for (let i = 1; i < beatTapTracker.taps.length; i++) {
+      diffs.push(beatTapTracker.taps[i] - beatTapTracker.taps[i - 1]);
+    }
+    const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+    let bpm = Math.round(60000 / avgDiff);
+    bpm = Math.max(40, Math.min(260, bpm));
+
+    beatSeqState.bpm = bpm;
+    const bpmEl = $("#beat-tap-bpm-display");
+    const msEl = $("#beat-tap-ms-display");
+    const nameEl = $("#beat-tap-name-display");
+    if (bpmEl) bpmEl.textContent = bpm;
+    if (msEl) msEl.textContent = `(${Math.round(avgDiff)} ms)`;
+
+    let tempoName = "Moderato";
+    if (bpm < 60) tempoName = "Largo";
+    else if (bpm < 76) tempoName = "Adagio";
+    else if (bpm < 108) tempoName = "Andante";
+    else if (bpm < 130) tempoName = "Moderato";
+    else if (bpm < 168) tempoName = "Allegro";
+    else tempoName = "Presto";
+    if (nameEl) nameEl.textContent = tempoName;
+
+    const tapBtn = $("#beat-tap-btn");
+    if (tapBtn) {
+      tapBtn.style.transform = "scale(0.96)";
+      setTimeout(() => tapBtn.style.transform = "", 100);
+    }
+  }
+}
+
+function resetBeatTap() {
+  beatTapTracker.taps = [];
+  beatTapTracker.lastTapTime = 0;
+  showToast("Tap tempo reset. Tap beat button 3-4 times.");
+}
+
+function applyBeatTempoToStudio() {
+  const bpm = beatSeqState.bpm || 120;
+  setMetronomeBpm(bpm);
+  showToast(`Synced Studio Metronome & Delay Calculator to ${bpm} BPM!`);
+}
+
+function loadBeatPreset(name) {
+  if (name === "four_on_floor") {
+    beatSeqState.tracks = {
+      kick:  [1, 0, 0, 0,  1, 0, 0, 0,  1, 0, 0, 0,  1, 0, 0, 0],
+      snare: [0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0],
+      hihat: [0, 0, 1, 0,  0, 0, 1, 0,  0, 0, 1, 0,  0, 0, 1, 0],
+      clap:  [0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0]
+    };
+  } else if (name === "boom_bap") {
+    beatSeqState.tracks = {
+      kick:  [1, 0, 0, 0,  0, 0, 0, 0,  0, 0, 1, 0,  0, 0, 0, 0],
+      snare: [0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0],
+      hihat: [1, 0, 1, 0,  1, 0, 1, 0,  1, 0, 1, 0,  1, 0, 1, 0],
+      clap:  [0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0]
+    };
+  } else if (name === "rock") {
+    beatSeqState.tracks = {
+      kick:  [1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0],
+      snare: [0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0],
+      hihat: [1, 0, 1, 0,  1, 0, 1, 0,  1, 0, 1, 0,  1, 0, 1, 0],
+      clap:  [0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0]
+    };
+  } else if (name === "trap") {
+    beatSeqState.tracks = {
+      kick:  [1, 0, 0, 0,  0, 0, 0, 1,  0, 0, 1, 0,  0, 0, 0, 0],
+      snare: [0, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0],
+      hihat: [1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1,  1, 1, 1, 1],
+      clap:  [0, 0, 0, 0,  0, 0, 0, 0,  1, 0, 0, 0,  0, 0, 0, 0]
+    };
+  } else if (name === "clear") {
+    beatSeqState.tracks = {
+      kick:  [0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0],
+      snare: [0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0],
+      hihat: [0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0],
+      clap:  [0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0]
+    };
+  }
+  renderBeatSequencerGrid();
+  showToast(`Loaded ${name.replace(/_/g, " ")} preset!`);
+}
+
 function renderMusicStudioView() {
   renderChordSlotsUI();
   renderDiatonicChordsUI();
   renderDrumSequencerUI();
+  renderBeatSequencerGrid();
   updateMusicViewTimingResult();
   updateMusicViewNoteResult();
   renderPianoKeyboardUI();
@@ -18739,9 +19025,184 @@ function updateWoodSafetyGuide() {
   `;
 }
 
+// --- 🪵 Woodworking Studio: Sagulator (Shelf Sag & Beam Deflection) ---
+const WOOD_SAG_SPECIES_DB = {
+  pine: { name: "Eastern White Pine", E: 1.24e6, type: "Softwood", note: "Common softwood, moderate stiffness." },
+  doug_fir: { name: "Douglas Fir", E: 1.95e6, type: "Structural Softwood", note: "Exceptional stiffness for framing & shelving." },
+  red_oak: { name: "Red Oak", E: 1.82e6, type: "Northern Hardwood", note: "Heavy, stiff, classic bookshelf hardwood." },
+  white_oak: { name: "White Oak", E: 1.78e6, type: "High-Density Hardwood", note: "Stiff and decay-resistant." },
+  hard_maple: { name: "Hard Sugar Maple", E: 1.83e6, type: "Dense Hardwood", note: "Extremely rigid furniture wood." },
+  walnut: { name: "Black Walnut", E: 1.68e6, type: "Furniture Hardwood", note: "Premium fine woodworking timber." },
+  cherry: { name: "Black Cherry", E: 1.49e6, type: "Hardwood", note: "Stable and medium-stiff cabinet wood." },
+  baltic_birch: { name: "Baltic Birch Plywood", E: 1.25e6, type: "Multi-Ply Hardwood", note: "All-birch void-free core, stiffer than standard ply." },
+  hardwood_ply: { name: "Cabinet Hardwood Plywood", E: 1.10e6, type: "Veneer Core Plywood", note: "Fir or poplar core with veneer face." },
+  mdf: { name: "MDF (Medium Density Fiberboard)", E: 0.55e6, type: "Engineered Composite", note: "High sag risk under sustained heavy loads." },
+  particle: { name: "Particle Board / Melamine", E: 0.40e6, type: "Pressed Chip Board", note: "Very weak in bending; requires frequent center supports." }
+};
+
+function updateSagulatorCalc() {
+  const speciesKey = $("#wood-sag-species")?.value || "pine";
+  const species = WOOD_SAG_SPECIES_DB[speciesKey] || WOOD_SAG_SPECIES_DB.pine;
+  const span = Math.max(6, parseFloat($("#wood-sag-span")?.value) || 36);
+  const depth = Math.max(2, parseFloat($("#wood-sag-depth")?.value) || 10);
+  const thick = parseFloat($("#wood-sag-thick")?.value) || 0.75;
+  const edge = $("#wood-sag-edge")?.value || "none";
+  const loadType = $("#wood-sag-load-type")?.value || "uniform";
+  const wtUnit = $("#wood-sag-wt-unit")?.value || "lbs";
+  let rawWeight = Math.max(1, parseFloat($("#wood-sag-weight")?.value) || 45);
+  const weightLbs = (wtUnit === "kg") ? (rawWeight * 2.20462) : rawWeight;
+  const support = $("#wood-sag-support")?.value || "floating";
+  const res = $("#wood-sag-result");
+  if (!res) return;
+
+  // Base Moment of Inertia I = (b * h^3) / 12
+  let I = (depth * Math.pow(thick, 3)) / 12;
+
+  // Edge stiffener contribution
+  let edgeLabel = "Plain raw edge";
+  if (edge === "lip_1x1.5") {
+    I *= 3.8;
+    edgeLabel = "1x1.5\" Solid Front Lip";
+  } else if (edge === "lip_1x2") {
+    I *= 5.5;
+    edgeLabel = "1x2\" Solid Front Lip";
+  } else if (edge === "cleat_bottom") {
+    I *= 3.1;
+    edgeLabel = "0.75x1.5\" Under-Shelf Cleat";
+  }
+
+  const E = species.E; // psi
+  const W = weightLbs;
+  const L = span; // inches
+
+  let delta = 0; // inches
+  if (loadType === "uniform") {
+    delta = (support === "fixed")
+      ? (W * Math.pow(L, 3)) / (384 * E * I)
+      : (5 * W * Math.pow(L, 3)) / (384 * E * I);
+  } else {
+    delta = (support === "fixed")
+      ? (W * Math.pow(L, 3)) / (192 * E * I)
+      : (W * Math.pow(L, 3)) / (48 * E * I);
+  }
+
+  const deltaMm = delta * 25.4;
+  const sagPerFt = delta / (L / 12);
+  const ratio = Math.round(L / Math.max(0.0001, delta));
+
+  let statusClass = "rigid";
+  let statusText = "🟢 Barely Visible / Rigid";
+  let statusDesc = "Sag is imperceptible under normal room viewing (< 0.02\"/ft). Exceptional stiffness.";
+
+  if (sagPerFt > 0.04) {
+    statusClass = "excessive";
+    statusText = "🔴 Excessive Sagging Risk";
+    statusDesc = "Severe visible droop (> 0.04\"/ft) and long-term creep failure hazard. Shorten span, thicken stock, or add center divider.";
+  } else if (sagPerFt > 0.02) {
+    statusClass = "borderline";
+    statusText = "🟡 Borderline / Visible Sag";
+    statusDesc = "Sag will be noticeable across the room under heavy loads (0.02 - 0.04\"/ft). Adding a solid front lip or thicker shelf is recommended.";
+  }
+
+  // Dynamic visual SVG curve
+  const curveDip = Math.min(42, Math.max(2, delta * 300));
+  const svgCurve = `
+    <svg viewBox="0 0 360 80" width="100%" height="70" style="overflow:visible;display:block">
+      <!-- Supports -->
+      <polygon points="20,50 30,70 10,70" fill="var(--border)" stroke="var(--ink)" stroke-width="1.5"/>
+      <polygon points="340,50 350,70 330,70" fill="var(--border)" stroke="var(--ink)" stroke-width="1.5"/>
+      <!-- Shelf flat reference line (dashed) -->
+      <line x1="20" y1="48" x2="340" y2="48" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,4"/>
+      <!-- Deflected Shelf Curve -->
+      <path d="M 20 48 Q 180 ${48 + curveDip} 340 48" fill="none" stroke="${sagPerFt > 0.04 ? '#ef4444' : sagPerFt > 0.02 ? '#f59e0b' : '#10b981'}" stroke-width="4" stroke-linecap="round"/>
+      <!-- Deflection arrow -->
+      <line x1="180" y1="48" x2="180" y2="${48 + curveDip}" stroke="${sagPerFt > 0.04 ? '#ef4444' : sagPerFt > 0.02 ? '#f59e0b' : '#10b981'}" stroke-width="1.5" stroke-dasharray="2,2"/>
+      <text x="180" y="24" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">
+        Span ${L}" · ${rawWeight} ${wtUnit} ${loadType === "uniform" ? "Uniform" : "Center"} Load
+      </text>
+      <text x="180" y="${56 + curveDip + 14}" text-anchor="middle" font-size="11" font-weight="800" fill="${sagPerFt > 0.04 ? '#ef4444' : sagPerFt > 0.02 ? '#f59e0b' : '#10b981'}">
+        Sag: ${delta.toFixed(3)}" (${deltaMm.toFixed(2)} mm) · L/${ratio}
+      </text>
+    </svg>
+  `;
+
+  res.innerHTML = `
+    <div class="sag-result-hero">
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Calculated Elastic Beam Sag</div>
+        <div style="font-size:24px;font-weight:900;color:var(--ink);margin:2px 0">
+          ${delta.toFixed(3)}" <span style="font-size:14px;color:var(--muted);font-weight:600">(${deltaMm.toFixed(2)} mm)</span>
+        </div>
+      </div>
+      <div>
+        <span class="sag-status-badge ${statusClass}">${statusText}</span>
+      </div>
+    </div>
+
+    <div class="sag-graphic-wrap">
+      ${svgCurve}
+    </div>
+
+    <div style="font-size:11px;color:var(--ink);background:var(--surface);padding:8px 12px;border:1px solid var(--border);border-radius:6px;margin:8px 0">
+      <strong>Structural Assessment:</strong> ${statusDesc}
+    </div>
+
+    <div class="sag-specs-grid">
+      <div class="sag-spec-card">
+        <div class="val">${species.name}</div>
+        <div class="lbl">Wood Species (E = ${(E/1e6).toFixed(2)} Mpsi)</div>
+      </div>
+      <div class="sag-spec-card">
+        <div class="val">${sagPerFt.toFixed(3)}" / ft</div>
+        <div class="lbl">Deflection Rate</div>
+      </div>
+      <div class="sag-spec-card">
+        <div class="val">L / ${ratio}</div>
+        <div class="lbl">Stiffness Ratio</div>
+      </div>
+      <div class="sag-spec-card">
+        <div class="val">${I.toFixed(2)} in⁴</div>
+        <div class="lbl">Moment of Inertia (${edgeLabel})</div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button type="button" class="button button-small button-outline" data-action="copy-sag-specs">📋 Copy Sag Specs</button>
+      <button type="button" class="button button-small button-primary" data-action="save-sag-to-materials">➕ Add Lumber to Project Materials</button>
+    </div>
+  `;
+}
+
+async function copySagSpecs() {
+  const species = $("#wood-sag-species option:checked")?.textContent || "Wood";
+  const span = $("#wood-sag-span")?.value || "36";
+  const depth = $("#wood-sag-depth")?.value || "10";
+  const thick = $("#wood-sag-thick option:checked")?.textContent || "3/4\"";
+  const weight = $("#wood-sag-weight")?.value || "45";
+  const unit = $("#wood-sag-wt-unit")?.value || "lbs";
+  const heroVal = $("#wood-sag-result .sag-result-hero div:first-child div:nth-child(2)")?.textContent.trim() || "";
+
+  const text = `Shelf Sag (The Sagulator) Calculation:\n• Species: ${species}\n• Shelf: ${span}" span × ${depth}" deep × ${thick} thick\n• Load: ${weight} ${unit}\n• Resulting Deflection: ${heroVal}\nGenerated by Workbench Journal`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied Sagulator specs to clipboard!");
+  } catch {
+    showToast("Specs generated.");
+  }
+}
+
+async function saveSagToProjectMaterials() {
+  const species = $("#wood-sag-species option:checked")?.textContent.split("·")[0].trim() || "Hardwood";
+  const span = $("#wood-sag-span")?.value || "36";
+  const depth = $("#wood-sag-depth")?.value || "10";
+  const thick = $("#wood-sag-thick option:checked")?.textContent.split("(")[0].trim() || "3/4\"";
+  await addMaterialToProjectShopping(`${species} Shelf Board (${thick} × ${depth}" × ${span}")`, "1 pc", 0, "Lumber & Sheet Goods");
+}
+
 function renderWoodworkingView() {
   updateWoodworkingStudio();
   updateWoodSafetyGuide();
+  if (typeof updateSagulatorCalc === "function") updateSagulatorCalc();
 }
 
 // --- 🧶 Textiles & Yarn Studio ---
@@ -19300,6 +19761,7 @@ function renderTextilesView() {
   if (typeof updateTextilesYardageCalc === "function") updateTextilesYardageCalc();
   if (typeof updateTextilesGaugeCalc === "function") updateTextilesGaugeCalc();
   if (typeof updateYarnSkeinCalculator === "function") updateYarnSkeinCalculator();
+  if (typeof updateTextilesHatCalc === "function") updateTextilesHatCalc();
   updateAmigurumiGenerator();
   updateSewingCuttingCalc();
   updateSewingNeedleGuide();
@@ -19556,6 +20018,7 @@ function renderElectronicsView() {
   if (typeof update555TimerCalc === "function") update555TimerCalc();
   if (typeof updatePassiveFilterCalc === "function") updatePassiveFilterCalc();
   if (typeof updateI2cSensorGuide === "function") updateI2cSensorGuide();
+  if (typeof updateSmdDecoder === "function") updateSmdDecoder();
 }
 
 // --- 💻 Programming & Microcontrollers Studio ---
@@ -19986,6 +20449,125 @@ function updateArtLaserKerfView() {
   `;
 }
 
+// --- 🖼️ Art Studio: Mat Board, Border & Picture Frame Sizing Calculator ---
+function updateArtFrameCalc() {
+  const preset = $("#art-frame-preset")?.value || "8x10";
+  const dimUnit = $("#art-frame-dim-unit")?.value || "in";
+  let artW = parseFloat($("#art-frame-art-w")?.value) || 8;
+  let artH = parseFloat($("#art-frame-art-h")?.value) || 10;
+  const matW = parseFloat($("#art-frame-mat-w")?.value) || 2.5;
+  const moldingW = parseFloat($("#art-frame-molding-w")?.value) || 0.75;
+  const overlap = parseFloat($("#art-frame-overlap")?.value) || 0.25;
+  const bottomWeight = $("#art-frame-bottom-weight")?.value || "optical";
+  const matColor = $("#art-frame-mat-color")?.value || "#f8fafc";
+  const res = $("#art-frame-result");
+  if (!res) return;
+
+  const openW = Math.max(0.5, artW - (2 * overlap));
+  const openH = Math.max(0.5, artH - (2 * overlap));
+
+  const borderTop = matW;
+  const borderSides = matW;
+  const borderBottom = (bottomWeight === "optical") ? (matW + (dimUnit === "cm" ? 1.5 : 0.5)) : matW;
+
+  const matTotalW = openW + (2 * borderSides);
+  const matTotalH = openH + borderTop + borderBottom;
+
+  const frameOutsideW = matTotalW + (2 * moldingW);
+  const frameOutsideH = matTotalH + (2 * moldingW);
+
+  const maxDim = Math.max(frameOutsideW, frameOutsideH);
+  const scale = 200 / maxDim;
+  const svgFrameW = frameOutsideW * scale;
+  const svgFrameH = frameOutsideH * scale;
+  const svgMatW = matTotalW * scale;
+  const svgMatH = matTotalH * scale;
+  const svgOpenW = openW * scale;
+  const svgOpenH = openH * scale;
+  const svgMold = moldingW * scale;
+  const svgTop = borderTop * scale;
+  const svgSides = borderSides * scale;
+
+  const svgMockup = `
+    <div class="art-frame-svg-wrap">
+      <svg viewBox="0 0 300 240" width="100%" height="200" style="overflow:visible">
+        <g transform="translate(${150 - svgFrameW/2}, ${120 - svgFrameH/2})">
+          <rect x="0" y="0" width="${svgFrameW}" height="${svgFrameH}" rx="3" fill="#3e2723" stroke="#271917" stroke-width="2"/>
+          <rect x="${svgMold}" y="${svgMold}" width="${svgMatW}" height="${svgMatH}" fill="${matColor}" stroke="#cbd5e1" stroke-width="1"/>
+          <rect x="${svgMold + svgSides}" y="${svgMold + svgTop}" width="${svgOpenW}" height="${svgOpenH}" fill="#1e293b" opacity="0.15"/>
+          <rect x="${svgMold + svgSides}" y="${svgMold + svgTop}" width="${svgOpenW}" height="${svgOpenH}" fill="#38bdf8" rx="1"/>
+          <text x="${svgMold + svgSides + svgOpenW/2}" y="${svgMold + svgTop + svgOpenH/2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#0f172a">
+            Art: ${artW}×${artH} ${dimUnit}
+          </text>
+        </g>
+      </svg>
+    </div>
+  `;
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">1. Mat Aperture Cutout</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);margin:2px 0">
+          ${openW.toFixed(2)}" × ${openH.toFixed(2)}" ${dimUnit}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Includes ${overlap}" overlap on each edge</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">2. Mat &amp; Glass Cut Size</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green);margin:2px 0">
+          ${matTotalW.toFixed(2)}" × ${matTotalH.toFixed(2)}" ${dimUnit}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Backing board, glass &amp; mat size</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">3. Outside Frame Footprint</div>
+        <div style="font-size:18px;font-weight:800;color:#0284c7;margin:2px 0">
+          ${frameOutsideW.toFixed(2)}" × ${frameOutsideH.toFixed(2)}" ${dimUnit}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Total outer wall footprint on hanging</div>
+      </div>
+    </div>
+
+    ${svgMockup}
+
+    <div style="font-size:11px;color:var(--ink);background:var(--surface);padding:8px 12px;border:1px solid var(--border);border-radius:6px;margin:8px 0">
+      • <strong>Mat Margins:</strong> Top: <code>${borderTop.toFixed(2)}"</code> · Sides: <code>${borderSides.toFixed(2)}"</code> · Bottom: <code>${borderBottom.toFixed(2)}"</code> ${(bottomWeight === "optical") ? "<span style=\"color:#10b981\">(+0.5\" Optical Center Weighting Applied)</span>" : ""}
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button type="button" class="button button-small button-outline" data-action="copy-frame-specs">📋 Copy Framing Cut Sheet</button>
+      <button type="button" class="button button-small button-primary" data-action="save-frame-to-materials">➕ Add Frame Materials to Project</button>
+    </div>
+  `;
+}
+
+async function copyFrameSpecs() {
+  const artW = $("#art-frame-art-w")?.value || "8";
+  const artH = $("#art-frame-art-h")?.value || "10";
+  const unit = $("#art-frame-dim-unit")?.value || "in";
+  const cards = document.querySelectorAll("#art-frame-result div[style*='font-size:18px']");
+  const openVal = cards[0]?.textContent.trim() || "";
+  const matVal = cards[1]?.textContent.trim() || "";
+  const frameVal = cards[2]?.textContent.trim() || "";
+
+  const text = `Custom Picture Framing Cut Sheet:\n• Artwork: ${artW} × ${artH} ${unit}\n• Mat Window Cutout: ${openVal}\n• Mat & Glass Cut Size: ${matVal}\n• Frame Outer Footprint: ${frameVal}\nGenerated by Workbench Journal`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied Framing Cut Sheet to clipboard!");
+  } catch {
+    showToast("Cut sheet generated.");
+  }
+}
+
+async function saveFrameToMaterials() {
+  const cards = document.querySelectorAll("#art-frame-result div[style*='font-size:18px']");
+  const matVal = cards[1]?.textContent.trim() || "11x14 in";
+  await addMaterialToProjectShopping(`Mat Board & Glass (${matVal})`, "1 unit", 0, "Lumber & Sheet Goods");
+}
+
 function renderArtView() {
   updateArtStudioPalette();
   updateArtGoldenRatioView();
@@ -19996,6 +20578,7 @@ function renderArtView() {
   updateArtGradientStudio();
   updateArtPrintResCalc();
   updateArtCvdView();
+  if (typeof updateArtFrameCalc === "function") updateArtFrameCalc();
   if (typeof renderArtCameraDetails === "function" && typeof artCameraState !== "undefined") {
     renderArtCameraDetails(artCameraState.activeColor, artCameraState.topClusters, artCameraState.screenDominantColor);
   }
@@ -20287,6 +20870,151 @@ async function saveSkeinToProjectMaterials() {
   const remainingLen = (fullWt > 0) ? (Math.max(0, Math.min(1.0, curWt / fullWt)) * fullLen) : curWt;
 
   await addMaterialToProjectShopping(`Partial Skein Stash Yarn (${curWt.toFixed(0)}g)`, `~${remainingLen.toFixed(0)} ${unit}`, 0, "Yarn & Fibers");
+}
+
+// --- 🧢 Textiles Studio: Beanie Hat & Sock Cast-On Sizing Calculator ---
+function updateTextilesHatCalc() {
+  const projType = $("#textiles-hat-type")?.value || "beanie";
+  const preset = $("#textiles-hat-size-preset")?.value || "adult_m";
+  const circUnit = $("#textiles-hat-circ-unit")?.value || "in";
+  let circ = parseFloat($("#textiles-hat-circ")?.value) || 22;
+  const ease = parseFloat($("#textiles-hat-ease")?.value) || 0.15;
+  const gaugeSts = Math.max(4, parseFloat($("#textiles-hat-gauge-sts")?.value) || 20);
+  const gaugeRows = Math.max(4, parseFloat($("#textiles-hat-gauge-rows")?.value) || 28);
+  const multiple = parseInt($("#textiles-hat-multiple")?.value, 10) || 4;
+  const brimStyle = $("#textiles-hat-brim")?.value || "folded";
+  const res = $("#textiles-hat-result");
+  if (!res) return;
+
+  const circInches = (circUnit === "cm") ? (circ / 2.54) : circ;
+  const targetCircInches = circInches * (1 - ease);
+  const stsPerInch = gaugeSts / 4;
+  const rowsPerInch = gaugeRows / 4;
+
+  const rawSts = targetCircInches * stsPerInch;
+  const castOn = Math.round(rawSts / multiple) * multiple;
+
+  const finishedCirc = (castOn / stsPerInch);
+  const finishedCircDisplay = (circUnit === "cm") ? `${(finishedCirc * 2.54).toFixed(1)} cm` : `${finishedCirc.toFixed(1)}"`;
+
+  // Crown decrease schedule (8 sections for hats, 4 for socks)
+  const sections = (projType === "sock") ? 4 : 8;
+  const stsPerSection = Math.floor(castOn / sections);
+
+  let currentSecSts = stsPerSection;
+  let roundNum = 1;
+  let remainingTotal = castOn;
+
+  const decreaseRounds = [];
+  while (currentSecSts > 1) {
+    const kSts = currentSecSts - 2;
+    decreaseRounds.push({
+      round: `Rnd ${roundNum}`,
+      instruction: (kSts > 0) ? `*K${kSts}, K2tog* repeat ${sections} times` : `*K2tog* repeat ${sections} times`,
+      rem: remainingTotal - sections
+    });
+    remainingTotal -= sections;
+    roundNum++;
+
+    // Plain knit round in between
+    if (currentSecSts > 2) {
+      decreaseRounds.push({
+        round: `Rnd ${roundNum}`,
+        instruction: "Knit all stitches plain (no decreases)",
+        rem: remainingTotal
+      });
+      roundNum++;
+    }
+    currentSecSts--;
+  }
+
+  const crownHeightInches = (roundNum / rowsPerInch);
+  let totalHatHeightInches = (circInches <= 18) ? 7.0 : 8.5; // standard head height
+  if (projType === "slouchy") totalHatHeightInches += 2.5;
+  if (brimStyle === "folded") totalHatHeightInches += 2.5;
+
+  const knitBeforeCrownInches = Math.max(1, totalHatHeightInches - crownHeightInches);
+  const knitBeforeCrownDisplay = (circUnit === "cm") ? `${(knitBeforeCrownInches * 2.54).toFixed(1)} cm` : `${knitBeforeCrownInches.toFixed(1)}"`;
+  const totalHeightDisplay = (circUnit === "cm") ? `${(totalHatHeightInches * 2.54).toFixed(1)} cm` : `${totalHatHeightInches.toFixed(1)}"`;
+
+  const scheduleHtml = decreaseRounds.slice(0, 10).map(r => `
+    <tr>
+      <td class="rnd">${r.round}</td>
+      <td>${r.instruction}</td>
+      <td class="rem">${r.rem} sts</td>
+    </tr>
+  `).join("");
+
+  res.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Recommended Cast-On Stitches</div>
+        <div style="font-size:26px;font-weight:900;color:var(--green);margin:2px 0">
+          ${castOn} <span style="font-size:14px;color:var(--muted);font-weight:600">stitches</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Multiple of ${multiple} · Finished relaxed fit: ${finishedCircDisplay}</div>
+      </div>
+      <div>
+        <span class="materials-group-badge" style="font-size:12px;padding:4px 10px">${(ease * 100).toFixed(0)}% Negative Ease</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px;margin-bottom:12px">
+      <div style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-align:center">
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">${knitBeforeCrownDisplay}</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Knit Before Decreases</div>
+      </div>
+      <div style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-align:center">
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">${totalHeightDisplay}</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Total Finished Height</div>
+      </div>
+      <div style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-align:center">
+        <div style="font-size:16px;font-weight:700;color:var(--ink)">${sections} Wedges</div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Crown Decrease Sections</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Crown Decrease Schedule (${sections}-Point Cinch)</div>
+    <table class="hat-schedule-table">
+      <thead>
+        <tr>
+          <th>Round</th>
+          <th>Stitch Instruction</th>
+          <th>Remaining</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${scheduleHtml}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">
+      ✂️ <em>Finishing:</em> When ${sections} stitches remain, cut yarn leaving an 8" (20 cm) tail, thread through live loops with a tapestry needle, and cinch tightly inside.
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button type="button" class="button button-small button-outline" data-action="copy-hat-specs">📋 Copy Pattern Notes</button>
+      <button type="button" class="button button-small button-primary" data-action="save-hat-to-materials">➕ Add Notes to Project</button>
+    </div>
+  `;
+}
+
+async function copyHatSpecs() {
+  const castOn = $("#textiles-hat-result div:first-child div:first-child div:nth-child(2)")?.textContent.trim() || "";
+  const type = $("#textiles-hat-type option:checked")?.textContent || "Beanie";
+  const size = $("#textiles-hat-size-preset option:checked")?.textContent || "Adult";
+  const text = `Knit/Crochet Sizing Notes:\n• Project: ${type} (${size})\n• Cast-On: ${castOn}\nGenerated by Workbench Journal`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied Pattern Notes to clipboard!");
+  } catch {
+    showToast("Notes generated.");
+  }
+}
+
+async function saveHatToProjectMaterials() {
+  const castOn = $("#textiles-hat-result div:first-child div:first-child div:nth-child(2)")?.textContent.trim() || "Stitches";
+  const type = $("#textiles-hat-type option:checked")?.textContent.split("(")[0].trim() || "Beanie Hat";
+  await addMaterialToProjectShopping(`${type} (${castOn})`, "1 item", 0, "Yarn & Fibers");
 }
 
 function exportStitchChartPng() {
@@ -21088,6 +21816,211 @@ async function saveSensorToProjectMaterials() {
   const s1Key = $("#elec-sensor-primary")?.value || "bme280";
   const s1 = I2C_SENSORS_DB[s1Key] || I2C_SENSORS_DB.bme280;
   await addMaterialToProjectShopping(`${s1.name} Sensor Module`, "1 unit", 0, "Sensors & Modules");
+}
+
+// --- 🔬 Electronics Studio: SMD Component Code & Package Decoder ---
+const EIA96_VALUE_TABLE = {
+  "01": 100, "02": 102, "03": 105, "04": 107, "05": 110, "06": 113, "07": 115, "08": 118,
+  "09": 121, "10": 124, "11": 127, "12": 130, "13": 133, "14": 137, "15": 140, "16": 143,
+  "17": 147, "18": 150, "19": 154, "20": 158, "21": 162, "22": 165, "23": 169, "24": 174,
+  "25": 178, "26": 182, "27": 187, "28": 191, "29": 196, "30": 200, "31": 205, "32": 210,
+  "33": 215, "34": 221, "35": 226, "36": 232, "37": 237, "38": 243, "39": 249, "40": 255,
+  "41": 261, "42": 267, "43": 274, "44": 280, "45": 287, "46": 294, "47": 301, "48": 309,
+  "49": 316, "50": 324, "51": 332, "52": 340, "53": 348, "54": 357, "55": 365, "56": 374,
+  "57": 383, "58": 392, "59": 402, "60": 412, "61": 422, "62": 432, "63": 442, "64": 453,
+  "65": 464, "66": 475, "67": 487, "68": 499, "69": 511, "70": 523, "71": 536, "72": 549,
+  "73": 562, "74": 576, "75": 590, "76": 604, "77": 619, "78": 634, "79": 649, "80": 665,
+  "81": 681, "82": 698, "83": 715, "84": 732, "85": 750, "86": 768, "87": 787, "88": 806,
+  "89": 825, "90": 845, "91": 866, "92": 887, "93": 909, "94": 931, "95": 953, "96": 976
+};
+
+const EIA96_MULT_TABLE = {
+  Z: 0.001, Y: 0.01, X: 0.1, A: 1, B: 10, C: 100, D: 1000, E: 10000, F: 100000
+};
+
+const SMD_PACKAGES_DB = {
+  "0805": { metric: "2012 Metric", dims: "2.0 × 1.25 mm (0.08 × 0.05 in)", power: "1/8 W (0.125W)", solder: "Comfortable DIY Hand-Soldering (Staple for breadboard breakouts)" },
+  "0603": { metric: "1608 Metric", dims: "1.6 × 0.8 mm (0.06 × 0.03 in)", power: "1/10 W (0.100W)", solder: "Moderate (Standard modern surface mount maker projects)" },
+  "1206": { metric: "3216 Metric", dims: "3.2 × 1.6 mm (0.12 × 0.06 in)", power: "1/4 W (0.250W)", solder: "Very Easy Hand-Soldering (Generous solder fillets)" },
+  "0402": { metric: "1005 Metric", dims: "1.0 × 0.5 mm (0.04 × 0.02 in)", power: "1/16 W (0.063W)", solder: "Difficult (Requires fine tweezers, microscope, and flux)" },
+  "1210": { metric: "3225 Metric", dims: "3.2 × 2.5 mm (0.12 × 0.10 in)", power: "1/2 W (0.500W)", solder: "Easy (High current filtering and motor drive)" },
+  "2512": { metric: "6432 Metric", dims: "6.4 × 3.2 mm (0.25 × 0.12 in)", power: "1 W (1.000W)", solder: "Very Easy (Large current-sense shunt resistors)" }
+};
+
+function formatResistanceOhms(ohms) {
+  if (ohms >= 1e6) return `${(ohms / 1e6).toFixed(2).replace(/\.00$/, "")} MΩ`;
+  if (ohms >= 1e3) return `${(ohms / 1e3).toFixed(2).replace(/\.00$/, "")} kΩ`;
+  return `${ohms.toFixed(2).replace(/\.00$/, "")} Ω`;
+}
+
+function updateSmdDecoder() {
+  const mode = $("#elec-smd-mode")?.value || "res_3digit";
+  const rawCode = ($("#elec-smd-code")?.value || "").trim().toUpperCase();
+  const pkgKey = $("#elec-smd-package")?.value || "0805";
+  const pkg = SMD_PACKAGES_DB[pkgKey] || SMD_PACKAGES_DB["0805"];
+  const res = $("#elec-smd-result");
+  if (!res) return;
+
+  let valueDisplay = "—";
+  let tolDisplay = "±5%";
+  let formulaDisplay = "";
+  let isValid = false;
+
+  if (mode === "res_3digit") {
+    tolDisplay = "±5% (Standard EIA)";
+    if (/^[0-9]R[0-9]$/.test(rawCode)) {
+      const val = parseFloat(rawCode.replace("R", "."));
+      valueDisplay = `${val} Ω`;
+      formulaDisplay = `${rawCode} → 'R' denotes decimal point → ${val} Ω`;
+      isValid = true;
+    } else if (/^R[0-9]{2}$/.test(rawCode)) {
+      const val = parseFloat("0." + rawCode.substring(1));
+      valueDisplay = `${val} Ω`;
+      formulaDisplay = `${rawCode} → 0.${rawCode.substring(1)} Ω`;
+      isValid = true;
+    } else if (/^[0-9]{3}$/.test(rawCode)) {
+      const base = parseInt(rawCode.substring(0, 2), 10);
+      const mult = parseInt(rawCode.charAt(2), 10);
+      const ohms = base * Math.pow(10, mult);
+      valueDisplay = formatResistanceOhms(ohms);
+      formulaDisplay = `${base} × 10^${mult} = ${ohms.toLocaleString()} Ω`;
+      isValid = true;
+    }
+  } else if (mode === "res_4digit") {
+    tolDisplay = "±1% (Precision EIA)";
+    if (/^[0-9]{1,2}R[0-9]{1,2}$/.test(rawCode)) {
+      const val = parseFloat(rawCode.replace("R", "."));
+      valueDisplay = `${val} Ω`;
+      formulaDisplay = `${rawCode} → decimal point 'R' → ${val} Ω`;
+      isValid = true;
+    } else if (/^[0-9]{4}$/.test(rawCode)) {
+      const base = parseInt(rawCode.substring(0, 3), 10);
+      const mult = parseInt(rawCode.charAt(3), 10);
+      const ohms = base * Math.pow(10, mult);
+      valueDisplay = formatResistanceOhms(ohms);
+      formulaDisplay = `${base} × 10^${mult} = ${ohms.toLocaleString()} Ω`;
+      isValid = true;
+    }
+  } else if (mode === "res_eia96") {
+    tolDisplay = "±1% (EIA-96 Precision)";
+    if (/^[0-9]{2}[A-Z]$/.test(rawCode)) {
+      const numCode = rawCode.substring(0, 2);
+      const letter = rawCode.charAt(2);
+      const baseVal = EIA96_VALUE_TABLE[numCode];
+      const mult = EIA96_MULT_TABLE[letter];
+      if (baseVal && mult !== undefined) {
+        const ohms = baseVal * mult;
+        valueDisplay = formatResistanceOhms(ohms);
+        formulaDisplay = `Code '${numCode}' (${baseVal}) × Mult '${letter}' (${mult}) = ${ohms.toLocaleString()} Ω`;
+        isValid = true;
+      }
+    }
+  } else if (mode === "cap_3digit") {
+    tolDisplay = "±10% (Ceramic MLCC)";
+    if (/^[0-9]{3}$/.test(rawCode)) {
+      const base = parseInt(rawCode.substring(0, 2), 10);
+      const mult = parseInt(rawCode.charAt(2), 10);
+      const pf = base * Math.pow(10, mult);
+      const nf = pf / 1000;
+      const uf = nf / 1000;
+      if (uf >= 1) {
+        valueDisplay = `${uf.toFixed(2).replace(/\.00$/, "")} µF (${nf.toLocaleString()} nF)`;
+      } else if (nf >= 1) {
+        valueDisplay = `${nf.toFixed(2).replace(/\.00$/, "")} nF (${pf.toLocaleString()} pF)`;
+      } else {
+        valueDisplay = `${pf} pF`;
+      }
+      formulaDisplay = `${base} × 10^${mult} pF = ${pf.toLocaleString()} pF`;
+      isValid = true;
+    }
+  }
+
+  const displayCode = rawCode || "—";
+  const chipHtml = `
+    <div style="display:flex;align-items:center;justify-content:center;margin:10px 0">
+      <div class="smd-chip-graphic">
+        <div class="smd-chip-lead"></div>
+        <div class="smd-chip-body">
+          <span class="smd-chip-text">${displayCode}</span>
+        </div>
+        <div class="smd-chip-lead"></div>
+      </div>
+    </div>
+  `;
+
+  if (!isValid && rawCode.length > 0) {
+    res.innerHTML = `
+      ${chipHtml}
+      <div style="padding:10px 14px;background:rgba(239, 68, 68, 0.1);border:1px solid rgba(239, 68, 68, 0.3);border-radius:6px;font-size:12px;color:#ef4444">
+        ⚠️ <strong>Unrecognized SMD Code:</strong> "${rawCode}". Check the selected decoder mode (e.g. 3-digit: <code>472</code>, 4-digit: <code>1002</code>, EIA-96: <code>01C</code>, or Capacitor: <code>104</code>).
+      </div>
+    `;
+    return;
+  }
+
+  res.innerHTML = `
+    ${chipHtml}
+
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Decoded Nominal Value</div>
+        <div style="font-size:24px;font-weight:900;color:var(--ink);margin:2px 0">
+          ${valueDisplay}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${formulaDisplay}</div>
+      </div>
+      <div>
+        <span class="materials-group-badge" style="font-size:12px;padding:4px 10px">${tolDisplay}</span>
+      </div>
+    </div>
+
+    <table class="smd-spec-table">
+      <thead>
+        <tr>
+          <th>Selected Package</th>
+          <th>Metric Equivalent</th>
+          <th>Dimensions (L × W)</th>
+          <th>Power Rating</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>${pkgKey}</strong></td>
+          <td>${pkg.metric}</td>
+          <td>${pkg.dims}</td>
+          <td><span style="color:var(--green);font-weight:700">${pkg.power}</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">
+      💡 <em>Soldering Note:</em> ${pkg.solder}
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button type="button" class="button button-small button-outline" data-action="copy-smd-specs">📋 Copy SMD Specs</button>
+      <button type="button" class="button button-small button-primary" data-action="save-smd-to-materials">➕ Add to Project Materials</button>
+    </div>
+  `;
+}
+
+async function copySmdSpecs() {
+  const code = $("#elec-smd-code")?.value.toUpperCase() || "";
+  const decVal = $("#elec-smd-result div:nth-child(2) div div:nth-child(2)")?.textContent.trim() || "";
+  const pkg = $("#elec-smd-package")?.value || "0805";
+  const text = `SMD Component Specs:\n• Marking: ${code}\n• Decoded Value: ${decVal}\n• Package Footprint: ${pkg}\nGenerated by Workbench Journal`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied SMD Component specs to clipboard!");
+  } catch {
+    showToast("Specs generated.");
+  }
+}
+
+async function saveSmdToMaterials() {
+  const code = $("#elec-smd-code")?.value.toUpperCase() || "";
+  const decVal = $("#elec-smd-result div:nth-child(2) div div:nth-child(2)")?.textContent.trim() || "";
+  const pkg = $("#elec-smd-package")?.value || "0805";
+  await addMaterialToProjectShopping(`SMD Resistor ${decVal} (${pkg} / ${code})`, "10 pcs", 0, "Sensors & Modules");
 }
 
 // --- 💻 Programming Studio: ALU, ASCII Search, Array Formatter ---
@@ -21960,6 +22893,14 @@ function initCraftStudios() {
     renderMetronomeDots();
   });
 
+  // 16-Step Beat Sequencer & Tap Tempo
+  renderBeatSequencerGrid();
+  $("#beat-seq-swing")?.addEventListener("input", (e) => {
+    beatSeqState.swing = parseInt(e.target.value, 10) || 0;
+    const lbl = $("#beat-seq-swing-val");
+    if (lbl) lbl.textContent = beatSeqState.swing + "%";
+  });
+
   // Woodworking Cutlist, Dust, Finishes, Joinery, Sanding & Safety
   runWoodCutOptimizer();
   updateWoodDustCalc();
@@ -21967,6 +22908,7 @@ function initCraftStudios() {
   updateWoodJoineryGuide();
   updateWoodSandingGuide();
   updateWoodSafetyGuide();
+  updateSagulatorCalc();
   ["#wood-cut-stock", "#wood-cut-kerf"].forEach(s => $(s)?.addEventListener("input", runWoodCutOptimizer));
   $("#wood-cut-pieces")?.addEventListener("input", runWoodCutOptimizer);
   $("#wood-dust-machine")?.addEventListener("change", updateWoodDustCalc);
@@ -21976,12 +22918,15 @@ function initCraftStudios() {
   $("#wood-sand-starting")?.addEventListener("change", updateWoodSandingGuide);
   $("#wood-sand-finish-type")?.addEventListener("change", updateWoodSandingGuide);
   $("#wood-safety-process-select")?.addEventListener("change", updateWoodSafetyGuide);
+  ["#wood-sag-species", "#wood-sag-thick", "#wood-sag-edge", "#wood-sag-load-type", "#wood-sag-wt-unit", "#wood-sag-support"].forEach(s => $(s)?.addEventListener("change", updateSagulatorCalc));
+  ["#wood-sag-span", "#wood-sag-depth", "#wood-sag-weight"].forEach(s => $(s)?.addEventListener("input", updateSagulatorCalc));
 
-  // Textiles Yardage, Gauge, Fiber Guide & Skein Calculator
+  // Textiles Yardage, Gauge, Fiber Guide, Skein & Hat Sizing
   updateTextilesYardageEstimator();
   updateTextilesGaugeCalc();
   updateTextilesFiberGuide();
   updateYarnSkeinCalculator();
+  updateTextilesHatCalc();
   $("#textiles-est-project")?.addEventListener("change", updateTextilesYardageEstimator);
   $("#textiles-est-yarn-wt")?.addEventListener("change", updateTextilesYardageEstimator);
   ["#textiles-gauge-pattern", "#textiles-gauge-actual", "#textiles-gauge-target-w"].forEach(s => $(s)?.addEventListener("input", updateTextilesGaugeCalc));
@@ -21989,14 +22934,25 @@ function initCraftStudios() {
   $("#textiles-garment-select")?.addEventListener("change", updateTextilesFiberGuide);
   ["#textiles-skein-full-wt", "#textiles-skein-full-len", "#textiles-skein-cur-wt", "#textiles-skein-target-len"].forEach(s => $(s)?.addEventListener("input", updateYarnSkeinCalculator));
   $("#textiles-skein-len-unit")?.addEventListener("change", updateYarnSkeinCalculator);
+  ["#textiles-hat-type", "#textiles-hat-ease", "#textiles-hat-multiple", "#textiles-hat-brim", "#textiles-hat-circ-unit"].forEach(s => $(s)?.addEventListener("change", updateTextilesHatCalc));
+  $("#textiles-hat-size-preset")?.addEventListener("change", (e) => {
+    const map = { adult_m: 22, adult_s: 20.5, adult_l: 23.5, child: 19.5, toddler: 18, baby: 16 };
+    const v = map[e.target.value];
+    if (v) {
+      const el = $("#textiles-hat-circ");
+      if (el) { el.value = v; updateTextilesHatCalc(); }
+    }
+  });
+  ["#textiles-hat-circ", "#textiles-hat-gauge-sts", "#textiles-hat-gauge-rows"].forEach(s => $(s)?.addEventListener("input", updateTextilesHatCalc));
 
-  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer, Passive RC Filter & I2C Sensors
+  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer, Passive RC Filter, I2C Sensors & SMD Decoder
   updateVoltageDividerCalc();
   updateCapacitorCodeView();
   updateWireAwgView();
   update555TimerCalc();
   updatePassiveFilterCalc();
   updateI2cSensorGuide();
+  updateSmdDecoder();
   ["#elec-div-vin", "#elec-div-r1", "#elec-div-r2"].forEach(s => $(s)?.addEventListener("input", updateVoltageDividerCalc));
   $("#elec-cap-code")?.addEventListener("input", updateCapacitorCodeView);
   $("#elec-cap-preset")?.addEventListener("change", (e) => {
@@ -22033,6 +22989,8 @@ function initCraftStudios() {
   });
   $("#elec-sensor-primary")?.addEventListener("change", updateI2cSensorGuide);
   $("#elec-sensor-secondary")?.addEventListener("change", updateI2cSensorGuide);
+  $("#elec-smd-code")?.addEventListener("input", updateSmdDecoder);
+  ["#elec-smd-mode", "#elec-smd-package"].forEach(s => $(s)?.addEventListener("change", updateSmdDecoder));
 
   // Programming ALU, ASCII, Array Formatter, Baud, CRC
   updateProgAluCalc();
@@ -22049,11 +23007,12 @@ function initCraftStudios() {
   $("#prog-crc-input")?.addEventListener("input", updateProgCrcCalc);
   ["#prog-crc-format", "#prog-crc-algo"].forEach(s => $(s)?.addEventListener("change", updateProgCrcCalc));
 
-  // Art Contrast, Gradient, Print Scaler, CVD Preview & Camera Color Picker
+  // Art Contrast, Gradient, Print Scaler, CVD Preview, Framing & Camera Color Picker
   updateArtContrastCalc();
   updateArtGradientStudio();
   updateArtPrintResCalc();
   updateArtCvdView();
+  updateArtFrameCalc();
   renderArtCameraDetails(artCameraState.activeColor, artCameraState.topClusters, artCameraState.screenDominantColor);
   $("#art-contrast-text")?.addEventListener("input", updateArtContrastCalc);
   $("#art-contrast-bg")?.addEventListener("input", updateArtContrastCalc);
@@ -22062,6 +23021,17 @@ function initCraftStudios() {
   $("#art-print-size")?.addEventListener("change", updateArtPrintResCalc);
   $("#art-print-dpi")?.addEventListener("change", updateArtPrintResCalc);
   $("#art-cvd-type")?.addEventListener("change", updateArtCvdView);
+  ["#art-frame-dim-unit", "#art-frame-overlap", "#art-frame-bottom-weight", "#art-frame-mat-color"].forEach(s => $(s)?.addEventListener("change", updateArtFrameCalc));
+  $("#art-frame-preset")?.addEventListener("change", (e) => {
+    const map = { "8x10": [8, 10], "5x7": [5, 7], "4x6": [4, 6], "11x14": [11, 14], "12x16": [12, 16], "16x20": [16, 20], "18x24": [18, 24], "A4": [8.27, 11.69], "A3": [11.69, 16.54] };
+    const pair = map[e.target.value];
+    if (pair) {
+      if ($("#art-frame-art-w")) $("#art-frame-art-w").value = pair[0];
+      if ($("#art-frame-art-h")) $("#art-frame-art-h").value = pair[1];
+      updateArtFrameCalc();
+    }
+  });
+  ["#art-frame-art-w", "#art-frame-art-h", "#art-frame-mat-w", "#art-frame-molding-w"].forEach(s => $(s)?.addEventListener("input", updateArtFrameCalc));
   $("#art-camera-file-input")?.addEventListener("change", (e) => {
     if (e.target.files && e.target.files[0]) handleArtCameraFileUpload(e.target.files[0]);
   });
