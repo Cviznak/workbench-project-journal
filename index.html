@@ -3763,6 +3763,43 @@
       <div class="dossier-sheet" id="dossier-sheet"></div>
     </dialog>
 
+    <!-- 📄 Printable Workshop Blueprint & Job Cut-Sheet Dialog -->
+    <dialog class="app-dialog workshop-blueprint-dialog" id="workshop-blueprint-dialog" aria-label="Workshop Blueprint &amp; Cut-Sheet">
+      <div class="blueprint-dialog-topbar no-print">
+        <div class="blueprint-controls-left">
+          <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">
+            <span>📐</span> <span>Workshop Blueprint &amp; Cut-Sheet</span>
+          </div>
+          <div class="blueprint-theme-selector">
+            <button type="button" class="button button-small blueprint-theme-btn active" data-theme="paper" data-action="set-blueprint-sheet-theme">📄 Ink-Saver Paper</button>
+            <button type="button" class="button button-small button-outline blueprint-theme-btn" data-theme="blueprint" data-action="set-blueprint-sheet-theme">📐 Engineering Blue</button>
+          </div>
+          <label class="blueprint-opt-label">
+            <input type="checkbox" id="blueprint-opt-diagram" checked>
+            <span>Cut Diagram</span>
+          </label>
+          <label class="blueprint-opt-label">
+            <input type="checkbox" id="blueprint-opt-ruler" checked>
+            <span>1:1 Scale Ruler</span>
+          </label>
+          <label class="blueprint-opt-label">
+            <input type="checkbox" id="blueprint-opt-grid" checked>
+            <span>Field Notes Grid</span>
+          </label>
+        </div>
+        <div class="blueprint-controls-right">
+          <button type="button" class="button button-primary" data-action="print-workshop-blueprint">🖶 Print / Save PDF</button>
+          <button type="button" class="button button-outline" data-action="download-workshop-blueprint">📥 Download HTML</button>
+          <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
+        </div>
+      </div>
+      <div class="blueprint-dialog-body" id="blueprint-dialog-body">
+        <div class="blueprint-sheet blueprint-theme-paper" id="workshop-blueprint-sheet">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </dialog>
+
     <dialog class="app-dialog compact-dialog" id="inventory-dialog" aria-label="Add or Edit Inventory Item">
       <form id="inventory-form" method="dialog">
         <div class="dialog-heading">

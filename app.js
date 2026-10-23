@@ -3493,6 +3493,7 @@ function renderProjectDetail(projectId) {
             <button type="button" class="small-action" data-action="save-project-template" data-id="${project.id}" title="Save as reusable template">💾 Template</button>
             <button type="button" class="small-action" data-action="open-compare-photos" data-project="${project.id}" title="Compare photos side-by-side">↔️ Compare</button>
             <button type="button" class="small-action print-keep" data-action="open-project-dossier" data-id="${project.id}" title="View comprehensive project dossier">📄 Dossier</button>
+            <button type="button" class="small-action print-keep" data-action="open-workshop-blueprint" data-id="${project.id}" title="Printable workshop blueprint & cut-sheet">📐 Shop Blueprint</button>
             <button type="button" class="small-action" data-action="copy-project-summary" data-id="${project.id}" title="Copy project summary to clipboard">📋 Copy summary</button>
             <button type="button" class="small-action print-keep" data-action="print-project" data-id="${project.id}" title="Print workshop sheet">🖶 Print sheet</button>
           </div>
@@ -7948,6 +7949,426 @@ function printDossier() {
   window.print();
 }
 
+/* ============================================================
+   📄 Printable Workshop Blueprint & Job Cut-Sheet Exporter
+   ============================================================ */
+let activeWorkshopBlueprintProjectId = null;
+let workshopBlueprintTheme = "paper";
+
+function generateBlueprintRulerSvg() {
+  const w = 760;
+  const h = 38;
+
+  // 6 inches across ~720px width (120px per inch)
+  const marginX = 20;
+  const inchPx = 115;
+  const cmPx = inchPx / 2.54; // ~45.27px per cm
+
+  let inchTicks = "";
+  for (let i = 0; i <= 6; i++) {
+    const x = marginX + (i * inchPx);
+    inchTicks += `<line x1="${x}" y1="0" x2="${x}" y2="14" stroke="currentColor" stroke-width="1.5"/>`;
+    inchTicks += `<text x="${x + 3}" y="11" font-size="9" font-family="monospace" font-weight="700" fill="currentColor">${i}"</text>`;
+    if (i < 6) {
+      // 1/2" tick
+      inchTicks += `<line x1="${x + inchPx/2}" y1="0" x2="${x + inchPx/2}" y2="10" stroke="currentColor" stroke-width="1"/>`;
+      // 1/4" ticks
+      inchTicks += `<line x1="${x + inchPx/4}" y1="0" x2="${x + inchPx/4}" y2="7" stroke="currentColor" stroke-width="0.75"/>`;
+      inchTicks += `<line x1="${x + (3*inchPx)/4}" y1="0" x2="${x + (3*inchPx)/4}" y2="7" stroke="currentColor" stroke-width="0.75"/>`;
+      // 1/8" ticks
+      for (let k = 1; k < 8; k += 2) {
+        inchTicks += `<line x1="${x + (k*inchPx)/8}" y1="0" x2="${x + (k*inchPx)/8}" y2="5" stroke="currentColor" stroke-width="0.5"/>`;
+      }
+    }
+  }
+
+  let cmTicks = "";
+  for (let c = 0; c <= 15; c++) {
+    const x = marginX + (c * cmPx);
+    cmTicks += `<line x1="${x}" y1="${h}" x2="${x}" y2="${h - 12}" stroke="currentColor" stroke-width="1.2"/>`;
+    cmTicks += `<text x="${x + 2}" y="${h - 4}" font-size="8" font-family="monospace" font-weight="700" fill="currentColor">${c}</text>`;
+    if (c < 15) {
+      // 5mm tick
+      cmTicks += `<line x1="${x + cmPx/2}" y1="${h}" x2="${x + cmPx/2}" y2="${h - 8}" stroke="currentColor" stroke-width="0.75"/>`;
+      // 1mm ticks
+      for (let m = 1; m < 10; m++) {
+        if (m !== 5) {
+          cmTicks += `<line x1="${x + (m*cmPx)/10}" y1="${h}" x2="${x + (m*cmPx)/10}" y2="${h - 4}" stroke="currentColor" stroke-width="0.4"/>`;
+        }
+      }
+    }
+  }
+
+  return `
+    <svg class="blueprint-ruler" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <rect x="0" y="0" width="${w}" height="${h}" fill="transparent"/>
+      ${inchTicks}
+      ${cmTicks}
+      <text x="${w / 2}" y="22" text-anchor="middle" font-size="8" font-family="monospace" font-weight="800" letter-spacing="1px" fill="currentColor" opacity="0.75">
+        1:1 CALIBRATION SCALE · 6 INCHES (TOP) / 15 CENTIMETERS (BOTTOM) · VERIFY BENCH MEASUREMENTS
+      </text>
+    </svg>
+  `;
+}
+
+function openWorkshopBlueprint(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  activeWorkshopBlueprintProjectId = project.id;
+
+  renderWorkshopBlueprint();
+
+  const dialog = $("#workshop-blueprint-dialog");
+  if (dialog) {
+    dialog.showModal();
+    initWorkshopBlueprintOptions();
+  }
+}
+
+function setBlueprintSheetTheme(theme) {
+  workshopBlueprintTheme = theme || "paper";
+  const sheet = $("#workshop-blueprint-sheet");
+  if (sheet) {
+    sheet.classList.remove("blueprint-theme-paper", "blueprint-theme-blueprint");
+    sheet.classList.add(workshopBlueprintTheme === "blueprint" ? "blueprint-theme-blueprint" : "blueprint-theme-paper");
+  }
+
+  $$(".blueprint-theme-btn").forEach(btn => {
+    const isAct = btn.dataset.theme === workshopBlueprintTheme;
+    btn.classList.toggle("active", isAct);
+    btn.classList.toggle("button-outline", !isAct);
+  });
+}
+
+function initWorkshopBlueprintOptions() {
+  const optDiagram = $("#blueprint-opt-diagram");
+  const optRuler = $("#blueprint-opt-ruler");
+  const optGrid = $("#blueprint-opt-grid");
+
+  optDiagram?.addEventListener("change", (e) => {
+    const el = $("#bp-diagram-section");
+    if (el) el.style.display = e.target.checked ? "block" : "none";
+  });
+  optRuler?.addEventListener("change", (e) => {
+    const el = $("#bp-ruler-section");
+    if (el) el.style.display = e.target.checked ? "block" : "none";
+  });
+  optGrid?.addEventListener("change", (e) => {
+    const el = $("#bp-notes-grid");
+    if (el) el.style.display = e.target.checked ? "block" : "none";
+  });
+}
+
+function printWorkshopBlueprint() {
+  window.print();
+}
+
+function downloadWorkshopBlueprintHTML() {
+  const project = state.projects.find(p => p.id === activeWorkshopBlueprintProjectId);
+  const sheet = $("#workshop-blueprint-sheet");
+  if (!project || !sheet) return;
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Workshop Blueprint · ${escapeHTML(project.title)}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Courier New", monospace;
+      color: #0f172a;
+      display: flex;
+      justify-content: center;
+    }
+    .blueprint-sheet {
+      width: 100%;
+      max-width: 860px;
+      padding: 24px;
+      box-sizing: border-box;
+      border: 2px solid #0f172a;
+      background: #ffffff;
+      outline: 1px solid #cbd5e1;
+      outline-offset: -5px;
+    }
+    .blueprint-title-block {
+      border: 2px solid #0f172a;
+      padding: 16px;
+      margin-bottom: 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+    }
+    .bp-project-title { font-size: 22px; font-weight: 900; margin: 4px 0 6px; text-transform: uppercase; }
+    .bp-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px 14px; font-size: 11px; }
+    .bp-meta-cell strong { display: block; font-size: 9px; text-transform: uppercase; opacity: 0.7; }
+    .bp-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 16px; border: 1.5px solid #0f172a; }
+    .bp-table th { background: #f1f5f9; padding: 6px 8px; text-align: left; border-bottom: 1.5px solid #0f172a; border-right: 1px solid #cbd5e1; }
+    .bp-table td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
+    .bp-check-box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #0f172a; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+    .blueprint-safety-strip { display: flex; gap: 8px; padding: 8px 12px; border: 1px dashed #0f172a; border-radius: 4px; margin-bottom: 16px; font-size: 11px; font-weight: 700; flex-wrap: wrap; }
+    .blueprint-ruler { width: 100%; height: 38px; margin: 12px 0 16px; border: 1px solid #0f172a; }
+    .blueprint-notes-grid { height: 90px; border: 1.5px solid #0f172a; margin-top: 14px; position: relative; background-image: radial-gradient(#0f172a 0.8px, transparent 0.8px); background-size: 10px 10px; }
+    .blueprint-notes-tag { position: absolute; top: 4px; left: 8px; font-size: 9px; font-weight: 800; padding: 1px 6px; border: 1px solid #0f172a; background: #fff; }
+    .blueprint-signoff-row { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 8px; border-top: 1px solid #0f172a; font-size: 10px; text-transform: uppercase; }
+    @media print {
+      body { padding: 0; background: #fff; }
+      .blueprint-sheet { border: 2px solid #000 !important; width: 100% !important; max-width: 100% !important; }
+    }
+  </style>
+</head>
+<body>
+  ${sheet.outerHTML}
+</body>
+</html>`;
+
+  const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Workshop_Blueprint_${project.title.replace(/[^a-zA-Z0-9_-]/g, "_")}_${project.id.slice(0, 8)}.html`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast("Downloaded offline Workshop Blueprint HTML file!");
+}
+
+function renderWorkshopBlueprint() {
+  const project = state.projects.find(p => p.id === activeWorkshopBlueprintProjectId);
+  const sheet = $("#workshop-blueprint-sheet");
+  if (!project || !sheet) return;
+
+  const materials = project.materials || [];
+  const totalCost = materials.reduce((s, m) => s + (Number(m.cost) || 0), 0);
+  const progress = projectTaskProgress(project);
+  const skills = projectSkillNames(project);
+  const url = `${window.location.origin}${window.location.pathname}#project=${project.id}`;
+  const qrSvg = window.QR?.toSVG ? window.QR.toSVG(url, { cellSize: 3, margin: 1 }) : "";
+
+  // Group materials by group name
+  const groupedMaterials = {};
+  materials.forEach(m => {
+    const grp = m.group || "General Supplies & Hardware";
+    if (!groupedMaterials[grp]) groupedMaterials[grp] = [];
+    groupedMaterials[grp].push(m);
+  });
+
+  // Group tasks by phase
+  const groupedTasks = {};
+  (project.tasks || []).forEach(t => {
+    const ph = t.phase || "Primary Build Tasks";
+    if (!groupedTasks[ph]) groupedTasks[ph] = [];
+    groupedTasks[ph].push(t);
+  });
+
+  // Generate safety badges based on project contents
+  const textCorpus = `${project.title} ${project.description || ""} ${(project.tags || []).join(" ")} ${materials.map(m => m.name).join(" ")}`.toLowerCase();
+  const safetyBadges = [];
+  safetyBadges.push("🥽 Safety Glasses Required");
+
+  if (textCorpus.includes("wood") || textCorpus.includes("oak") || textCorpus.includes("pine") || textCorpus.includes("saw") || textCorpus.includes("sand") || textCorpus.includes("mdf") || textCorpus.includes("plywood")) {
+    safetyBadges.push("😷 N95 / P100 Dust Mask");
+    safetyBadges.push("🎧 Hearing Protection");
+    safetyBadges.push("🪵 Table Saw Push Sticks");
+  }
+  if (textCorpus.includes("solder") || textCorpus.includes("wire") || textCorpus.includes("pcb") || textCorpus.includes("electronics") || textCorpus.includes("circuit") || textCorpus.includes("esp32")) {
+    safetyBadges.push("⚡ Fume Extractor Active");
+    safetyBadges.push("🔌 ESD Grounding Strap");
+  }
+  if (textCorpus.includes("epoxy") || textCorpus.includes("resin") || textCorpus.includes("paint") || textCorpus.includes("lacquer") || textCorpus.includes("poly") || textCorpus.includes("stain")) {
+    safetyBadges.push("🧪 Nitrile Gloves");
+    safetyBadges.push("🫁 Organic Vapor Respirator");
+  }
+  if (textCorpus.includes("laser") || textCorpus.includes("cut")) {
+    safetyBadges.push("🔥 Laser Exhaust & Fire Watch");
+  }
+
+  // 1:1 Scale calibration ruler
+  const rulerSvg = generateBlueprintRulerSvg();
+
+  // Any attached images/drawing previews
+  const allImages = (project.folders || []).flatMap(f => f.images || []);
+  const drawingPreview = allImages.length > 0 ? `
+    <div id="bp-diagram-section" style="margin-bottom:16px">
+      <div style="font-size:10px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px">
+        📐 Reference Photos &amp; Drawing Attachments (${allImages.length})
+      </div>
+      <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px">
+        ${allImages.slice(0, 3).map(img => `
+          <div style="flex:1;max-width:240px;border:1px solid currentColor;padding:4px;border-radius:3px">
+            <img src="${imageUrl(img)}" alt="${escapeHTML(img.name)}" style="width:100%;height:110px;object-fit:cover;display:block;border-radius:2px">
+            <span style="font-size:9px;font-weight:600;display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(img.name)}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  ` : "";
+
+  sheet.innerHTML = `
+    <!-- Top Blueprint Title Block -->
+    <div class="blueprint-title-block">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:0.8">
+          <span>WORKBENCH DIGITAL FABRICATION SHEET</span> · <span>WO-${escapeHTML(project.id.slice(0, 8).toUpperCase())}</span>
+        </div>
+        <h1 class="bp-project-title">${escapeHTML(project.title)}</h1>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="display:inline-block;padding:2px 8px;border:1px solid currentColor;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase">
+            ${STATUS_LABELS[safeStatus(project.status)] || "ACTIVE"}
+          </span>
+          <span style="display:inline-block;padding:2px 8px;border:1px solid currentColor;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase">
+            ${priorityLabel(project.priority)} Priority
+          </span>
+          ${skills.map(s => `<span style="display:inline-block;padding:2px 8px;border:1px solid currentColor;border-radius:3px;font-size:10px;opacity:0.8">${escapeHTML(s.name)}</span>`).join("")}
+          ${(project.tags || []).map(t => `<span style="display:inline-block;padding:2px 8px;border:1px solid currentColor;border-radius:3px;font-size:10px;opacity:0.8">#${escapeHTML(t)}</span>`).join("")}
+        </div>
+
+        <div class="bp-meta-grid">
+          <div class="bp-meta-cell">
+            <strong>Lead Maker / Creator</strong>
+            <span>👑 ${escapeHTML(project.creator?.name || "Solo Maker")}</span>
+          </div>
+          <div class="bp-meta-cell">
+            <strong>Target Finish Date</strong>
+            <span>${project.targetDate ? formatDate(project.targetDate) : "Open schedule"}</span>
+          </div>
+          <div class="bp-meta-cell">
+            <strong>Logged Labor Time</strong>
+            <span>${project.timeSpent ? formatMinutes(project.timeSpent) : "0 hrs 0 mins"}</span>
+          </div>
+          <div class="bp-meta-cell">
+            <strong>Supplies Budget</strong>
+            <span>${formatMoney(totalCost)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bp-qr-box" style="text-align:center;flex-shrink:0">
+        ${qrSvg}
+        <div style="font-size:8px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;margin-top:4px">
+          Scan at Bench<br>for Digital Log
+        </div>
+      </div>
+    </div>
+
+    <!-- 1:1 Scale Calibration Ruler -->
+    <div id="bp-ruler-section">
+      ${rulerSvg}
+    </div>
+
+    <!-- Workshop Safety & Tooling Protocol -->
+    <div class="blueprint-safety-strip">
+      <span style="text-transform:uppercase;letter-spacing:0.5px;color:currentColor">⚠️ Safety Protocol:</span>
+      ${safetyBadges.map(b => `<span style="padding:2px 6px;border:1px solid currentColor;border-radius:3px">${b}</span>`).join(" ")}
+    </div>
+
+    ${project.description ? `
+      <div style="margin-bottom:16px;padding:8px 12px;border:1px solid currentColor;border-radius:3px;font-size:11px;line-height:1.45">
+        <strong style="text-transform:uppercase;font-size:9px;display:block;opacity:0.75;letter-spacing:0.5px">Scope of Work &amp; Design Notes:</strong>
+        ${escapeHTML(project.description)}
+      </div>
+    ` : ""}
+
+    <!-- Bill of Materials & Cutting Schedule Table -->
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase">
+          📦 Bill of Materials &amp; Hardware Schedule (${materials.length} Items)
+        </div>
+        <div style="font-size:10px;font-weight:700">
+          Total Estimated Supplies: ${formatMoney(totalCost)}
+        </div>
+      </div>
+
+      ${materials.length > 0 ? `
+        <table class="bp-table">
+          <thead>
+            <tr>
+              <th style="width:28px;text-align:center">Got</th>
+              <th>Material / Part Description</th>
+              <th style="width:140px">Category / Group</th>
+              <th style="width:65px">Qty</th>
+              <th style="width:90px">Status</th>
+              <th style="width:75px;text-align:right">Unit Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.entries(groupedMaterials).map(([groupName, items]) => `
+              <tr style="background:rgba(0,0,0,0.04)">
+                <td colspan="6" style="font-weight:800;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;padding:4px 8px">
+                  📁 ${escapeHTML(groupName)} (${items.length} items)
+                </td>
+              </tr>
+              ${items.map(m => `
+                <tr>
+                  <td style="text-align:center"><span class="bp-check-box"></span></td>
+                  <td><strong>${escapeHTML(m.name)}</strong></td>
+                  <td style="font-size:10px;opacity:0.85">${escapeHTML(groupName)}</td>
+                  <td>${escapeHTML(m.qty || "1")}</td>
+                  <td style="font-size:10px">${m.status === "have" ? "✓ In Hand" : m.status === "ordered" ? "📦 Ordered" : "⚠️ Needed"}</td>
+                  <td style="text-align:right">${Number(m.cost) > 0 ? formatMoney(m.cost) : "—"}</td>
+                </tr>
+              `).join("")}
+            `).join("")}
+          </tbody>
+        </table>
+      ` : `
+        <div style="padding:10px;border:1px dashed currentColor;border-radius:3px;font-size:11px;font-style:italic">
+          No materials listed for this project yet. Add supplies in the Materials section to generate a complete cut schedule.
+        </div>
+      `}
+    </div>
+
+    <!-- Phased Build Checklist & Milestones -->
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:11px;font-weight:900;letter-spacing:0.5px;text-transform:uppercase">
+          🔨 Phased Fabrication Checklist &amp; Milestones
+        </div>
+        <div style="font-size:10px;font-weight:700">
+          Progress: ${progress.completed} of ${progress.total} Completed (${progress.percent}%)
+        </div>
+      </div>
+
+      <div class="bp-phases-container">
+        ${Object.entries(groupedTasks).map(([phaseName, tasks]) => `
+          <div class="bp-phase-card">
+            <div class="bp-phase-header">
+              <span>${escapeHTML(phaseName)}</span>
+              <span>${tasks.filter(t => t.done).length}/${tasks.length}</span>
+            </div>
+            <ul class="bp-task-list">
+              ${tasks.map(t => `
+                <li class="bp-task-item">
+                  <span class="bp-check-box">${t.done ? "✓" : ""}</span>
+                  <span style="flex:1;${t.done ? "text-decoration:line-through;opacity:0.7" : ""}">${escapeHTML(t.text)}</span>
+                  ${t.priority === "high" ? `<span style="font-size:8px;padding:1px 4px;border:1px solid currentColor;border-radius:2px;font-weight:700">URGENT</span>` : ""}
+                </li>
+              `).join("")}
+            </ul>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+
+    ${drawingPreview}
+
+    <!-- Bench Measurements & Field Modifications Grid -->
+    <div class="blueprint-notes-grid" id="bp-notes-grid">
+      <span class="blueprint-notes-tag">Pencil Field Measurements &amp; Shop Adjustments</span>
+    </div>
+
+    <!-- Sign-off & Quality Assurance Row -->
+    <div class="blueprint-signoff-row">
+      <div>Fabricator Sign-off: ________________________</div>
+      <div>Date Inspected: ________________________</div>
+      <div>QC Stamp: [   ] PASS / READY</div>
+      <div>Workbench Document Rev 1.0</div>
+    </div>
+  `;
+}
+
+
 /* ⭐ Save Custom Project Templates */
 function openSaveTemplateDialog(projectId) {
   const project = state.projects.find(p => p.id === projectId);
@@ -9351,6 +9772,22 @@ async function handleAction(action, target) {
     openProjectDossier(id || target.dataset.project);
     return;
   }
+  if (action === "open-workshop-blueprint") {
+    openWorkshopBlueprint(id || target.dataset.project || activeProjectId);
+    return;
+  }
+  if (action === "print-workshop-blueprint") {
+    printWorkshopBlueprint();
+    return;
+  }
+  if (action === "download-workshop-blueprint") {
+    downloadWorkshopBlueprintHTML();
+    return;
+  }
+  if (action === "set-blueprint-sheet-theme") {
+    setBlueprintSheetTheme(target.dataset.theme);
+    return;
+  }
   if (action === "print-dossier") {
     printDossier();
     return;
@@ -9416,7 +9853,12 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "print-project") {
-    window.print();
+    const pid = id || target.dataset.project || activeProjectId;
+    if (pid) {
+      openWorkshopBlueprint(pid);
+    } else {
+      window.print();
+    }
     return;
   }
   if (action === "cycle-material-status") {
