@@ -4341,41 +4341,15 @@ function finishTimer() {
 function openToolsDialog() {
   renderFractionChart();
   updateEpoxyCalc();
-  updateScrewGuide();
-  updateMiterCalc();
-  updateWoodSpeciesView();
-  updateDustCalc();
-  updateYarnCounterUI();
-  updateYarnGaugeCalc();
-  updateYarnWeightView();
-  updateLedCalc();
-  updateResistorColorCode();
-  updateArtPalette();
-  updateGoldenRatioCalc();
-  updateMusicTiming();
-  updateMusicNoteView();
-  updateMusicStretchCalc();
-  initChordStudio();
   $("#tools-dialog")?.showModal();
 }
 
 function switchToolTab(tab) {
-  $$(".tool-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.toolTab === tab));
-  $$(".tool-tab-panel").forEach(panel => {
-    panel.style.display = panel.id === `tool-panel-${tab}` ? "block" : "none";
+  $(".tool-tab-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.toolTab === tab));
+  $(".tool-tab-panel").forEach(panel => {
+    panel.style.display = panel.id === ("tool-panel-" + tab) ? "block" : "none";
   });
   if (tab === "epoxy") updateEpoxyCalc();
-  if (tab === "screws") updateScrewGuide();
-  if (tab === "miter") updateMiterCalc();
-  if (tab === "wood") updateWoodSpeciesView();
-  if (tab === "dust") updateDustCalc();
-  if (tab === "yarn") { updateYarnCounterUI(); updateYarnGaugeCalc(); updateYarnWeightView(); }
-  if (tab === "electronics") { updateLedCalc(); updateResistorColorCode(); }
-  if (tab === "art") { updateArtPalette(); updateGoldenRatioCalc(); }
-  if (tab === "music") { updateMusicTiming(); updateMusicNoteView(); updateMusicStretchCalc(); }
-  if (tab === "pixelart") updatePixelArtView();
-  if (tab === "papercraft") updatePapercraftView();
-  if (tab === "fabrication") updateFabricationView();
 }
 
 function parseFraction(str) {
@@ -9168,6 +9142,54 @@ async function handleAction(action, target) {
     executeProgBitOp(target.dataset.op);
     return;
   }
+  if (action === "switch-studio-from-tools") {
+    const studio = target.dataset.studio;
+    $("#tools-dialog")?.close();
+    if (studio) switchView(studio);
+    return;
+  }
+  if (action === "scroll-to-wood-cutlist") {
+    $("#wood-cutlist-panel")?.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  if (action === "scroll-to-wood-bf") {
+    $("#wood-view-bf-result")?.scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  if (action === "wood-run-cut-optimizer") {
+    runWoodCutOptimizer();
+    return;
+  }
+  if (action === "wood-copy-cut-plan") {
+    void copyWoodCutPlan();
+    return;
+  }
+  if (action === "export-stitch-png") {
+    exportStitchChartPng();
+    return;
+  }
+  if (action === "hit-piano-key") {
+    const note = target.dataset.note;
+    const midi = parseInt(target.dataset.midi, 10);
+    playPianoKeyNote(note, midi);
+    return;
+  }
+  if (action === "set-res-band-mode") {
+    setResistorBandMode(target.dataset.mode);
+    return;
+  }
+  if (action === "set-div-preset") {
+    setVoltageDividerPreset(target.dataset.preset);
+    return;
+  }
+  if (action === "copy-formatted-array") {
+    void copyFormattedArray();
+    return;
+  }
+  if (action === "copy-css-gradient") {
+    void copyArtGradientCss();
+    return;
+  }
   if (action === "tap-tempo") {
     tapTempo();
     return;
@@ -13436,6 +13458,7 @@ function getChordVoicingFrequencies(chordName) {
 function playChordVoicing(chordName, duration = 1.4) {
   const ctx = getMusicAudioCtx();
   if (!ctx) return;
+  highlightPianoKeysForChord(chordName, duration);
   const freqs = getChordVoicingFrequencies(chordName);
   const now = ctx.currentTime;
   const instrument = $("#music-main-instrument")?.value || localStorage.getItem("workbench_music_instrument") || "rhodes";
@@ -17827,7 +17850,745 @@ function renderArtView() {
 }
 
 // --- Initialize All Craft Studios ---
+
+/* ============================================================
+   🌟 CRAFT STUDIOS EXPANDED FEATURE ENGINES
+   ============================================================ */
+
+// --- 🪵 Woodworking Cut List Optimizer & Dust Velocity ---
+function runWoodCutOptimizer() {
+  const stockLen = parseFloat($("#wood-cut-stock")?.value) || 96;
+  const kerf = parseFloat($("#wood-cut-kerf")?.value) || 0.125;
+  const rawText = $("#wood-cut-pieces")?.value || "";
+
+  const pieces = [];
+  rawText.split("\n").forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    const parts = line.split(/[xX*]/);
+    if (parts.length >= 2) {
+      const len = parseFloat(parts[0]);
+      const qty = parseInt(parts[1], 10) || 1;
+      if (len > 0 && qty > 0) {
+        for (let i = 0; i < qty; i++) pieces.push(len);
+      }
+    } else {
+      const len = parseFloat(line);
+      if (len > 0) pieces.push(len);
+    }
+  });
+
+  const res = $("#wood-cutlist-result");
+  if (!res) return;
+
+  if (pieces.length === 0) {
+    res.innerHTML = '<span style="font-size:12px;color:var(--muted)">Enter cut pieces above (e.g. <code>36 x 2</code>) and click Optimize.</span>';
+    return;
+  }
+
+  const over = pieces.find(p => p > stockLen);
+  if (over) {
+    res.innerHTML = '<span style="color:#ef4444;font-size:12px">⚠️ Piece length (' + over + '") exceeds stock board length (' + stockLen + '").</span>';
+    return;
+  }
+
+  pieces.sort((a, b) => b - a);
+  const boards = [];
+
+  pieces.forEach(p => {
+    let placed = false;
+    for (const b of boards) {
+      const needed = b.cuts.length === 0 ? p : p + kerf;
+      if (b.remaining >= needed) {
+        b.cuts.push(p);
+        b.remaining -= needed;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      boards.push({ remaining: stockLen - p, cuts: [p] });
+    }
+  });
+
+  const totalUsed = boards.length * stockLen;
+  const totalCutLen = pieces.reduce((sum, p) => sum + p, 0);
+  const yieldPct = ((totalCutLen / totalUsed) * 100).toFixed(1);
+  const scrapLen = (totalUsed - totalCutLen).toFixed(1);
+
+  const colors = ["#0284c7", "#16a34a", "#d97706", "#9333ea", "#e11d48", "#0d9488", "#4f46e5"];
+
+  const boardDiagrams = boards.map((b, idx) => {
+    const segs = b.cuts.map((cut, cIdx) => {
+      const pct = (cut / stockLen) * 100;
+      const c = colors[cIdx % colors.length];
+      return '<div class="cutlist-seg" style="width:' + pct + '%;background:' + c + '" title="Piece ' + (cIdx + 1) + ': ' + cut + '\">'+ cut + '\"</div>';
+    }).join("");
+    const wastePct = Math.max(0, (b.remaining / stockLen) * 100);
+    const wasteSeg = wastePct > 0 ? '<div class="cutlist-seg waste" style="width:' + wastePct + '%;" title="Offcut: ' + b.remaining.toFixed(2) + '\">'+ b.remaining.toFixed(1) + '\"</div>' : "";
+
+    return '<div class="cutlist-board-diagram">' +
+      '<div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700">' +
+        '<span>BOARD ' + (idx + 1) + ' (' + stockLen + '")</span>' +
+        '<span style="color:var(--muted)">' + b.cuts.length + ' cuts · Offcut: ' + b.remaining.toFixed(1) + '"</span>' +
+      '</div>' +
+      '<div class="cutlist-bar-vis">' + segs + wasteSeg + '</div>' +
+    '</div>';
+  }).join("");
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">' +
+    '<div style="font-size:13px;font-weight:800;color:var(--ink)">Yield: <span style="color:var(--green)">' + yieldPct + '%</span> · Stock Needed: <span style="color:#0284c7">' + boards.length + ' boards</span></div>' +
+    '<div style="font-size:11px;color:var(--muted)">Total Cut: ' + totalCutLen.toFixed(1) + '" · Total Scrap: ' + scrapLen + '"</div>' +
+  '</div>' + boardDiagrams;
+}
+
+async function copyWoodCutPlan() {
+  const stockLen = parseFloat($("#wood-cut-stock")?.value) || 96;
+  const rawText = $("#wood-cut-pieces")?.value || "";
+  const text = "✂️ Woodworking Cut List Plan\nStock Length: " + stockLen + '"\nRequired Pieces:\n' + rawText + "\nGenerated with Workbench Studio";
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied cut plan to clipboard!");
+  } catch {
+    showToast("Plan ready.");
+  }
+}
+
+function updateWoodDustCalc() {
+  const cfm = parseFloat($("#wood-dust-machine")?.value) || 450;
+  const diaIn = parseFloat($("#wood-dust-dia")?.value) || 4;
+  const res = $("#wood-dust-result");
+  if (!res) return;
+
+  const areaSqFt = Math.PI * Math.pow((diaIn / 24), 2);
+  const fpm = cfm / areaSqFt;
+
+  let statusHtml = "";
+  if (fpm < 3500) {
+    statusHtml = '<span style="color:#ef4444;font-weight:700">⚠️ ' + Math.round(fpm) + ' FPM (Too Low):</span> Heavy chips will drop out of airflow and clog horizontal ducts. Use smaller duct or increase dust collector CFM.';
+  } else if (fpm <= 4500) {
+    statusHtml = '<span style="color:var(--green);font-weight:700">✅ ' + Math.round(fpm) + ' FPM (Optimal):</span> Ideal velocity for chip transport without excessive static pressure friction.';
+  } else {
+    statusHtml = '<span style="color:#d97706;font-weight:700">⚡ ' + Math.round(fpm) + ' FPM (High Velocity):</span> Excellent chip suspension, but produces higher airflow static pressure drop.';
+  }
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">DUCT AIR VELOCITY:</span>' +
+    '<strong style="font-size:18px;color:var(--ink)">' + Math.round(fpm) + ' FPM</strong>' +
+  '</div>' +
+  '<div style="font-size:12px;color:var(--ink);line-height:1.4">' + statusHtml + '</div>';
+}
+
+const WOOD_FINISHES_DB = {
+  hardwax: { name: "Hardwax Oil (Rubio Monocoat / Odie's)", dry: "24 hours", recoat: "1 coat sufficient (zero recoat needed)", voc: "0% VOC (Plant-based)", durability: "High water repellency, satin matte sheen", foodSafe: "Yes (Safe for cutting boards/bowls once cured)", method: "Buff in with white scotch-brite pad, wipe completely dry with rag" },
+  poly_oil: { name: "Wipe-On Polyurethane (Oil-Based)", dry: "8 - 12 hours", recoat: "2 - 3 coats (sand with 320 between coats)", voc: "High (Requires organic vapor respirator)", durability: "Maximum scratch, heat & chemical durability", foodSafe: "Yes (Fully food-contact safe after 30-day cure)", method: "Wipe thin coats with lint-free cotton rag in direction of wood grain" },
+  poly_water: { name: "Water-Based Polyurethane", dry: "2 hours (fast dry)", recoat: "3 - 4 coats within 1 day", voc: "Very low odor, soap & water cleanup", durability: "High durability, crystal-clear non-yellowing look", foodSafe: "Yes after full cure", method: "Synthetic bristle brush or HVLP spray gun" },
+  danish: { name: "Danish Oil / Tung Oil Blend", dry: "12 - 24 hours", recoat: "2 - 3 coats for satin glow", voc: "Moderate solvent odor", durability: "Moderate moisture resistance, penetrates deep into wood pores", foodSafe: "Not pure (contains driers); look for 100% pure Tung oil for food surfaces", method: "Flood surface, allow 20 mins to soak, wipe thoroughly dry" },
+  shellac: { name: "Dewaxed Shellac (Zinsser SealCoat)", dry: "30 minutes (ultra-fast)", recoat: "Multiple coats in 1 hour", voc: "Denatured alcohol solvent (mild sweet aroma)", durability: "Low heat & alcohol resistance; supreme universal primer/sealer", foodSafe: "Yes (Pharmaceutical & candy glaze grade)", method: "French polish pad or camel-hair brush" },
+  lacquer: { name: "Pre-Catalyzed Spray Lacquer", dry: "15 minutes", recoat: "2 - 3 coats in same afternoon", voc: "Very high VOC (spray booth recommended)", durability: "Commercial furniture standard, crystal clarity, easy repair", foodSafe: "Yes once solvents fully evaporate (7 days)", method: "HVLP spray turbine at 20-25 PSI" },
+  blo: { name: "Boiled Linseed Oil (BLO)", dry: "24 - 48 hours", recoat: "Annual maintenance coat", voc: "Low natural linseed oil aroma", durability: "Low water barrier; enhances chatoyance and grain pop", foodSafe: "Traditional BLO contains heavy metal metallic driers (use pure raw for food)", method: "Rub in by hand. CAUTION: Lay oily rags flat to dry to prevent spontaneous combustion!" }
+};
+
+function updateWoodFinishView() {
+  const key = $("#wood-finish-select")?.value || "hardwax";
+  const f = WOOD_FINISHES_DB[key] || WOOD_FINISHES_DB.hardwax;
+  const res = $("#wood-finish-result");
+  if (!res) return;
+
+  res.innerHTML = '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
+    '• <strong>Dry &amp; Recoat:</strong> ' + f.dry + ' (' + f.recoat + ')<br>' +
+    '• <strong>VOC &amp; Odor:</strong> ' + f.voc + '<br>' +
+    '• <strong>Durability &amp; Sheen:</strong> ' + f.durability + '<br>' +
+    '• <strong>Food Safe:</strong> <span style="color:var(--green);font-weight:700">' + f.foodSafe + '</span><br>' +
+    '• <strong>Best Application:</strong> ' + f.method +
+  '</div>';
+}
+
+// --- 🧶 Textiles & Yarn Studio: Yardage Estimator, Gauge Swatch, PNG Export ---
+const TEXTILE_PROJECT_YARDAGE_DB = {
+  beanie: { "1": 250, "2": 220, "3": 200, "4": 180, "5": 140, "6": 90 },
+  scarf: { "1": 600, "2": 500, "3": 450, "4": 380, "5": 280, "6": 180 },
+  sweater_m: { "1": 1800, "2": 1500, "3": 1300, "4": 1100, "5": 850, "6": 600 },
+  sweater_xl: { "1": 2200, "2": 1900, "3": 1650, "4": 1400, "5": 1100, "6": 750 },
+  baby_blanket: { "1": 1400, "2": 1200, "3": 1050, "4": 900, "5": 700, "6": 500 },
+  throw_blanket: { "1": 3000, "2": 2600, "3": 2200, "4": 1800, "5": 1400, "6": 950 },
+  socks: { "1": 400, "2": 350, "3": 300, "4": 250, "5": 200, "6": 150 },
+  shawl: { "1": 900, "2": 800, "3": 700, "4": 600, "5": 450, "6": 300 }
+};
+
+function updateTextilesYardageEstimator() {
+  const proj = $("#textiles-est-project")?.value || "beanie";
+  const wt = $("#textiles-est-yarn-wt")?.value || "4";
+  const baseYardage = (TEXTILE_PROJECT_YARDAGE_DB[proj] && TEXTILE_PROJECT_YARDAGE_DB[proj][wt]) ? TEXTILE_PROJECT_YARDAGE_DB[proj][wt] : 200;
+
+  const totalYds = Math.round(baseYardage * 1.10);
+  const totalMeters = Math.round(totalYds * 0.9144);
+  const skeins100g = Math.ceil(totalYds / 210);
+  const skeins50g = Math.ceil(totalYds / 115);
+
+  const res = $("#textiles-yardage-result");
+  if (!res) return;
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">RECOMMENDED YARN:</span>' +
+    '<strong style="font-size:18px;color:var(--green)">~' + totalYds + ' yds (' + totalMeters + ' m)</strong>' +
+  '</div>' +
+  '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
+    '• Estimated Skeins: <strong>' + skeins100g + ' × 100g skeins</strong> (or ' + skeins50g + ' × 50g skeins)<br>' +
+    '• Includes <strong>10% safety margin</strong> for swatches and seams<br>' +
+    '• Check dye lot numbers when purchasing multiple skeins!' +
+  '</div>';
+}
+
+function updateTextilesGaugeCalc() {
+  const patSts = parseFloat($("#textiles-gauge-pattern")?.value) || 20;
+  const actSts = parseFloat($("#textiles-gauge-actual")?.value) || 22;
+  const targetW = parseFloat($("#textiles-gauge-target-w")?.value) || 38;
+
+  const res = $("#textiles-gauge-result");
+  if (!res) return;
+
+  const patStsPerInch = patSts / 4;
+  const actStsPerInch = actSts / 4;
+
+  const plannedCastOn = Math.round(targetW * patStsPerInch);
+  const actualFinishedW = plannedCastOn / actStsPerInch;
+  const variancePct = (((actualFinishedW - targetW) / targetW) * 100).toFixed(1);
+  const adjustedCastOn = Math.round(targetW * actStsPerInch);
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">FINISHED SIZE IMPACT:</span>' +
+    '<strong style="font-size:18px;color:' + (Math.abs(actualFinishedW - targetW) > 1.5 ? '#ef4444' : 'var(--green)') + '">' + actualFinishedW.toFixed(1) + '" wide (' + (variancePct > 0 ? '+' : '') + variancePct + '%)</strong>' +
+  '</div>' +
+  '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
+    '• Original Pattern Cast-On: <strong>' + plannedCastOn + ' stitches</strong><br>' +
+    '• <strong>Adjusted Cast-On to Hit ' + targetW + '":</strong> <span style="color:var(--green);font-weight:800">' + adjustedCastOn + ' stitches</span><br>' +
+    '• ' + (actSts > patSts ? 'Your gauge is tighter: Go UP 1 needle size (e.g. US 7 → US 8).' : actSts < patSts ? 'Your gauge is looser: Go DOWN 1 needle size (e.g. US 8 → US 7).' : 'Spot on! Your gauge perfectly matches the pattern.') +
+  '</div>';
+}
+
+function exportStitchChartPng() {
+  if (typeof stitchStudioState === "undefined" || !stitchStudioState.grid) {
+    showToast("No pattern chart to export.");
+    return;
+  }
+  const canvas = document.createElement("canvas");
+  const cellSize = 28;
+  const rulerSize = 24;
+  canvas.width = 16 * cellSize + rulerSize;
+  canvas.height = 16 * cellSize + rulerSize;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.fillRect(0, 0, canvas.width, rulerSize);
+  ctx.fillRect(0, 0, rulerSize, canvas.height);
+
+  ctx.font = "bold 10px monospace";
+  ctx.fillStyle = "#64748b";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (let c = 0; c < 16; c++) {
+    ctx.fillText((c + 1).toString(), rulerSize + c * cellSize + cellSize / 2, rulerSize / 2);
+  }
+  for (let r = 0; r < 16; r++) {
+    ctx.fillText((r + 1).toString(), rulerSize / 2, rulerSize + r * cellSize + cellSize / 2);
+  }
+
+  for (let r = 0; r < 16; r++) {
+    for (let c = 0; c < 16; c++) {
+      const idx = r * 16 + c;
+      const color = stitchStudioState.grid[idx] || "#ffffff";
+      const x = rulerSize + c * cellSize;
+      const y = rulerSize + r * cellSize;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, cellSize, cellSize);
+      ctx.strokeStyle = "#cbd5e1";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, cellSize, cellSize);
+    }
+  }
+
+  const link = document.createElement("a");
+  link.download = "workbench-stitch-pattern.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+  showToast("Downloaded chart image (workbench-stitch-pattern.png)!");
+}
+
+// --- 🎵 Music Studio: Piano Keyboard & Scale Explorer ---
+const PIANO_NOTES_25 = [
+  { note: "C3", midi: 48, isBlack: false },
+  { note: "C#3", midi: 49, isBlack: true },
+  { note: "D3", midi: 50, isBlack: false },
+  { note: "D#3", midi: 51, isBlack: true },
+  { note: "E3", midi: 52, isBlack: false },
+  { note: "F3", midi: 53, isBlack: false },
+  { note: "F#3", midi: 54, isBlack: true },
+  { note: "G3", midi: 55, isBlack: false },
+  { note: "G#3", midi: 56, isBlack: true },
+  { note: "A3", midi: 57, isBlack: false },
+  { note: "A#3", midi: 58, isBlack: true },
+  { note: "B3", midi: 59, isBlack: false },
+  { note: "C4", midi: 60, isBlack: false },
+  { note: "C#4", midi: 61, isBlack: true },
+  { note: "D4", midi: 62, isBlack: false },
+  { note: "D#4", midi: 63, isBlack: true },
+  { note: "E4", midi: 64, isBlack: false },
+  { note: "F4", midi: 65, isBlack: false },
+  { note: "F#4", midi: 66, isBlack: true },
+  { note: "G4", midi: 67, isBlack: false },
+  { note: "G#4", midi: 68, isBlack: true },
+  { note: "A4", midi: 69, isBlack: false },
+  { note: "A#4", midi: 70, isBlack: true },
+  { note: "B4", midi: 71, isBlack: false },
+  { note: "C5", midi: 72, isBlack: false }
+];
+
+function renderPianoKeyboardUI() {
+  const wrap = $("#music-piano-keyboard");
+  if (!wrap) return;
+
+  wrap.innerHTML = PIANO_NOTES_25.map(k => {
+    return '<div class="piano-key ' + (k.isBlack ? 'black-key' : 'white-key') + '" data-action="hit-piano-key" data-note="' + k.note + '" data-midi="' + k.midi + '" id="piano-key-' + k.midi + '">' + k.note.replace(/[0-9]/g, "") + '</div>';
+  }).join("");
+}
+
+function playPianoKeyNote(note, midi) {
+  const ctx = getMusicAudioCtx();
+  if (!ctx) return;
+  const freq = 440 * Math.pow(2, (midi - 69) / 12);
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(freq, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(0.3, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.85);
+
+  const keyEl = $("#piano-key-" + midi);
+  if (keyEl) {
+    keyEl.classList.add("active");
+    setTimeout(() => keyEl.classList.remove("active"), 350);
+  }
+}
+
+function highlightPianoKeysForChord(chordName, duration = 1.0) {
+  const intervalsMap = {
+    "": [0, 4, 7], "m": [0, 3, 7], "maj7": [0, 4, 7, 11], "m7": [0, 3, 7, 10],
+    "7": [0, 4, 7, 10], "dim": [0, 3, 6], "sus4": [0, 5, 7], "add9": [0, 4, 7, 14]
+  };
+  const rootOffsets = { "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11 };
+  let root = chordName.slice(0, 2);
+  let type = chordName.slice(2);
+  if (!rootOffsets[root]) {
+    root = chordName.slice(0, 1);
+    type = chordName.slice(1);
+  }
+  const rootOffset = rootOffsets[root] || 0;
+  const intervals = intervalsMap[type] || [0, 4, 7];
+
+  const chordMidis = [48 + rootOffset, ...intervals.map(semitone => 60 + rootOffset + semitone)];
+
+  chordMidis.forEach(midi => {
+    const keyEl = $("#piano-key-" + midi);
+    if (keyEl) {
+      keyEl.classList.add("active");
+      setTimeout(() => keyEl.classList.remove("active"), Math.min(duration * 1000, 1600));
+    }
+  });
+}
+
+const MUSIC_SCALES_DB = {
+  ionian: { name: "Major (Ionian)", formula: "W - W - H - W - W - W - H", intervals: [0, 2, 4, 5, 7, 9, 11], mood: "Uplifting, resolute, bright, joyous", chords: "I, ii, iii, IV, V, vi, vii°" },
+  aeolian: { name: "Natural Minor (Aeolian)", formula: "W - H - W - W - H - W - W", intervals: [0, 2, 3, 5, 7, 8, 10], mood: "Melancholic, contemplative, tragic, deep", chords: "i, ii°, III, iv, v, VI, VII" },
+  dorian: { name: "Dorian Mode", formula: "W - H - W - W - W - H - W", intervals: [0, 2, 3, 5, 7, 9, 10], mood: "Bittersweet, jazzy, funky (Natural 6th lifts the minor darkness)", chords: "i, ii, ♭III, IV, v, vi°, ♭VII" },
+  mixolydian: { name: "Mixolydian Mode", formula: "W - W - H - W - W - H - W", intervals: [0, 2, 4, 5, 7, 9, 10], mood: "Classic rock, bluesy, jam-band warmth (Dominant flat 7th)", chords: "I, ii, iii°, IV, v, vi, ♭VII" },
+  lydian: { name: "Lydian Mode", formula: "W - W - W - H - W - W - H", intervals: [0, 2, 4, 6, 7, 9, 11], mood: "Dreamy, mystical, cinematic (Raised #4th creates floating sensation)", chords: "I, II, iii, #iv°, V, vi, vii" },
+  pentatonic_minor: { name: "Minor Pentatonic", formula: "3H - W - W - 3H - W (5 notes)", intervals: [0, 3, 5, 7, 10], mood: "Rock, blues, zero sour notes, expressive guitar bends", chords: "Universal blues/rock framework" },
+  blues: { name: "Blues Scale", formula: "3H - W - H - H - 3H - W (6 notes)", intervals: [0, 3, 5, 6, 7, 10], mood: "Soulful, guttural grit with iconic flat-5th blue note", chords: "I7, IV7, V7 dominant progression" },
+  harmonic_minor: { name: "Harmonic Minor", formula: "W - H - W - W - H - 3H - H", intervals: [0, 2, 3, 5, 7, 8, 11], mood: "Neoclassical, dramatic, exotic Mediterranean tension", chords: "i, ii°, ♭III+, iv, V, ♭VI, vii°" }
+};
+
+function updateMusicScaleView() {
+  const root = $("#music-scale-key")?.value || "C";
+  const modeKey = $("#music-scale-mode")?.value || "ionian";
+  const scale = MUSIC_SCALES_DB[modeKey] || MUSIC_SCALES_DB.ionian;
+  const res = $("#music-scale-result");
+  if (!res) return;
+
+  const notesList = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const rootIdx = notesList.indexOf(root);
+  const scaleNotes = scale.intervals.map(semi => notesList[(rootIdx + semi) % 12]);
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">' + root + ' ' + scale.name.toUpperCase() + ':</span>' +
+    '<strong style="font-size:16px;color:var(--green)">' + scaleNotes.join(" – ") + '</strong>' +
+  '</div>' +
+  '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
+    '• <strong>Step Formula:</strong> ' + scale.formula + '<br>' +
+    '• <strong>Aesthetic Mood:</strong> ' + scale.mood + '<br>' +
+    '• <strong>Diatonic Harmony Triads:</strong> ' + scale.chords +
+  '</div>';
+}
+
+// --- ⚡ Electronics Studio: 5-Band Mode, Voltage Divider, Capacitor, AWG ---
+let resistorBandMode = "4";
+
+function setResistorBandMode(mode) {
+  resistorBandMode = mode;
+  $("#res-mode-4-btn")?.classList.toggle("button-primary", mode === "4");
+  $("#res-mode-4-btn")?.classList.toggle("button-outline", mode !== "4");
+  $("#res-mode-5-btn")?.classList.toggle("button-primary", mode === "5");
+  $("#res-mode-5-btn")?.classList.toggle("button-outline", mode !== "5");
+  updateResistorColorView();
+  showToast(mode === "5" ? "Switched to 5-Band Precision (1%) mode" : "Switched to 4-Band Standard (5%) mode");
+}
+
+function updateVoltageDividerCalc() {
+  const vin = parseFloat($("#elec-div-vin")?.value) || 5;
+  const r1 = parseFloat($("#elec-div-r1")?.value) || 10000;
+  const r2 = parseFloat($("#elec-div-r2")?.value) || 10000;
+  const res = $("#elec-div-result");
+  if (!res) return;
+
+  const vout = vin * (r2 / (r1 + r2));
+  const currentMa = (vin / (r1 + r2)) * 1000;
+  const p1Mw = Math.pow(vin - vout, 2) / r1 * 1000;
+  const p2Mw = Math.pow(vout, 2) / r2 * 1000;
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">OUTPUT VOUT:</span>' +
+    '<strong style="font-size:20px;color:var(--green)">' + vout.toFixed(2) + ' V</strong>' +
+  '</div>' +
+  '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
+    '• Quiescent Current: <strong>' + (currentMa < 1 ? (currentMa * 1000).toFixed(1) + " µA" : currentMa.toFixed(2) + " mA") + '</strong><br>' +
+    '• Dissipation: R1 = ' + p1Mw.toFixed(1) + ' mW · R2 = ' + p2Mw.toFixed(1) + ' mW<br>' +
+    '• Thevenin Output Impedance: <strong>' + ((r1 * r2) / (r1 + r2)).toFixed(0) + ' Ω</strong>' +
+  '</div>';
+}
+
+function setVoltageDividerPreset(preset) {
+  const vinInput = $("#elec-div-vin");
+  const r1Input = $("#elec-div-r1");
+  const r2Input = $("#elec-div-r2");
+  if (!vinInput || !r1Input || !r2Input) return;
+
+  if (preset === "5to33") {
+    vinInput.value = 5;
+    r1Input.value = 1700;
+    r2Input.value = 3300;
+  } else if (preset === "12to5") {
+    vinInput.value = 12;
+    r1Input.value = 14000;
+    r2Input.value = 10000;
+  } else if (preset === "half") {
+    vinInput.value = 5;
+    r1Input.value = 10000;
+    r2Input.value = 10000;
+  }
+  updateVoltageDividerCalc();
+}
+
+function updateCapacitorCodeView() {
+  const codeStr = $("#elec-cap-code")?.value.trim() || "104";
+  const res = $("#elec-cap-result");
+  if (!res) return;
+
+  if (codeStr.length < 3 || isNaN(parseInt(codeStr, 10))) {
+    res.innerHTML = '<span style="font-size:12px;color:var(--muted)">Enter a 3-digit EIA capacitor code (e.g. 104, 473).</span>';
+    return;
+  }
+
+  const digits = parseInt(codeStr.slice(0, 2), 10);
+  const mult = parseInt(codeStr.slice(2, 3), 10);
+  const pf = digits * Math.pow(10, mult);
+  const nf = pf / 1000;
+  const uf = pf / 1000000;
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">CAPACITANCE:</span>' +
+    '<strong style="font-size:18px;color:#0284c7">' + (uf >= 1 ? uf.toFixed(2) + " µF" : nf >= 1 ? nf.toFixed(1) + " nF" : pf + " pF") + '</strong>' +
+  '</div>' +
+  '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
+    '• <strong>Microfarads (µF):</strong> ' + uf + ' µF<br>' +
+    '• <strong>Nanofarads (nF):</strong> ' + nf + ' nF<br>' +
+    '• <strong>Picofarads (pF):</strong> ' + pf.toLocaleString() + ' pF<br>' +
+    '• Typical application: ' + (codeStr === "104" ? "High frequency IC decoupling / bypass (0.1 µF)" : "Audio filtering or RC timing") +
+  '</div>';
+}
+
+const WIRE_AWG_DB = {
+  "12": { diaMm: 2.05, resOhmsPer1000Ft: 1.588, chassisA: 20 },
+  "14": { diaMm: 1.63, resOhmsPer1000Ft: 2.525, chassisA: 15 },
+  "18": { diaMm: 1.02, resOhmsPer1000Ft: 6.385, chassisA: 7 },
+  "22": { diaMm: 0.64, resOhmsPer1000Ft: 16.14, chassisA: 5 },
+  "24": { diaMm: 0.51, resOhmsPer1000Ft: 25.67, chassisA: 3.5 },
+  "28": { diaMm: 0.32, resOhmsPer1000Ft: 64.9, chassisA: 1.4 },
+  "30": { diaMm: 0.25, resOhmsPer1000Ft: 103.2, chassisA: 0.8 }
+};
+
+function updateWireAwgView() {
+  const awg = $("#elec-wire-awg")?.value || "22";
+  const data = WIRE_AWG_DB[awg] || WIRE_AWG_DB["22"];
+  const res = $("#elec-wire-result");
+  if (!res) return;
+
+  res.innerHTML = '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
+    '• <strong>Conductor Diameter:</strong> ' + data.diaMm + ' mm (' + (data.diaMm * 0.03937).toFixed(3) + '")<br>' +
+    '• <strong>Resistance:</strong> ' + data.resOhmsPer1000Ft + ' Ω / 1000 ft (~ ' + (data.resOhmsPer1000Ft / 304.8).toFixed(3) + ' Ω / m)<br>' +
+    '• <strong>Max Chassis Ampacity:</strong> <span style="color:var(--green);font-weight:700">' + data.chassisA + ' Amperes</span><br>' +
+    '• 10 ft Run Voltage Drop @ 5A: ' + ((data.resOhmsPer1000Ft / 1000) * 10 * 5).toFixed(2) + ' Volts' +
+  '</div>';
+}
+
+// --- 💻 Programming Studio: ALU, ASCII Search, Array Formatter ---
+function updateProgAluCalc() {
+  const a = Math.max(0, Math.min(255, parseInt($("#prog-alu-rega")?.value, 10) || 0));
+  const b = Math.max(0, Math.min(255, parseInt($("#prog-alu-regb")?.value, 10) || 0));
+  const op = $("#prog-alu-op")?.value || "and";
+  const res = $("#prog-alu-result");
+  if (!res) return;
+
+  let out = 0;
+  let codeSyntax = "";
+  if (op === "and") { out = (a & b) & 0xFF; codeSyntax = 'uint8_t out = (A & B); // 0x' + a.toString(16).toUpperCase() + ' & 0x' + b.toString(16).toUpperCase(); }
+  else if (op === "or") { out = (a | b) & 0xFF; codeSyntax = 'uint8_t out = (A | B); // Bit Set'; }
+  else if (op === "xor") { out = (a ^ b) & 0xFF; codeSyntax = 'uint8_t out = (A ^ B); // Bit Toggle'; }
+  else if (op === "not") { out = (~a) & 0xFF; codeSyntax = 'uint8_t out = (~A); // Inversion'; }
+  else if (op === "nand") { out = (~(a & b)) & 0xFF; codeSyntax = 'uint8_t out = ~(A & B);'; }
+  else if (op === "nor") { out = (~(a | b)) & 0xFF; codeSyntax = 'uint8_t out = ~(A | B);'; }
+
+  const bits = [];
+  for (let i = 7; i >= 0; i--) {
+    const isSet = (out & (1 << i)) !== 0;
+    bits.push('<span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:' + (isSet ? '#22c55e' : 'var(--border)') + ';color:' + (isSet ? '#fff' : 'var(--muted)') + ';text-align:center;line-height:18px;font-size:10px;font-weight:800;margin:0 2px">' + (isSet ? '1' : '0') + '</span>');
+  }
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">ALU OUTPUT:</span>' +
+    '<div style="display:flex;align-items:center">' + bits.join("") + '</div>' +
+    '<strong style="font-size:16px;color:var(--green)">0x' + out.toString(16).toUpperCase().padStart(2, '0') + ' (' + out + ')</strong>' +
+  '</div>' +
+  '<div style="font-size:11px;font-family:monospace;background:var(--surface);padding:4px 8px;border-radius:4px;border:1px solid var(--border);color:var(--ink)">' +
+    codeSyntax +
+  '</div>';
+}
+
+function searchProgAsciiTable() {
+  const query = ($("#prog-ascii-search")?.value || "").toLowerCase().trim();
+  const box = $("#prog-ascii-table-result");
+  if (!box) return;
+
+  const asciiRows = [];
+  for (let i = 0; i < 128; i++) {
+    const ch = (i >= 32 && i <= 126) ? String.fromCharCode(i) : (i === 0 ? "NUL" : i === 10 ? "\n (LF)" : i === 13 ? "\r (CR)" : i === 9 ? "\t (TAB)" : i === 27 ? "ESC" : i === 32 ? "SPACE" : "CTRL");
+    const name = i === 10 ? "newline line feed" : i === 13 ? "carriage return" : i === 9 ? "horizontal tab" : i === 0 ? "null zero byte" : i === 32 ? "space blank" : "";
+    if (!query || i.toString().includes(query) || i.toString(16).toLowerCase().includes(query) || ch.toLowerCase().includes(query) || name.includes(query)) {
+      asciiRows.push("Dec " + i.toString().padStart(3, " ") + " | 0x" + i.toString(16).toUpperCase().padStart(2, "0") + " | 0b" + i.toString(2).padStart(8, "0") + " | '" + ch + "'");
+    }
+  }
+
+  box.innerHTML = asciiRows.slice(0, 40).map(r => '<div>' + r + '</div>').join("") || '<div>No matching ASCII entries.</div>';
+}
+
+function formatProgByteArray() {
+  const raw = $("#prog-array-input")?.value || "";
+  const lang = $("#prog-array-lang")?.value || "c";
+  const outBox = $("#prog-array-output");
+  if (!outBox) return;
+
+  const numbers = raw.split(/[ ,\t\n]+/).map(s => parseInt(s.trim().replace(/^0x/i, ''), s.startsWith('0x') ? 16 : 10)).filter(n => !isNaN(n) && n >= 0 && n <= 255);
+
+  let formatted = "";
+  if (lang === "c") {
+    const hexes = numbers.map(n => "0x" + n.toString(16).toUpperCase().padStart(2, "0"));
+    formatted = "const uint8_t PROGMEM data[" + numbers.length + "] = {\n  " + hexes.join(", ") + "\n};";
+  } else if (lang === "python") {
+    formatted = "data = bytearray([\n    " + numbers.map(n => "0x" + n.toString(16).toUpperCase().padStart(2, "0")).join(", ") + "\n])";
+  } else if (lang === "json") {
+    formatted = JSON.stringify(numbers, null, 2);
+  }
+
+  outBox.textContent = formatted;
+}
+
+async function copyFormattedArray() {
+  const outBox = $("#prog-array-output");
+  if (!outBox || !outBox.textContent) return;
+  try {
+    await navigator.clipboard.writeText(outBox.textContent);
+    showToast("Copied formatted array to clipboard!");
+  } catch {
+    showToast("Array ready.");
+  }
+}
+
+// --- 🎨 Art & Design Studio: WCAG Contrast, CSS Gradient, DPI Print Scaler ---
+function getLuminance(hex) {
+  let c = hex.replace("#", "");
+  if (c.length === 3) c = c.split("").map(x => x + x).join("");
+  const num = parseInt(c, 16);
+  const rgb = [(num >> 16) / 255, ((num >> 8) & 255) / 255, (num & 255) / 255].map(val => {
+    return val <= 0.03928 ? val / 12.92 : Math.pow((val + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+}
+
+function updateArtContrastCalc() {
+  const fg = $("#art-contrast-text")?.value || "#ffffff";
+  const bg = $("#art-contrast-bg")?.value || "#0284c7";
+  const res = $("#art-contrast-result");
+  if (!res) return;
+
+  const l1 = getLuminance(fg);
+  const l2 = getLuminance(bg);
+  const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+
+  const aaNormal = ratio >= 4.5;
+  const aaLarge = ratio >= 3.0;
+  const aaaNormal = ratio >= 7.0;
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">CONTRAST RATIO:</span>' +
+    '<strong style="font-size:20px;color:' + (aaNormal ? 'var(--green)' : '#ef4444') + '">' + ratio.toFixed(2) + ' : 1</strong>' +
+  '</div>' +
+  '<div style="padding:10px;border-radius:6px;background:' + bg + ';color:' + fg + ';font-weight:700;font-size:13px;text-align:center;margin-bottom:8px">' +
+    'Sample Readable Text on Color' +
+  '</div>' +
+  '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    '<span class="contrast-badge ' + (aaNormal ? 'pass' : 'fail') + '">' + (aaNormal ? '✓' : '✗') + ' AA Normal (4.5+)</span>' +
+    '<span class="contrast-badge ' + (aaLarge ? 'pass' : 'fail') + '">' + (aaLarge ? '✓' : '✗') + ' AA Large (3.0+)</span>' +
+    '<span class="contrast-badge ' + (aaaNormal ? 'pass' : 'fail') + '">' + (aaaNormal ? '✓' : '✗') + ' AAA Enhanced (7.0+)</span>' +
+  '</div>';
+}
+
+function updateArtGradientStudio() {
+  const type = $("#art-gradient-type")?.value || "linear";
+  const angle = parseInt($("#art-gradient-angle")?.value, 10) || 135;
+  const prev = $("#art-gradient-preview");
+  const codeBox = $("#art-gradient-css");
+
+  const colors = (typeof currentStudioPaletteHexes !== "undefined" && currentStudioPaletteHexes.length >= 2)
+    ? currentStudioPaletteHexes.slice(0, 3)
+    : ["#0284c7", "#38bdf8", "#0369a1"];
+
+  const cssStr = type === "linear"
+    ? "linear-gradient(" + angle + "deg, " + colors.join(", ") + ")"
+    : "radial-gradient(circle, " + colors.join(", ") + ")";
+
+  if (prev) prev.style.background = cssStr;
+  if (codeBox) codeBox.textContent = "background: " + cssStr + ";";
+}
+
+async function copyArtGradientCss() {
+  const codeBox = $("#art-gradient-css");
+  if (!codeBox || !codeBox.textContent) return;
+  try {
+    await navigator.clipboard.writeText(codeBox.textContent);
+    showToast("Copied CSS gradient to clipboard!");
+  } catch {
+    showToast("CSS ready.");
+  }
+}
+
+const ART_PRINT_SIZES_DB = {
+  "8x10": { wIn: 8, hIn: 10, label: '8" × 10" Portrait' },
+  "11x14": { wIn: 11, hIn: 14, label: '11" × 14" Frame' },
+  "16x20": { wIn: 16, hIn: 20, label: '16" × 20" Gallery' },
+  "18x24": { wIn: 18, hIn: 24, label: '18" × 24" Poster' },
+  "24x36": { wIn: 24, hIn: 36, label: '24" × 36" Statement' },
+  "A4": { wIn: 8.27, hIn: 11.69, label: 'A4 (210 × 297 mm)' },
+  "A3": { wIn: 11.69, hIn: 16.54, label: 'A3 (297 × 420 mm)' }
+};
+
+function updateArtPrintResCalc() {
+  const sizeKey = $("#art-print-size")?.value || "18x24";
+  const dpi = parseInt($("#art-print-dpi")?.value, 10) || 300;
+  const res = $("#art-print-dpi-result");
+  if (!res) return;
+
+  const data = ART_PRINT_SIZES_DB[sizeKey] || ART_PRINT_SIZES_DB["18x24"];
+  const pxW = Math.round(data.wIn * dpi);
+  const pxH = Math.round(data.hIn * dpi);
+  const mp = ((pxW * pxH) / 1000000).toFixed(1);
+
+  res.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+    '<span style="font-size:11px;font-weight:700;color:var(--muted)">CANVAS PIXEL RESOLUTION:</span>' +
+    '<strong style="font-size:18px;color:#0284c7">' + pxW + ' × ' + pxH + ' px</strong>' +
+  '</div>' +
+  '<div style="font-size:12px;color:var(--ink);line-height:1.4">' +
+    '• Total Image Detail: <strong>' + mp + ' Megapixels</strong><br>' +
+    '• Physical Aspect Ratio: <strong>' + (data.wIn / data.hIn).toFixed(2) + ' : 1</strong><br>' +
+    '• Minimum recommended canvas size for 300 DPI razor sharpness' +
+  '</div>';
+}
+
 function initCraftStudios() {
+  // Piano keyboard & Music Theory
+  renderPianoKeyboardUI();
+  updateMusicScaleView();
+  $("#music-scale-key")?.addEventListener("change", updateMusicScaleView);
+  $("#music-scale-mode")?.addEventListener("change", updateMusicScaleView);
+
+  // Woodworking Cutlist & Dust
+  runWoodCutOptimizer();
+  updateWoodDustCalc();
+  updateWoodFinishView();
+  ["#wood-cut-stock", "#wood-cut-kerf"].forEach(s => $(s)?.addEventListener("input", runWoodCutOptimizer));
+  $("#wood-cut-pieces")?.addEventListener("input", runWoodCutOptimizer);
+  $("#wood-dust-machine")?.addEventListener("change", updateWoodDustCalc);
+  $("#wood-dust-dia")?.addEventListener("change", updateWoodDustCalc);
+  $("#wood-finish-select")?.addEventListener("change", updateWoodFinishView);
+
+  // Textiles Yardage & Gauge
+  updateTextilesYardageEstimator();
+  updateTextilesGaugeCalc();
+  $("#textiles-est-project")?.addEventListener("change", updateTextilesYardageEstimator);
+  $("#textiles-est-yarn-wt")?.addEventListener("change", updateTextilesYardageEstimator);
+  ["#textiles-gauge-pattern", "#textiles-gauge-actual", "#textiles-gauge-target-w"].forEach(s => $(s)?.addEventListener("input", updateTextilesGaugeCalc));
+
+  // Electronics Voltage Divider, Capacitor, AWG
+  updateVoltageDividerCalc();
+  updateCapacitorCodeView();
+  updateWireAwgView();
+  ["#elec-div-vin", "#elec-div-r1", "#elec-div-r2"].forEach(s => $(s)?.addEventListener("input", updateVoltageDividerCalc));
+  $("#elec-cap-code")?.addEventListener("input", updateCapacitorCodeView);
+  $("#elec-cap-preset")?.addEventListener("change", (e) => {
+    const inp = $("#elec-cap-code");
+    if (inp) { inp.value = e.target.value; updateCapacitorCodeView(); }
+  });
+  $("#elec-wire-awg")?.addEventListener("change", updateWireAwgView);
+
+  // Programming ALU, ASCII, Array Formatter
+  updateProgAluCalc();
+  searchProgAsciiTable();
+  formatProgByteArray();
+  ["#prog-alu-rega", "#prog-alu-regb"].forEach(s => $(s)?.addEventListener("input", updateProgAluCalc));
+  $("#prog-alu-op")?.addEventListener("change", updateProgAluCalc);
+  $("#prog-ascii-search")?.addEventListener("input", searchProgAsciiTable);
+  $("#prog-array-input")?.addEventListener("input", formatProgByteArray);
+  $("#prog-array-lang")?.addEventListener("change", formatProgByteArray);
+
+  // Art Contrast, Gradient, Print Scaler
+  updateArtContrastCalc();
+  updateArtGradientStudio();
+  updateArtPrintResCalc();
+  $("#art-contrast-text")?.addEventListener("input", updateArtContrastCalc);
+  $("#art-contrast-bg")?.addEventListener("input", updateArtContrastCalc);
+  $("#art-gradient-type")?.addEventListener("change", updateArtGradientStudio);
+  $("#art-gradient-angle")?.addEventListener("input", updateArtGradientStudio);
+  $("#art-print-size")?.addEventListener("change", updateArtPrintResCalc);
+  $("#art-print-dpi")?.addEventListener("change", updateArtPrintResCalc);
+
   const instSelect = $("#music-main-instrument");
   if (instSelect) {
     const saved = localStorage.getItem("workbench_music_instrument");

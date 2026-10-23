@@ -6327,3 +6327,122 @@ body.theme-dark .version-tag {
   width: 100%;
   padding: 5px;
 }
+
+
+/* 🎹 Interactive 25-Key Piano Keyboard */
+.piano-keyboard-wrap {
+  display: flex;
+  position: relative;
+  height: 100px;
+  background: #0f172a;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  user-select: none;
+}
+.piano-key {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all .1s ease;
+}
+.piano-key.white-key {
+  width: 32px;
+  min-width: 32px;
+  height: 84px;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #94a3b8;
+  border-radius: 0 0 4px 4px;
+  z-index: 1;
+  box-shadow: inset 0 -3px 0 #cbd5e1;
+}
+.piano-key.white-key:hover {
+  background: #f1f5f9;
+}
+.piano-key.black-key {
+  width: 20px;
+  min-width: 20px;
+  height: 54px;
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #0f172a;
+  border-radius: 0 0 3px 3px;
+  margin-left: -10px;
+  margin-right: -10px;
+  z-index: 2;
+  box-shadow: inset 0 -2px 0 #020617;
+  font-size: 8px;
+  padding-bottom: 4px;
+}
+.piano-key.black-key:hover {
+  background: #334155;
+}
+.piano-key.active {
+  background: #22c55e !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.8), inset 0 -2px 0 #15803d !important;
+  border-color: #16a34a !important;
+}
+
+/* ✂️ Cutlist Stock Bar Diagram */
+.cutlist-board-diagram {
+  margin: 10px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+.cutlist-bar-vis {
+  display: flex;
+  height: 32px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  margin-top: 6px;
+}
+.cutlist-seg {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: white;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-right: 1px solid rgba(0,0,0,0.25);
+  box-sizing: border-box;
+}
+.cutlist-seg.waste {
+  background: #cbd5e1 !important;
+  color: #64748b !important;
+}
+
+/* 👁️ Contrast Checker Badges */
+.contrast-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.contrast-badge.pass {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+.contrast-badge.fail {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
