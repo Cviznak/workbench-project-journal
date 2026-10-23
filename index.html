@@ -556,10 +556,15 @@
           <select id="project-template-select">
             <option value="">Start from scratch (blank)</option>
             <option value="craft">Woodworking &amp; Craft Build</option>
-            <option value="electronics">Electronics &amp; Hardware Prototype</option>
-            <option value="software">Software / Web App MVP</option>
-            <option value="study">Learning &amp; Study Sprint</option>
-            <option value="3dprint">3D Printing &amp; Fabrication</option>
+            <option value="crochet">🧶 Crochet &amp; Amigurumi</option>
+            <option value="knitting">🧣 Knitting &amp; Fiber Arts</option>
+            <option value="electronics">⚡ Electronics &amp; Hardware Prototype</option>
+            <option value="art">🎨 Fine Art &amp; Painting</option>
+            <option value="music">🎵 Music Track &amp; Audio Production</option>
+            <option value="leather">🪡 Leathercraft &amp; Sewing</option>
+            <option value="software">💻 Software / Web App MVP</option>
+            <option value="study">📚 Learning &amp; Study Sprint</option>
+            <option value="3dprint">🖨️ 3D Printing &amp; Fabrication</option>
           </select>
           <div id="project-template-hint" class="form-hint" style="margin-top: 5px; display: none;"></div>
         </label>
@@ -744,6 +749,10 @@
         <button type="button" class="tool-tab-btn" data-tool-tab="miter">📐 Miter &amp; Polygons</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="wood">🌲 Wood Species &amp; Movement</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="dust">💨 Dust CFM &amp; Duct</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="yarn">🧶 Fiber Arts &amp; Yarn</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="electronics">⚡ Electronics &amp; Circuits</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="art">🎨 Art &amp; Color Studio</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="music">🎵 Music &amp; Audio Studio</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -1103,6 +1112,336 @@
             • <strong>Main Trunk Velocity:</strong> Aim for <strong>3,500–4,000 FPM</strong> to reduce unnecessary static friction losses.<br>
             • <strong>Flex Hose Friction:</strong> Ribbed flex hose has <strong>3× to 5×</strong> the static friction resistance of smooth metal or PVC pipe. Keep flex runs under 6–8 feet.<br>
             • <strong>Radius of Elbows:</strong> Use long-sweep elbows (radius = 1.5× to 2× duct diameter) instead of tight 90° plumbing elbows to halve pressure loss.
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 10: Fiber Arts, Knitting & Crochet -->
+      <div class="tool-tab-panel" id="tool-panel-yarn" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Track pattern rows &amp; repeats, calculate gauge tension adjustments for custom sizing, and convert yarn weights to recommended hook and needle sizes.</p>
+
+        <!-- Live Pattern Row & Repeat Counter -->
+        <div class="yarn-counter-card" style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+            <div>
+              <span class="eyebrow" style="margin:0">FIBER COUNTER</span>
+              <h3 style="margin:0;font-size:16px">Pattern Row &amp; Repeat Counter</h3>
+            </div>
+            <input type="text" id="tool-yarn-section" placeholder="Section note (e.g. Yoke, Heel, Round 4)" style="max-width:220px;font-size:12px;padding:4px 8px">
+          </div>
+          <div class="yarn-counter-grid">
+            <div class="yarn-digit-box">
+              <div class="yarn-digit-val" id="tool-yarn-row-display">1</div>
+              <div class="yarn-digit-lbl">Current Row / Rnd</div>
+              <div class="yarn-digit-controls">
+                <button type="button" class="button button-small button-outline" data-action="yarn-row-dec">− 1</button>
+                <button type="button" class="button button-small button-primary" data-action="yarn-row-inc">＋ 1</button>
+                <button type="button" class="button button-small button-quiet" data-action="yarn-row-reset">Reset</button>
+              </div>
+            </div>
+            <div class="yarn-digit-box">
+              <div class="yarn-digit-val" id="tool-yarn-rep-display">1</div>
+              <div class="yarn-digit-lbl">Pattern Repeat</div>
+              <div class="yarn-digit-controls">
+                <button type="button" class="button button-small button-outline" data-action="yarn-rep-dec">− 1</button>
+                <button type="button" class="button button-small button-primary" data-action="yarn-rep-inc">＋ 1</button>
+                <button type="button" class="button button-small button-quiet" data-action="yarn-rep-reset">Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gauge & Resize Calculator -->
+        <div class="tools-quick-chart" style="margin-bottom:14px">
+          <div class="tools-chart-title">🧶 Gauge Tension &amp; Sizing Calculator</div>
+          <p class="form-hint" style="margin-bottom:10px">Compare pattern gauge vs your swatch gauge to compute exact cast-on stitches and rows for your target finished size.</p>
+          <div class="tool-calc-grid">
+            <label class="field-label">Pattern Gauge (Stitches / 4″)
+              <input type="number" step="any" id="tool-yarn-pat-sts" value="20" placeholder="e.g. 20">
+            </label>
+            <label class="field-label">Pattern Gauge (Rows / 4″)
+              <input type="number" step="any" id="tool-yarn-pat-rows" value="26" placeholder="e.g. 26">
+            </label>
+            <label class="field-label">Your Swatch (Stitches / 4″)
+              <input type="number" step="any" id="tool-yarn-my-sts" value="18" placeholder="e.g. 18">
+            </label>
+            <label class="field-label">Your Swatch (Rows / 4″)
+              <input type="number" step="any" id="tool-yarn-my-rows" value="24" placeholder="e.g. 24">
+            </label>
+            <label class="field-label">Target Finished Width (in)
+              <input type="number" step="any" id="tool-yarn-target-width" value="40" placeholder="e.g. 40">
+            </label>
+          </div>
+          <div class="tool-result-box" id="tool-yarn-gauge-result" style="margin-top:10px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Standard Yarn Weight Reference -->
+        <div class="tools-quick-chart">
+          <div class="tools-chart-title">🧵 Standard Yarn Weight &amp; Tool Master Reference</div>
+          <div style="margin-bottom:8px">
+            <label class="field-label" style="max-width:320px">Select Yarn Weight
+              <select id="tool-yarn-weight-select">
+                <option value="0">0 · Lace (Fingering 10-count / Crochet thread)</option>
+                <option value="1">1 · Super Fine (Sock, Fingering, Baby)</option>
+                <option value="2">2 · Fine (Sport, Baby 4-ply)</option>
+                <option value="3">3 · Light (DK, Light Worsted, 8-ply)</option>
+                <option value="4" selected>4 · Medium (Worsted, Afghan, Aran)</option>
+                <option value="5">5 · Bulky (Chunky, Craft, Rug)</option>
+                <option value="6">6 · Super Bulky (Roving, Arm-knit)</option>
+                <option value="7">7 · Jumbo (Giant roving blankets)</option>
+              </select>
+            </label>
+          </div>
+          <div id="tool-yarn-weight-card" class="wood-species-card">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 11: Electronics, Ohm's Law & Circuit Studio -->
+      <div class="tool-tab-panel" id="tool-panel-electronics" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Solve Ohm's Law and power dissipation, calculate current-limiting series resistors for LEDs, and decode resistor color bands.</p>
+
+        <!-- Ohm's Law & Power -->
+        <div class="tools-quick-chart" style="margin-bottom:14px">
+          <div class="tools-chart-title">⚡ Ohm's Law &amp; Watt's Power Wheel</div>
+          <p class="form-hint" style="margin-bottom:8px">Enter any 2 values to compute the remaining two (leave others blank or zero).</p>
+          <div class="tool-calc-grid">
+            <label class="field-label">Voltage (V · Volts)
+              <input type="number" step="any" id="tool-elec-v" placeholder="e.g. 5">
+            </label>
+            <label class="field-label">Current (I · Milliamps mA)
+              <input type="number" step="any" id="tool-elec-i" placeholder="e.g. 20">
+            </label>
+            <label class="field-label">Resistance (R · Ohms Ω)
+              <input type="number" step="any" id="tool-elec-r" placeholder="e.g. 250">
+            </label>
+            <label class="field-label">Power (P · Watts W)
+              <input type="number" step="any" id="tool-elec-p" placeholder="e.g. 0.1">
+            </label>
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px">
+            <button type="button" class="button button-small button-primary" data-action="calc-ohms-law">⚡ Solve Circuit</button>
+            <button type="button" class="button button-small button-quiet" data-action="clear-ohms-law">Clear</button>
+          </div>
+          <div class="tool-result-box" id="tool-elec-ohms-result" style="margin-top:10px">
+            Enter 2 parameters above and click Solve Circuit.
+          </div>
+        </div>
+
+        <!-- LED Series Resistor Calculator -->
+        <div class="tools-quick-chart" style="margin-bottom:14px">
+          <div class="tools-chart-title">💡 LED Series Resistor Sizing</div>
+          <div class="tool-calc-grid">
+            <label class="field-label">Supply Voltage (Vs)
+              <select id="tool-led-vs-preset">
+                <option value="5" selected>5.0 V (USB / Arduino / Raspberry Pi 5V)</option>
+                <option value="3.3">3.3 V (ESP32 / Pico / 3.3V Logic)</option>
+                <option value="9">9.0 V (9V Battery)</option>
+                <option value="12">12.0 V (12V Power Supply / LED strip)</option>
+                <option value="24">24.0 V (Industrial / 3D Printer rail)</option>
+                <option value="custom">Custom Voltage</option>
+              </select>
+            </label>
+            <label class="field-label" id="tool-led-vs-custom-wrap" style="display:none">Custom Supply (V)
+              <input type="number" step="any" id="tool-led-vs-custom" value="5">
+            </label>
+            <label class="field-label">LED Color / Type
+              <select id="tool-led-color">
+                <option value="red" selected>Red (~2.0V drop)</option>
+                <option value="green">Green (~2.2V drop)</option>
+                <option value="yellow">Yellow (~2.1V drop)</option>
+                <option value="blue">Blue / Pure Green (~3.2V drop)</option>
+                <option value="white">White (~3.2V drop)</option>
+                <option value="uv">UV / Violet (~3.4V drop)</option>
+                <option value="ir">Infrared (~1.4V drop)</option>
+              </select>
+            </label>
+            <label class="field-label">Desired Current (mA)
+              <input type="number" id="tool-led-ma" value="20" placeholder="20 mA standard">
+            </label>
+          </div>
+          <div class="tool-result-box" id="tool-led-result" style="margin-top:10px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Resistor Color Code Band Decoder -->
+        <div class="tools-quick-chart">
+          <div class="tools-chart-title">🎨 4-Band Resistor Color Code Decoder</div>
+          <div class="tool-calc-grid">
+            <label class="field-label">1st Band (Digit)
+              <select id="tool-res-band1">
+                <option value="1">🟫 Brown (1)</option>
+                <option value="2">🟥 Red (2)</option>
+                <option value="3">🟧 Orange (3)</option>
+                <option value="4" selected>🟨 Yellow (4)</option>
+                <option value="5">🟩 Green (5)</option>
+                <option value="6">🟦 Blue (6)</option>
+                <option value="7">🟪 Violet (7)</option>
+                <option value="8">⬜ Gray (8)</option>
+                <option value="9">⚪ White (9)</option>
+              </select>
+            </label>
+            <label class="field-label">2nd Band (Digit)
+              <select id="tool-res-band2">
+                <option value="0">⬛ Black (0)</option>
+                <option value="1">🟫 Brown (1)</option>
+                <option value="2">🟥 Red (2)</option>
+                <option value="3">🟧 Orange (3)</option>
+                <option value="4">🟨 Yellow (4)</option>
+                <option value="5">🟩 Green (5)</option>
+                <option value="6">🟦 Blue (6)</option>
+                <option value="7" selected>🟪 Violet (7)</option>
+                <option value="8">⬜ Gray (8)</option>
+                <option value="9">⚪ White (9)</option>
+              </select>
+            </label>
+            <label class="field-label">3rd Band (Multiplier)
+              <select id="tool-res-mult">
+                <option value="1">⬛ Black (×1 Ω)</option>
+                <option value="10">🟫 Brown (×10 Ω)</option>
+                <option value="100" selected>🟥 Red (×100 Ω)</option>
+                <option value="1000">🟧 Orange (×1 kΩ)</option>
+                <option value="10000">🟨 Yellow (×10 kΩ)</option>
+                <option value="100000">🟩 Green (×100 kΩ)</option>
+                <option value="1000000">🟦 Blue (×1 MΩ)</option>
+                <option value="0.1">🟡 Gold (×0.1 Ω)</option>
+                <option value="0.01">⚪ Silver (×0.01 Ω)</option>
+              </select>
+            </label>
+            <label class="field-label">4th Band (Tolerance)
+              <select id="tool-res-tol">
+                <option value="1">🟫 Brown (±1%)</option>
+                <option value="2">🟥 Red (±2%)</option>
+                <option value="5" selected>🟡 Gold (±5%)</option>
+                <option value="10">⚪ Silver (±10%)</option>
+              </select>
+            </label>
+          </div>
+          <div class="tool-result-box" id="tool-res-code-result" style="margin-top:10px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 12: Fine Art, Painting & Color Studio -->
+      <div class="tool-tab-panel" id="tool-panel-art" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Generate cohesive color palettes with traditional pigment mixing equivalents, and compute golden ratio proportions for canvases, prints, and frame mats.</p>
+
+        <!-- Color Palette & Harmonies Generator -->
+        <div class="tools-quick-chart" style="margin-bottom:14px">
+          <div class="tools-chart-title">🎨 Color Harmony &amp; Artist Pigment Studio</div>
+          <div class="tool-calc-grid">
+            <label class="field-label">Base Color
+              <div style="display:flex;gap:6px;align-items:center;margin-top:2px">
+                <input type="color" id="tool-art-color-picker" value="#d97706" style="width:40px;height:34px;padding:2px;border-radius:6px;border:1px solid var(--border);cursor:pointer">
+                <input type="text" id="tool-art-hex" value="#d97706" maxlength="7" style="font-family:monospace;text-transform:uppercase" placeholder="#HEX">
+              </div>
+            </label>
+            <label class="field-label">Harmony Type
+              <select id="tool-art-harmony">
+                <option value="complementary" selected>Complementary (High contrast opposite)</option>
+                <option value="analogous">Analogous (Harmonious adjacent hues)</option>
+                <option value="triadic">Triadic (Vibrant balanced triangle)</option>
+                <option value="split">Split-Complementary (Rich nuance)</option>
+                <option value="monochromatic">Monochromatic (Tints &amp; Shades)</option>
+              </select>
+            </label>
+          </div>
+          <div id="tool-art-palette-result" style="margin-top:12px">
+            <!-- Populated dynamically with swatches & pigment names -->
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button type="button" class="button button-small button-outline" data-action="copy-art-palette">📋 Copy Palette HEX Codes</button>
+          </div>
+        </div>
+
+        <!-- Golden Ratio & Canvas Dimensions -->
+        <div class="tools-quick-chart">
+          <div class="tools-chart-title">🖼️ Golden Ratio (Φ 1.618) &amp; Canvas Sizing</div>
+          <p class="form-hint" style="margin-bottom:8px">Enter width or height to compute the classical divine proportion for canvas layouts, photography crops, and framing mats.</p>
+          <div class="tool-calc-grid">
+            <label class="field-label">Known Dimension
+              <select id="tool-art-dim-mode">
+                <option value="width" selected>Width known → Compute Height</option>
+                <option value="height">Height known → Compute Width</option>
+              </select>
+            </label>
+            <label class="field-label">Dimension Value (inches or cm)
+              <input type="number" step="any" id="tool-art-dim-val" value="20" placeholder="e.g. 20">
+            </label>
+          </div>
+          <div class="tool-result-box" id="tool-art-golden-result" style="margin-top:10px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 13: Music Production & Audio Studio -->
+      <div class="tool-tab-panel" id="tool-panel-music" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Calculate tempo-synced delay times, reverb pre-delays, musical pitch frequencies (Hz), and audio sample pitch/speed stretch ratios.</p>
+
+        <!-- BPM to Delay & Reverb Timing -->
+        <div class="tools-quick-chart" style="margin-bottom:14px">
+          <div class="tools-chart-title">🎵 Tempo / BPM to Delay &amp; Reverb Sync</div>
+          <div class="tool-calc-grid">
+            <label class="field-label">Tempo (BPM)
+              <input type="number" min="20" max="320" id="tool-music-bpm" value="120" placeholder="120">
+            </label>
+            <div style="display:flex;align-items:flex-end;gap:6px">
+              <button type="button" class="button button-small button-outline" data-action="tap-tempo" style="height:34px;width:100%">🥁 Tap Tempo</button>
+            </div>
+          </div>
+          <div class="tool-result-box" id="tool-music-timing-result" style="margin-top:12px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Note Pitch to Frequency & MIDI -->
+        <div class="tools-quick-chart" style="margin-bottom:14px">
+          <div class="tools-chart-title">🎹 Musical Pitch to Frequency (Hz) &amp; Wavelength</div>
+          <div class="tool-calc-grid">
+            <label class="field-label">Musical Note
+              <select id="tool-music-note">
+                <option value="A4" selected>A4 (440.0 Hz · Concert Pitch)</option>
+                <option value="C4">C4 (261.6 Hz · Middle C)</option>
+                <option value="E2">E2 (82.4 Hz · Guitar Low E)</option>
+                <option value="A1">A1 (55.0 Hz · Bass Guitar A)</option>
+                <option value="C2">C2 (65.4 Hz · Low Bass / Sub)</option>
+                <option value="C3">C3 (130.8 Hz · Tenor C)</option>
+                <option value="E4">E4 (329.6 Hz · Guitar High E)</option>
+                <option value="A5">A5 (880.0 Hz · Soprano)</option>
+                <option value="C6">C6 (1046.5 Hz · High C)</option>
+              </select>
+            </label>
+            <label class="field-label">Concert Pitch Standard
+              <select id="tool-music-tuning">
+                <option value="440" selected>A4 = 440 Hz (Standard ISO)</option>
+                <option value="432">A4 = 432 Hz (Verdi / Alternative)</option>
+              </select>
+            </label>
+          </div>
+          <div class="tool-result-box" id="tool-music-note-result" style="margin-top:10px">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Sample Pitch & Speed Shifter -->
+        <div class="tools-quick-chart">
+          <div class="tools-chart-title">🎚️ Sample Time-Stretch &amp; Pitch Shift Calculator</div>
+          <div class="tool-calc-grid">
+            <label class="field-label">Source Sample BPM
+              <input type="number" step="any" id="tool-music-src-bpm" value="95" placeholder="e.g. 95">
+            </label>
+            <label class="field-label">Target Project BPM
+              <input type="number" step="any" id="tool-music-target-bpm" value="128" placeholder="e.g. 128">
+            </label>
+          </div>
+          <div class="tool-result-box" id="tool-music-stretch-result" style="margin-top:10px">
+            <!-- Populated dynamically -->
           </div>
         </div>
       </div>

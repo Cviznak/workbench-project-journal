@@ -51,6 +51,91 @@ const PROJECT_TEMPLATES = {
       "Apply protective finish coat"
     ]
   },
+  crochet: {
+    title: "Crochet Garment / Amigurumi",
+    description: "Fiber art crochet project. Tension swatch, stitch repeats, and neat assembly.",
+    status: "in-progress",
+    priority: "normal",
+    tags: ["crochet", "yarn", "fiberarts", "handmade"],
+    skillNames: ["Crochet"],
+    tasks: [
+      "Select yarn weight, fiber content & hook size",
+      "Work 4x4\" gauge swatch & measure tension",
+      "Cast on foundation chain / magic ring",
+      "Work pattern repeats & count rows",
+      "Increase/decrease shaping sections",
+      "Weave in loose yarn ends with tapestry needle",
+      "Wet block / steam block finished piece"
+    ]
+  },
+  knitting: {
+    title: "Knitted Garment / Accessory",
+    description: "Hand-knit sweater, scarf, or socks. Gauge swatch, stitch markers, and blocking.",
+    status: "in-progress",
+    priority: "normal",
+    tags: ["knitting", "yarn", "fiberarts", "apparel"],
+    skillNames: ["Knitting"],
+    tasks: [
+      "Swatch gauge on recommended circular/straight needles",
+      "Calculate cast-on stitches from gauge sizing",
+      "Work ribbed hem / cuff border",
+      "Work main body pattern & place stitch markers",
+      "Shape neckline / armholes / raglan decreases",
+      "Kitchener stitch graft or bind off loosely",
+      "Block on foam mats with T-pins to final measurements"
+    ]
+  },
+  art: {
+    title: "Fine Art Painting / Illustration",
+    description: "Studio artwork exploration. Composition thumbnailing, color palette harmony, and layering.",
+    status: "in-progress",
+    priority: "normal",
+    tags: ["art", "painting", "studio", "visual"],
+    skillNames: ["Painting", "Drawing"],
+    tasks: [
+      "Rough thumbnail compositions & focal points",
+      "Prepare surface (gesso canvas / prime wood panel)",
+      "Mix core color palette & harmonize values",
+      "Underpainting / tonal block-in (imprimatura)",
+      "Develop mid-tones, form shadows, and color temperature",
+      "Refine fine detail, highlights, and edge transitions",
+      "Apply archival varnish coat once cured"
+    ]
+  },
+  music: {
+    title: "Music Track & Audio Production",
+    description: "Original composition, audio recording, arrangement, mixing, and mastering.",
+    status: "in-progress",
+    priority: "high",
+    tags: ["music", "audio", "production", "songwriting"],
+    skillNames: ["Music Production", "Sound Design"],
+    tasks: [
+      "Establish tempo (BPM), key signature & groove draft",
+      "Compose chord progression & melodic hook",
+      "Track rhythm section (drums, bass, percussion)",
+      "Record lead instruments & vocal takes",
+      "Arrange structure (intro, verse, chorus, bridge, outro)",
+      "Mix balance: EQ carved frequencies & synced delay/reverb",
+      "Master export: loudness LUFS check & mono compatibility"
+    ]
+  },
+  leather: {
+    title: "Leathercraft & Hand Sewing",
+    description: "Precision leather goods. Pattern cutting, edge beveling, saddle stitching, and burnishing.",
+    status: "in-progress",
+    priority: "normal",
+    tags: ["leathercraft", "stitching", "handmade", "edc"],
+    skillNames: ["Leathercraft"],
+    tasks: [
+      "Print / scribe pattern onto veg-tan leather",
+      "Cut panels clean with rotary blade / utility knife",
+      "Groove stitch line & punch stitching chisel holes",
+      "Skive / thin pocket edges for minimal bulk",
+      "Saddle stitch with waxed thread & two harness needles",
+      "Sand edge progression (220 -> 400 -> 800 grit)",
+      "Bevel edges & burnish with Tokonole / beeswax"
+    ]
+  },
   electronics: {
     title: "Electronics / Hardware Prototype",
     description: "Custom embedded device / circuit build. Breadboard to final enclosure.",
@@ -4247,6 +4332,16 @@ function openToolsDialog() {
   updateMiterCalc();
   updateWoodSpeciesView();
   updateDustCalc();
+  updateYarnCounterUI();
+  updateYarnGaugeCalc();
+  updateYarnWeightView();
+  updateLedCalc();
+  updateResistorColorCode();
+  updateArtPalette();
+  updateGoldenRatioCalc();
+  updateMusicTiming();
+  updateMusicNoteView();
+  updateMusicStretchCalc();
   $("#tools-dialog")?.showModal();
 }
 
@@ -4260,6 +4355,10 @@ function switchToolTab(tab) {
   if (tab === "miter") updateMiterCalc();
   if (tab === "wood") updateWoodSpeciesView();
   if (tab === "dust") updateDustCalc();
+  if (tab === "yarn") { updateYarnCounterUI(); updateYarnGaugeCalc(); updateYarnWeightView(); }
+  if (tab === "electronics") { updateLedCalc(); updateResistorColorCode(); }
+  if (tab === "art") { updateArtPalette(); updateGoldenRatioCalc(); }
+  if (tab === "music") { updateMusicTiming(); updateMusicNoteView(); updateMusicStretchCalc(); }
 }
 
 function parseFraction(str) {
@@ -9000,6 +9099,26 @@ async function handleAction(action, target) {
     transferProjectToCutlist(id || target.dataset.id || target.dataset.project);
     return;
   }
+  if (action.startsWith("yarn-")) {
+    yarnCounterAction(action);
+    return;
+  }
+  if (action === "calc-ohms-law") {
+    calcOhmsLaw();
+    return;
+  }
+  if (action === "clear-ohms-law") {
+    clearOhmsLaw();
+    return;
+  }
+  if (action === "copy-art-palette") {
+    void copyArtPalette();
+    return;
+  }
+  if (action === "tap-tempo") {
+    tapTempo();
+    return;
+  }
   if (action === "open-time-dialog") {
     openTimeDialog(id || target.dataset.id);
     return;
@@ -10138,6 +10257,50 @@ $("#tool-dust-length")?.addEventListener("input", updateDustCalc);
 $("#tool-dust-elbows90")?.addEventListener("input", updateDustCalc);
 $("#tool-dust-elbows45")?.addEventListener("input", updateDustCalc);
 $("#tool-dust-flex")?.addEventListener("input", updateDustCalc);
+
+// Fiber Arts & Yarn listeners
+$("#tool-yarn-section")?.addEventListener("input", event => {
+  yarnCounterState.section = event.target.value;
+});
+$("#tool-yarn-pat-sts")?.addEventListener("input", updateYarnGaugeCalc);
+$("#tool-yarn-pat-rows")?.addEventListener("input", updateYarnGaugeCalc);
+$("#tool-yarn-my-sts")?.addEventListener("input", updateYarnGaugeCalc);
+$("#tool-yarn-my-rows")?.addEventListener("input", updateYarnGaugeCalc);
+$("#tool-yarn-target-width")?.addEventListener("input", updateYarnGaugeCalc);
+$("#tool-yarn-weight-select")?.addEventListener("change", updateYarnWeightView);
+
+// Electronics & Circuits listeners
+$("#tool-led-vs-preset")?.addEventListener("change", updateLedCalc);
+$("#tool-led-vs-custom")?.addEventListener("input", updateLedCalc);
+$("#tool-led-color")?.addEventListener("change", updateLedCalc);
+$("#tool-led-ma")?.addEventListener("input", updateLedCalc);
+$("#tool-res-band1")?.addEventListener("change", updateResistorColorCode);
+$("#tool-res-band2")?.addEventListener("change", updateResistorColorCode);
+$("#tool-res-mult")?.addEventListener("change", updateResistorColorCode);
+$("#tool-res-tol")?.addEventListener("change", updateResistorColorCode);
+
+// Art & Color Studio listeners
+$("#tool-art-color-picker")?.addEventListener("input", event => {
+  if ($("#tool-art-hex")) $("#tool-art-hex").value = event.target.value;
+  updateArtPalette();
+});
+$("#tool-art-hex")?.addEventListener("input", event => {
+  const val = event.target.value;
+  if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+    if ($("#tool-art-color-picker")) $("#tool-art-color-picker").value = val;
+    updateArtPalette();
+  }
+});
+$("#tool-art-harmony")?.addEventListener("change", updateArtPalette);
+$("#tool-art-dim-mode")?.addEventListener("change", updateGoldenRatioCalc);
+$("#tool-art-dim-val")?.addEventListener("input", updateGoldenRatioCalc);
+
+// Music & Audio Studio listeners
+$("#tool-music-bpm")?.addEventListener("input", updateMusicTiming);
+$("#tool-music-note")?.addEventListener("change", updateMusicNoteView);
+$("#tool-music-tuning")?.addEventListener("change", updateMusicNoteView);
+$("#tool-music-src-bpm")?.addEventListener("input", updateMusicStretchCalc);
+$("#tool-music-target-bpm")?.addEventListener("input", updateMusicStretchCalc);
 
 $("#backup-input").addEventListener("change", async event => {
   const [file] = event.target.files;
@@ -11651,6 +11814,642 @@ function transferProjectToCutlist(projectId) {
     }
   }
   runCutOptimizer();
+}
+
+/* ============================================================
+   🧶 Fiber Arts & Yarn: Knitting & Crochet Studio
+   ============================================================ */
+let yarnCounterState = { row: 1, repeat: 1, section: "" };
+
+function updateYarnCounterUI() {
+  const rowEl = $("#tool-yarn-row-display");
+  const repEl = $("#tool-yarn-rep-display");
+  if (rowEl) rowEl.textContent = yarnCounterState.row;
+  if (repEl) repEl.textContent = yarnCounterState.repeat;
+}
+
+function yarnCounterAction(action) {
+  if (action === "yarn-row-inc") yarnCounterState.row++;
+  if (action === "yarn-row-dec") yarnCounterState.row = Math.max(1, yarnCounterState.row - 1);
+  if (action === "yarn-row-reset") yarnCounterState.row = 1;
+  if (action === "yarn-rep-inc") yarnCounterState.repeat++;
+  if (action === "yarn-rep-dec") yarnCounterState.repeat = Math.max(1, yarnCounterState.repeat - 1);
+  if (action === "yarn-rep-reset") yarnCounterState.repeat = 1;
+  updateYarnCounterUI();
+}
+
+function updateYarnGaugeCalc() {
+  const patSts = parseFloat($("#tool-yarn-pat-sts")?.value) || 20;
+  const patRows = parseFloat($("#tool-yarn-pat-rows")?.value) || 26;
+  const mySts = parseFloat($("#tool-yarn-my-sts")?.value) || 18;
+  const myRows = parseFloat($("#tool-yarn-my-rows")?.value) || 24;
+  const targetWidth = parseFloat($("#tool-yarn-target-width")?.value) || 40;
+  const resultBox = $("#tool-yarn-gauge-result");
+  if (!resultBox) return;
+
+  const patStsPerInch = patSts / 4;
+  const myStsPerInch = mySts / 4;
+  const standardPatternCastOn = Math.round(targetWidth * patStsPerInch);
+  const adjustedCastOn = Math.round(targetWidth * myStsPerInch);
+  const diffSts = adjustedCastOn - standardPatternCastOn;
+  const rowRatio = (myRows / patRows);
+
+  let tensionVerdict = "Your tension matches the pattern closely.";
+  let badgeColor = "var(--green)";
+  if (mySts < patSts) {
+    tensionVerdict = `Your gauge is LOOSER (${mySts} vs ${patSts} sts/4″). If you follow the pattern unadjusted, your garment will turn out ${(targetWidth * (patSts / mySts)).toFixed(1)}″ (too big!).`;
+    badgeColor = "#ca8a04";
+  } else if (mySts > patSts) {
+    tensionVerdict = `Your gauge is TIGHTER (${mySts} vs ${patSts} sts/4″). If you follow the pattern unadjusted, your garment will turn out ${(targetWidth * (patSts / mySts)).toFixed(1)}″ (too small!).`;
+    badgeColor = "#ca8a04";
+  }
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">
+      Adjusted Cast-On for ${targetWidth}″ Finished Width: <span style="font-size:18px;color:${badgeColor}">${adjustedCastOn} stitches</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Your Cast-On Target</div>
+        <div style="font-size:22px;font-weight:900;color:var(--green);margin:2px 0">${adjustedCastOn} sts</div>
+        <div style="font-size:11px;color:var(--muted)">Pattern calls for ${standardPatternCastOn} sts (${diffSts >= 0 ? `+${diffSts}` : diffSts} sts adjustment)</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Row Count Multiplier</div>
+        <div style="font-size:22px;font-weight:900;color:#0284c7;margin:2px 0">${(rowRatio * 100).toFixed(0)}%</div>
+        <div style="font-size:11px;color:var(--muted)">Work ${(rowRatio).toFixed(2)}× pattern row counts for correct height</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:12px;color:var(--ink);background:var(--surface-subtle);padding:8px 10px;border-radius:6px">
+      💡 <strong>Tension Analysis:</strong> ${tensionVerdict} Or switch needle/hook size by 0.5mm to match pattern gauge directly.
+    </div>
+  `;
+}
+
+const YARN_WEIGHTS_DB = {
+  "0": { name: "Lace", alt: "Fingering 10-count / Thread", wpi: "30-40+ WPI", hook: "1.6 – 2.25 mm (Steel 6–8)", needle: "1.5 – 2.25 mm (US 000–1)", knitGauge: "33–40 sts / 4″", crochetGauge: "32–42 sts / 4″", projects: "Doilies, lace shawls, delicate openwork collars" },
+  "1": { name: "Super Fine", alt: "Sock, Fingering, Baby", wpi: "18-24 WPI", hook: "2.25 – 3.5 mm (B-1 to E-4)", needle: "2.25 – 3.25 mm (US 1–3)", knitGauge: "27–32 sts / 4″", crochetGauge: "21–32 sts / 4″", projects: "Socks, fine mittens, baby garments, lightweight scarves" },
+  "2": { name: "Fine", alt: "Sport, Baby 4-ply", wpi: "14-18 WPI", hook: "3.5 – 4.5 mm (E-4 to 7)", needle: "3.25 – 3.75 mm (US 3–5)", knitGauge: "23–26 sts / 4″", crochetGauge: "16–20 sts / 4″", projects: "Lightweight sweaters, baby blankets, shawls, socks" },
+  "3": { name: "Light", alt: "DK (Double Knitting), Light Worsted", wpi: "11-14 WPI", hook: "4.5 – 5.5 mm (7 to I-9)", needle: "3.75 – 4.5 mm (US 5–7)", knitGauge: "21–24 sts / 4″", crochetGauge: "12–17 sts / 4″", projects: "Garments, cardigans, lightweight afghans, beanies" },
+  "4": { name: "Medium", alt: "Worsted, Afghan, Aran", wpi: "9-11 WPI", hook: "5.5 – 6.5 mm (I-9 to K-10.5)", needle: "4.5 – 5.5 mm (US 7–9)", knitGauge: "16–20 sts / 4″", crochetGauge: "11–14 sts / 4″", projects: "Standard sweaters, blankets, amigurumi toys, winter hats" },
+  "5": { name: "Bulky", alt: "Chunky, Craft, Rug", wpi: "7-8 WPI", hook: "6.5 – 9.0 mm (K-10.5 to M-13)", needle: "5.5 – 8.0 mm (US 9–11)", knitGauge: "12–15 sts / 4″", crochetGauge: "8–11 sts / 4″", projects: "Heavy winter scarves, quick throw blankets, rugs, cowls" },
+  "6": { name: "Super Bulky", alt: "Roving, Super Chunky", wpi: "5-6 WPI", hook: "9.0 – 15.0 mm (M-13 to Q)", needle: "8.0 – 12.75 mm (US 11–17)", knitGauge: "7–11 sts / 4″", crochetGauge: "5–9 sts / 4″", projects: "Cozy chunky throws, thick beanies, arm-knitted decor" },
+  "7": { name: "Jumbo", alt: "Giant Roving", wpi: "1-4 WPI", hook: "15.0 mm and larger (Q and up)", needle: "12.75 mm and larger (US 17+)", knitGauge: "6 sts or fewer / 4″", crochetGauge: "5 sts or fewer / 4″", projects: "Extreme knitting, oversized couch blankets, pet beds" }
+};
+
+function updateYarnWeightView() {
+  const select = $("#tool-yarn-weight-select");
+  const key = select?.value || "4";
+  const item = YARN_WEIGHTS_DB[key] || YARN_WEIGHTS_DB["4"];
+  const card = $("#tool-yarn-weight-card");
+  if (!card) return;
+
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-size:16px;font-weight:700;color:var(--ink)">Category ${key} · ${item.name} (${item.alt})</div>
+      <span class="wood-species-tag" style="background:rgba(217, 70, 239, 0.12);color:#a21caf">${item.wpi}</span>
+    </div>
+    <div class="wood-stats-grid">
+      <div class="wood-stat-item">
+        <div class="wood-stat-val" style="font-size:12px">${item.hook}</div>
+        <div class="wood-stat-lbl">Crochet Hook</div>
+      </div>
+      <div class="wood-stat-item">
+        <div class="wood-stat-val" style="font-size:12px">${item.needle}</div>
+        <div class="wood-stat-lbl">Knitting Needle</div>
+      </div>
+      <div class="wood-stat-item">
+        <div class="wood-stat-val" style="font-size:12px">${item.knitGauge}</div>
+        <div class="wood-stat-lbl">Typical Knit Gauge</div>
+      </div>
+      <div class="wood-stat-item">
+        <div class="wood-stat-val" style="font-size:12px">${item.crochetGauge}</div>
+        <div class="wood-stat-lbl">Typical Crochet Gauge</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px">
+      <strong>Best suited for:</strong> ${item.projects}
+    </div>
+  `;
+}
+
+/* ============================================================
+   ⚡ Electronics, Circuits & Ohm's Law
+   ============================================================ */
+function calcOhmsLaw() {
+  let v = parseFloat($("#tool-elec-v")?.value);
+  let i = parseFloat($("#tool-elec-i")?.value);
+  let r = parseFloat($("#tool-elec-r")?.value);
+  let p = parseFloat($("#tool-elec-p")?.value);
+
+  const hasV = !isNaN(v) && v > 0;
+  const hasI = !isNaN(i) && i > 0;
+  const hasR = !isNaN(r) && r > 0;
+  const hasP = !isNaN(p) && p > 0;
+
+  const count = [hasV, hasI, hasR, hasP].filter(Boolean).length;
+  const resultBox = $("#tool-elec-ohms-result");
+  if (!resultBox) return;
+
+  if (count < 2) {
+    resultBox.innerHTML = `<span style="color:#b45309">⚠️ Please enter at least 2 circuit values (e.g. Voltage and Resistance) to solve the circuit.</span>`;
+    return;
+  }
+
+  let currentAmps = hasI ? (i / 1000) : 0;
+
+  if (hasV && hasR) {
+    currentAmps = v / r;
+    p = v * currentAmps;
+  } else if (hasV && hasI) {
+    r = v / currentAmps;
+    p = v * currentAmps;
+  } else if (hasV && hasP) {
+    currentAmps = p / v;
+    r = v / currentAmps;
+  } else if (hasI && hasR) {
+    v = currentAmps * r;
+    p = v * currentAmps;
+  } else if (hasI && hasP) {
+    v = p / currentAmps;
+    r = v / currentAmps;
+  } else if (hasR && hasP) {
+    currentAmps = Math.sqrt(p / r);
+    v = currentAmps * r;
+  }
+
+  i = currentAmps * 1000;
+
+  if ($("#tool-elec-v")) $("#tool-elec-v").value = v.toFixed(3).replace(/\.?0+$/, "");
+  if ($("#tool-elec-i")) $("#tool-elec-i").value = i.toFixed(2).replace(/\.?0+$/, "");
+  if ($("#tool-elec-r")) $("#tool-elec-r").value = r.toFixed(2).replace(/\.?0+$/, "");
+  if ($("#tool-elec-p")) $("#tool-elec-p").value = p.toFixed(4).replace(/\.?0+$/, "");
+
+  let wattWarning = "Safe for miniature 1/8W or 1/4W standard carbon film resistors.";
+  if (p > 0.5) {
+    wattWarning = `⚠️ High dissipation (${p.toFixed(2)}W)! Standard 1/4W resistors will smoke and burn. Use a 1W, 2W, or cement power resistor with heatsinking!`;
+  } else if (p > 0.25) {
+    wattWarning = `⚠️ Power is ${(p * 1000).toFixed(0)} mW. Exceeds standard 1/4-Watt (250 mW) rating. Use at least a 1/2-Watt resistor.`;
+  }
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">
+      ⚡ Circuit Solution: <span style="color:var(--green)">${v.toFixed(2)}V</span> · <span style="color:#0284c7">${i.toFixed(1)} mA</span> · <span style="color:var(--ink)">${r.toFixed(1)} Ω</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:8px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">VOLTAGE</div>
+        <div style="font-size:16px;font-weight:800;color:var(--ink)">${v.toFixed(2)} V</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">CURRENT</div>
+        <div style="font-size:16px;font-weight:800;color:#0284c7">${i < 1000 ? `${i.toFixed(1)} mA` : `${(i / 1000).toFixed(3)} A`}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">RESISTANCE</div>
+        <div style="font-size:16px;font-weight:800;color:var(--green)">${r >= 1000 ? `${(r / 1000).toFixed(2)} kΩ` : `${r.toFixed(1)} Ω`}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">POWER DISSIPATION</div>
+        <div style="font-size:16px;font-weight:800;color:${p > 0.25 ? "#dc2626" : "var(--ink)"}">${p < 1 ? `${(p * 1000).toFixed(1)} mW` : `${p.toFixed(2)} W`}</div>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:11px;color:var(--muted)">${wattWarning}</div>
+  `;
+}
+
+function clearOhmsLaw() {
+  if ($("#tool-elec-v")) $("#tool-elec-v").value = "";
+  if ($("#tool-elec-i")) $("#tool-elec-i").value = "";
+  if ($("#tool-elec-r")) $("#tool-elec-r").value = "";
+  if ($("#tool-elec-p")) $("#tool-elec-p").value = "";
+  const resultBox = $("#tool-elec-ohms-result");
+  if (resultBox) resultBox.innerHTML = "Enter 2 parameters above and click Solve Circuit.";
+}
+
+const LED_VF_DATA = {
+  red: 2.0,
+  green: 2.2,
+  yellow: 2.1,
+  blue: 3.2,
+  white: 3.2,
+  uv: 3.4,
+  ir: 1.4
+};
+
+const STANDARD_E24_VALUES = [
+  10, 11, 12, 13, 15, 16, 18, 20, 22, 24, 27, 30, 33, 36, 39, 43, 47, 51, 56, 62, 68, 75, 82, 91
+];
+
+function findNearestE24(targetOhms) {
+  if (targetOhms <= 0) return 0;
+  const dec = Math.floor(Math.log10(targetOhms));
+  const normalized = targetOhms / Math.pow(10, dec);
+  let best = STANDARD_E24_VALUES[0];
+  let minDiff = Infinity;
+  for (const v of STANDARD_E24_VALUES) {
+    const diff = Math.abs(v - normalized);
+    if (diff < minDiff) {
+      minDiff = diff;
+      best = v;
+    }
+  }
+  return Math.round(best * Math.pow(10, dec));
+}
+
+function updateLedCalc() {
+  const vsPreset = $("#tool-led-vs-preset")?.value || "5";
+  const customWrap = $("#tool-led-vs-custom-wrap");
+  let vs = 5.0;
+
+  if (vsPreset === "custom") {
+    if (customWrap) customWrap.style.display = "block";
+    vs = parseFloat($("#tool-led-vs-custom")?.value) || 5.0;
+  } else {
+    if (customWrap) customWrap.style.display = "none";
+    vs = parseFloat(vsPreset) || 5.0;
+  }
+
+  const color = $("#tool-led-color")?.value || "red";
+  const vf = LED_VF_DATA[color] || 2.0;
+  const ma = Math.max(1, parseFloat($("#tool-led-ma")?.value) || 20);
+  const resultBox = $("#tool-led-result");
+  if (!resultBox) return;
+
+  if (vs <= vf) {
+    resultBox.innerHTML = `
+      <div style="color:#dc2626;font-weight:700">⚠️ Supply voltage (${vs}V) is lower than or equal to LED forward voltage (${vf}V). The LED will not illuminate without a booster!</div>
+    `;
+    return;
+  }
+
+  const currentAmps = ma / 1000;
+  const exactOhms = (vs - vf) / currentAmps;
+  const standardE24 = findNearestE24(exactOhms);
+  const powerWatts = (vs - vf) * currentAmps;
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">
+      💡 Target LED Resistor: <span style="font-size:18px;color:var(--green)">${standardE24 >= 1000 ? `${(standardE24 / 1000).toFixed(1)} kΩ` : `${standardE24} Ω`}</span> (Nearest Standard E24)
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">EXACT CALCULATED</div>
+        <div style="font-size:16px;font-weight:800;color:var(--ink)">${exactOhms.toFixed(1)} Ω</div>
+        <div style="font-size:10px;color:var(--muted)">R = (${vs}V − ${vf}V) / ${ma}mA</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px">
+        <div style="font-size:10px;color:var(--muted);font-weight:700">RESISTOR POWER</div>
+        <div style="font-size:16px;font-weight:800;color:#0284c7">${(powerWatts * 1000).toFixed(1)} mW</div>
+        <div style="font-size:10px;color:var(--muted)">Min rating: <strong>${powerWatts > 0.25 ? "1/2-Watt" : "1/4-Watt standard"}</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+const RESISTOR_COLOR_MAP = {
+  "0": { name: "Black", color: "#111827" },
+  "1": { name: "Brown", color: "#854d0e" },
+  "2": { name: "Red", color: "#dc2626" },
+  "3": { name: "Orange", color: "#ea580c" },
+  "4": { name: "Yellow", color: "#eab308" },
+  "5": { name: "Green", color: "#16a34a" },
+  "6": { name: "Blue", color: "#2563eb" },
+  "7": { name: "Violet", color: "#9333ea" },
+  "8": { name: "Gray", color: "#6b7280" },
+  "9": { name: "White", color: "#f9fafb" },
+  "0.1": { name: "Gold", color: "#eab308" },
+  "0.01": { name: "Silver", color: "#9ca3af" },
+  "5": { name: "Gold", color: "#eab308" },
+  "10": { name: "Silver", color: "#9ca3af" }
+};
+
+function updateResistorColorCode() {
+  const b1 = $("#tool-res-band1")?.value || "4";
+  const b2 = $("#tool-res-band2")?.value || "7";
+  const mult = parseFloat($("#tool-res-mult")?.value) || 100;
+  const tol = parseFloat($("#tool-res-tol")?.value) || 5;
+  const resultBox = $("#tool-res-code-result");
+  if (!resultBox) return;
+
+  const baseDigits = parseInt(`${b1}${b2}`, 10);
+  const resistance = baseDigits * mult;
+  const minR = resistance * (1 - tol / 100);
+  const maxR = resistance * (1 + tol / 100);
+
+  const formattedR = resistance >= 1000000 ? `${(resistance / 1000000).toFixed(2)} MΩ` : resistance >= 1000 ? `${(resistance / 1000).toFixed(2)} kΩ` : `${resistance.toFixed(1)} Ω`;
+
+  const color1 = RESISTOR_COLOR_MAP[b1]?.color || "#854d0e";
+  const color2 = RESISTOR_COLOR_MAP[b2]?.color || "#dc2626";
+  const color3 = RESISTOR_COLOR_MAP[String(mult)]?.color || "#eab308";
+  const color4 = RESISTOR_COLOR_MAP[String(tol)]?.color || "#eab308";
+
+  resultBox.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="resistor-graphic-body">
+        <div class="resistor-stripe" style="background:${color1}" title="Band 1: ${b1}"></div>
+        <div class="resistor-stripe" style="background:${color2}" title="Band 2: ${b2}"></div>
+        <div class="resistor-stripe" style="background:${color3}" title="Multiplier: ×${mult}"></div>
+        <div class="resistor-stripe" style="background:${color4}" title="Tolerance: ±${tol}%"></div>
+      </div>
+      <div>
+        <div style="font-size:18px;font-weight:900;color:var(--green)">${formattedR} ±${tol}%</div>
+        <div style="font-size:11px;color:var(--muted)">Tolerance Range: ${minR.toFixed(1)} Ω to ${maxR.toFixed(1)} Ω</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   🎨 Fine Art, Painting & Color Studio
+   ============================================================ */
+function hexToHsl(hex) {
+  let c = hex.replace("#", "");
+  if (c.length === 3) c = c.split("").map(x => x + x).join("");
+  const num = parseInt(c, 16);
+  const r = (num >> 16) / 255;
+  const g = ((num >> 8) & 255) / 255;
+  const b = (num & 255) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+function hslToHex(h, s, l) {
+  h = (h % 360 + 360) % 360;
+  s /= 100;
+  l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function matchPigmentName(h, s, l) {
+  if (l < 15) return "Lamp Black / Ivory Black";
+  if (l > 88 && s < 15) return "Titanium White";
+  if (s < 15) return l > 50 ? "Payne's Gray Tint" : "Raw Umber / Neutral Gray";
+
+  if (h >= 345 || h < 15) return l < 40 ? "Alizarin Crimson / Madder" : "Cadmium Red Medium";
+  if (h >= 15 && h < 45) return s > 65 ? "Cadmium Orange" : "Burnt Sienna";
+  if (h >= 45 && h < 65) return s > 60 ? "Cadmium Yellow Medium" : "Yellow Ochre / Raw Sienna";
+  if (h >= 65 && h < 165) return l < 40 ? "Sap Green / Viridian" : "Phthalo Green (Yellow Shade)";
+  if (h >= 165 && h < 205) return "Cerulean Blue / Cobalt Teal";
+  if (h >= 205 && h < 255) return l < 35 ? "Prussian Blue / Indigo" : "Ultramarine Blue / Cobalt";
+  if (h >= 255 && h < 295) return "Dioxazine Purple / Cobalt Violet";
+  return "Quinacridone Magenta / Rose";
+}
+
+let currentArtPaletteHexes = [];
+
+function updateArtPalette() {
+  const picker = $("#tool-art-color-picker");
+  const hexInput = $("#tool-art-hex");
+  const harmony = $("#tool-art-harmony")?.value || "complementary";
+  const resultContainer = $("#tool-art-palette-result");
+  if (!resultContainer) return;
+
+  const baseHex = hexInput?.value || picker?.value || "#d97706";
+  const [h, s, l] = hexToHsl(baseHex);
+
+  let hues = [];
+  if (harmony === "complementary") {
+    hues = [h, (h + 180) % 360, (h + 30) % 360, (h + 210) % 360];
+  } else if (harmony === "analogous") {
+    hues = [(h - 40 + 360) % 360, (h - 20 + 360) % 360, h, (h + 20) % 360, (h + 40) % 360];
+  } else if (harmony === "triadic") {
+    hues = [h, (h + 120) % 360, (h + 240) % 360];
+  } else if (harmony === "split") {
+    hues = [h, (h + 150) % 360, (h + 210) % 360, (h + 30) % 360];
+  } else {
+    hues = [h, h, h, h, h];
+  }
+
+  const palette = hues.map((hue, idx) => {
+    let lig = l;
+    let sat = s;
+    if (harmony === "monochromatic") {
+      lig = Math.max(15, Math.min(85, 20 + idx * 16));
+    } else if (idx === 1 && harmony === "complementary") {
+      lig = Math.max(25, Math.min(75, 100 - l));
+    }
+    const hex = hslToHex(hue, sat, lig);
+    const pigment = matchPigmentName(hue, sat, lig);
+    return { hex, pigment };
+  });
+
+  currentArtPaletteHexes = palette.map(p => p.hex.toUpperCase());
+
+  resultContainer.innerHTML = `
+    <div class="art-palette-grid">
+      ${palette.map(p => `
+        <div class="art-swatch">
+          <div class="art-swatch-color" style="background:${p.hex}"></div>
+          <div class="art-swatch-info">
+            <div class="art-swatch-hex">${p.hex.toUpperCase()}</div>
+            <div class="art-swatch-pigment">${p.pigment}</div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+async function copyArtPalette() {
+  if (!currentArtPaletteHexes.length) return;
+  const str = currentArtPaletteHexes.join(", ");
+  try {
+    await navigator.clipboard.writeText(str);
+    showToast(`Copied ${currentArtPaletteHexes.length} palette colors to clipboard!`);
+  } catch {
+    showToast("Palette ready.");
+  }
+}
+
+function updateGoldenRatioCalc() {
+  const mode = $("#tool-art-dim-mode")?.value || "width";
+  const val = parseFloat($("#tool-art-dim-val")?.value) || 20;
+  const resultBox = $("#tool-art-golden-result");
+  if (!resultBox) return;
+
+  const PHI = 1.61803398875;
+  const matched = mode === "width" ? (val / PHI) : (val * PHI);
+  const matchedExpanded = mode === "width" ? (val * PHI) : (val / PHI);
+
+  const third1 = (val / 3).toFixed(2);
+  const third2 = (val * (2 / 3)).toFixed(2);
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">
+      🖼️ Golden Rectangle Dimensions (Φ = 1.618):
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Divine Proportion Size</div>
+        <div style="font-size:18px;font-weight:800;color:var(--green);margin:2px 0">${mode === "width" ? `${val} × ${matched.toFixed(2)}` : `${matched.toFixed(2)} × ${val}`}</div>
+        <div style="font-size:11px;color:var(--muted)">Alternate aspect: ${mode === "width" ? `${val} × ${matchedExpanded.toFixed(2)}` : `${matchedExpanded.toFixed(2)} × ${val}`}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Rule of Thirds Grid Line</div>
+        <div style="font-size:18px;font-weight:800;color:#0284c7;margin:2px 0">${third1} and ${third2}</div>
+        <div style="font-size:11px;color:var(--muted)">Focal interest points along ${val} dimension</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   🎵 Music Production & Audio Studio
+   ============================================================ */
+let tapTempoHistory = [];
+
+function tapTempo() {
+  const now = Date.now();
+  tapTempoHistory.push(now);
+  if (tapTempoHistory.length > 5) tapTempoHistory.shift();
+
+  if (tapTempoHistory.length >= 2) {
+    const intervals = [];
+    for (let i = 1; i < tapTempoHistory.length; i++) {
+      intervals.push(tapTempoHistory[i] - tapTempoHistory[i - 1]);
+    }
+    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    const computedBpm = Math.round(60000 / avgInterval);
+    if (computedBpm >= 40 && computedBpm <= 240) {
+      const bpmInput = $("#tool-music-bpm");
+      if (bpmInput) {
+        bpmInput.value = computedBpm;
+        updateMusicTiming();
+      }
+    }
+  }
+}
+
+function updateMusicTiming() {
+  const bpm = Math.max(20, Math.min(320, parseFloat($("#tool-music-bpm")?.value) || 120));
+  const resultBox = $("#tool-music-timing-result");
+  if (!resultBox) return;
+
+  const qNoteMs = 60000 / bpm;
+
+  const notes = [
+    { label: "Whole Note (1/1)", ms: qNoteMs * 4 },
+    { label: "Half Note (1/2)", ms: qNoteMs * 2 },
+    { label: "Quarter Note (1/4)", ms: qNoteMs },
+    { label: "Eighth Note (1/8)", ms: qNoteMs / 2 },
+    { label: "Dotted 1/8 Note (1/8D · Rhythmic Delay)", ms: (qNoteMs / 2) * 1.5 },
+    { label: "1/8 Triplet (1/8T)", ms: (qNoteMs / 2) * (2 / 3) },
+    { label: "Sixteenth Note (1/16)", ms: qNoteMs / 4 },
+    { label: "Dotted 1/16 Note (1/16D)", ms: (qNoteMs / 4) * 1.5 },
+    { label: "Thirty-Second Note (1/32)", ms: qNoteMs / 8 }
+  ];
+
+  resultBox.innerHTML = `
+    <table class="music-timing-table">
+      <thead>
+        <tr>
+          <th>Note Value / Subdivision</th>
+          <th>Delay Time (ms)</th>
+          <th>LFO Rate (Hz)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${notes.map(n => `
+          <tr>
+            <td>${n.label}</td>
+            <td><strong>${n.ms.toFixed(1)} ms</strong></td>
+            <td>${(1000 / n.ms).toFixed(2)} Hz</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">
+      💡 <strong>Reverb Pre-Delay Suggestion:</strong> ${(qNoteMs / 16).toFixed(1)} ms (1/64 note) to keep lead vocals and snares upfront before reverb bloom.
+    </div>
+  `;
+}
+
+const NOTE_SEMITONES_FROM_A4 = {
+  "A1": -36, "C2": -33, "E2": -29, "C3": -21, "C4": -9, "E4": -5, "A4": 0, "A5": 12, "C6": 15
+};
+
+function updateMusicNoteView() {
+  const note = $("#tool-music-note")?.value || "A4";
+  const concert = parseFloat($("#tool-music-tuning")?.value) || 440;
+  const resultBox = $("#tool-music-note-result");
+  if (!resultBox) return;
+
+  const semitones = NOTE_SEMITONES_FROM_A4[note] || 0;
+  const freq = concert * Math.pow(2, semitones / 12);
+  const wavelengthFeet = (1125 / freq).toFixed(2);
+  const wavelengthMeters = (343 / freq).toFixed(2);
+  const midiNumber = 69 + semitones;
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">
+      🎹 Note ${note} Frequency: <span style="font-size:20px;font-weight:900;color:var(--green)">${freq.toFixed(2)} Hz</span> (MIDI Note ${midiNumber})
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Physical Wavelength in Air</div>
+        <div style="font-size:18px;font-weight:800;color:#0284c7;margin:2px 0">${wavelengthFeet} ft (${wavelengthMeters} m)</div>
+        <div style="font-size:11px;color:var(--muted)">1/4 wave bass trap depth: ~${(wavelengthFeet / 4).toFixed(1)} ft</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Tuning Pitch Reference</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);margin:2px 0">A4 = ${concert} Hz</div>
+        <div style="font-size:11px;color:var(--muted)">${concert === 432 ? "Alternative Verdi tuning" : "International Standard (ISO 16)"}</div>
+      </div>
+    </div>
+  `;
+}
+
+function updateMusicStretchCalc() {
+  const srcBpm = Math.max(10, parseFloat($("#tool-music-src-bpm")?.value) || 95);
+  const targetBpm = Math.max(10, parseFloat($("#tool-music-target-bpm")?.value) || 128);
+  const resultBox = $("#tool-music-stretch-result");
+  if (!resultBox) return;
+
+  const ratio = targetBpm / srcBpm;
+  const speedPct = (ratio * 100).toFixed(1);
+  const semitones = (12 * Math.log2(ratio)).toFixed(2);
+  const cents = Math.round(1200 * Math.log2(ratio));
+
+  resultBox.innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);margin-bottom:8px">
+      Sample Stretch from ${srcBpm} to ${targetBpm} BPM:
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Speed / Playback Rate</div>
+        <div style="font-size:20px;font-weight:800;color:var(--green);margin:2px 0">${speedPct}%</div>
+        <div style="font-size:11px;color:var(--muted)">${ratio >= 1 ? `+${((ratio - 1) * 100).toFixed(1)}% faster` : `${((ratio - 1) * 100).toFixed(1)}% slower`}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Pitch Shift (if unlinked)</div>
+        <div style="font-size:20px;font-weight:800;color:#0284c7;margin:2px 0">${semitones >= 0 ? `+${semitones}` : semitones} semitones</div>
+        <div style="font-size:11px;color:var(--muted)">(${cents >= 0 ? `+${cents}` : cents} cents pitch shift)</div>
+      </div>
+    </div>
+  `;
 }
 
 /* ============================================================
