@@ -125,8 +125,9 @@ const state = {
   customTemplates: [],
   makerGoals: [],
   maintenance: [],
-  currency: "USD",
-  unitSystem: "in",
+  currency: localStorage.getItem("workbench_currency") || "USD",
+  unitSystem: localStorage.getItem("workbench_unitSystem") || "in",
+  deletedProjectIds: [],
   weeklyGoal: 60,
   starterSkillsAdded: false,
   hasUserChanges: false
@@ -142,6 +143,40 @@ const CURRENCIES = {
   CHF: { code: "CHF", symbol: "CHF ", name: "Swiss Franc (CHF)", rate: 0.90 },
   ILS: { code: "ILS", symbol: "₪", name: "Israeli Shekel (₪)", rate: 3.70 }
 };
+
+const DELETED_PROJECTS_STORAGE_KEY = "workbench_deleted_projects";
+
+function getDeletedProjectIds() {
+  try {
+    const raw = localStorage.getItem(DELETED_PROJECTS_STORAGE_KEY);
+    const set = new Set(Array.isArray(state.deletedProjectIds) ? state.deletedProjectIds : []);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) arr.forEach(id => set.add(id));
+    }
+    return Array.from(set);
+  } catch {
+    return Array.isArray(state.deletedProjectIds) ? state.deletedProjectIds : [];
+  }
+}
+
+function isDeletedProject(projectId) {
+  if (!projectId) return false;
+  return getDeletedProjectIds().includes(projectId);
+}
+
+function recordDeletedProjectId(projectId) {
+  if (!projectId) return;
+  state.deletedProjectIds = Array.isArray(state.deletedProjectIds) ? state.deletedProjectIds : [];
+  if (!state.deletedProjectIds.includes(projectId)) {
+    state.deletedProjectIds.push(projectId);
+  }
+  const all = getDeletedProjectIds();
+  if (!all.includes(projectId)) all.push(projectId);
+  try {
+    localStorage.setItem(DELETED_PROJECTS_STORAGE_KEY, JSON.stringify(all.slice(-100)));
+  } catch {}
+}
 
 function formatMoney(amount) {
   const curr = CURRENCIES[state.currency] || CURRENCIES.USD;
@@ -214,8 +249,8 @@ function resetWorkspaceStateToDefault() {
   state.customTemplates = [];
   state.makerGoals = [];
   state.maintenance = [];
-  state.currency = "USD";
-  state.unitSystem = "in";
+  state.currency = localStorage.getItem("workbench_currency") || "USD";
+  state.unitSystem = localStorage.getItem("workbench_unitSystem") || "in";
   state.weeklyGoal = 60;
   state.updatedAt = "";
   state.hasUserChanges = false;
@@ -1820,6 +1855,71 @@ async function sendPasswordRecovery(email) {
   showAuthAlert("Password recovery email sent! Check your inbox.", "success");
 }
 
+function sanitizeCollaboratorWorkspace(user = null) {
+  const u = user || getActiveUser();
+  if (!u || isPrimaryOwner(u)) return false;
+
+  let changed = false;
+  const validProjects = [];
+  const removedProjects = [];
+
+  for (const p of state.projects) {
+    if (!p || !p.id) continue;
+    ensureProjectCreator(p);
+    if (isDeletedProject(p.id)) {
+      removedProjects.push(p);
+      continue;
+    }
+    if (isUserCollaborator(p, u)) {
+      validProjects.push(p);
+    } else {
+      removedProjects.push(p);
+    }
+  }
+
+  if (removedProjects.length > 0 || state.projects.length !== validProjects.length) {
+    state.projects = validProjects;
+    changed = true;
+  }
+
+  const validProjectIds = new Set(validProjects.map(p => p.id));
+  const validSkillIds = new Set();
+  validProjects.forEach(p => (p.skillIds || []).forEach(sid => validSkillIds.add(sid)));
+
+  const origActLen = (state.activity || []).length;
+  state.activity = (state.activity || []).filter(a => {
+    if (a.projectId && !validProjectIds.has(a.projectId)) return false;
+    return true;
+  });
+  if (state.activity.length !== origActLen) changed = true;
+
+  const origLogLen = (state.practiceLog || []).length;
+  state.practiceLog = (state.practiceLog || []).filter(l => {
+    if (l.projectId && !validProjectIds.has(l.projectId)) return false;
+    return true;
+  });
+  if (state.practiceLog.length !== origLogLen) changed = true;
+
+  const origSkillLen = (state.skills || []).length;
+  state.skills = (state.skills || []).filter(s => {
+    const hasValidPractice = (state.practiceLog || []).some(l => l.skillId === s.id && Number.isFinite(l.xp) && l.xp > 0);
+    return validSkillIds.has(s.id) || hasValidPractice;
+  });
+  if (state.skills.length !== origSkillLen) changed = true;
+
+  state.skills.forEach(s => {
+    const userEarnedXp = (state.practiceLog || [])
+      .filter(l => l.skillId === s.id && Number.isFinite(l.xp))
+      .reduce((sum, l) => sum + (l.xp || 0), 0);
+    if (s.xp !== userEarnedXp) {
+      s.xp = userEarnedXp;
+      changed = true;
+    }
+  });
+
+  return changed;
+}
+
 async function loadUserScopedState() {
   const saved = await readSavedState();
   if (saved) {
@@ -1831,8 +1931,9 @@ async function loadUserScopedState() {
     state.customTemplates = Array.isArray(saved.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved.makerGoals) ? saved.makerGoals : [];
     state.maintenance = Array.isArray(saved.maintenance) ? saved.maintenance : [];
-    state.currency = saved.currency || "USD";
-    state.unitSystem = saved.unitSystem || "in";
+    state.currency = saved.currency || localStorage.getItem("workbench_currency") || "USD";
+    state.unitSystem = saved.unitSystem || localStorage.getItem("workbench_unitSystem") || "in";
+    state.deletedProjectIds = Array.isArray(saved.deletedProjectIds) ? saved.deletedProjectIds : getDeletedProjectIds();
     state.weeklyGoal = Number.isFinite(saved.weeklyGoal) ? saved.weeklyGoal : 60;
 
     for (const p of state.projects) {
@@ -1841,6 +1942,7 @@ async function loadUserScopedState() {
 
     loadSharedCollaborationsIntoState();
     syncSharedCollaborations();
+
     updateTopbarUnitsPill();
   } else {
     resetWorkspaceStateToDefault();
@@ -2216,6 +2318,17 @@ async function loadRemoteWorkspace(remote) {
   Object.assign(state, remoteState, { updatedAt: remote.updated_at });
   state.starterSkillsAdded = true;
   state.hasUserChanges = remoteState.hasUserChanges === true;
+  state.currency = remoteState.currency || state.currency || localStorage.getItem("workbench_currency") || "USD";
+  state.unitSystem = remoteState.unitSystem || state.unitSystem || localStorage.getItem("workbench_unitSystem") || "in";
+  updateTopbarUnitsPill();
+
+  const curUser = getActiveUser();
+  if (!isPrimaryOwner(curUser) && !adminInspectionActive) {
+    const changed = sanitizeCollaboratorWorkspace(curUser);
+    if (changed) {
+      await persistState({ syncCloud: true });
+    }
+  }
   if (!adminInspectionActive) {
     await persistState({ syncCloud: false, preserveTimestamp: true });
     const session = await ensureCloudSession();
@@ -2251,6 +2364,8 @@ async function syncCloudWorkspace(choice = "automatic") {
     if (choice === "pull") {
       if (remote) {
         await loadRemoteWorkspace(remote);
+
+
         cloudMessage("Cloud copy loaded on this browser.", "connected");
       } else {
         await storeRemoteWorkspace();
@@ -2276,6 +2391,8 @@ async function syncCloudWorkspace(choice = "automatic") {
     const marker = readSyncMarker(session.user.id);
     if (!hasLocal) {
       await loadRemoteWorkspace(remote);
+
+
       cloudMessage("Cloud workspace loaded on this browser.", "connected");
       await syncCloudCollaborations().catch(() => {});
       await reconcileProjectOwnership().catch(() => {});
@@ -2293,6 +2410,8 @@ async function syncCloudWorkspace(choice = "automatic") {
       cloudMessage("Both this browser and the cloud have changed since the last sync. Choose which copy to keep.", "conflict");
     } else if (remoteChanged) {
       await loadRemoteWorkspace(remote);
+
+
       cloudMessage("Latest cloud changes loaded.", "connected");
     } else if (localChanged) {
       await storeRemoteWorkspace();
@@ -3357,6 +3476,11 @@ function openProjectForm(project = null) {
     }
   }
   addProjectSkillOptions(project?.skillIds || []);
+  const deleteBtn = $("#delete-project-btn");
+  if (deleteBtn) {
+    deleteBtn.classList.toggle("hidden", !project);
+    deleteBtn.dataset.id = project?.id || "";
+  }
   $("#project-dialog").showModal();
 }
 
@@ -4744,6 +4868,7 @@ function setupKanbanDragDrop(kanban) {
       };
       project.updatedAt = new Date().toISOString();
       syncSharedCollaborations();
+
       makeActivity("project", `${makerName} moved ${project.title} to ${STATUS_LABELS[status] || status}`);
       if (status === "completed") {
         addNotification({
@@ -4783,6 +4908,7 @@ function setupKanbanDragDrop(kanban) {
       };
       project.updatedAt = new Date().toISOString();
       syncSharedCollaborations();
+
       makeActivity("project", `${maker.name} moved ${project.title} to ${STATUS_LABELS[targetStatus] || targetStatus}`);
       if (targetStatus === "completed") {
         addNotification({
@@ -5120,6 +5246,7 @@ function checkHashRouting() {
           state.projects.unshift(incomingProject);
         }
         syncSharedCollaborations();
+
         void persistState();
         render();
         switchView("projects");
@@ -6751,6 +6878,13 @@ async function renderAdminHub() {
       let projects = ws?.data?.projects || loc?.projects || (uid === user.id ? state.projects : []);
       let skills = ws?.data?.skills || loc?.skills || (uid === user.id ? state.skills : []);
 
+      if (uid !== user.id && !isPrimaryUser) {
+        const inspectedUser = { id: uid, email, displayName };
+        projects = projects.filter(pr => isUserCollaborator(pr, inspectedUser) && !isDeletedProject(pr.id));
+        const validSkillIds = new Set(projects.flatMap(pr => pr.skillIds || []));
+        skills = skills.filter(sk => validSkillIds.has(sk.id));
+      }
+
 
       const totalMinutes = projects.reduce((sum, pr) => sum + (pr.timeSpent || 0), 0);
       const hours = Math.round((totalMinutes / 60) * 10) / 10;
@@ -6917,6 +7051,16 @@ async function inspectUserWorkbench(targetUserId, targetUserName) {
     adminInspectionActive = true;
     adminInspectedUserName = targetUserName || "Maker";
     await loadRemoteWorkspace(remote);
+    const inspectedUser = { id: targetUserId, email: remote?.data?.owner?.email, displayName: targetUserName };
+    if (!isPrimaryOwner(inspectedUser)) {
+      state.projects = (state.projects || []).filter(p => isUserCollaborator(p, inspectedUser) && !isDeletedProject(p.id));
+      const validSkillIds = new Set(state.projects.flatMap(p => p.skillIds || []));
+      state.skills = (state.skills || []).filter(s => validSkillIds.has(s.id));
+      state.activity = (state.activity || []).filter(a => !a.projectId || state.projects.some(p => p.id === a.projectId));
+      state.practiceLog = (state.practiceLog || []).filter(l => !l.projectId || state.projects.some(p => p.id === l.projectId));
+    }
+
+
 
     const banner = $("#admin-inspect-banner");
     if (banner) {
@@ -7981,14 +8125,26 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "delete-project") {
-    const project = state.projects.find(item => item.id === id);
+    const projectId = id || target.dataset.id || target.dataset.project || activeProjectId || $("#project-form input[name='id']")?.value;
+    const project = state.projects.find(item => item.id === projectId);
     if (!project || !window.confirm(`Delete “${project.title}” and all its photos? This can’t be undone.`)) return;
-    project.folders.forEach(folder => folder.images.forEach(image => releaseImageUrl(image.id)));
-    state.projects = state.projects.filter(item => item.id !== id);
+
+    recordDeletedProjectId(projectId);
+    (project.folders || []).forEach(folder => (folder.images || []).forEach(image => releaseImageUrl(image.id)));
+    state.projects = state.projects.filter(item => item.id !== projectId);
+
+    const shared = getSharedCollaborations().filter(p => p.id !== projectId);
+    saveSharedCollaborations(shared);
+
+    state.activity = (state.activity || []).filter(a => a.projectId !== projectId);
+    state.practiceLog = (state.practiceLog || []).filter(l => l.projectId !== projectId);
+
     makeActivity("project", `Removed ${project.title}`);
     try {
-      await persistState();
-      $("#detail-dialog").close();
+      await persistState({ syncCloud: true });
+      void pushProjectDeletionToCollaboratorWorkspaces(projectId);
+      $("#detail-dialog")?.close();
+      $("#project-dialog")?.close();
       activeProjectId = null;
       render();
       showToast("Project deleted.");
@@ -7996,6 +8152,7 @@ async function handleAction(action, target) {
       console.error("Unable to delete project.", error);
       showToast("Could not delete the project. Please try again.");
     }
+    return;
   }
   if (action === "remove-photo") {
     const project = state.projects.find(item => item.id === target.dataset.project);
@@ -8052,7 +8209,11 @@ async function initialize() {
     state.customTemplates = Array.isArray(saved?.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved?.makerGoals) ? saved.makerGoals : [];
     state.maintenance = Array.isArray(saved?.maintenance) ? saved.maintenance : [];
+    state.currency = saved?.currency || localStorage.getItem("workbench_currency") || "USD";
+    state.unitSystem = saved?.unitSystem || localStorage.getItem("workbench_unitSystem") || "in";
+    state.deletedProjectIds = Array.isArray(saved?.deletedProjectIds) ? saved.deletedProjectIds : getDeletedProjectIds();
     state.weeklyGoal = Number.isFinite(saved?.weeklyGoal) ? saved.weeklyGoal : 60;
+    updateTopbarUnitsPill();
 
     if (!saved?.starterSkillsAdded) {
       state.starterSkillsAdded = true;
@@ -9677,19 +9838,20 @@ function toggleSoundscape(track) {
 }
 
 function updateSoundscapeButtons() {
-  $$(".soundscape-btn").forEach(btn => {
+  $(".soundscape-btn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.track === activeSoundscape);
   });
-  const topbarBtn = $("#topbar-soundscape-btn");
-  if (topbarBtn) {
+  const timerBtn = $("#topbar-timer-btn");
+  if (timerBtn) {
     if (activeSoundscape !== "off") {
-      topbarBtn.classList.add("button-primary");
-      topbarBtn.classList.remove("button-outline");
-      topbarBtn.textContent = `🎧 ${activeSoundscape.toUpperCase()}`;
+      timerBtn.classList.add("button-primary");
+      timerBtn.classList.remove("button-outline");
+      const name = activeSoundscape.charAt(0).toUpperCase() + activeSoundscape.slice(1);
+      timerBtn.textContent = `⏱️ Focus (${name})`;
     } else {
-      topbarBtn.classList.remove("button-primary");
-      topbarBtn.classList.add("button-outline");
-      topbarBtn.textContent = "🎧 Sounds";
+      timerBtn.classList.remove("button-primary");
+      timerBtn.classList.add("button-outline");
+      timerBtn.textContent = "⏱️ Focus & Sounds";
     }
   }
 }
@@ -10055,8 +10217,8 @@ function openUnitsModal() {
   if (!dialog) return;
   const currSelect = $("#units-currency-select");
   const unitSelect = $("#units-system-select");
-  if (currSelect) currSelect.value = state.currency || "USD";
-  if (unitSelect) unitSelect.value = state.unitSystem || "in";
+  if (currSelect) currSelect.value = state.currency || localStorage.getItem("workbench_currency") || "USD";
+  if (unitSelect) unitSelect.value = state.unitSystem || localStorage.getItem("workbench_unitSystem") || "in";
   dialog.showModal();
 }
 
@@ -10098,6 +10260,7 @@ async function saveUnitsSettings() {
     }
   }
   state.currency = newCurr;
+  try { localStorage.setItem("workbench_currency", newCurr); } catch {}
 
   const UNIT_FACTORS = { in: 1, cm: 2.54, mm: 25.4 };
   let convertedUnitsCount = 0;
@@ -10146,7 +10309,7 @@ async function saveUnitsSettings() {
     }
   }
   state.unitSystem = newUnit;
-
+  try { localStorage.setItem("workbench_unitSystem", newUnit); } catch {}
   updateTopbarUnitsPill();
   try {
     await persistState();
@@ -10419,13 +10582,15 @@ const SHARED_COLLAB_STORAGE_KEY = "workbench_shared_collab_projects";
 
 function ensureProjectCreator(project) {
   if (!project) return;
-  if (!project.creator || !project.creator.id) {
+  if (!project.creator) {
     const maker = getCurrentMakerIdentity();
     project.creator = {
       id: maker.id,
       name: maker.name,
       email: maker.email
     };
+  } else if (!project.creator.id) {
+    project.creator.id = project.creator.email || ("creator-" + uid());
   }
   if (!Array.isArray(project.coCreators)) {
     project.coCreators = [];
@@ -10467,7 +10632,7 @@ function isProjectCreator(project, user = null, includeAdmin = false) {
     if (uEmail && !project.creator.email) project.creator.email = uEmail;
   }
 
-  return Boolean(idMatch || emailMatch || nameMatch || primaryOwnerFallback || (includeAdmin && (curUser.isAdmin || isCurrentUserAdmin())));
+  return Boolean(idMatch || emailMatch || nameMatch || primaryOwnerFallback);
 }
 
 function isCollaborativeProject(project) {
@@ -10518,7 +10683,7 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
     }
   }
 
-  return Boolean(isCreator || isCoCreator || (includeAdmin && (curUser.isAdmin || isCurrentUserAdmin())));
+  return Boolean(isCreator || isCoCreator);
 }
 
 async function syncCloudCollaborations() {
@@ -10540,6 +10705,22 @@ async function syncCloudCollaborations() {
       for (const rp of remoteProjects) {
         if (!rp || !rp.id) continue;
         ensureProjectCreator(rp);
+
+        // 1. NEVER pull or resurrect a project that has been deleted!
+        if (isDeletedProject(rp.id)) {
+          const existingIdx = state.projects.findIndex(p => p.id === rp.id);
+          if (existingIdx !== -1) {
+            state.projects.splice(existingIdx, 1);
+            hasChanges = true;
+          }
+          continue;
+        }
+
+        // 2. ONLY pull projects that are explicitly marked collaborative!
+        // Private projects must never sync across different maker accounts!
+        if (!isCollaborativeProject(rp)) {
+          continue;
+        }
 
         const isCollaborator = isUserCollaborator(rp, curUser);
 
@@ -10574,6 +10755,7 @@ async function syncCloudCollaborations() {
       state.activity = (state.activity || []).filter(a => !a.projectId || remainingProjectIds.has(a.projectId));
       state.practiceLog = (state.practiceLog || []).filter(l => !l.projectId || remainingProjectIds.has(l.projectId));
       syncSharedCollaborations();
+
       await persistState({ syncCloud: true });
       render();
       if (activeProjectId && $("#detail-dialog")?.open) {
@@ -10727,12 +10909,17 @@ function syncSharedCollaborations() {
 }
 
 function loadSharedCollaborationsIntoState() {
+  const curUser = getActiveUser();
+  if (!curUser) return;
   const shared = getSharedCollaborations();
   if (!shared || shared.length === 0) return;
 
   for (const sp of shared) {
     if (!sp || !sp.id) continue;
     ensureProjectCreator(sp);
+    if (isDeletedProject(sp.id)) continue;
+    if (!isCollaborativeProject(sp)) continue;
+    if (!isUserCollaborator(sp, curUser)) continue;
 
     const existing = state.projects.find(p => p.id === sp.id);
     if (!existing) {

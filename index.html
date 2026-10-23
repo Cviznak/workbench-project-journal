@@ -7,6 +7,8 @@
     <title>Workbench — your project journal</title>
     <link rel="stylesheet" href="styles.css?v=2.8.0">
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="apple-touch-icon" href="favicon.svg">
     <script>
       (function(){
         try {
@@ -68,8 +70,8 @@
             <button type="button" class="button button-outline button-small user-top-btn" id="top-auth-btn" data-action="open-auth-modal">Sign in</button>
             <button type="button" class="button button-outline button-small" data-action="open-invite-modal" title="Invite makers to your shop">👥 Invite</button>
             <button type="button" class="button button-outline button-small" data-action="open-tools" title="Workshop Reference &amp; Conversion Tools">📐 Tools</button>
-            <button type="button" class="button button-outline button-small" id="topbar-timer-btn" data-action="open-timer" title="Practice Session &amp; Focus Timer">⏱️ Focus</button>
-            <button type="button" class="button button-outline button-small" id="topbar-soundscape-btn" data-action="toggle-soundscape-panel" title="Ambient Workshop Focus Sounds">🎧 Sounds</button>
+            <button type="button" class="button button-outline button-small" id="topbar-timer-btn" data-action="open-timer" title="Focus Timer &amp; Ambient Workshop Sounds">⏱️ Focus &amp; Sounds</button>
+
             <button type="button" class="button button-outline button-small" id="topbar-units-btn" data-action="open-units-modal" title="Currency &amp; Measurement Units">💱 <span id="topbar-units-label">$ USD · in</span></button>
             <button type="button" class="notification-btn" id="notification-btn" data-action="open-notifications" title="Notifications" aria-label="Notifications">
               <span class="notification-icon">🔔</span>
@@ -494,7 +496,7 @@
         </div>
         <label class="field-label">Tags <span class="optional">(comma separated)</span><input name="tags" maxlength="200" placeholder="e.g. gift, electronics, home"></label>
         <fieldset class="skill-picker"><legend>Skills involved <span class="optional">(choose any)</span></legend><div class="skill-checklist" id="project-skill-options"></div></fieldset>
-        <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Save project <span>→</span></button></div>
+        <div class="dialog-actions"><button type="button" class="danger-button hidden" id="delete-project-btn" data-action="delete-project" style="margin-right:auto">Delete project</button><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Save project <span>→</span></button></div>
       </form>
     </dialog>
 
