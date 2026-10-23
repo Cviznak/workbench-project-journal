@@ -3617,7 +3617,7 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
@@ -3633,7 +3633,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     timeline: "Activity & Journal",
     shopping: "Shopping list",
     inventory: "Inventory",
-    admin: "Admin Console"
+    admin: "Admin Console",
+    music: "Music Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3657,6 +3658,7 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "shopping") renderShoppingList();
   if (targetView === "inventory") renderInventory();
   if (targetView === "admin") renderAdminHub();
+  if (targetView === "music") renderMusicStudioView();
   if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -9122,6 +9124,55 @@ async function handleAction(action, target) {
     tapTempo();
     return;
   }
+  if (action === "play-both-groove") {
+    if (musicPlaybackState.isPlaying && musicPlaybackState.playMode === "both") {
+      stopMusicGroove();
+    } else {
+      startMusicGroove("both");
+    }
+    return;
+  }
+  if (action === "play-chords-only") {
+    if (musicPlaybackState.isPlaying && musicPlaybackState.playMode === "chords") {
+      stopMusicGroove();
+    } else {
+      startMusicGroove("chords");
+    }
+    return;
+  }
+  if (action === "play-drums-only") {
+    if (musicPlaybackState.isPlaying && musicPlaybackState.playMode === "drums") {
+      stopMusicGroove();
+    } else {
+      startMusicGroove("drums");
+    }
+    return;
+  }
+  if (action === "stop-music-groove") {
+    stopMusicGroove();
+    return;
+  }
+  if (action === "toggle-channel-chords") {
+    toggleMusicChannel("chords");
+    return;
+  }
+  if (action === "toggle-channel-drums") {
+    toggleMusicChannel("drums");
+    return;
+  }
+  if (action === "toggle-channel-metronome") {
+    toggleMusicChannel("metronome");
+    return;
+  }
+  if (action === "hit-drum-pad") {
+    const drum = target.dataset.drum || target.closest("[data-drum]")?.dataset.drum;
+    if (drum) hitLiveDrumPad(drum);
+    return;
+  }
+  if (action === "play-pitch-tone-view") {
+    playPitchToneViewAction();
+    return;
+  }
   if (action === "toggle-metronome") {
     toggleMetronome();
     return;
@@ -10361,6 +10412,62 @@ $("#tool-chords-key")?.addEventListener("change", (e) => {
 });
 $("#tool-drum-preset")?.addEventListener("change", (e) => {
   applyDrumPreset(e.target.value);
+});
+
+// Main Music Studio View listeners
+$("#music-main-bpm")?.addEventListener("input", (e) => {
+  const bpm = Math.max(40, Math.min(260, parseFloat(e.target.value) || 105));
+  chordStudioState.bpm = bpm;
+  musicPlaybackState.bpm = bpm;
+  const toolBpm = $("#tool-chords-bpm");
+  if (toolBpm) toolBpm.value = bpm;
+  updateMusicViewTimingResult();
+  if (musicPlaybackState.isPlaying) {
+    startMusicGroove(musicPlaybackState.playMode);
+  }
+});
+$("#music-main-key")?.addEventListener("change", (e) => {
+  updateChordKey(e.target.value);
+});
+$("#music-main-preset")?.addEventListener("change", (e) => {
+  updateChordPreset(e.target.value);
+});
+$("#music-main-drum-preset")?.addEventListener("change", (e) => {
+  applyDrumPreset(e.target.value);
+});
+$("#music-view-note")?.addEventListener("change", updateMusicViewNoteResult);
+$("#music-view-tuning")?.addEventListener("change", updateMusicViewNoteResult);
+
+// Jam keyboard shortcuts (1, 2, 3, 4 for Kick, Snare, Hat, Clap; Space for Play Both)
+window.addEventListener("keydown", (e) => {
+  const tag = (e.target?.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable) {
+    return;
+  }
+  const musicView = $("#music-view");
+  if (!musicView || !musicView.classList.contains("active")) {
+    return;
+  }
+  if (e.key === "1" || e.key === "k" || e.key === "K") {
+    e.preventDefault();
+    hitLiveDrumPad("kick");
+  } else if (e.key === "2" || e.key === "s" || e.key === "S") {
+    e.preventDefault();
+    hitLiveDrumPad("snare");
+  } else if (e.key === "3" || e.key === "h" || e.key === "H") {
+    e.preventDefault();
+    hitLiveDrumPad("hat");
+  } else if (e.key === "4" || e.key === "c" || e.key === "C") {
+    e.preventDefault();
+    hitLiveDrumPad("clap");
+  } else if (e.code === "Space") {
+    e.preventDefault();
+    if (musicPlaybackState.isPlaying) {
+      stopMusicGroove();
+    } else {
+      startMusicGroove("both");
+    }
+  }
 });
 $("#tools-dialog")?.addEventListener("close", () => {
   stopChordPlayback();
@@ -12672,34 +12779,13 @@ const DIATONIC_KEYS_DB = {
 };
 
 const CHORD_PROGRESSION_PRESETS = {
-  pop: {
-    name: "Pop 4-Chord",
-    degrees: ["I", "V", "vi", "IV"]
-  },
-  ballad: {
-    name: "Emotional Sad",
-    degrees: ["vi", "IV", "I", "V"]
-  },
-  doowop: {
-    name: "50s Doo-Wop",
-    degrees: ["I", "vi", "IV", "V"]
-  },
-  jazz: {
-    name: "Jazz Turnaround",
-    degrees: ["ii", "V", "I", "vi"]
-  },
-  rock: {
-    name: "Classic Rock",
-    degrees: ["I", "IV", "V", "IV"]
-  },
-  flamenco: {
-    name: "Andalusian Descent",
-    degrees: ["vi", "V", "IV", "III"]
-  },
-  rnb: {
-    name: "Neo-Soul / R&B",
-    degrees: ["IV", "iii", "vi", "I"]
-  }
+  pop: { name: "Pop 4-Chord", degrees: ["I", "V", "vi", "IV"] },
+  ballad: { name: "Emotional Sad", degrees: ["vi", "IV", "I", "V"] },
+  doowop: { name: "50s Doo-Wop", degrees: ["I", "vi", "IV", "V"] },
+  jazz: { name: "Jazz Turnaround", degrees: ["ii", "V", "I", "vi"] },
+  rock: { name: "Classic Rock", degrees: ["I", "IV", "V", "IV"] },
+  flamenco: { name: "Andalusian Descent", degrees: ["vi", "V", "IV", "III"] },
+  rnb: { name: "Neo-Soul / R&B", degrees: ["IV", "iii", "vi", "I"] }
 };
 
 const DRUM_BEAT_PRESETS = {
@@ -12750,10 +12836,7 @@ const chordStudioState = {
     { chord: "Am", degree: "vi" },
     { chord: "F", degree: "IV" }
   ],
-  selectedSlotIndex: 0,
-  isPlaying: false,
-  intervalId: null,
-  stepIndex: 0
+  selectedSlotIndex: 0
 };
 
 const drumGridState = {
@@ -12761,6 +12844,17 @@ const drumGridState = {
   snare: [...DRUM_BEAT_PRESETS.rock.snare],
   hat: [...DRUM_BEAT_PRESETS.rock.hat],
   clap: [...DRUM_BEAT_PRESETS.rock.clap]
+};
+
+const musicPlaybackState = {
+  isPlaying: false,
+  playMode: "both",
+  chordsMuted: false,
+  drumsMuted: false,
+  metronomeMuted: true,
+  bpm: 105,
+  stepIndex: 0,
+  intervalId: null
 };
 
 const CHORD_ROOT_OFFSETS = {
@@ -12774,32 +12868,19 @@ function getChordVoicingFrequencies(chordName) {
   if (!match) return [261.63, 329.63, 392.00];
   const root = match[1];
   const quality = match[2];
-  const rootOffset = CHORD_ROOT_OFFSETS[root] ?? 0;
-
+  const rootOffset = CHORD_ROOT_OFFSETS[root] ?? 0; 
   let intervals = [0, 4, 7];
-  if (quality === "m" || quality === "min") {
-    intervals = [0, 3, 7];
-  } else if (quality === "dim" || quality === "°") {
-    intervals = [0, 3, 6];
-  } else if (quality === "aug" || quality === "+") {
-    intervals = [0, 4, 8];
-  } else if (quality === "7" || quality === "dom7") {
-    intervals = [0, 4, 7, 10];
-  } else if (quality === "maj7" || quality === "M7") {
-    intervals = [0, 4, 7, 11];
-  } else if (quality === "m7" || quality === "min7") {
-    intervals = [0, 3, 7, 10];
-  } else if (quality === "sus4") {
-    intervals = [0, 5, 7];
-  } else if (quality === "sus2") {
-    intervals = [0, 2, 7];
-  }
-
+  if (quality === "m" || quality === "min") intervals = [0, 3, 7];
+  else if (quality === "dim" || quality === "°") intervals = [0, 3, 6];
+  else if (quality === "aug" || quality === "+") intervals = [0, 4, 8];
+  else if (quality === "7" || quality === "dom7") intervals = [0, 4, 7, 10];
+  else if (quality === "maj7" || quality === "M7") intervals = [0, 4, 7, 11];
+  else if (quality === "m7" || quality === "min7") intervals = [0, 3, 7, 10];
+  else if (quality === "sus4") intervals = [0, 5, 7];
+  else if (quality === "sus2") intervals = [0, 2, 7];
   const bassMidi = 36 + rootOffset;
   const chordMidis = intervals.map(semitone => 60 + rootOffset + semitone);
-  const allMidis = [bassMidi, ...chordMidis];
-
-  return allMidis.map(m => 440 * Math.pow(2, (m - 69) / 12));
+  return [bassMidi, ...chordMidis].map(m => 440 * Math.pow(2, (m - 69) / 12));
 }
 
 function playChordVoicing(chordName, duration = 1.4) {
@@ -12808,26 +12889,20 @@ function playChordVoicing(chordName, duration = 1.4) {
   const freqs = getChordVoicingFrequencies(chordName);
   const now = ctx.currentTime;
   const gainPerVoice = 0.28 / freqs.length;
-
   freqs.forEach((freq, idx) => {
     const osc = ctx.createOscillator();
     const filter = ctx.createBiquadFilter();
     const gain = ctx.createGain();
-
     osc.type = idx === 0 ? "sine" : "triangle";
     osc.frequency.setValueAtTime(freq, now);
-
     filter.type = "lowpass";
     filter.frequency.setValueAtTime(idx === 0 ? 350 : 2200, now);
-
-    gain.gain.setValueAtTime(0, now);
+    gain.gain.setValueAtTime(0.0001, now);
     gain.gain.linearRampToValueAtTime(gainPerVoice, now + 0.04);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(ctx.destination);
-
     osc.start(now);
     osc.stop(now + duration + 0.05);
   });
@@ -12837,17 +12912,13 @@ function playDrumSound(type) {
   const ctx = getMusicAudioCtx();
   if (!ctx) return;
   const now = ctx.currentTime;
-
   if (type === "kick") {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-
     osc.frequency.setValueAtTime(140, now);
     osc.frequency.exponentialRampToValueAtTime(42, now + 0.09);
-
     gain.gain.setValueAtTime(0.9, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
-
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
@@ -12856,36 +12927,27 @@ function playDrumSound(type) {
     const bufferSize = Math.floor(ctx.sampleRate * 0.2);
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
+    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
     const whiteNoise = ctx.createBufferSource();
     whiteNoise.buffer = noiseBuffer;
-
     const filter = ctx.createBiquadFilter();
     filter.type = "highpass";
     filter.frequency.setValueAtTime(900, now);
-
     const noiseGain = ctx.createGain();
     noiseGain.gain.setValueAtTime(0.5, now);
     noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
-
     whiteNoise.connect(filter);
     filter.connect(noiseGain);
     noiseGain.connect(ctx.destination);
-
     const osc = ctx.createOscillator();
     const oscGain = ctx.createGain();
     osc.type = "triangle";
     osc.frequency.setValueAtTime(180, now);
     osc.frequency.exponentialRampToValueAtTime(80, now + 0.06);
-
     oscGain.gain.setValueAtTime(0.4, now);
     oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-
     osc.connect(oscGain);
     oscGain.connect(ctx.destination);
-
     whiteNoise.start(now);
     whiteNoise.stop(now + 0.2);
     osc.start(now);
@@ -12894,62 +12956,73 @@ function playDrumSound(type) {
     const bufferSize = Math.floor(ctx.sampleRate * 0.06);
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
+    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
     const whiteNoise = ctx.createBufferSource();
     whiteNoise.buffer = noiseBuffer;
-
     const filter = ctx.createBiquadFilter();
     filter.type = "highpass";
     filter.frequency.setValueAtTime(7500, now);
-
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.35, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
     whiteNoise.connect(filter);
     filter.connect(gain);
     gain.connect(ctx.destination);
-
     whiteNoise.start(now);
     whiteNoise.stop(now + 0.06);
   } else if (type === "clap") {
     const bufferSize = Math.floor(ctx.sampleRate * 0.2);
     const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-
+    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
     [0, 0.012, 0.024].forEach((delay, burstIdx) => {
       const whiteNoise = ctx.createBufferSource();
       whiteNoise.buffer = noiseBuffer;
-
       const filter = ctx.createBiquadFilter();
       filter.type = "bandpass";
       filter.frequency.setValueAtTime(1200, now + delay);
       filter.Q.setValueAtTime(3, now + delay);
-
       const gain = ctx.createGain();
-      const burstVol = burstIdx === 2 ? 0.6 : 0.35;
-      gain.gain.setValueAtTime(burstVol, now + delay);
+      gain.gain.setValueAtTime(burstIdx === 2 ? 0.6 : 0.35, now + delay);
       gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.12);
-
       whiteNoise.connect(filter);
       filter.connect(gain);
       gain.connect(ctx.destination);
-
       whiteNoise.start(now + delay);
       whiteNoise.stop(now + delay + 0.15);
     });
   }
 }
 
+function playMetronomeClick(isFirstBeat = false) {
+  const ctx = getMusicAudioCtx();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.setValueAtTime(isFirstBeat ? 1000 : 700, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(0.35, now + 0.002);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.04);
+}
+
+function hitLiveDrumPad(drum) {
+  playDrumSound(drum);
+  const pads = document.querySelectorAll(`.live-drum-pad.pad-${drum}`);
+  pads.forEach(pad => {
+    pad.classList.add("hit");
+    setTimeout(() => pad.classList.remove("hit"), 140);
+  });
+}
+
 function renderChordSlotsUI() {
-  const container = $("#tool-chord-slots-container");
-  if (!container) return;
-  container.innerHTML = chordStudioState.slots.map((slot, index) => {
+  const containers = [$("#music-main-chord-slots"), $("#tool-chord-slots-container")].filter(Boolean);
+  if (!containers.length) return;
+  const html = chordStudioState.slots.map((slot, index) => {
     const isSelected = index === chordStudioState.selectedSlotIndex;
     return `
       <div class="chord-slot-card ${isSelected ? "active-slot" : ""}" data-action="select-chord-slot" data-slot-index="${index}" id="chord-slot-${index}">
@@ -12959,18 +13032,18 @@ function renderChordSlotsUI() {
       </div>
     `;
   }).join("");
-
-  const activeLbl = $("#tool-chords-active-slot-lbl");
-  if (activeLbl) {
-    activeLbl.textContent = `Bar ${chordStudioState.selectedSlotIndex + 1} (${chordStudioState.slots[chordStudioState.selectedSlotIndex]?.chord || ""})`;
-  }
+  containers.forEach(c => { c.innerHTML = html; });
+  const activeSlotText = `Bar ${chordStudioState.selectedSlotIndex + 1} (${chordStudioState.slots[chordStudioState.selectedSlotIndex]?.chord || ""})`;
+  const lbl1 = $("#music-main-active-slot-lbl");
+  if (lbl1) lbl1.textContent = activeSlotText;
+  const lbl2 = $("#tool-chords-active-slot-lbl");
+  if (lbl2) lbl2.textContent = activeSlotText;
 }
 
 function renderDiatonicChordsUI() {
-  const wrap = $("#tool-diatonic-chords-wrap");
-  if (!wrap) return;
+  const wraps = [$("#music-main-diatonic-wrap"), $("#tool-diatonic-chords-wrap")].filter(Boolean);
+  if (!wraps.length) return;
   const keyData = DIATONIC_KEYS_DB[chordStudioState.key] || DIATONIC_KEYS_DB["C"];
-
   let html = "";
   keyData.chords.forEach((chord, i) => {
     const deg = keyData.degrees[i];
@@ -12979,21 +13052,19 @@ function renderDiatonicChordsUI() {
   keyData.extra.forEach(chord => {
     html += `<button type="button" class="diatonic-chord-pill" data-action="set-diatonic-chord" data-chord="${escapeHTML(chord)}" data-degree="ext">${escapeHTML(chord)} <span>7th</span></button>`;
   });
-  wrap.innerHTML = html;
+  wraps.forEach(w => { w.innerHTML = html; });
 }
 
 function renderDrumSequencerUI() {
-  const container = $("#tool-sequencer-grid");
-  if (!container) return;
-
+  const containers = [$("#music-main-sequencer-grid"), $("#tool-sequencer-grid")].filter(Boolean);
+  if (!containers.length) return;
   const tracks = [
     { id: "kick", label: "🥁 Kick", iconClass: "kick" },
     { id: "snare", label: "🎯 Snare", iconClass: "snare" },
     { id: "hat", label: "🔔 Hi-Hat", iconClass: "hat" },
     { id: "clap", label: "👏 Clap", iconClass: "clap" }
   ];
-
-  container.innerHTML = tracks.map(track => {
+  const html = tracks.map(track => {
     const pattern = drumGridState[track.id] || [];
     const stepsHtml = Array.from({ length: 16 }).map((_, stepIdx) => {
       const isActive = Boolean(pattern[stepIdx]);
@@ -13003,13 +13074,12 @@ function renderDrumSequencerUI() {
           class="sequencer-step-btn ${track.iconClass} ${isActive ? "active" : ""} ${isBeatStart ? "beat-start" : ""}" 
           data-action="toggle-drum-step" 
           data-track="${track.id}" 
-          data-step="${stepIdx}"
+          data-step="${stepIdx}" 
           title="${track.label} Step ${stepIdx + 1}">
           ${stepIdx + 1}
         </button>
       `;
     }).join("");
-
     return `
       <div class="sequencer-row">
         <div class="sequencer-label">${track.label}</div>
@@ -13017,6 +13087,7 @@ function renderDrumSequencerUI() {
       </div>
     `;
   }).join("");
+  containers.forEach(c => { c.innerHTML = html; });
 }
 
 function selectChordSlot(index) {
@@ -13029,8 +13100,10 @@ function selectChordSlot(index) {
 function setDiatonicChord(chord, degree) {
   const idx = chordStudioState.selectedSlotIndex;
   chordStudioState.slots[idx] = { chord, degree: degree || "" };
-  const presetSelect = $("#tool-chords-preset");
-  if (presetSelect) presetSelect.value = "custom";
+  const p1 = $("#music-main-preset");
+  if (p1) p1.value = "custom";
+  const p2 = $("#tool-chords-preset");
+  if (p2) p2.value = "custom";
   renderChordSlotsUI();
   playChordVoicing(chord, 0.9);
 }
@@ -13041,7 +13114,6 @@ function updateChordPreset(presetKey) {
   if (!preset) return;
   const keyData = DIATONIC_KEYS_DB[chordStudioState.key] || DIATONIC_KEYS_DB["C"];
   const isMinor = chordStudioState.key.endsWith("m");
-
   chordStudioState.slots = preset.degrees.map(deg => {
     let chord = keyData.chords[0];
     const degIndex = keyData.degrees.indexOf(deg);
@@ -13056,7 +13128,10 @@ function updateChordPreset(presetKey) {
     }
     return { chord, degree: deg };
   });
-
+  const p1 = $("#music-main-preset");
+  if (p1) p1.value = presetKey;
+  const p2 = $("#tool-chords-preset");
+  if (p2) p2.value = presetKey;
   renderChordSlotsUI();
   playChordVoicing(chordStudioState.slots[0].chord, 0.9);
 }
@@ -13064,17 +13139,19 @@ function updateChordPreset(presetKey) {
 function updateChordKey(newKey) {
   if (!DIATONIC_KEYS_DB[newKey]) return;
   chordStudioState.key = newKey;
-  const presetSelect = $("#tool-chords-preset");
-  const currentPreset = presetSelect ? presetSelect.value : "pop";
+  const p1 = $("#music-main-preset");
+  const currentPreset = p1 ? p1.value : "pop";
+  const k1 = $("#music-main-key");
+  if (k1) k1.value = newKey;
+  const k2 = $("#tool-chords-key");
+  if (k2) k2.value = newKey;
   if (currentPreset !== "custom") {
     updateChordPreset(currentPreset);
   } else {
     const keyData = DIATONIC_KEYS_DB[newKey];
     chordStudioState.slots.forEach(slot => {
       const idx = keyData.degrees.indexOf(slot.degree);
-      if (idx !== -1) {
-        slot.chord = keyData.chords[idx];
-      }
+      if (idx !== -1) slot.chord = keyData.chords[idx];
     });
     renderChordSlotsUI();
   }
@@ -13084,13 +13161,11 @@ function updateChordKey(newKey) {
 function toggleDrumStep(track, step) {
   if (!drumGridState[track] || step < 0 || step > 15) return;
   drumGridState[track][step] = drumGridState[track][step] ? 0 : 1;
-  const btn = $(`button.sequencer-step-btn[data-track="${track}"][data-step="${step}"]`);
-  if (btn) {
-    btn.classList.toggle("active", Boolean(drumGridState[track][step]));
-  }
-  if (drumGridState[track][step]) {
-    playDrumSound(track);
-  }
+  const isStepActive = Boolean(drumGridState[track][step]);
+  document.querySelectorAll(`button.sequencer-step-btn[data-track="${track}"][data-step="${step}"]`).forEach(btn => {
+    btn.classList.toggle("active", isStepActive);
+  });
+  if (isStepActive) playDrumSound(track);
 }
 
 function applyDrumPreset(presetName) {
@@ -13100,84 +13175,128 @@ function applyDrumPreset(presetName) {
   drumGridState.snare = [...preset.snare];
   drumGridState.hat = [...preset.hat];
   drumGridState.clap = [...preset.clap];
+  const d1 = $("#music-main-drum-preset");
+  if (d1) d1.value = presetName;
+  const d2 = $("#tool-drum-preset");
+  if (d2) d2.value = presetName;
   renderDrumSequencerUI();
 }
 
-function toggleChordPlayback() {
-  if (chordStudioState.isPlaying) {
-    stopChordPlayback();
-  } else {
-    startChordPlayback();
+function updateMusicPlayButtonsUI() {
+  const isPlaying = musicPlaybackState.isPlaying;
+  const mode = musicPlaybackState.playMode;
+  const btnBoth = $("#music-btn-play-both");
+  const btnChords = $("#music-btn-play-chords");
+  const btnDrums = $("#music-btn-play-drums");
+  const btnHeader = $("#music-view-play-both-btn");
+  const btnModal = $("#tool-chord-play-btn");
+  if (!isPlaying) {
+    if (btnBoth) { btnBoth.textContent = "▶ Play Both"; btnBoth.className = "button button-primary music-transport-play-btn"; }
+    if (btnChords) { btnChords.textContent = "🎹 Chords Only"; btnChords.className = "button button-outline music-transport-play-btn"; }
+    if (btnDrums) { btnDrums.textContent = "🥁 Drums Only"; btnDrums.className = "button button-outline music-transport-play-btn"; }
+    if (btnHeader) { btnHeader.textContent = "▶ Play Both (Chords & Drums)"; btnHeader.className = "button button-primary"; }
+    if (btnModal) { btnModal.textContent = "▶ Play Groove"; btnModal.className = "button button-primary"; }
+    return;
+  }
+  if (mode === "both") {
+    if (btnBoth) { btnBoth.textContent = "⏸ Pause Both"; btnBoth.className = "button button-primary music-transport-play-btn"; }
+    if (btnChords) { btnChords.textContent = "🎹 Chords Only"; btnChords.className = "button button-outline music-transport-play-btn"; }
+    if (btnDrums) { btnDrums.textContent = "🥁 Drums Only"; btnDrums.className = "button button-outline music-transport-play-btn"; }
+    if (btnHeader) { btnHeader.textContent = "⏸ Pause Groove"; btnHeader.className = "button button-outline"; }
+    if (btnModal) { btnModal.textContent = "⏸ Pause Groove"; btnModal.className = "button button-outline"; }
+  } else if (mode === "chords") {
+    if (btnBoth) { btnBoth.textContent = "▶ Play Both"; btnBoth.className = "button button-outline music-transport-play-btn"; }
+    if (btnChords) { btnChords.textContent = "⏸ Pause Chords"; btnChords.className = "button button-primary music-transport-play-btn"; }
+    if (btnDrums) { btnDrums.textContent = "🥁 Drums Only"; btnDrums.className = "button button-outline music-transport-play-btn"; }
+    if (btnHeader) { btnHeader.textContent = "⏸ Pause Chords"; btnHeader.className = "button button-outline"; }
+    if (btnModal) { btnModal.textContent = "⏸ Pause Chords"; btnModal.className = "button button-outline"; }
+  } else if (mode === "drums") {
+    if (btnBoth) { btnBoth.textContent = "▶ Play Both"; btnBoth.className = "button button-outline music-transport-play-btn"; }
+    if (btnChords) { btnChords.textContent = "🎹 Chords Only"; btnChords.className = "button button-outline music-transport-play-btn"; }
+    if (btnDrums) { btnDrums.textContent = "⏸ Pause Drums"; btnDrums.className = "button button-primary music-transport-play-btn"; }
+    if (btnHeader) { btnHeader.textContent = "⏸ Pause Drums"; btnHeader.className = "button button-outline"; }
+    if (btnModal) { btnModal.textContent = "⏸ Pause Drums"; btnModal.className = "button button-outline"; }
   }
 }
 
-function startChordPlayback() {
-  stopChordPlayback(false);
-  chordStudioState.isPlaying = true;
-
-  const playBtn = $("#tool-chord-play-btn");
-  if (playBtn) {
-    playBtn.textContent = "⏸ Pause Groove";
-    playBtn.classList.remove("button-primary");
-    playBtn.classList.add("button-outline");
-  }
-
-  const bpm = chordStudioState.bpm || 105;
+function startMusicGroove(mode = "both") {
+  stopMusicGroove(false);
+  musicPlaybackState.isPlaying = true;
+  musicPlaybackState.playMode = mode;
+  musicPlaybackState.stepIndex = 0;
+  updateMusicPlayButtonsUI();
+  const bpm = chordStudioState.bpm || musicPlaybackState.bpm || 105;
   const stepMs = (60000 / bpm) / 4;
-
-  chordStudioState.stepIndex = 0;
-
   function tick() {
-    if (!chordStudioState.isPlaying) return;
-    const currentStep = chordStudioState.stepIndex;
+    if (!musicPlaybackState.isPlaying) return;
+    const currentStep = musicPlaybackState.stepIndex;
     const barIndex = Math.floor(currentStep / 16) % chordStudioState.slots.length;
     const drumStep = currentStep % 16;
-
     if (drumStep === 0) {
-      const activeSlot = chordStudioState.slots[barIndex];
-      if (activeSlot) {
-        const barDurationSec = (60 / bpm) * 4;
-        playChordVoicing(activeSlot.chord, Math.min(barDurationSec * 0.95, 2.2));
+      if (!musicPlaybackState.chordsMuted && (musicPlaybackState.playMode === "both" || musicPlaybackState.playMode === "chords")) {
+        const activeSlot = chordStudioState.slots[barIndex];
+        if (activeSlot) {
+          const barDurationSec = (60 / bpm) * 4;
+          playChordVoicing(activeSlot.chord, Math.min(barDurationSec * 0.95, 2.4));
+        }
       }
-      $(".chord-slot-card").forEach((card, idx) => {
-        card.classList.toggle("playing-chord", idx === barIndex);
+      document.querySelectorAll(".chord-slot-card").forEach((card) => {
+        const slotIdx = parseInt(card.dataset.slotIndex, 10);
+        card.classList.toggle("playing-chord", slotIdx === barIndex);
       });
     }
-
-    if (drumGridState.kick[drumStep]) playDrumSound("kick");
-    if (drumGridState.snare[drumStep]) playDrumSound("snare");
-    if (drumGridState.hat[drumStep]) playDrumSound("hat");
-    if (drumGridState.clap[drumStep]) playDrumSound("clap");
-
-    $(".sequencer-step-btn").forEach(btn => {
+    if (!musicPlaybackState.drumsMuted && (musicPlaybackState.playMode === "both" || musicPlaybackState.playMode === "drums")) {
+      if (drumGridState.kick[drumStep]) playDrumSound("kick");
+      if (drumGridState.snare[drumStep]) playDrumSound("snare");
+      if (drumGridState.hat[drumStep]) playDrumSound("hat");
+      if (drumGridState.clap[drumStep]) playDrumSound("clap");
+    }
+    if (!musicPlaybackState.metronomeMuted && (drumStep % 4 === 0)) {
+      playMetronomeClick(drumStep === 0);
+    }
+    document.querySelectorAll(".sequencer-step-btn").forEach(btn => {
       btn.classList.toggle("playhead", parseInt(btn.dataset.step, 10) === drumStep);
     });
-
-    chordStudioState.stepIndex = (chordStudioState.stepIndex + 1) % (chordStudioState.slots.length * 16);
+    musicPlaybackState.stepIndex = (currentStep + 1) % (chordStudioState.slots.length * 16);
   }
-
   tick();
-  chordStudioState.intervalId = setInterval(tick, stepMs);
-  showToast("▶ Playing chord progression & drums");
+  musicPlaybackState.intervalId = setInterval(tick, stepMs);
+  const modeLabels = { both: "▶ Playing chord progression & drums", chords: "🎹 Playing chord progression", drums: "🥁 Playing drum groove" };
+  showToast(modeLabels[mode] || "▶ Playing groove");
 }
 
-function stopChordPlayback(resetUI = true) {
-  chordStudioState.isPlaying = false;
-  if (chordStudioState.intervalId) {
-    clearInterval(chordStudioState.intervalId);
-    chordStudioState.intervalId = null;
+function stopMusicGroove(resetUI = true) {
+  musicPlaybackState.isPlaying = false;
+  if (musicPlaybackState.intervalId) {
+    clearInterval(musicPlaybackState.intervalId);
+    musicPlaybackState.intervalId = null;
   }
-  chordStudioState.stepIndex = 0;
-
+  musicPlaybackState.stepIndex = 0;
   if (resetUI) {
-    const playBtn = $("#tool-chord-play-btn");
-    if (playBtn) {
-      playBtn.textContent = "▶ Play Groove";
-      playBtn.classList.remove("button-outline");
-      playBtn.classList.add("button-primary");
-    }
-    $(".chord-slot-card").forEach(card => card.classList.remove("playing-chord"));
-    $(".sequencer-step-btn").forEach(btn => btn.classList.remove("playhead"));
+    updateMusicPlayButtonsUI();
+    document.querySelectorAll(".chord-slot-card").forEach(card => card.classList.remove("playing-chord"));
+    document.querySelectorAll(".sequencer-step-btn").forEach(btn => btn.classList.remove("playhead"));
+  }
+}
+
+function toggleChordPlayback() {
+  if (musicPlaybackState.isPlaying) stopMusicGroove();
+  else startMusicGroove("both");
+}
+
+function toggleMusicChannel(channel) {
+  if (channel === "chords") {
+    musicPlaybackState.chordsMuted = !musicPlaybackState.chordsMuted;
+    $("#music-toggle-chords")?.classList.toggle("active", !musicPlaybackState.chordsMuted);
+    showToast(musicPlaybackState.chordsMuted ? "🎹 Chords channel muted" : "🎹 Chords channel active");
+  } else if (channel === "drums") {
+    musicPlaybackState.drumsMuted = !musicPlaybackState.drumsMuted;
+    $("#music-toggle-drums")?.classList.toggle("active", !musicPlaybackState.drumsMuted);
+    showToast(musicPlaybackState.drumsMuted ? "🥁 Drums channel muted" : "🥁 Drums channel active");
+  } else if (channel === "metronome") {
+    musicPlaybackState.metronomeMuted = !musicPlaybackState.metronomeMuted;
+    $("#music-toggle-metro")?.classList.toggle("active", !musicPlaybackState.metronomeMuted);
+    showToast(musicPlaybackState.metronomeMuted ? "🔔 Metronome click off" : "🔔 Metronome click on");
   }
 }
 
@@ -13185,16 +13304,88 @@ async function copyChordProgressionDetails() {
   const key = chordStudioState.key;
   const bpm = chordStudioState.bpm;
   const progression = chordStudioState.slots.map((s, i) => `Bar ${i + 1}: ${s.chord} (${s.degree})`).join("  |  ");
-  const text = `🎹 Chord Progression & Groove:
-Key: ${key} Major · Tempo: ${bpm} BPM
-Progression: ${progression}
-Arranged with Workbench Studio`;
+  const text = `🎹 Chord Progression & Groove:\nKey: ${key} Major · Tempo: ${bpm} BPM\nProgression: ${progression}\nArranged with Workbench Studio`;
   try {
     await navigator.clipboard.writeText(text);
     showToast("Copied chord progression to clipboard!");
   } catch {
     showToast("Chord details ready.");
   }
+}
+
+function updateMusicViewTimingResult() {
+  const bpm = chordStudioState.bpm || musicPlaybackState.bpm || 105;
+  const quarterMs = Math.round(60000 / bpm);
+  const eighthMs = Math.round(30000 / bpm);
+  const dottedEighthMs = Math.round(45000 / bpm);
+  const sixteenthMs = Math.round(15000 / bpm);
+  const resultBox = $("#music-view-timing-result");
+  if (resultBox) {
+    resultBox.innerHTML = `
+      <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">
+        Tempo Timing for <span style="color:var(--green)">${bpm} BPM</span>:
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:6px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">1/4 NOTE</div>
+          <div style="font-size:15px;font-weight:800;color:var(--ink)">${quarterMs} ms</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">1/8 NOTE</div>
+          <div style="font-size:15px;font-weight:800;color:var(--ink)">${eighthMs} ms</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">DOTTED 1/8</div>
+          <div style="font-size:15px;font-weight:800;color:#0284c7">${dottedEighthMs} ms</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);font-weight:700">1/16 NOTE</div>
+          <div style="font-size:15px;font-weight:800;color:var(--green)">${sixteenthMs} ms</div>
+        </div>
+      </div>
+    `;
+  }
+  const tempoLbl = $("#music-view-tempo-lbl");
+  if (tempoLbl) tempoLbl.textContent = bpm;
+}
+
+function updateMusicViewNoteResult() {
+  const note = $("#music-view-note")?.value || "A4";
+  const concert = parseFloat($("#music-view-tuning")?.value) || 440;
+  const semitones = NOTE_SEMITONES_FROM_A4[note] || 0;
+  const freq = concert * Math.pow(2, semitones / 12);
+  const midiNumber = 69 + semitones;
+  const speedOfSound = 1125;
+  const wavelengthFeet = (speedOfSound / freq).toFixed(2);
+  const wavelengthMeters = ((speedOfSound * 0.3048) / freq).toFixed(2);
+  const resultBox = $("#music-view-note-result");
+  if (resultBox) {
+    resultBox.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px">
+        Note ${note} Frequency: <span style="font-size:18px;font-weight:900;color:var(--green)">${freq.toFixed(2)} Hz</span> (MIDI ${midiNumber})
+      </div>
+      <div style="font-size:11px;color:var(--muted)">
+        Acoustic Wavelength: <strong>${wavelengthFeet} ft</strong> (${wavelengthMeters} m) · Tuning: A4 = ${concert} Hz
+      </div>
+    `;
+  }
+}
+
+function playPitchToneViewAction() {
+  const note = $("#music-view-note")?.value || "A4";
+  const concert = parseFloat($("#music-view-tuning")?.value) || 440;
+  const semitones = NOTE_SEMITONES_FROM_A4[note] || 0;
+  const freq = concert * Math.pow(2, semitones / 12);
+  playNoteTone(freq, 1.2);
+  showToast(`🎵 Playing ${note} tone (${freq.toFixed(1)} Hz)`);
+}
+
+function renderMusicStudioView() {
+  renderChordSlotsUI();
+  renderDiatonicChordsUI();
+  renderDrumSequencerUI();
+  updateMusicViewTimingResult();
+  updateMusicViewNoteResult();
 }
 
 function initChordStudio() {

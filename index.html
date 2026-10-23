@@ -44,6 +44,7 @@
           <button class="nav-link" data-view="skills"><span class="nav-icon">✳</span>Skills</button>
           <button class="nav-link" data-view="gallery"><span class="nav-icon">▧</span>Gallery</button>
           <button class="nav-link" data-view="planner"><span class="nav-icon">▦</span>Planner</button>
+          <button class="nav-link" data-view="music"><span class="nav-icon">🎵</span>Music Studio</button>
           <button class="nav-link" data-view="sync"><span class="nav-icon">⇄</span>Sync & backup</button>
           <button class="nav-link admin-nav-link" id="nav-admin-link" data-view="admin" style="display:none"><span class="nav-icon">👑</span>Admin Hub</button>
         </nav>
@@ -486,6 +487,224 @@
 
             <!-- Users List Grid -->
             <div class="admin-users-grid" id="admin-users-grid"></div>
+          </section>
+          <!-- 🎵 Music & Audio Studio Main View -->
+          <section class="view-section" id="music-view" aria-labelledby="music-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> CREATIVE AUDIO &amp; BEAT LABORATORY</div>
+                <h1 id="music-title">Music Studio<span class="heading-period">.</span></h1>
+                <p>Compose chord progressions, program 16-step drum grooves, synthesize notes, and jam with synchronized beats.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-chord-progression">📋 Copy Progression</button>
+                <button type="button" class="button button-outline" data-action="stop-music-groove">⏹ Stop</button>
+                <button type="button" class="button button-primary" data-action="play-both-groove" id="music-view-play-both-btn">▶ Play Both (Chords &amp; Drums)</button>
+              </div>
+            </div>
+
+            <!-- Master Groove & Transport Deck -->
+            <div class="music-studio-deck">
+              <div class="music-deck-row" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                  <button type="button" class="button button-primary music-transport-play-btn" data-action="play-both-groove" id="music-btn-play-both" style="min-width:130px">
+                    ▶ Play Both
+                  </button>
+                  <button type="button" class="button button-outline music-transport-play-btn" data-action="play-chords-only" id="music-btn-play-chords">
+                    🎹 Chords Only
+                  </button>
+                  <button type="button" class="button button-outline music-transport-play-btn" data-action="play-drums-only" id="music-btn-play-drums">
+                    🥁 Drums Only
+                  </button>
+                  <button type="button" class="button button-outline" data-action="stop-music-groove" id="music-btn-stop">
+                    ⏹ Stop
+                  </button>
+                </div>
+
+                <!-- Live Channel Toggles -->
+                <div class="music-channel-pills" style="display:flex;gap:6px;align-items:center">
+                  <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-right:2px">CHANNELS:</span>
+                  <button type="button" class="channel-toggle-pill active" data-action="toggle-channel-chords" id="music-toggle-chords" title="Toggle Chords channel sound">
+                    <span class="channel-indicator">●</span> 🎹 Chords
+                  </button>
+                  <button type="button" class="channel-toggle-pill active" data-action="toggle-channel-drums" id="music-toggle-drums" title="Toggle Drums channel sound">
+                    <span class="channel-indicator">●</span> 🥁 Drums
+                  </button>
+                  <button type="button" class="channel-toggle-pill" data-action="toggle-channel-metronome" id="music-toggle-metro" title="Toggle Metronome click">
+                    <span class="channel-indicator">○</span> 🔔 Metronome
+                  </button>
+                </div>
+
+                <!-- Tempo & Controls -->
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <label for="music-main-bpm" style="font-size:12px;font-weight:700;color:var(--muted)">TEMPO:</label>
+                    <input type="number" id="music-main-bpm" min="40" max="260" value="105" style="width:70px;padding:5px 8px;font-size:14px;font-weight:800">
+                    <span style="font-size:11px;color:var(--muted)">BPM</span>
+                    <button type="button" class="button button-small button-outline" data-action="tap-tempo" style="height:32px;padding:0 8px" title="Tap repeatedly in rhythm">🥁 Tap</button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <label for="music-main-key" style="font-size:12px;font-weight:700;color:var(--muted)">KEY:</label>
+                    <select id="music-main-key" style="padding:5px 8px;font-size:13px;font-weight:700">
+                      <option value="C" selected>C Major</option>
+                      <option value="G">G Major</option>
+                      <option value="D">D Major</option>
+                      <option value="A">A Major</option>
+                      <option value="F">F Major</option>
+                      <option value="Am">A Minor</option>
+                      <option value="Em">E Minor</option>
+                      <option value="Dm">D Minor</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Studio Sections Grid -->
+            <div class="music-studio-grid" style="display:grid;grid-template-columns:1fr;gap:20px;margin-top:16px">
+
+              <!-- Section 1: 🎹 Chord Progression Arranger -->
+              <div class="panel music-card-panel">
+                <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+                  <div>
+                    <div class="eyebrow">HARMONY ENGINE</div>
+                    <h2 style="font-size:18px;margin:0">🎹 4-Bar Chord Progression</h2>
+                    <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Click cards to audition chords · Highlighted card indicates current loop bar</p>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <label for="music-main-preset" style="font-size:11px;font-weight:700;color:var(--muted)">PRESET:</label>
+                    <select id="music-main-preset" style="font-size:12px;padding:4px 8px">
+                      <option value="pop" selected>Pop 4-Chord (I – V – vi – IV)</option>
+                      <option value="ballad">Emotional Sad (vi – IV – I – V)</option>
+                      <option value="doowop">50s Doo-Wop (I – vi – IV – V)</option>
+                      <option value="jazz">Jazz Turnaround (ii – V – I – vi)</option>
+                      <option value="rock">Classic Rock (I – IV – V – IV)</option>
+                      <option value="flamenco">Andalusian Descent (i – VII – VI – V)</option>
+                      <option value="rnb">Neo-Soul / R&amp;B (IV – iii – vi – I)</option>
+                      <option value="custom">Custom Progression</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- 4 Chord Slots -->
+                <div class="chord-slots-grid music-main-chord-slots" id="music-main-chord-slots">
+                  <!-- Populated dynamically -->
+                </div>
+
+                <!-- Diatonic Quick-Swap Picker for Active Slot -->
+                <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <div style="font-size:12px;font-weight:700;color:var(--muted)">
+                      QUICK SWAP CHORDS FOR <span id="music-main-active-slot-lbl" style="color:var(--green)">Bar 1 (C)</span>:
+                    </div>
+                    <div style="font-size:11px;color:var(--muted)">Click any chord pill to assign it to selected bar</div>
+                  </div>
+                  <div class="diatonic-chords-wrap music-main-diatonic-wrap" id="music-main-diatonic-wrap">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Section 2: 🥁 16-Step Drum Machine Sequencer & Live Drum Pads -->
+              <div class="panel music-card-panel">
+                <div class="panel-heading" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+                  <div>
+                    <div class="eyebrow">RHYTHM SECTION</div>
+                    <h2 style="font-size:18px;margin:0">🥁 16-Step Drum Sequencer &amp; Live Pads</h2>
+                    <p style="font-size:12px;color:var(--muted);margin:2px 0 0">Click steps to toggle rhythm hits · Tap live pads or use keys 1, 2, 3, 4 to jam along in real time</p>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <label for="music-main-drum-preset" style="font-size:11px;font-weight:700;color:var(--muted)">BEAT PATTERN:</label>
+                    <select id="music-main-drum-preset" style="font-size:12px;padding:4px 8px">
+                      <option value="rock" selected>Pop / Rock 2 &amp; 4</option>
+                      <option value="fourfloor">Four-on-the-Floor (House/Dance)</option>
+                      <option value="boombap">Hip-Hop Boom Bap</option>
+                      <option value="trap">Trap Half-Time Beat</option>
+                      <option value="lofi">Lo-Fi Chill Groove</option>
+                      <option value="clear">Clear All Steps</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Live Jam Drum Pads -->
+                <div class="live-drum-pads-wrap" style="margin-bottom:14px">
+                  <button type="button" class="live-drum-pad pad-kick" data-action="hit-drum-pad" data-drum="kick" title="Click or Press Key 1 / K">
+                    <div class="drum-pad-icon">🥁</div>
+                    <div class="drum-pad-name">KICK</div>
+                    <div class="drum-pad-key">Key: 1</div>
+                  </button>
+                  <button type="button" class="live-drum-pad pad-snare" data-action="hit-drum-pad" data-drum="snare" title="Click or Press Key 2 / S">
+                    <div class="drum-pad-icon">🎯</div>
+                    <div class="drum-pad-name">SNARE</div>
+                    <div class="drum-pad-key">Key: 2</div>
+                  </button>
+                  <button type="button" class="live-drum-pad pad-hat" data-action="hit-drum-pad" data-drum="hat" title="Click or Press Key 3 / H">
+                    <div class="drum-pad-icon">🔔</div>
+                    <div class="drum-pad-name">HI-HAT</div>
+                    <div class="drum-pad-key">Key: 3</div>
+                  </button>
+                  <button type="button" class="live-drum-pad pad-clap" data-action="hit-drum-pad" data-drum="clap" title="Click or Press Key 4 / C">
+                    <div class="drum-pad-icon">👏</div>
+                    <div class="drum-pad-name">CLAP</div>
+                    <div class="drum-pad-key">Key: 4</div>
+                  </button>
+                </div>
+
+                <!-- 16-Step Grid Sequencer -->
+                <div class="sequencer-grid-wrap music-main-sequencer-grid" id="music-main-sequencer-grid">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+              <!-- Section 3: Audio Tools (Tuner, Delay Calculator) -->
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+                <!-- Pitch Tone Generator -->
+                <div class="panel music-card-panel">
+                  <div class="eyebrow">FREQUENCY &amp; TUNING REFERENCE</div>
+                  <h3 style="font-size:16px;margin:2px 0 8px">🔊 Pitch Tone Generator</h3>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                    <label class="form-label" style="font-size:12px">
+                      Musical Note
+                      <select id="music-view-note">
+                        <option value="A4" selected>A4 (440.0 Hz · Concert Pitch)</option>
+                        <option value="C4">C4 (261.6 Hz · Middle C)</option>
+                        <option value="E2">E2 (82.4 Hz · Guitar Low E)</option>
+                        <option value="A1">A1 (55.0 Hz · Bass Guitar A)</option>
+                        <option value="C2">C2 (65.4 Hz · Low Bass / Sub)</option>
+                        <option value="C3">C3 (130.8 Hz · Tenor C)</option>
+                        <option value="E4">E4 (329.6 Hz · Guitar High E)</option>
+                        <option value="A5">A5 (880.0 Hz · Soprano)</option>
+                        <option value="C6">C6 (1046.5 Hz · High C)</option>
+                      </select>
+                    </label>
+                    <label class="form-label" style="font-size:12px">
+                      Concert Pitch Standard
+                      <select id="music-view-tuning">
+                        <option value="440" selected>A4 = 440 Hz (Standard ISO)</option>
+                        <option value="432">A4 = 432 Hz (Verdi / Alternative)</option>
+                        <option value="444">A4 = 444 Hz (Bright pitch)</option>
+                        <option value="415">A4 = 415 Hz (Baroque)</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="tool-result-box" id="music-view-note-result" style="margin-top:10px"></div>
+                  <button type="button" class="button button-small button-primary" data-action="play-pitch-tone-view" style="margin-top:10px">
+                    🔊 Play Note Tone
+                  </button>
+                </div>
+
+                <!-- Tempo Delay & Reverb Calculator -->
+                <div class="panel music-card-panel">
+                  <div class="eyebrow">TIME &amp; REVERB SYNC</div>
+                  <h3 style="font-size:16px;margin:2px 0 8px">⏱️ Tempo Delay Calculator</h3>
+                  <div class="tool-result-box" id="music-view-timing-result" style="margin-top:10px"></div>
+                  <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+                    Automatically synced with current studio tempo (<span id="music-view-tempo-lbl">105</span> BPM)
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </section>
         </div>
 

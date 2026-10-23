@@ -6046,3 +6046,117 @@ body.theme-dark .version-tag {
 
 
 
+
+/* 🎵 Music Studio Main View & Controls */
+.music-studio-deck {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.music-card-panel {
+  padding: 18px 20px;
+}
+
+/* Channel Toggle Pills */
+.channel-toggle-pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-subtle);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .15s ease;
+}
+.channel-toggle-pill:hover {
+  border-color: var(--ink);
+}
+.channel-toggle-pill.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+.channel-indicator {
+  font-size: 10px;
+}
+
+/* Live Drum Jam Pads */
+.live-drum-pads-wrap {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+@media (max-width: 640px) {
+  .live-drum-pads-wrap {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.live-drum-pad {
+  background: var(--surface-subtle);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .1s ease;
+  user-select: none;
+}
+.live-drum-pad:hover {
+  transform: translateY(-2px);
+  border-color: var(--ink);
+}
+.live-drum-pad:active, .live-drum-pad.hit {
+  transform: scale(0.95);
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.4);
+}
+.live-drum-pad.pad-kick:active, .live-drum-pad.pad-kick.hit {
+  background: #ea580c;
+  color: white;
+  border-color: #ea580c;
+}
+.live-drum-pad.pad-snare:active, .live-drum-pad.pad-snare.hit {
+  background: #0284c7;
+  color: white;
+  border-color: #0284c7;
+}
+.live-drum-pad.pad-hat:active, .live-drum-pad.pad-hat.hit {
+  background: #ca8a04;
+  color: white;
+  border-color: #ca8a04;
+}
+.live-drum-pad.pad-clap:active, .live-drum-pad.pad-clap.hit {
+  background: #9333ea;
+  color: white;
+  border-color: #9333ea;
+}
+.drum-pad-icon {
+  font-size: 26px;
+  margin-bottom: 4px;
+}
+.drum-pad-name {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  color: var(--ink);
+}
+.live-drum-pad:active .drum-pad-name,
+.live-drum-pad.hit .drum-pad-name {
+  color: white;
+}
+.drum-pad-key {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.live-drum-pad:active .drum-pad-key,
+.live-drum-pad.hit .drum-pad-key {
+  color: rgba(255,255,255,0.8);
+}
