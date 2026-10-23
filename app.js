@@ -3213,6 +3213,7 @@ function renderProjectDetail(projectId) {
   const tasks = project.tasks || [];
   const notes = project.notes || [];
   const materials = project.materials || [];
+  const assignedTools = (state.inventory || []).filter(i => i.type === "equipment" && i.assignedProjectId === project.id);
   const totalCost = materials.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
   const spentCost = materials.filter(m => m.status === "have" || m.status === "ordered").reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
   const haveCount = materials.filter(m => m.status === "have").length;
@@ -3384,6 +3385,28 @@ function renderProjectDetail(projectId) {
         </table>
       </div>
     ` : `<div class="folder-empty"><span style="font-size:16px;margin-right:6px">🪵</span>No materials tracked yet. Add items and parts above to keep track of your build budget.</div>`}
+    <div class="detail-section-heading">
+      <div>
+        <h3>Assigned Tools &amp; Equipment</h3>
+        <span class="subtle-count">${assignedTools.length ? `${assignedTools.length} ${assignedTools.length === 1 ? "tool" : "tools"} in use for this build` : "Track machinery & tools checked out for this build"}</span>
+      </div>
+      <div>
+        <button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}">⚙️ Check out tool from shop</button>
+      </div>
+    </div>
+    ${assignedTools.length ? `
+      <div class="inventory-project-tools-grid">
+        ${assignedTools.map(t => `
+          <div class="inventory-project-tool-card">
+            <div class="inventory-project-tool-info">
+              <span class="inventory-project-tool-name">⚙️ ${escapeHTML(t.name)}</span>
+              <span class="inventory-project-tool-meta">${escapeHTML(t.brand || "")}${t.model ? ` · ${escapeHTML(t.model)}` : ""}${t.location ? ` · 📍 ${escapeHTML(t.location)}` : ""}</span>
+            </div>
+            <button type="button" class="inventory-checkin-btn" data-action="checkin-equipment" data-id="${t.id}" data-project="${project.id}" title="Return tool back to shop depot">↩ Return to shop</button>
+          </div>
+        `).join("")}
+      </div>
+    ` : `<div class="folder-empty"><span style="font-size:16px;margin-right:6px">⚙️</span>No tools currently checked out for this build. <button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}" style="margin-left:6px">＋ Check out from depot</button></div>`}
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
     <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="form-hint">A dated note, just for this project.</span><div style="display:flex;gap:6px"><button type="button" class="small-action mic-btn" data-action="dictate-note" data-project="${project.id}" title="Voice dictate note">🎙 Dictate</button><button class="button button-outline" type="submit">＋ Add note</button></div></div></form>
     ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p><div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
@@ -5493,7 +5516,19 @@ function copyShoppingList() {
   });
 }
 
-/* 📦 Workshop Inventory Depot */
+/* ============================================================
+   📦 Workshop Inventory Depot & Tool Equipment Tracker
+   ============================================================ */
+
+function isMaintOverdue(item) {
+  if (!item || !item.lastServiced) return false;
+  const lastDate = new Date(item.lastServiced);
+  const interval = parseInt(item.intervalDays, 10) || 30;
+  const dueDate = new Date(lastDate);
+  dueDate.setDate(dueDate.getDate() + interval);
+  return dueDate.getTime() < Date.now();
+}
+
 function renderInventory() {
   const view = $("#inventory-view");
   if (!view) return;
@@ -5502,20 +5537,105 @@ function renderInventory() {
 
   const search = ($("#inventory-search")?.value || "").trim().toLowerCase();
   const categoryFilter = $("#inventory-category-filter")?.value || "all";
+  const conditionFilter = $("#inventory-condition-filter")?.value || "all";
+  const activeTab = state.inventoryActiveTab || "all";
+  const alertsOnly = !!state.inventoryAlertsOnly;
 
   const inventory = state.inventory || [];
-  const filtered = inventory.filter(item => {
-    if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
-    if (search) {
-      const match = `${item.name} ${item.location || ""} ${item.notes || ""} ${item.category}`.toLowerCase();
-      if (!match.includes(search)) return false;
+
+  // Group into materials and equipment
+  const allMaterials = inventory.filter(i => (i.type || "material") === "material");
+  const allEquipment = inventory.filter(i => i.type === "equipment");
+
+  // Summary statistics
+  const matTotalVal = allMaterials.reduce((sum, m) => sum + ((Number(m.quantity) || 0) * (Number(m.price || m.cost) || 0)), 0);
+  const equipTotalVal = allEquipment.reduce((sum, e) => sum + (Number(e.cost || e.price) || 0), 0);
+  const lowStockMaterials = allMaterials.filter(m => (Number(m.quantity) || 0) <= (Number(m.lowStockThreshold) || 1));
+  const careDueEquipment = allEquipment.filter(e => e.condition === "maintenance_needed" || e.condition === "repair");
+  const inUseEquipment = allEquipment.filter(e => e.condition === "in_use" || e.assignedProjectId);
+
+  // Update summary metric tiles
+  const matValEl = $("#inv-mat-val");
+  const matCountEl = $("#inv-mat-count");
+  const equipValEl = $("#inv-equip-val");
+  const equipCountEl = $("#inv-equip-count");
+  const statusValEl = $("#inv-status-val");
+  const statusSubEl = $("#inv-status-sub");
+
+  if (matValEl) matValEl.textContent = formatMoney(matTotalVal);
+  if (matCountEl) matCountEl.textContent = `${allMaterials.length} item${allMaterials.length === 1 ? "" : "s"}${lowStockMaterials.length ? ` · ⚠️ ${lowStockMaterials.length} low stock` : ""}`;
+  if (equipValEl) equipValEl.textContent = formatMoney(equipTotalVal);
+  if (equipCountEl) equipCountEl.textContent = `${allEquipment.length} tool${allEquipment.length === 1 ? "" : "s"} · ${inUseEquipment.length} checked out`;
+  if (statusValEl) {
+    if (careDueEquipment.length) {
+      statusValEl.textContent = `${careDueEquipment.length} Need Care`;
+      statusValEl.style.color = "#d97706";
+    } else if (lowStockMaterials.length) {
+      statusValEl.textContent = `${lowStockMaterials.length} Low Stock`;
+      statusValEl.style.color = "#ea580c";
+    } else {
+      statusValEl.textContent = "Depot Ready";
+      statusValEl.style.color = "var(--ink)";
     }
+  }
+  if (statusSubEl) {
+    statusSubEl.textContent = `${(state.maintenance || []).length} care schedules · ${inUseEquipment.length} in use`;
+  }
+
+  // Update tab counts
+  const tabAllCount = $("#tab-count-all");
+  const tabMatCount = $("#tab-count-materials");
+  const tabEquipCount = $("#tab-count-equipment");
+  if (tabAllCount) tabAllCount.textContent = inventory.length;
+  if (tabMatCount) tabMatCount.textContent = allMaterials.length;
+  if (tabEquipCount) tabEquipCount.textContent = allEquipment.length;
+
+  // Filter items
+  const matchFilter = item => {
+    const isEquip = item.type === "equipment";
+
+    // Tab filter
+    if (activeTab === "material" && isEquip) return false;
+    if (activeTab === "equipment" && !isEquip) return false;
+
+    // Category filter
+    if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
+
+    // Condition filter (equipment only)
+    if (conditionFilter !== "all") {
+      if (!isEquip) return false;
+      if (item.condition !== conditionFilter) return false;
+    }
+
+    // Alerts only
+    if (alertsOnly) {
+      if (isEquip) {
+        const needsCare = item.condition === "maintenance_needed" || item.condition === "repair";
+        const hasOverdueMaint = (state.maintenance || []).some(m => m.toolName && m.toolName.toLowerCase() === item.name.toLowerCase() && isMaintOverdue(m));
+        if (!needsCare && !hasOverdueMaint) return false;
+      } else {
+        const isLow = (Number(item.quantity) || 0) <= (Number(item.lowStockThreshold) || 1);
+        if (!isLow) return false;
+      }
+    }
+
+    // Search query
+    if (search) {
+      const corpus = `${item.name} ${item.brand || ""} ${item.model || ""} ${item.serialNumber || ""} ${item.location || ""} ${item.notes || ""} ${item.category || ""} ${item.specs || ""}`.toLowerCase();
+      if (!corpus.includes(search)) return false;
+    }
+
     return true;
-  });
+  };
+
+  const filtered = inventory.filter(matchFilter);
+  const filteredMaterials = filtered.filter(i => (i.type || "material") === "material");
+  const filteredEquipment = filtered.filter(i => i.type === "equipment");
 
   const countEl = $("#inventory-result-count");
-  const totalValue = filtered.reduce((s, i) => s + ((i.quantity || 0) * (i.price || 0)), 0);
-  if (countEl) countEl.textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"}${totalValue > 0 ? ` · Est. Value: $${totalValue.toFixed(2)}` : ""}`;
+  if (countEl) {
+    countEl.textContent = `${filtered.length} item${filtered.length === 1 ? "" : "s"} (${filteredMaterials.length} materials, ${filteredEquipment.length} tools)`;
+  }
 
   const grid = $("#inventory-grid");
   if (!grid) return;
@@ -5523,69 +5643,222 @@ function renderInventory() {
   if (filtered.length === 0) {
     grid.innerHTML = `
       <div class="inventory-empty">
-        <p>No inventory items match your search.</p>
-        <button class="button button-primary button-small" data-action="open-inventory-dialog">+ Add First Supply</button>
+        <p>${alertsOnly ? "No depot items currently require attention!" : "No inventory supplies or tools match your filter."}</p>
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:8px">
+          <button type="button" class="button button-outline button-small" data-action="open-inventory-dialog" data-type="equipment">⚙️ Add Equipment</button>
+          <button type="button" class="button button-primary button-small" data-action="open-inventory-dialog" data-type="material">📦 Add Material</button>
+        </div>
       </div>
     `;
     return;
   }
 
-  grid.innerHTML = filtered.map(item => {
+  // Render cards
+  const renderMaterialCard = item => {
+    const qty = Number(item.quantity) || 0;
+    const unitPrice = Number(item.price || item.cost) || 0;
+    const totalVal = qty * unitPrice;
+    const isLow = qty <= (Number(item.lowStockThreshold) || 1);
+
     return `
-      <div class="inventory-card">
+      <div class="inventory-card inventory-card-material">
         <div class="inventory-card-top">
-          <span class="inventory-category-badge">${escapeHTML(item.category || "General")}</span>
-          ${item.price > 0 ? `<span class="inventory-category-badge" style="background:var(--surface-hover);border:1px solid var(--line);font-weight:600">$${item.price.toFixed(2)}${item.unit ? ` / ${escapeHTML(item.unit)}` : ""}</span>` : ""}
-          ${item.location ? `<span class="inventory-location-badge">📍 ${escapeHTML(item.location)}</span>` : ""}
-          ${item.supplier ? `<span class="inventory-location-badge">🏷️ ${escapeHTML(item.supplier)}</span>` : ""}
+          <div class="inventory-card-badges">
+            <span class="inventory-category-badge">📦 ${escapeHTML(item.category || "Supplies")}</span>
+            ${isLow ? `<span class="inventory-chip alert">⚠️ Low stock</span>` : ""}
+            ${item.location ? `<span class="inventory-chip">📍 ${escapeHTML(item.location)}</span>` : ""}
+          </div>
+          ${unitPrice > 0 ? `<span class="inventory-cost-badge">$${unitPrice.toFixed(2)}${item.unit ? ` / ${escapeHTML(item.unit)}` : ""}</span>` : ""}
         </div>
-        <h3 class="inventory-card-title">${escapeHTML(item.name)}</h3>
-        ${item.notes ? `<p class="inventory-card-notes">${escapeHTML(item.notes)}</p>` : ""}
+
+        <div>
+          <h3 class="inventory-card-title">${escapeHTML(item.name)}</h3>
+          ${item.notes ? `<p class="inventory-card-notes">${escapeHTML(item.notes)}</p>` : ""}
+        </div>
+
+        <div class="inventory-chips-row">
+          ${item.supplier ? `<span class="inventory-chip">🏷️ ${escapeHTML(item.supplier)}</span>` : ""}
+          ${totalVal > 0 ? `<span class="inventory-chip highlight">Stock Value: $${totalVal.toFixed(2)}</span>` : ""}
+        </div>
+
         <div class="inventory-qty-row">
           <div class="inventory-qty-control">
             <button type="button" class="qty-btn" data-action="inventory-bump" data-id="${item.id}" data-delta="-1" title="Subtract 1">−</button>
-            <span class="inventory-qty-val">${item.quantity ?? 1}</span>
+            <span class="inventory-qty-val">${qty}</span>
             <span class="inventory-unit">${escapeHTML(item.unit || "units")}</span>
             <button type="button" class="qty-btn" data-action="inventory-bump" data-id="${item.id}" data-delta="1" title="Add 1">＋</button>
           </div>
         </div>
+
         <div class="inventory-card-bottom">
-          <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">Use in Project</button>
+          <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">📥 Use in Project</button>
           <div style="display:flex;gap:4px">
-            <button type="button" class="icon-link-btn" data-action="edit-inventory-item" data-id="${item.id}" title="Edit item">✎</button>
-            <button type="button" class="icon-link-btn danger-hover" data-action="delete-inventory-item" data-id="${item.id}" title="Delete item">×</button>
+            <button type="button" class="icon-link-btn" data-action="edit-inventory-item" data-id="${item.id}" title="Edit material">✎</button>
+            <button type="button" class="icon-link-btn danger-hover" data-action="delete-inventory-item" data-id="${item.id}" title="Delete material">×</button>
           </div>
         </div>
       </div>
     `;
-  }).join("");
+  };
+
+  const renderEquipmentCard = item => {
+    const cost = Number(item.cost || item.price) || 0;
+    const cond = item.condition || "operational";
+    const condLabels = {
+      operational: "🟢 Operational",
+      maintenance_needed: "🟡 Needs Service",
+      in_use: "🔵 In Use",
+      repair: "🔴 Out of Service",
+      borrowed: "🟣 Loaned Out"
+    };
+
+    const isAssigned = item.assignedProjectId && item.assignedProjectTitle;
+
+    // Check if overdue maintenance exists
+    const hasOverdueMaint = (state.maintenance || []).some(m => m.toolName && m.toolName.toLowerCase() === item.name.toLowerCase() && isMaintOverdue(m));
+
+    return `
+      <div class="inventory-card inventory-card-equipment">
+        <div class="inventory-card-top">
+          <div class="inventory-card-badges">
+            <span class="inventory-category-badge">⚙️ ${escapeHTML(item.category || "Tool")}</span>
+            <span class="inventory-condition-pill condition-${cond}">${condLabels[cond] || cond}</span>
+            ${hasOverdueMaint ? `<span class="inventory-chip alert">⚠️ Care Overdue</span>` : ""}
+          </div>
+          ${cost > 0 ? `<span class="inventory-cost-badge" title="Acquisition / Replacement Cost">$${cost.toFixed(2)}</span>` : ""}
+        </div>
+
+        <div>
+          <h3 class="inventory-card-title">${escapeHTML(item.name)}</h3>
+          ${item.brand || item.model ? `<div class="inventory-card-brand">${escapeHTML(item.brand || "")}${item.model ? ` · ${escapeHTML(item.model)}` : ""}</div>` : ""}
+          ${item.notes ? `<p class="inventory-card-notes">${escapeHTML(item.notes)}</p>` : ""}
+        </div>
+
+        <div class="inventory-chips-row">
+          ${item.location ? `<span class="inventory-chip">📍 ${escapeHTML(item.location)}</span>` : ""}
+          ${item.specs ? `<span class="inventory-chip">⚡ ${escapeHTML(item.specs)}</span>` : ""}
+          ${item.serialNumber ? `<span class="inventory-chip">🏷️ ${escapeHTML(item.serialNumber)}</span>` : ""}
+          ${item.purchaseDate ? `<span class="inventory-chip">📅 Bought: ${escapeHTML(item.purchaseDate)}</span>` : ""}
+        </div>
+
+        ${isAssigned ? `
+          <div class="inventory-assigned-banner">
+            <span class="inventory-assigned-text">📌 In use for: <strong>${escapeHTML(item.assignedProjectTitle)}</strong></span>
+            <button type="button" class="inventory-checkin-btn" data-action="checkin-equipment" data-id="${item.id}" title="Return tool to depot">↩ Check In</button>
+          </div>
+        ` : ""}
+
+        <div class="inventory-card-bottom">
+          <div style="display:flex;gap:6px">
+            <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">Assign / Check Out</button>
+            <button type="button" class="small-action" data-action="schedule-tool-care" data-id="${item.id}" title="Open care schedule for this tool">🔧 Care</button>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button type="button" class="icon-link-btn" data-action="edit-inventory-item" data-id="${item.id}" title="Edit tool">✎</button>
+            <button type="button" class="icon-link-btn danger-hover" data-action="delete-inventory-item" data-id="${item.id}" title="Delete tool">×</button>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  // If "all" tab, render divided into two distinct sections
+  if (activeTab === "all") {
+    let html = "";
+    if (filteredMaterials.length > 0) {
+      const matSubtotal = filteredMaterials.reduce((s, m) => s + ((Number(m.quantity) || 0) * (Number(m.price || m.cost) || 0)), 0);
+      html += `
+        <div class="inventory-section-divider">
+          <h3 class="inventory-section-title">🪵 Materials &amp; Consumables</h3>
+          <span class="inventory-section-meta">${filteredMaterials.length} items · ${formatMoney(matSubtotal)} value</span>
+        </div>
+        <div class="inventory-grid">
+          ${filteredMaterials.map(renderMaterialCard).join("")}
+        </div>
+      `;
+    }
+    if (filteredEquipment.length > 0) {
+      const equipSubtotal = filteredEquipment.reduce((s, e) => s + (Number(e.cost || e.price) || 0), 0);
+      html += `
+        <div class="inventory-section-divider">
+          <h3 class="inventory-section-title">⚙️ Workshop Tools &amp; Equipment</h3>
+          <span class="inventory-section-meta">${filteredEquipment.length} tools · ${formatMoney(equipSubtotal)} valuation</span>
+        </div>
+        <div class="inventory-grid">
+          ${filteredEquipment.map(renderEquipmentCard).join("")}
+        </div>
+      `;
+    }
+    grid.innerHTML = html;
+  } else if (activeTab === "material") {
+    grid.innerHTML = `
+      <div class="inventory-grid">
+        ${filteredMaterials.map(renderMaterialCard).join("")}
+      </div>
+    `;
+  } else if (activeTab === "equipment") {
+    grid.innerHTML = `
+      <div class="inventory-grid">
+        ${filteredEquipment.map(renderEquipmentCard).join("")}
+      </div>
+    `;
+  }
 }
 
-function openInventoryDialog(item = null) {
+function openInventoryDialog(item = null, initialType = "material") {
   const form = $("#inventory-form");
   const dialog = $("#inventory-dialog");
   const delBtn = $("#delete-inventory-btn");
+  const titleEl = $("#inventory-dialog-title");
+  const eyebrowEl = $("#inventory-dialog-eyebrow");
   if (!form || !dialog) return;
 
   form.reset();
+
+  const isEquip = item ? item.type === "equipment" : initialType === "equipment";
+
+  $$('#inventory-form input[name="itemType"]').forEach(r => {
+    r.checked = r.value === (isEquip ? "equipment" : "material");
+  });
+
+  $("#inventory-material-fields")?.classList.toggle("hidden", isEquip);
+  $("#inventory-equipment-fields")?.classList.toggle("hidden", !isEquip);
+
   if (item && typeof item === "object") {
-    $("#inventory-dialog-title").textContent = item.id ? "Edit supply item" : "Add supply item";
+    if (titleEl) titleEl.textContent = isEquip ? "Edit Tool / Equipment" : "Edit Material / Supply";
+    if (eyebrowEl) eyebrowEl.textContent = isEquip ? "WORKSHOP EQUIPMENT" : "WORKSHOP SUPPLIES";
     form.elements.id.value = item.id || "";
-    form.elements.name.value = item.name || "";
-    form.elements.category.value = item.category || "Lumber / Scrap";
-    form.elements.location.value = item.location || "";
-    form.elements.quantity.value = item.quantity ?? 1;
-    form.elements.unit.value = item.unit || "";
-    if (form.elements.price) form.elements.price.value = item.price ?? "";
-    if (form.elements.supplier) form.elements.supplier.value = item.supplier || "";
-    form.elements.notes.value = item.notes || "";
-    if (delBtn) delBtn.classList.toggle("hidden", !item.id);
+
+    if (isEquip) {
+      if (form.elements.equipName) form.elements.equipName.value = item.name || "";
+      if (form.elements.equipCategory) form.elements.equipCategory.value = item.category || "Stationary Machinery";
+      if (form.elements.equipCondition) form.elements.equipCondition.value = item.condition || "operational";
+      if (form.elements.equipBrand) form.elements.equipBrand.value = item.brand || "";
+      if (form.elements.equipModel) form.elements.equipModel.value = item.model || "";
+      if (form.elements.equipCost) form.elements.equipCost.value = item.cost != null ? item.cost : (item.price ?? "");
+      if (form.elements.equipLocation) form.elements.equipLocation.value = item.location || "";
+      if (form.elements.equipSerial) form.elements.equipSerial.value = item.serialNumber || "";
+      if (form.elements.equipSpecs) form.elements.equipSpecs.value = item.specs || "";
+      if (form.elements.equipPurchaseDate) form.elements.equipPurchaseDate.value = item.purchaseDate || "";
+      if (form.elements.equipNotes) form.elements.equipNotes.value = item.notes || "";
+      if (form.elements.equipCreateCare) form.elements.equipCreateCare.checked = false;
+    } else {
+      if (form.elements.name) form.elements.name.value = item.name || "";
+      if (form.elements.category) form.elements.category.value = item.category || "Lumber / Scrap";
+      if (form.elements.location) form.elements.location.value = item.location || "";
+      if (form.elements.quantity) form.elements.quantity.value = item.quantity ?? 1;
+      if (form.elements.unit) form.elements.unit.value = item.unit || "";
+      if (form.elements.price) form.elements.price.value = item.price != null ? item.price : (item.cost ?? "");
+      if (form.elements.lowStockThreshold) form.elements.lowStockThreshold.value = item.lowStockThreshold ?? "";
+      if (form.elements.supplier) form.elements.supplier.value = item.supplier || "";
+      if (form.elements.notes) form.elements.notes.value = item.notes || "";
+    }
+    if (delBtn) delBtn.classList.remove("hidden");
   } else {
-    $("#inventory-dialog-title").textContent = "Add supply item";
+    if (titleEl) titleEl.textContent = isEquip ? "Add Tool / Equipment" : "Add Material / Supply";
+    if (eyebrowEl) eyebrowEl.textContent = isEquip ? "WORKSHOP EQUIPMENT" : "WORKSHOP SUPPLIES";
     form.elements.id.value = "";
-    form.elements.quantity.value = "1";
-    if (form.elements.price) form.elements.price.value = "";
-    if (form.elements.supplier) form.elements.supplier.value = "";
+    if (form.elements.quantity) form.elements.quantity.value = "1";
     if (delBtn) delBtn.classList.add("hidden");
   }
 
@@ -5598,20 +5871,75 @@ async function handleInventorySubmit(event) {
   const id = form.elements.id.value;
   const existing = (state.inventory || []).find(i => i.id === id);
 
-  const item = {
-    id: existing?.id || uid(),
-    name: form.elements.name.value.trim(),
-    category: form.elements.category.value,
-    location: form.elements.location.value.trim(),
-    quantity: parseFloat(form.elements.quantity.value) || 0,
-    unit: form.elements.unit.value.trim(),
-    price: parseFloat(form.elements.price?.value) || 0,
-    supplier: (form.elements.supplier?.value || "").trim(),
-    notes: form.elements.notes.value.trim(),
-    updatedAt: new Date().toISOString()
-  };
+  const itemType = form.elements.itemType?.value || "material";
+  let item = null;
 
-  if (!item.name) return;
+  if (itemType === "equipment") {
+    const name = (form.elements.equipName?.value || "").trim();
+    if (!name) {
+      showToast("Please enter an equipment name.", "warning");
+      return;
+    }
+    const cost = parseFloat(form.elements.equipCost?.value) || 0;
+    item = {
+      id: existing?.id || uid(),
+      type: "equipment",
+      name,
+      category: form.elements.equipCategory?.value || "Other Equipment",
+      brand: (form.elements.equipBrand?.value || "").trim(),
+      model: (form.elements.equipModel?.value || "").trim(),
+      cost,
+      price: cost,
+      condition: form.elements.equipCondition?.value || "operational",
+      location: (form.elements.equipLocation?.value || "").trim(),
+      serialNumber: (form.elements.equipSerial?.value || "").trim(),
+      specs: (form.elements.equipSpecs?.value || "").trim(),
+      purchaseDate: form.elements.equipPurchaseDate?.value || "",
+      notes: (form.elements.equipNotes?.value || "").trim(),
+      assignedProjectId: existing?.assignedProjectId || null,
+      assignedProjectTitle: existing?.assignedProjectTitle || null,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Auto schedule maintenance care if checked
+    if (form.elements.equipCreateCare?.checked) {
+      state.maintenance = state.maintenance || [];
+      const hasMaint = state.maintenance.some(m => m.toolName && m.toolName.toLowerCase() === name.toLowerCase());
+      if (!hasMaint) {
+        state.maintenance.push({
+          id: uid(),
+          toolName: name,
+          task: "Routine service & safety check",
+          intervalDays: 30,
+          lastServiced: new Date().toISOString().slice(0, 10),
+          notes: item.notes || `Care schedule for ${name}`
+        });
+      }
+    }
+  } else {
+    // Material
+    const name = (form.elements.name?.value || "").trim();
+    if (!name) {
+      showToast("Please enter a material name.", "warning");
+      return;
+    }
+    const price = parseFloat(form.elements.price?.value) || 0;
+    item = {
+      id: existing?.id || uid(),
+      type: "material",
+      name,
+      category: form.elements.category?.value || "Other Supplies",
+      location: (form.elements.location?.value || "").trim(),
+      quantity: parseFloat(form.elements.quantity?.value) || 0,
+      unit: (form.elements.unit?.value || "").trim(),
+      price,
+      cost: price,
+      lowStockThreshold: parseInt(form.elements.lowStockThreshold?.value, 10) || 0,
+      supplier: (form.elements.supplier?.value || "").trim(),
+      notes: (form.elements.notes?.value || "").trim(),
+      updatedAt: new Date().toISOString()
+    };
+  }
 
   state.inventory = state.inventory || [];
   if (existing) {
@@ -5620,13 +5948,13 @@ async function handleInventorySubmit(event) {
     state.inventory.unshift(item);
   }
 
-  makeActivity("note", `Updated inventory: ${item.name} (${item.quantity} ${item.unit || "units"})`);
+  makeActivity("note", `Updated shop depot: ${item.name} (${item.type === "equipment" ? `Tool · ${formatMoney(item.cost)}` : `${item.quantity} ${item.unit || "units"}`})`);
 
   try {
     await persistState();
     $("#inventory-dialog")?.close();
     render();
-    showToast(`Saved "${item.name}" to inventory.`);
+    showToast(`Saved "${item.name}" to workshop depot.`);
   } catch (e) {
     console.error(e);
     showToast("Could not save inventory item.");
@@ -5637,7 +5965,7 @@ async function handleInventoryBump(id, delta) {
   const item = (state.inventory || []).find(i => i.id === id);
   if (!item) return;
 
-  item.quantity = Math.max(0, (item.quantity || 0) + delta);
+  item.quantity = Math.max(0, (Number(item.quantity) || 0) + delta);
   item.updatedAt = new Date().toISOString();
 
   try {
@@ -5652,9 +5980,9 @@ async function handleInventoryBump(id, delta) {
 async function deleteInventoryItem(id) {
   const item = (state.inventory || []).find(i => i.id === id);
   if (!item) return;
-  if (!window.confirm(`Delete "${item.name}" from inventory?`)) return;
+  if (!window.confirm(`Delete "${item.name}" from inventory depot?`)) return;
 
-  state.inventory = state.inventory.filter(i => i.id !== id);
+  state.inventory = (state.inventory || []).filter(i => i.id !== id);
 
   try {
     await persistState();
@@ -5666,31 +5994,279 @@ async function deleteInventoryItem(id) {
   }
 }
 
-function openInventoryPickDialog(inventoryId) {
-  const item = (state.inventory || []).find(i => i.id === inventoryId);
+async function checkinEquipment(id) {
+  const item = (state.inventory || []).find(i => i.id === id);
   if (!item) return;
 
-  const dialog = $("#inventory-pick-dialog");
-  const list = $("#inventory-pick-list");
-  if (!dialog || !list) return;
+  const prevProj = item.assignedProjectTitle || "project";
+  item.assignedProjectId = null;
+  item.assignedProjectTitle = null;
+  if (item.condition === "in_use") item.condition = "operational";
+  item.updatedAt = new Date().toISOString();
 
-  if (state.projects.length === 0) {
-    list.innerHTML = `<p style="padding:16px;color:#888">No projects available yet. Create a project first!</p>`;
+  makeActivity("note", `Returned ${item.name} from ${prevProj} to shop depot`);
+
+  try {
+    await persistState();
+    renderInventory();
+    if ($("#detail-dialog")?.open && activeProjectId) renderProjectDetail(activeProjectId);
+    showToast(`Checked in “${item.name}” back to depot.`);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function scheduleToolCare(id) {
+  const item = (state.inventory || []).find(i => i.id === id);
+  if (!item) return;
+
+  const existingMaint = (state.maintenance || []).find(m => m.toolName && m.toolName.toLowerCase() === item.name.toLowerCase());
+  if (existingMaint) {
+    openMaintenanceDialog(existingMaint);
   } else {
-    list.innerHTML = `
-      <p style="font-size:12px;margin-bottom:10px">Select which project to add <strong>${escapeHTML(item.name)}</strong> to:</p>
-      <div class="inventory-pick-options">
-        ${state.projects.map(p => `
-          <button type="button" class="inventory-pick-row" data-action="add-inventory-to-project" data-project="${p.id}" data-inventory="${item.id}">
-            <strong>${escapeHTML(p.title)}</strong>
-            <span class="status-pill status-${safeStatus(p.status)}">${STATUS_LABELS[safeStatus(p.status)]}</span>
-          </button>
-        `).join("")}
-      </div>
-    `;
+    openMaintenanceDialog({
+      id: "",
+      toolName: item.name,
+      task: "Inspection, bit/blade check & lubrication",
+      intervalDays: 30,
+      lastServiced: new Date().toISOString().slice(0, 10),
+      notes: `Location: ${item.location || "Shop"}. Brand: ${item.brand || ""} ${item.model || ""}`.trim()
+    });
+  }
+}
+
+function exportInventoryCSV() {
+  const items = state.inventory || [];
+  if (!items.length) {
+    showToast("No inventory supplies or tools to export.");
+    return;
   }
 
-  dialog.showModal();
+  const headers = [
+    "Type", "Name", "Category", "Brand", "Model", "Serial_Number",
+    "Condition_Status", "Quantity", "Unit", "Unit_Cost_Or_Price", "Total_Valuation",
+    "Location", "Supplier", "Assigned_Project", "Notes", "Updated_At"
+  ];
+
+  const escapeCSV = val => {
+    if (val == null) return '""';
+    const s = String(val).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  const rows = items.map(i => {
+    const isEquip = i.type === "equipment";
+    const type = isEquip ? "Equipment" : "Material";
+    const qty = isEquip ? 1 : (Number(i.quantity) || 0);
+    const unit = isEquip ? "unit" : (i.unit || "");
+    const cost = Number(i.cost || i.price) || 0;
+    const totalVal = isEquip ? cost : (qty * cost);
+
+    return [
+      escapeCSV(type),
+      escapeCSV(i.name),
+      escapeCSV(i.category || ""),
+      escapeCSV(i.brand || ""),
+      escapeCSV(i.model || ""),
+      escapeCSV(i.serialNumber || ""),
+      escapeCSV(isEquip ? (i.condition || "operational") : (qty <= (i.lowStockThreshold || 1) ? "Low Stock" : "In Stock")),
+      escapeCSV(qty),
+      escapeCSV(unit),
+      escapeCSV(cost.toFixed(2)),
+      escapeCSV(totalVal.toFixed(2)),
+      escapeCSV(i.location || ""),
+      escapeCSV(i.supplier || ""),
+      escapeCSV(i.assignedProjectTitle || ""),
+      escapeCSV(i.notes || ""),
+      escapeCSV(i.updatedAt || "")
+    ].join(",");
+  });
+
+  const csv = [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.download = `workshop_depot_inventory_${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("📋 Exported Workshop Inventory & Equipment to CSV!");
+}
+
+/* ============================================================
+   Pick from Inventory Dialog (Fixing Pic 1 styling & UX)
+   ============================================================ */
+
+function openInventoryPickDialog(inventoryId = null, targetProjectId = null) {
+  const dialog = $("#inventory-pick-dialog");
+  const list = $("#inventory-pick-list");
+  const eyebrowEl = $("#inventory-pick-eyebrow");
+  const titleEl = $("#inventory-pick-title");
+  if (!dialog || !list) return;
+
+  // Flow A: Opened for a specific item (Assign to project)
+  if (inventoryId) {
+    const item = (state.inventory || []).find(i => i.id === inventoryId);
+    if (!item) return;
+
+    const isEquip = item.type === "equipment";
+    if (eyebrowEl) eyebrowEl.textContent = isEquip ? "ASSIGN EQUIPMENT" : "USE MATERIAL";
+    if (titleEl) titleEl.textContent = isEquip ? "Check Out Tool to Project" : "Allocate Material to Project";
+
+    if ((state.projects || []).length === 0) {
+      list.innerHTML = `
+        <div style="padding:28px 16px;text-align:center;color:var(--muted)">
+          <p style="margin-bottom:12px">No projects created yet. Create a project first to use this depot item!</p>
+          <button type="button" class="button button-primary button-small" data-action="new-project">＋ Create Project</button>
+        </div>
+      `;
+      dialog.showModal();
+      return;
+    }
+
+    const availableQty = item.quantity != null ? item.quantity : 1;
+    const unitPrice = Number(item.price || item.cost) || 0;
+
+    list.innerHTML = `
+      <div class="inventory-pick-header-card">
+        <div class="inventory-pick-header-top">
+          <span class="inventory-pick-header-title">${isEquip ? "⚙️" : "📦"} ${escapeHTML(item.name)}</span>
+          <span class="inventory-cost-badge">${unitPrice > 0 ? `$${unitPrice.toFixed(2)}${!isEquip && item.unit ? ` / ${escapeHTML(item.unit)}` : ""}` : "No cost set"}</span>
+        </div>
+        <div class="inventory-pick-header-meta">
+          <span>${escapeHTML(item.category || "General")}</span>
+          ${isEquip ? (item.brand ? ` · ${escapeHTML(item.brand)} ${escapeHTML(item.model || "")}` : "") : ` · In Depot: ${availableQty} ${escapeHTML(item.unit || "units")}`}
+          ${item.location ? ` · 📍 ${escapeHTML(item.location)}` : ""}
+        </div>
+        ${!isEquip ? `
+          <div class="inventory-pick-controls">
+            <label class="inventory-pick-qty-label">
+              <span>Quantity:</span>
+              <input type="number" id="pick-qty-input" class="inventory-pick-qty-input" value="1" min="0.1" max="${availableQty > 0 ? availableQty : 9999}" step="any">
+              <span>${escapeHTML(item.unit || "")}</span>
+            </label>
+            <label class="inventory-pick-check-label">
+              <input type="checkbox" id="pick-deduct-check" checked>
+              <span>Deduct from stock</span>
+            </label>
+            <label class="inventory-pick-check-label">
+              <input type="checkbox" id="pick-cost-check" ${unitPrice > 0 ? "checked" : ""}>
+              <span>Track in project budget ($)</span>
+            </label>
+          </div>
+        ` : `
+          <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+            Checking out this equipment will mark it as <strong>In Use</strong> and track it on the chosen project's workbench.
+          </div>
+        `}
+      </div>
+
+      <input type="search" id="inventory-pick-search-input" class="inventory-pick-search" placeholder="Search projects..." aria-label="Search projects">
+
+      <div class="inventory-pick-options" id="inventory-pick-options-list">
+        ${state.projects.map(p => {
+          const isAssigned = isEquip && item.assignedProjectId === p.id;
+          const statusKey = safeStatus(p.status);
+          return `
+            <button type="button" class="inventory-pick-row" data-action="add-inventory-to-project" data-project="${p.id}" data-inventory="${item.id}">
+              <div class="inventory-pick-row-main">
+                <span class="inventory-pick-row-title">${escapeHTML(p.title)}</span>
+                <span class="inventory-pick-row-meta">
+                  ${escapeHTML(p.category || "Build")}
+                  ${p.targetDate ? ` · Due ${formatDate(p.targetDate)}` : ` · Updated ${relativeTime(p.updatedAt)}`}
+                  ${isAssigned ? `<span class="inventory-pick-row-badge">⚡ Currently Assigned</span>` : ""}
+                </span>
+              </div>
+              <span class="status-pill status-${statusKey}">${STATUS_LABELS[statusKey] || statusKey}</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    // Fast search filter
+    const searchInput = $("#inventory-pick-search-input");
+    searchInput?.addEventListener("input", () => {
+      const q = searchInput.value.toLowerCase().trim();
+      $$(".inventory-pick-row", list).forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? "" : "none";
+      });
+    });
+
+    dialog.showModal();
+    return;
+  }
+
+  // Flow B: Opened from inside Project Detail (selecting item to add to project)
+  if (targetProjectId) {
+    const project = state.projects.find(p => p.id === targetProjectId);
+    if (!project) return;
+
+    if (eyebrowEl) eyebrowEl.textContent = `WORKSHOP DEPOT → ${project.title.toUpperCase()}`;
+    if (titleEl) titleEl.textContent = "Pick from Workshop Inventory";
+
+    const inventory = state.inventory || [];
+    if (inventory.length === 0) {
+      list.innerHTML = `
+        <div style="padding:28px 16px;text-align:center;color:var(--muted)">
+          <p style="margin-bottom:12px">Your shop depot is empty! Add materials or equipment first.</p>
+          <button type="button" class="button button-primary button-small" data-action="open-inventory-dialog">＋ Add First Supply</button>
+        </div>
+      `;
+      dialog.showModal();
+      return;
+    }
+
+    list.innerHTML = `
+      <input type="search" id="inventory-pick-search-input" class="inventory-pick-search" placeholder="Find material, screw, lumber, or tool..." aria-label="Search items">
+      <div class="inventory-pick-options" id="inventory-pick-options-list">
+        ${inventory.map(item => {
+          const isEquip = item.type === "equipment";
+          const isAssignedToThis = isEquip && item.assignedProjectId === project.id;
+          const costVal = Number(item.cost || item.price) || 0;
+          return `
+            <div class="inventory-pick-row" style="cursor:default">
+              <div class="inventory-pick-row-main">
+                <span class="inventory-pick-row-title">${isEquip ? "⚙️" : "📦"} ${escapeHTML(item.name)}</span>
+                <span class="inventory-pick-row-meta">
+                  ${escapeHTML(item.category || "General")}
+                  ${isEquip ? (item.brand ? ` · ${escapeHTML(item.brand)}` : "") : ` · Stock: ${item.quantity ?? 1} ${escapeHTML(item.unit || "units")}`}
+                  ${costVal > 0 ? ` · $${costVal.toFixed(2)}` : ""}
+                  ${item.location ? ` · 📍 ${escapeHTML(item.location)}` : ""}
+                </span>
+              </div>
+              <div>
+                ${isEquip ? `
+                  ${isAssignedToThis ? `
+                    <span class="inventory-pick-row-badge">Checked out</span>
+                  ` : `
+                    <button type="button" class="button button-outline button-small" data-action="add-inventory-to-project" data-project="${project.id}" data-inventory="${item.id}">Check out tool</button>
+                  `}
+                ` : `
+                  <button type="button" class="button button-primary button-small" data-action="add-inventory-to-project" data-project="${project.id}" data-inventory="${item.id}">Add part</button>
+                `}
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    const searchInput = $("#inventory-pick-search-input");
+    searchInput?.addEventListener("input", () => {
+      const q = searchInput.value.toLowerCase().trim();
+      $$(".inventory-pick-row", list).forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? "" : "none";
+      });
+    });
+
+    dialog.showModal();
+  }
 }
 
 async function pickInventoryForProject(projectId, inventoryId) {
@@ -5698,23 +6274,56 @@ async function pickInventoryForProject(projectId, inventoryId) {
   const item = (state.inventory || []).find(i => i.id === inventoryId);
   if (!project || !item) return;
 
-  project.materials = project.materials || [];
-  project.materials.push({
-    id: uid(),
-    name: item.name,
-    qty: item.unit ? `1 ${item.unit}` : "1",
-    cost: 0,
-    status: "have",
-    createdAt: new Date().toISOString()
-  });
-  project.updatedAt = new Date().toISOString();
+  const isEquip = item.type === "equipment";
+
+  if (isEquip) {
+    item.condition = "in_use";
+    item.assignedProjectId = project.id;
+    item.assignedProjectTitle = project.title;
+    item.updatedAt = new Date().toISOString();
+
+    makeActivity("project", `Checked out ${item.name} for ${project.title}`);
+    showToast(`Checked out ${item.name} to ${project.title}!`);
+  } else {
+    // Material
+    const qtyInput = $("#pick-qty-input");
+    const deductCheck = $("#pick-deduct-check");
+    const costCheck = $("#pick-cost-check");
+
+    const qtyToAllocate = qtyInput ? (parseFloat(qtyInput.value) || 1) : 1;
+    const shouldDeduct = deductCheck ? deductCheck.checked : true;
+    const trackCost = costCheck ? costCheck.checked : true;
+    const unitPrice = Number(item.price || item.cost) || 0;
+    const totalCost = trackCost ? (unitPrice * qtyToAllocate) : 0;
+
+    project.materials = project.materials || [];
+    project.materials.push({
+      id: uid(),
+      name: item.name,
+      qty: item.unit ? `${qtyToAllocate} ${item.unit}` : `${qtyToAllocate}`,
+      cost: totalCost,
+      status: "have",
+      inventoryId: item.id,
+      createdAt: new Date().toISOString()
+    });
+
+    if (shouldDeduct) {
+      item.quantity = Math.max(0, (Number(item.quantity) || 0) - qtyToAllocate);
+      item.updatedAt = new Date().toISOString();
+    }
+
+    project.updatedAt = new Date().toISOString();
+    makeActivity("note", `Allocated ${qtyToAllocate} ${item.unit || "units"} of ${item.name} to ${project.title}`);
+    showToast(`Added ${item.name} (${qtyToAllocate} ${item.unit || "units"}) to ${project.title}!`);
+  }
 
   try {
     await persistState();
     $("#inventory-pick-dialog")?.close();
     render();
-    if ($("#detail-dialog").open && activeProjectId === projectId) renderProjectDetail(projectId);
-    showToast(`Added ${item.name} to ${project.title}!`);
+    if ($("#detail-dialog")?.open && activeProjectId === projectId) {
+      renderProjectDetail(projectId);
+    }
   } catch (e) {
     console.error(e);
   }
@@ -7407,7 +8016,7 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "open-inventory-dialog") {
-    openInventoryDialog(id ? (state.inventory || []).find(i => i.id === id) : null);
+    openInventoryDialog(id ? (state.inventory || []).find(i => i.id === id) : null, target.dataset.type || "material");
     return;
   }
   if (action === "edit-inventory-item") {
@@ -7425,7 +8034,26 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "pick-from-inventory") {
-    openInventoryPickDialog(id);
+    openInventoryPickDialog(id || null, target.dataset.project || null);
+    return;
+  }
+  if (action === "checkin-equipment") {
+    void checkinEquipment(id);
+    return;
+  }
+  if (action === "schedule-tool-care") {
+    scheduleToolCare(id);
+    return;
+  }
+  if (action === "export-inventory-csv") {
+    exportInventoryCSV();
+    return;
+  }
+  if (action === "toggle-inventory-alerts") {
+    state.inventoryAlertsOnly = !state.inventoryAlertsOnly;
+    target.classList.toggle("button-primary", state.inventoryAlertsOnly);
+    target.classList.toggle("button-outline", !state.inventoryAlertsOnly);
+    renderInventory();
     return;
   }
   if (action === "add-inventory-to-project") {
@@ -8132,6 +8760,13 @@ async function handleAction(action, target) {
     recordDeletedProjectId(projectId);
     (project.folders || []).forEach(folder => (folder.images || []).forEach(image => releaseImageUrl(image.id)));
     state.projects = state.projects.filter(item => item.id !== projectId);
+    (state.inventory || []).forEach(item => {
+      if (item.assignedProjectId === projectId) {
+        item.assignedProjectId = null;
+        item.assignedProjectTitle = null;
+        if (item.condition === "in_use") item.condition = "operational";
+      }
+    });
 
     const shared = getSharedCollaborations().filter(p => p.id !== projectId);
     saveSharedCollaborations(shared);
@@ -8369,7 +9004,37 @@ $("#shopping-status-filter")?.addEventListener("change", renderShoppingList);
 $("#shopping-project-filter")?.addEventListener("change", renderShoppingList);
 $("#inventory-search")?.addEventListener("input", renderInventory);
 $("#inventory-category-filter")?.addEventListener("change", renderInventory);
+$("#inventory-condition-filter")?.addEventListener("change", renderInventory);
 $("#inventory-form")?.addEventListener("submit", event => void handleInventorySubmit(event));
+
+// Type selector in inventory modal
+$$('#inventory-form input[name="itemType"]').forEach(radio => {
+  radio.addEventListener("change", () => {
+    const isEquip = radio.value === "equipment";
+    $("#inventory-material-fields")?.classList.toggle("hidden", isEquip);
+    $("#inventory-equipment-fields")?.classList.toggle("hidden", !isEquip);
+    const titleEl = $("#inventory-dialog-title");
+    const eyebrowEl = $("#inventory-dialog-eyebrow");
+    const idVal = $("#inventory-form input[name='id']")?.value;
+    if (titleEl) titleEl.textContent = isEquip ? (idVal ? "Edit Tool / Equipment" : "Add Tool / Equipment") : (idVal ? "Edit Material / Supply" : "Add Material / Supply");
+    if (eyebrowEl) eyebrowEl.textContent = isEquip ? "WORKSHOP EQUIPMENT" : "WORKSHOP SUPPLIES";
+  });
+});
+
+// Segmented view tabs in inventory depot
+$$(".inventory-segmented-tabs .inventory-tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    state.inventoryActiveTab = btn.dataset.tab || "all";
+    $$(".inventory-segmented-tabs .inventory-tab-btn").forEach(b => {
+      const active = b === btn;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    const condWrap = $("#inventory-condition-wrap");
+    if (condWrap) condWrap.style.display = state.inventoryActiveTab === "material" ? "none" : "";
+    renderInventory();
+  });
+});
 $("#template-form")?.addEventListener("submit", event => void handleTemplateSubmit(event));
 $("#project-form").addEventListener("submit", event => void handleProjectSubmit(event));
 $("#project-template-select")?.addEventListener("change", event => {
@@ -10253,8 +10918,11 @@ async function saveUnitsSettings() {
       }
     }
     for (const item of (state.inventory || [])) {
-      if (Number.isFinite(Number(item.cost)) && Number(item.cost) > 0) {
-        item.cost = Math.round(Number(item.cost) * ratio * 100) / 100;
+      const priceVal = Number(item.cost != null ? item.cost : item.price);
+      if (Number.isFinite(priceVal) && priceVal > 0) {
+        const converted = Math.round(priceVal * ratio * 100) / 100;
+        item.cost = converted;
+        item.price = converted;
         convertedPricesCount++;
       }
     }

@@ -324,32 +324,107 @@
             <div class="section-heading">
               <div>
                 <div class="eyebrow"><span class="eyebrow-line"></span> YOUR WORKSHOP DEPOT</div>
-                <h1 id="inventory-title">Inventory<span class="heading-period">.</span></h1>
-                <p>Track common supplies, scrap lumber, fasteners, finishes, and parts stored in your shop.</p>
+                <h1 id="inventory-title">Inventory &amp; Tools<span class="heading-period">.</span></h1>
+                <p>Track common supplies, scrap lumber, fasteners, materials, machinery, and equipment in your shop.</p>
               </div>
-              <button class="button button-primary" data-action="open-inventory-dialog">＋ Add supply</button>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="export-inventory-csv" title="Export workshop inventory and tools to CSV">📋 Export CSV</button>
+                <button type="button" class="button button-outline" data-action="open-inventory-dialog" data-type="equipment">⚙️ Add Equipment</button>
+                <button type="button" class="button button-primary" data-action="open-inventory-dialog" data-type="material">📦 Add Material</button>
+              </div>
             </div>
+
+            <!-- Depot Summary Metrics -->
+            <div class="inventory-metrics-strip" id="inventory-metrics-strip">
+              <div class="inventory-metric-tile">
+                <div class="inventory-metric-icon">🪵</div>
+                <div class="inventory-metric-content">
+                  <span class="inventory-metric-label">Materials &amp; Supplies</span>
+                  <strong class="inventory-metric-val" id="inv-mat-val">$0.00</strong>
+                  <span class="inventory-metric-sub" id="inv-mat-count">0 items in stock</span>
+                </div>
+              </div>
+              <div class="inventory-metric-tile">
+                <div class="inventory-metric-icon">⚙️</div>
+                <div class="inventory-metric-content">
+                  <span class="inventory-metric-label">Tools &amp; Equipment</span>
+                  <strong class="inventory-metric-val" id="inv-equip-val">$0.00</strong>
+                  <span class="inventory-metric-sub" id="inv-equip-count">0 tools · $0 valuation</span>
+                </div>
+              </div>
+              <div class="inventory-metric-tile">
+                <div class="inventory-metric-icon">📊</div>
+                <div class="inventory-metric-content">
+                  <span class="inventory-metric-label">Depot Status</span>
+                  <strong class="inventory-metric-val" id="inv-status-val">All Good</strong>
+                  <span class="inventory-metric-sub" id="inv-status-sub">0 care tasks · 0 in use</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Segmented Category / Type Tabs dividing materials from equipment -->
+            <div class="inventory-segmented-tabs" role="tablist">
+              <button type="button" class="inventory-tab-btn active" data-tab="all" role="tab" aria-selected="true">
+                <span>All Depot</span>
+                <span class="inventory-tab-pill" id="tab-count-all">0</span>
+              </button>
+              <button type="button" class="inventory-tab-btn" data-tab="material" role="tab" aria-selected="false">
+                <span>📦 Materials &amp; Supplies</span>
+                <span class="inventory-tab-pill" id="tab-count-materials">0</span>
+              </button>
+              <button type="button" class="inventory-tab-btn" data-tab="equipment" role="tab" aria-selected="false">
+                <span>⚙️ Tools &amp; Equipment</span>
+                <span class="inventory-tab-pill" id="tab-count-equipment">0</span>
+              </button>
+            </div>
+
             <div class="toolbar inventory-toolbar">
               <label class="search-box">
                 <span aria-hidden="true">⌕</span>
-                <input id="inventory-search" type="search" placeholder="Find supply, bin, or material..." aria-label="Search inventory">
+                <input id="inventory-search" type="search" placeholder="Find material, brand, model, bin, or tool..." aria-label="Search inventory">
               </label>
               <label class="select-wrap">
                 <span class="sr-only">Filter by category</span>
                 <select id="inventory-category-filter">
                   <option value="all">All categories</option>
-                  <option value="Lumber / Scrap">Lumber / Scrap</option>
-                  <option value="Fasteners &amp; Hardware">Fasteners &amp; Hardware</option>
-                  <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
-                  <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
-                  <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
-                  <option value="Tools &amp; Blades">Tools &amp; Blades</option>
-                  <option value="Other">Other</option>
+                  <optgroup label="Materials &amp; Supplies">
+                    <option value="Lumber / Scrap">Lumber / Scrap</option>
+                    <option value="Fasteners &amp; Hardware">Fasteners &amp; Hardware</option>
+                    <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
+                    <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
+                    <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
+                    <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
+                    <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
+                    <option value="Other Supplies">Other Supplies</option>
+                  </optgroup>
+                  <optgroup label="Tools &amp; Equipment">
+                    <option value="Stationary Machinery">Stationary Machinery</option>
+                    <option value="Power Hand Tools">Power Hand Tools</option>
+                    <option value="3D Printers &amp; CNC">3D Printers &amp; CNC</option>
+                    <option value="Hand Tools &amp; Measuring">Hand Tools &amp; Measuring</option>
+                    <option value="Dust Collection &amp; Air">Dust Collection &amp; Air</option>
+                    <option value="Finishing &amp; Spraying">Finishing &amp; Spraying</option>
+                    <option value="Safety Gear &amp; PPE">Safety Gear &amp; PPE</option>
+                    <option value="Other Equipment">Other Equipment</option>
+                  </optgroup>
                 </select>
               </label>
+              <label class="select-wrap" id="inventory-condition-wrap">
+                <span class="sr-only">Filter by condition</span>
+                <select id="inventory-condition-filter">
+                  <option value="all">All tool conditions</option>
+                  <option value="operational">🟢 Operational / Ready</option>
+                  <option value="maintenance_needed">🟡 Service Needed</option>
+                  <option value="in_use">🔵 In Use / Checked Out</option>
+                  <option value="repair">🔴 Out of Service</option>
+                  <option value="borrowed">🟣 Loaned Out</option>
+                </select>
+              </label>
+              <button type="button" class="button button-outline button-small" id="inventory-alert-toggle" data-action="toggle-inventory-alerts" title="Show only items needing attention (low stock or care due)">⚠️ Alerts Only</button>
               <span class="result-count" id="inventory-result-count"></span>
             </div>
-            <div class="inventory-grid" id="inventory-grid"></div>
+
+            <div class="inventory-grid-wrap" id="inventory-grid"></div>
             <div id="inventory-maintenance-section" class="maintenance-container"></div>
           </section>
 
@@ -853,40 +928,107 @@
     <dialog class="app-dialog compact-dialog" id="inventory-dialog" aria-label="Add or Edit Inventory Item">
       <form id="inventory-form" method="dialog">
         <div class="dialog-heading">
-          <div><div class="eyebrow">WORKSHOP SUPPLIES</div><h2 id="inventory-dialog-title">Add supply item</h2></div>
+          <div><div class="eyebrow" id="inventory-dialog-eyebrow">WORKSHOP SUPPLIES</div><h2 id="inventory-dialog-title">Add supply item</h2></div>
           <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
         </div>
         <input type="hidden" name="id">
-        <label class="field-label">Supply or material name<input name="name" required maxlength="80" placeholder="e.g. 1/4&quot; Baltic Birch Plywood, Titebond II, M3 Screws"></label>
-        <div class="form-row">
-          <label class="field-label">Category
-            <select name="category">
-              <option value="Lumber / Scrap">Lumber / Scrap</option>
-              <option value="Fasteners &amp; Hardware">Fasteners &amp; Hardware</option>
-              <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
-              <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
-              <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
-              <option value="Tools &amp; Blades">Tools &amp; Blades</option>
-              <option value="Other">Other</option>
-            </select>
+
+        <!-- Type Selector: Material vs Equipment -->
+        <div class="inventory-type-toggle">
+          <label class="inventory-type-btn">
+            <input type="radio" name="itemType" value="material" checked>
+            <span>📦 Material / Supply</span>
           </label>
-          <label class="field-label">Storage location / bin <span class="optional">(optional)</span>
-            <input name="location" maxlength="40" placeholder="e.g. Bin 4A, Top Rack, Drawer 2">
+          <label class="inventory-type-btn">
+            <input type="radio" name="itemType" value="equipment">
+            <span>⚙️ Tool / Equipment</span>
           </label>
         </div>
-        <div class="form-row">
-          <label class="field-label">Quantity in stock<input name="quantity" type="number" step="any" min="0" required value="1" placeholder="e.g. 5"></label>
-          <label class="field-label">Unit of measure<input name="unit" maxlength="20" placeholder="e.g. pcs, sheets, boards, ft, spool"></label>
-        </div>
-        <div class="form-row">
-          <label class="field-label">Est. Unit Price ($) <span class="optional">(optional)</span><input name="price" type="number" step="any" min="0" placeholder="e.g. 14.50"></label>
+
+        <!-- Material Fields Container -->
+        <div id="inventory-material-fields" class="inventory-type-panel">
+          <label class="field-label">Supply or material name<input name="name" maxlength="80" placeholder="e.g. 1/4&quot; Baltic Birch Plywood, Titebond II, M3 Screws"></label>
+          <div class="form-row">
+            <label class="field-label">Category
+              <select name="category">
+                <option value="Lumber / Scrap">Lumber / Scrap</option>
+                <option value="Fasteners &amp; Hardware">Fasteners &amp; Hardware</option>
+                <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
+                <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
+                <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
+                <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
+                <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
+                <option value="Other Supplies">Other Supplies</option>
+              </select>
+            </label>
+            <label class="field-label">Storage location / bin <span class="optional">(optional)</span>
+              <input name="location" maxlength="40" placeholder="e.g. Bin 4A, Top Rack, Lumber Bin">
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Quantity in stock<input name="quantity" type="number" step="any" min="0" value="1" placeholder="e.g. 5"></label>
+            <label class="field-label">Unit of measure<input name="unit" maxlength="20" placeholder="e.g. pcs, sheets, boards, ft, spool"></label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Est. Unit Price ($) <span class="optional">(optional)</span><input name="price" type="number" step="any" min="0" placeholder="e.g. 14.50"></label>
+            <label class="field-label">Low Stock Alert Threshold <span class="optional">(optional)</span><input name="lowStockThreshold" type="number" min="0" step="1" placeholder="e.g. 2"></label>
+          </div>
           <label class="field-label">Preferred Supplier / Link <span class="optional">(optional)</span><input name="supplier" maxlength="100" placeholder="e.g. McMaster, Amazon, Local yard"></label>
+          <label class="field-label">Notes / Dimensions / Specs <span class="optional">(optional)</span><textarea name="notes" rows="2" maxlength="300" placeholder="e.g. 12&quot;x24&quot; offcuts, coarse thread, PETG Black"></textarea></label>
         </div>
-        <label class="field-label">Notes / Dimensions / Specs <span class="optional">(optional)</span><textarea name="notes" rows="2" maxlength="300" placeholder="e.g. 12&quot;x24&quot; offcuts, coarse thread, PETG Black"></textarea></label>
+
+        <!-- Equipment Fields Container -->
+        <div id="inventory-equipment-fields" class="inventory-type-panel hidden">
+          <label class="field-label">Tool or equipment name<input name="equipName" maxlength="80" placeholder="e.g. DeWalt 10&quot; Table Saw, Bambu Lab X1C, Plunge Router"></label>
+          <div class="form-row">
+            <label class="field-label">Equipment Category
+              <select name="equipCategory">
+                <option value="Stationary Machinery">Stationary Machinery (Table saw, planer, lathe)</option>
+                <option value="Power Hand Tools">Power Hand Tools (Drill, router, sander)</option>
+                <option value="3D Printers &amp; CNC">3D Printers &amp; CNC (FDM, resin, CNC router)</option>
+                <option value="Hand Tools &amp; Measuring">Hand Tools &amp; Measuring (Chisels, calipers)</option>
+                <option value="Dust Collection &amp; Air">Dust Collection &amp; Air (Vac, compressor)</option>
+                <option value="Finishing &amp; Spraying">Finishing &amp; Spraying (HVLP, buffer)</option>
+                <option value="Safety Gear &amp; PPE">Safety Gear &amp; PPE (Respirator, face shield)</option>
+                <option value="Other Equipment">Other Equipment</option>
+              </select>
+            </label>
+            <label class="field-label">Condition / Status
+              <select name="equipCondition">
+                <option value="operational">🟢 Operational / Ready</option>
+                <option value="maintenance_needed">🟡 Service / Blade Swap Needed</option>
+                <option value="in_use">🔵 In Use / Checked Out</option>
+                <option value="repair">🔴 Out of Service / Broken</option>
+                <option value="borrowed">🟣 Loaned Out</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Brand / Manufacturer <span class="optional">(optional)</span><input name="equipBrand" maxlength="50" placeholder="e.g. DeWalt, Bosch, Bambu Lab"></label>
+            <label class="field-label">Model Number <span class="optional">(optional)</span><input name="equipModel" maxlength="50" placeholder="e.g. DWE7491RS, X1-Carbon"></label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Acquisition / Replacement Cost ($)<input name="equipCost" type="number" step="any" min="0" placeholder="e.g. 599.00"></label>
+            <label class="field-label">Shop Station / Location<input name="equipLocation" maxlength="40" placeholder="e.g. Machine Bay, Bench 2, Print Farm"></label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Serial / Asset Tag <span class="optional">(optional)</span><input name="equipSerial" maxlength="40" placeholder="e.g. SN-884192 or TAG-04"></label>
+            <label class="field-label">Power / Specs <span class="optional">(optional)</span><input name="equipSpecs" maxlength="60" placeholder="e.g. 15A 120V, 3HP, 0.4mm nozzle"></label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Purchase Date <span class="optional">(optional)</span><input name="equipPurchaseDate" type="date"></label>
+            <label class="field-label" style="display:flex;align-items:center;margin-top:20px;gap:6px;cursor:pointer">
+              <input type="checkbox" name="equipCreateCare" value="1" style="width:auto;min-height:auto">
+              <span>Schedule Care Task</span>
+            </label>
+          </div>
+          <label class="field-label">Notes, Included Accessories, Safety SOP <span class="optional">(optional)</span><textarea name="equipNotes" rows="2" maxlength="300" placeholder="e.g. Dado throat plate included; must wear eye protection; lube rails quarterly"></textarea></label>
+        </div>
+
         <div class="dialog-actions">
           <button type="button" class="danger-button hidden" id="delete-inventory-btn" data-action="delete-inventory-item">Delete</button>
           <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
-          <button class="button button-primary" type="submit">Save supply <span>→</span></button>
+          <button class="button button-primary" type="submit" id="inventory-save-btn">Save to depot <span>→</span></button>
         </div>
       </form>
     </dialog>
@@ -908,9 +1050,9 @@
       </form>
     </dialog>
 
-    <dialog class="app-dialog compact-dialog" id="inventory-pick-dialog" aria-label="Pick from Workshop Inventory">
+    <dialog class="app-dialog inventory-pick-modal" id="inventory-pick-dialog" aria-label="Pick from Workshop Inventory">
       <div class="dialog-heading">
-        <div><div class="eyebrow">SHOP DEPOT</div><h2>Pick from Inventory</h2></div>
+        <div><div class="eyebrow" id="inventory-pick-eyebrow">SHOP DEPOT</div><h2 id="inventory-pick-title">Pick from Inventory</h2></div>
         <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
       </div>
       <div id="inventory-pick-list"></div>
