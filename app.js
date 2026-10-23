@@ -4341,6 +4341,8 @@ function finishTimer() {
 function openToolsDialog() {
   renderFractionChart();
   updateEpoxyCalc();
+  populateUnitDropdowns($("#tool-unit-category")?.value || "length");
+  updateUniversalUnitConverter();
   $("#tools-dialog")?.showModal();
 }
 
@@ -4350,6 +4352,131 @@ function switchToolTab(tab) {
     panel.style.display = panel.id === ("tool-panel-" + tab) ? "block" : "none";
   });
   if (tab === "epoxy") updateEpoxyCalc();
+  if (tab === "units") {
+    populateUnitDropdowns($("#tool-unit-category")?.value || "length");
+    updateUniversalUnitConverter();
+  }
+}
+
+const UNIT_CATEGORIES = {
+  length: {
+    name: "Length & Distance",
+    units: {
+      in: { name: "Inches (in)", factor: 0.0254 },
+      ft: { name: "Feet (ft)", factor: 0.3048 },
+      yd: { name: "Yards (yd)", factor: 0.9144 },
+      mm: { name: "Millimeters (mm)", factor: 0.001 },
+      cm: { name: "Centimeters (cm)", factor: 0.01 },
+      m: { name: "Meters (m)", factor: 1.0 },
+      km: { name: "Kilometers (km)", factor: 1000.0 },
+      mi: { name: "Miles (mi)", factor: 1609.344 }
+    },
+    defaultFrom: "in",
+    defaultTo: "mm"
+  },
+  weight: {
+    name: "Weight & Mass",
+    units: {
+      oz: { name: "Ounces (oz)", factor: 0.0283495 },
+      lb: { name: "Pounds (lb)", factor: 0.453592 },
+      g: { name: "Grams (g)", factor: 0.001 },
+      kg: { name: "Kilograms (kg)", factor: 1.0 },
+      ton: { name: "Metric Tonnes", factor: 1000.0 }
+    },
+    defaultFrom: "lb",
+    defaultTo: "kg"
+  },
+  volume: {
+    name: "Liquid Volume",
+    units: {
+      floz: { name: "Fluid Ounces (fl oz)", factor: 0.0295735 },
+      cup: { name: "US Cups", factor: 0.236588 },
+      pt: { name: "Pints (pt)", factor: 0.473176 },
+      qt: { name: "Quarts (qt)", factor: 0.946353 },
+      gal: { name: "Gallons (gal)", factor: 3.78541 },
+      ml: { name: "Milliliters (ml)", factor: 0.001 },
+      l: { name: "Liters (L)", factor: 1.0 },
+      tbsp: { name: "Tablespoons (tbsp)", factor: 0.0147868 },
+      tsp: { name: "Teaspoons (tsp)", factor: 0.00492892 }
+    },
+    defaultFrom: "floz",
+    defaultTo: "ml"
+  },
+  temp: {
+    name: "Temperature",
+    units: {
+      c: { name: "Celsius (°C)" },
+      f: { name: "Fahrenheit (°F)" },
+      k: { name: "Kelvin (K)" }
+    },
+    defaultFrom: "f",
+    defaultTo: "c"
+  }
+};
+
+function populateUnitDropdowns(catKey) {
+  const cat = UNIT_CATEGORIES[catKey] || UNIT_CATEGORIES.length;
+  const fromSel = $("#tool-unit-from");
+  const toSel = $("#tool-unit-to");
+  if (!fromSel || !toSel || !cat) return;
+
+  const prevFrom = fromSel.value;
+  const prevTo = toSel.value;
+
+  const html = Object.keys(cat.units).map(key => `<option value="${key}">${cat.units[key].name}</option>`).join("");
+  fromSel.innerHTML = html;
+  toSel.innerHTML = html;
+
+  fromSel.value = cat.units[prevFrom] ? prevFrom : cat.defaultFrom;
+  toSel.value = cat.units[prevTo] ? prevTo : cat.defaultTo;
+}
+
+function updateUniversalUnitConverter() {
+  const catKey = $("#tool-unit-category")?.value || "length";
+  const val = parseFloat($("#tool-unit-val")?.value);
+  const fromKey = $("#tool-unit-from")?.value;
+  const toKey = $("#tool-unit-to")?.value;
+  const res = $("#tool-unit-result");
+  if (!res) return;
+
+  if (isNaN(val)) {
+    res.innerHTML = '<span style="color:var(--muted);font-size:12px">Enter a measurement above to calculate conversion.</span>';
+    return;
+  }
+
+  const cat = UNIT_CATEGORIES[catKey];
+  if (!cat) return;
+
+  let converted = 0;
+  if (catKey === "temp") {
+    let degC = val;
+    if (fromKey === "f") degC = (val - 32) * (5 / 9);
+    else if (fromKey === "k") degC = val - 273.15;
+
+    if (toKey === "c") converted = degC;
+    else if (toKey === "f") converted = (degC * 9 / 5) + 32;
+    else if (toKey === "k") converted = degC + 273.15;
+  } else {
+    const fromFactor = cat.units[fromKey]?.factor || 1;
+    const toFactor = cat.units[toKey]?.factor || 1;
+    const baseVal = val * fromFactor;
+    converted = baseVal / toFactor;
+  }
+
+  const precision = Math.abs(converted) >= 100 ? 2 : Math.abs(converted) >= 1 ? 3 : 5;
+  const fromName = cat.units[fromKey]?.name || fromKey;
+  const toName = cat.units[toKey]?.name || toKey;
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--muted)">CONVERTED VALUE:</span>
+      <strong style="font-size:18px;color:var(--green)">${converted.toFixed(precision)} ${toName.split("(")[0].trim()}</strong>
+    </div>
+    <div style="font-size:12px;color:var(--ink);line-height:1.4">
+      • <strong>${val} ${fromName}</strong> = <strong>${converted.toFixed(precision)} ${toName}</strong><br>
+      ${catKey === "length" && fromKey === "in" && typeof toNearestFraction === "function" ? `• Nearest Fractional Inch: <strong>${toNearestFraction(val)}"</strong>` : ""}
+    </div>
+  `;
 }
 
 function parseFraction(str) {
@@ -9206,6 +9333,14 @@ async function handleAction(action, target) {
     void copyWoodCutPlan();
     return;
   }
+  if (action === "toggle-metronome") {
+    toggleMetronome();
+    return;
+  }
+  if (action === "tap-metronome-tempo") {
+    tapMetronomeTempo();
+    return;
+  }
   if (action === "export-stitch-png") {
     exportStitchChartPng();
     return;
@@ -10511,6 +10646,14 @@ $("#tool-epoxy-waste")?.addEventListener("input", updateEpoxyCalc);
 $("#tool-screw-size")?.addEventListener("change", updateScrewGuide);
 $("#tool-screw-wood")?.addEventListener("change", updateScrewGuide);
 $("#inventory-csv-file")?.addEventListener("change", parseInventoryCSV);
+
+// Universal Unit Converter listeners
+$("#tool-unit-category")?.addEventListener("change", (e) => {
+  populateUnitDropdowns(e.target.value);
+  updateUniversalUnitConverter();
+});
+["#tool-unit-val", "#tool-unit-from", "#tool-unit-to"].forEach(s => $(s)?.addEventListener("input", updateUniversalUnitConverter));
+["#tool-unit-from", "#tool-unit-to"].forEach(s => $(s)?.addEventListener("change", updateUniversalUnitConverter));
 
 // Miter & Polygon Calculator listeners
 $("#tool-miter-preset")?.addEventListener("change", updateMiterCalc);
@@ -13732,60 +13875,6 @@ function playPitchToneAction() {
   showToast(`🎵 Playing ${note} tone (${freq.toFixed(1)} Hz)`);
 }
 
-let metronomeIntervalId = null;
-let metronomeBeat = 0;
-
-function toggleMetronome() {
-  const btn = $("#tool-music-metronome-btn");
-  if (metronomeIntervalId) {
-    clearInterval(metronomeIntervalId);
-    metronomeIntervalId = null;
-    metronomeBeat = 0;
-    if (btn) {
-      btn.textContent = "🔊 Metronome: Off";
-      btn.classList.remove("button-primary");
-      btn.classList.add("button-outline");
-    }
-    showToast("Metronome stopped.");
-    return;
-  }
-
-  const bpm = Math.max(30, Math.min(300, parseFloat($("#tool-music-bpm")?.value) || 120));
-  const intervalMs = 60000 / bpm;
-
-  metronomeBeat = 0;
-  const ctx = getMusicAudioCtx();
-
-  function tick() {
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const isFirstBeat = (metronomeBeat % 4) === 0;
-
-    osc.frequency.setValueAtTime(isFirstBeat ? 1000 : 700, now);
-    gain.gain.setValueAtTime(0.4, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.04);
-
-    metronomeBeat++;
-  }
-
-  tick();
-  metronomeIntervalId = setInterval(tick, intervalMs);
-
-  if (btn) {
-    btn.textContent = `🔊 Metronome: ${bpm} BPM`;
-    btn.classList.remove("button-outline");
-    btn.classList.add("button-primary");
-  }
-  showToast(`Metronome active at ${bpm} BPM.`);
-}
-
 /* ============================================================
    🎹 Chord Progressions & 16-Step Drum Machine Studio
    ============================================================ */
@@ -14706,6 +14795,143 @@ function playPitchToneViewAction() {
   showToast(`🎵 Playing ${note} tone (${freq.toFixed(1)} Hz)`);
 }
 
+const metronomeState = {
+  bpm: 105,
+  timeSignature: 4,
+  currentBeat: 0,
+  isPlaying: false,
+  timerId: null,
+  audioCtx: null,
+  tapTimes: []
+};
+
+function renderMetronomeDots() {
+  const container = $("#metronome-beat-dots");
+  if (!container) return;
+  const numBeats = metronomeState.timeSignature;
+  let html = "";
+  for (let i = 0; i < numBeats; i++) {
+    const isCur = metronomeState.isPlaying && (metronomeState.currentBeat === i);
+    const bg = isCur ? (i === 0 ? "var(--green)" : "#0284c7") : "var(--border)";
+    const scale = isCur ? "transform:scale(1.4);box-shadow:0 0 6px var(--green);" : "";
+    html += `<span class="metronome-dot" style="width:12px;height:12px;border-radius:50%;background:${bg};display:inline-block;transition:all 0.08s ease;${scale}"></span>`;
+  }
+  container.innerHTML = html;
+}
+
+function playMetronomeClick(isDownbeat) {
+  try {
+    if (!metronomeState.audioCtx) {
+      metronomeState.audioCtx = (typeof getMusicAudioCtx === "function") ? getMusicAudioCtx() : new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const ctx = metronomeState.audioCtx;
+    if (!ctx) return;
+    if (ctx.state === "suspended") void ctx.resume();
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+
+    if (isDownbeat) {
+      osc.frequency.setValueAtTime(1400, now);
+      osc.frequency.exponentialRampToValueAtTime(700, now + 0.035);
+      gain.gain.setValueAtTime(0.25, now);
+    } else {
+      osc.frequency.setValueAtTime(850, now);
+      osc.frequency.exponentialRampToValueAtTime(450, now + 0.025);
+      gain.gain.setValueAtTime(0.12, now);
+    }
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.045);
+  } catch {}
+}
+
+function startMetronome() {
+  if (metronomeState.isPlaying) return;
+  metronomeState.isPlaying = true;
+  metronomeState.currentBeat = 0;
+
+  const btn = $("#metronome-toggle-btn");
+  if (btn) {
+    btn.textContent = "⏹ Stop Metronome";
+    btn.classList.add("button-danger");
+    btn.classList.remove("button-primary");
+  }
+
+  const tick = () => {
+    if (!metronomeState.isPlaying) return;
+    const isDownbeat = (metronomeState.currentBeat === 0);
+    playMetronomeClick(isDownbeat);
+    renderMetronomeDots();
+    metronomeState.currentBeat = (metronomeState.currentBeat + 1) % metronomeState.timeSignature;
+  };
+
+  tick();
+  const intervalMs = (60 / metronomeState.bpm) * 1000;
+  metronomeState.timerId = setInterval(tick, intervalMs);
+}
+
+function stopMetronome() {
+  metronomeState.isPlaying = false;
+  if (metronomeState.timerId) {
+    clearInterval(metronomeState.timerId);
+    metronomeState.timerId = null;
+  }
+  const btn = $("#metronome-toggle-btn");
+  if (btn) {
+    btn.textContent = "▶ Start Metronome";
+    btn.classList.remove("button-danger");
+    btn.classList.add("button-primary");
+  }
+  renderMetronomeDots();
+}
+
+function toggleMetronome() {
+  if (metronomeState.isPlaying) stopMetronome();
+  else startMetronome();
+}
+
+function setMetronomeBpm(newBpm) {
+  metronomeState.bpm = Math.max(30, Math.min(280, parseInt(newBpm, 10) || 105));
+  const valDisplay = $("#metronome-bpm-val");
+  const slider = $("#metronome-bpm-slider");
+  if (valDisplay) valDisplay.textContent = metronomeState.bpm;
+  if (slider) slider.value = metronomeState.bpm;
+
+  if (metronomeState.isPlaying) {
+    clearInterval(metronomeState.timerId);
+    const intervalMs = (60 / metronomeState.bpm) * 1000;
+    metronomeState.timerId = setInterval(() => {
+      if (!metronomeState.isPlaying) return;
+      const isDownbeat = (metronomeState.currentBeat === 0);
+      playMetronomeClick(isDownbeat);
+      renderMetronomeDots();
+      metronomeState.currentBeat = (metronomeState.currentBeat + 1) % metronomeState.timeSignature;
+    }, intervalMs);
+  }
+}
+
+function tapMetronomeTempo() {
+  const now = performance.now();
+  metronomeState.tapTimes.push(now);
+  if (metronomeState.tapTimes.length > 4) metronomeState.tapTimes.shift();
+  if (metronomeState.tapTimes.length >= 2) {
+    const diffs = [];
+    for (let i = 1; i < metronomeState.tapTimes.length; i++) {
+      diffs.push(metronomeState.tapTimes[i] - metronomeState.tapTimes[i - 1]);
+    }
+    const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+    if (avgDiff > 200 && avgDiff < 3000) {
+      const calculatedBpm = Math.round(60000 / avgDiff);
+      setMetronomeBpm(calculatedBpm);
+    }
+  }
+}
+
 function renderMusicStudioView() {
   renderChordSlotsUI();
   renderDiatonicChordsUI();
@@ -14714,6 +14940,7 @@ function renderMusicStudioView() {
   updateMusicViewNoteResult();
   renderPianoKeyboardUI();
   updateMusicScaleView();
+  renderMetronomeDots();
 }
 
 function initChordStudio() {
@@ -17564,6 +17791,169 @@ function updateWoodworkingStudio() {
       </div>
     `;
   }
+
+  // 5. Joinery & Sanding Guides
+  updateWoodJoineryGuide();
+  updateWoodSandingGuide();
+}
+
+const WOOD_JOINERY_DB = {
+  mortise_tenon: {
+    name: "Mortise & Tenon",
+    strength: "⭐⭐⭐⭐⭐ Exceptional (Gold Standard)",
+    racking: "Extreme resistance to diagonal racking forces",
+    glueArea: "Very high internal face-to-face glue surface",
+    tools: "Mortise chisel, router, or hollow chisel mortiser + tenon saw",
+    bestFor: "Table legs and aprons, chair frames, entry doors, frame-and-panel casework",
+    tips: "Aim for tenon thickness = 1/3 the board thickness. Tenon length should be 2/3 to 3/4 the mortise piece width."
+  },
+  through_dovetail: {
+    name: "Through Dovetail",
+    strength: "⭐⭐⭐⭐⭐ Maximum Mechanical Interlock",
+    racking: "Immune to pull-apart tension in the pin direction",
+    glueArea: "Extensive long-grain to long-grain contact",
+    tools: "Dovetail saw, marking gauge, sharp bench chisels, coping saw",
+    bestFor: "Heirloom blanket chests, visible case corners, high-end furniture",
+    tips: "Tails first vs. pins first is preference; 1:6 ratio for softwoods, 1:8 for hardwoods."
+  },
+  half_blind_dovetail: {
+    name: "Half-Blind Dovetail",
+    strength: "⭐⭐⭐⭐⭐ Superb (Invisible from front)",
+    racking: "Exceptional resistance to drawer-opening pull forces",
+    glueArea: "High long-grain contact",
+    tools: "Dovetail saw, router dovetail jig, or hand chisels",
+    bestFor: "Traditional premium drawer box construction",
+    tips: "Pins terminate ~1/4\" before the drawer front face, hiding end-grain from the front view."
+  },
+  pocket_hole: {
+    name: "Pocket Hole Screw Joinery",
+    strength: "⭐⭐⭐ Moderate to Good",
+    racking: "Moderate (relies on screw clamping & friction; no mechanical interlock)",
+    glueArea: "End-grain to edge-grain (glue adds minimal strength; screws do the work)",
+    tools: "Pocket hole jig (Kreg), stepped drill bit, face clamp, square-drive screws",
+    bestFor: "Cabinet face frames, shop furniture, rapid mockups, pocket-attaching table tops",
+    tips: "Use coarse-thread screws for softwoods/plywood, fine-thread for hardwoods. Always clamp tightly before driving screws."
+  },
+  dowel: {
+    name: "Dowel Joinery",
+    strength: "⭐⭐⭐⭐ High (when multiple fluted dowels used)",
+    racking: "High torsional resistance with 2+ dowels per joint",
+    glueArea: "High cylindrical surface area (fluted dowels allow glue distribution)",
+    tools: "Self-centering dowel jig + brad point bit",
+    bestFor: "Edge-to-edge tabletop glue-ups, modular cabinet casework, chair rungs",
+    tips: "Use compressed, spiral-fluted dried hardwood dowels. Never use smooth hardware store dowel rods."
+  },
+  half_lap: {
+    name: "Half-Lap / Cross-Lap",
+    strength: "⭐⭐⭐⭐ Very High Glue Surface",
+    racking: "Strong when properly square and glued",
+    glueArea: "Entire lap intersection provides 100% face-grain glue contact",
+    tools: "Dado stack on table saw, miter gauge, or router with straight bit",
+    bestFor: "Picture frames, Japanese architectural frames, workbench trestle bases",
+    tips: "Set blade height to exactly half the workpiece thickness using scrap test blocks."
+  },
+  box_joint: {
+    name: "Box / Finger Joint",
+    strength: "⭐⭐⭐⭐⭐ Extremely Strong",
+    racking: "Exceptional due to massive interlocking glue surface",
+    glueArea: "Maximum glue area of any corner joint",
+    tools: "Table saw with dado stack + box joint indexing jig, or CNC router",
+    bestFor: "Beehives, guitar amplifier cabinets, toolboxes, decorative storage boxes",
+    tips: "Fingers should be cut a hair proud (~1/64\") and flushed with a block plane or card scraper after glue-up."
+  },
+  splined_miter: {
+    name: "Splined Miter Joint",
+    strength: "⭐⭐⭐⭐ Very Strong (Reinforced)",
+    racking: "High (spline converts weak end-grain miter into long-grain glue shear)",
+    glueArea: "Spline adds key cross-grain shear strength across the 45° seam",
+    tools: "Table saw with 45° miter sled + spline slotting jig",
+    bestFor: "Jewelry boxes, shadow boxes, hardwood picture frames",
+    tips: "Make sure the spline grain runs perpendicular to the miter cut line for maximum strength."
+  },
+  bridle: {
+    name: "Bridle Joint (Open Mortise & Tenon)",
+    strength: "⭐⭐⭐⭐ Very High",
+    racking: "Resists twisting and corner shear exceptionally well",
+    glueArea: "Three full glue faces open to inspection",
+    tools: "Tenon saw or table saw tenoning jig + coping saw",
+    bestFor: "Workbench base stretchers, heavy duty framing, shop doors",
+    tips: "Can be pinned with dowels for draw-bored mechanical locking without clamps."
+  }
+};
+
+function updateWoodJoineryGuide() {
+  const key = $("#wood-joinery-select")?.value || "mortise_tenon";
+  const j = WOOD_JOINERY_DB[key] || WOOD_JOINERY_DB.mortise_tenon;
+  const res = $("#wood-joinery-result");
+  if (res) {
+    res.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">MECHANICAL INTEGRITY:</span>
+        <strong style="font-size:15px;color:var(--green)">${j.strength}</strong>
+      </div>
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • <strong>Racking &amp; Shear Resistance:</strong> ${j.racking}<br>
+        • <strong>Glue Surface Area:</strong> ${j.glueArea}<br>
+        • <strong>Recommended Tools:</strong> ${j.tools}<br>
+        • <strong>Best Use Cases:</strong> <span style="color:#0284c7;font-weight:700">${j.bestFor}</span><br>
+        • 💡 <em>Craftsman Tip:</em> ${j.tips}
+      </div>
+    `;
+  }
+}
+
+const SANDING_SCHEDULES = {
+  rough: {
+    grits: ["80 grit (remove tearout)", "120 grit (level surface)", "150 grit", "180 grit", "220 grit (finish prep)"],
+    tips: "Spend 60% of your sanding time on 80 and 120 grit. If scratches remain from 80, going to 220 won't hide them! Wipe down with mineral spirits to inspect for scratches."
+  },
+  planed: {
+    grits: ["120 grit (erase mill scalloping)", "150 grit", "180 grit", "220 grit"],
+    tips: "Pencil scribble a light zigzag across the board before each grit. When the pencil lines disappear, move to the next grit to avoid uneven dips."
+  },
+  s4s: {
+    grits: ["150 grit (open pores)", "180 grit", "220 grit"],
+    tips: "Factory S4S boards are smooth but often glazed/burnished from high-speed commercial rollers. A light 150 grit scuff ensures even oil/stain penetration."
+  },
+  plywood: {
+    grits: ["180 grit (very light pass)", "220 grit (by hand with grain)"],
+    tips: "CAUTION: Modern hardwood plywood face veneers are only ~0.5 mm thick! Never use aggressive grits or heavy pressure with a random orbital sander."
+  },
+  endgrain: {
+    grits: ["80 grit (flattening)", "120 grit", "180 grit", "240 grit", "320 grit", "400 grit"],
+    tips: "End-grain pores absorb finish rapidly. Sand to at least 320 or 400 grit to achieve a glass-smooth silky feel for cutting boards."
+  }
+};
+
+function updateWoodSandingGuide() {
+  const starting = $("#wood-sand-starting")?.value || "planed";
+  const finishType = $("#wood-sand-finish-type")?.value || "oil_hardwax";
+  const s = SANDING_SCHEDULES[starting] || SANDING_SCHEDULES.planed;
+
+  let maxGritNote = "";
+  if (finishType === "oil_hardwax") {
+    maxGritNote = "Stop at 180 or 220 grit! Sanding higher closes wood pores, preventing hardwax oils (Rubio/Osmo) from bonding chemically with raw cellulose.";
+  } else if (finishType === "water_poly") {
+    maxGritNote = "Raise the grain! After 180 grit, wipe with a damp cloth, let dry 30 minutes, then sand lightly with 220 grit to remove raised grain before topcoating.";
+  } else if (finishType === "film_poly") {
+    maxGritNote = "Sand between cured coats with 320 or 400 grit (or maroon synthetic pad) to de-nib dust nibs and ensure mechanical inter-coat adhesion.";
+  } else {
+    maxGritNote = "Prime with high-build shellac or oil primer; sand primer flat with 240 grit before applying enamel topcoats.";
+  }
+
+  const res = $("#wood-sand-result");
+  if (res) {
+    res.innerHTML = `
+      <div style="font-size:12px;color:var(--ink);line-height:1.4">
+        • <strong>Recommended Grit Sequence:</strong><br>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0">
+          ${s.grits.map(g => `<span style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;color:var(--green)">${g}</span>`).join(" → ")}
+        </div>
+        • 💡 <em>Sanding Protocol:</em> ${s.tips}<br>
+        • 🎯 <em>Finish Specific Requirement:</em> <span style="color:#0284c7;font-weight:700">${maxGritNote}</span>
+      </div>
+    `;
+  }
 }
 
 function renderWoodworkingView() {
@@ -19808,15 +20198,28 @@ function initCraftStudios() {
   $("#music-scale-key")?.addEventListener("change", updateMusicScaleView);
   $("#music-scale-mode")?.addEventListener("change", updateMusicScaleView);
 
+  // Studio Metronome
+  renderMetronomeDots();
+  $("#metronome-bpm-slider")?.addEventListener("input", (e) => setMetronomeBpm(e.target.value));
+  $("#metronome-time-sig")?.addEventListener("change", (e) => {
+    metronomeState.timeSignature = parseInt(e.target.value, 10) || 4;
+    renderMetronomeDots();
+  });
+
   // Woodworking Cutlist & Dust
   runWoodCutOptimizer();
   updateWoodDustCalc();
   updateWoodFinishView();
+  updateWoodJoineryGuide();
+  updateWoodSandingGuide();
   ["#wood-cut-stock", "#wood-cut-kerf"].forEach(s => $(s)?.addEventListener("input", runWoodCutOptimizer));
   $("#wood-cut-pieces")?.addEventListener("input", runWoodCutOptimizer);
   $("#wood-dust-machine")?.addEventListener("change", updateWoodDustCalc);
   $("#wood-dust-dia")?.addEventListener("change", updateWoodDustCalc);
   $("#wood-finish-select")?.addEventListener("change", updateWoodFinishView);
+  $("#wood-joinery-select")?.addEventListener("change", updateWoodJoineryGuide);
+  $("#wood-sand-starting")?.addEventListener("change", updateWoodSandingGuide);
+  $("#wood-sand-finish-type")?.addEventListener("change", updateWoodSandingGuide);
 
   // Textiles Yardage & Gauge
   updateTextilesYardageEstimator();
@@ -20019,6 +20422,8 @@ function initCraftStudios() {
   updateArtGradientStudio();
   updateArtPrintResCalc();
   updateArtCvdView();
+  populateUnitDropdowns($("#tool-unit-category")?.value || "length");
+  updateUniversalUnitConverter();
 }
 
 window.addEventListener("DOMContentLoaded", initCraftStudios);

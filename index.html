@@ -745,6 +745,39 @@
                   </div>
                 </div>
 
+                <!-- Interactive Studio Metronome -->
+                <div class="panel music-card-panel">
+                  <div class="eyebrow">PRACTICE COMPANION</div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                    <h3 style="font-size:16px;margin:0">⏱️ Studio Metronome</h3>
+                    <button type="button" class="button button-small button-primary" id="metronome-toggle-btn" data-action="toggle-metronome">▶ Start Metronome</button>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;margin:8px 0;flex-wrap:wrap">
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span style="font-size:24px;font-weight:900;color:var(--green);min-width:50px" id="metronome-bpm-val">105</span>
+                      <span style="font-size:11px;color:var(--muted)">BPM</span>
+                    </div>
+                    <input type="range" id="metronome-bpm-slider" min="40" max="240" value="105" style="flex:1;min-width:120px" title="Metronome BPM">
+                    <button type="button" class="button button-small button-outline" data-action="tap-metronome-tempo" style="font-size:11px">Tap Tempo</button>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+                    <label class="field-label" style="font-size:11px;margin:0">Time Signature
+                      <select id="metronome-time-sig" style="font-size:11px;padding:2px 6px">
+                        <option value="4" selected>4/4 (Common Time)</option>
+                        <option value="3">3/4 (Waltz)</option>
+                        <option value="2">2/4 (March)</option>
+                        <option value="6">6/8 (Compound)</option>
+                      </select>
+                    </label>
+                    <div id="metronome-beat-dots" style="display:flex;gap:6px;align-items:center;padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px">
+                      <span class="metronome-dot" style="width:12px;height:12px;border-radius:50%;background:var(--border);display:inline-block"></span>
+                      <span class="metronome-dot" style="width:12px;height:12px;border-radius:50%;background:var(--border);display:inline-block"></span>
+                      <span class="metronome-dot" style="width:12px;height:12px;border-radius:50%;background:var(--border);display:inline-block"></span>
+                      <span class="metronome-dot" style="width:12px;height:12px;border-radius:50%;background:var(--border);display:inline-block"></span>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- 🎼 Musical Scales & Modes Explorer -->
                 <div class="panel music-card-panel" style="grid-column: 1 / -1">
                   <div class="eyebrow">MUSIC THEORY &amp; IMPROVISATION</div>
@@ -954,6 +987,52 @@
                   </select>
                 </label>
                 <div class="tool-result-box" id="wood-finish-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🪚 Wood Joinery Strength & Application Guide -->
+              <div class="panel">
+                <div class="eyebrow">STRUCTURAL JOINERY &amp; INTEGRITY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🪚 Wood Joinery Strength &amp; Guide</h3>
+                <label class="field-label" style="font-size:11px">Select Woodworking Joint
+                  <select id="wood-joinery-select">
+                    <option value="mortise_tenon" selected>Mortise &amp; Tenon (King of Structural Frame Joints)</option>
+                    <option value="through_dovetail">Through Dovetail (Classic Heirloom Drawer &amp; Carcase)</option>
+                    <option value="half_blind_dovetail">Half-Blind Dovetail (Traditional Drawer Front)</option>
+                    <option value="pocket_hole">Pocket Hole Screw (Rapid Face Frames &amp; Cabinets)</option>
+                    <option value="dowel">Dowel Joinery (Edge Glue-Ups &amp; Modular Casework)</option>
+                    <option value="half_lap">Half-Lap / Cross-Lap (Strong Picture Frames &amp; Trestles)</option>
+                    <option value="box_joint">Box / Finger Joint (High Glue Surface &amp; Boxes)</option>
+                    <option value="splined_miter">Miter Joint with Hardwood Spline (Boxes &amp; Frames)</option>
+                    <option value="bridle">Bridle Joint / Open Tenon (Legs &amp; Workbench Stretchers)</option>
+                  </select>
+                </label>
+                <div class="tool-result-box" id="wood-joinery-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🪵 Sandpaper Grit Progression & Surface Prep -->
+              <div class="panel">
+                <div class="eyebrow">ABRASIVES &amp; SURFACE PREPARATION</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🪵 Sandpaper Grit Schedule &amp; Prep</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label" style="font-size:11px">Initial Lumber State
+                    <select id="wood-sand-starting">
+                      <option value="rough">Rough-Sawn Lumber (Saw marks &amp; cup)</option>
+                      <option value="planed" selected>Machine Planed / Thicknessed</option>
+                      <option value="s4s">S4S Pre-Milled / Big-Box Board</option>
+                      <option value="plywood">Hardwood Plywood / Thin Veneer</option>
+                      <option value="endgrain">End-Grain Cutting Board (Dense)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Planned Topcoat
+                    <select id="wood-sand-finish-type">
+                      <option value="oil_hardwax" selected>Hardwax Oil / Danish Oil</option>
+                      <option value="film_poly">Film Finish (Polyurethane / Varnish)</option>
+                      <option value="water_poly">Water-Based Poly / Lacquer</option>
+                      <option value="paint">Paint / Solid Primer</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="tool-result-box" id="wood-sand-result" style="margin-top:10px"></div>
               </div>
 
             </div>
@@ -2234,6 +2313,7 @@
         <button type="button" class="tool-tab-btn active" data-tool-tab="fractions">📐 Fraction / Dec / mm</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="scale">⚖️ Scale &amp; Proportions</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="epoxy">🧪 Epoxy &amp; Resin Mixing</button>
+        <button type="button" class="tool-tab-btn" data-tool-tab="units">🔄 Universal Units</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -2340,6 +2420,33 @@
         <div class="tool-result-box" id="tool-epoxy-result">
           Enter pour dimensions above to calculate resin volume and Part A/B weights.
         </div>
+      </div>
+
+      <!-- Tab 4: Universal Unit Converter -->
+      <div class="tool-tab-panel" id="tool-panel-units" style="display:none">
+        <p class="form-hint" style="margin-bottom:12px">Instant multi-category converter for workshop, kitchen, and studio measurements.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+          <label class="field-label">Category
+            <select id="tool-unit-category">
+              <option value="length" selected>📏 Length &amp; Distance</option>
+              <option value="weight">⚖️ Weight &amp; Mass</option>
+              <option value="volume">🧪 Liquid Volume</option>
+              <option value="temp">🌡️ Temperature</option>
+            </select>
+          </label>
+          <label class="field-label">Measurement Value
+            <input type="number" step="any" id="tool-unit-val" value="1" placeholder="e.g. 1">
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label class="field-label">From Unit
+            <select id="tool-unit-from"></select>
+          </label>
+          <label class="field-label">To Unit
+            <select id="tool-unit-to"></select>
+          </label>
+        </div>
+        <div class="tool-result-box" id="tool-unit-result" style="margin-top:12px"></div>
       </div>
 
       
