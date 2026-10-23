@@ -3765,6 +3765,22 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "electronics") renderElectronicsView();
   if (targetView === "programming") renderProgrammingView();
   if (targetView === "art") renderArtView();
+
+  // Safely stop background media streams & audio when navigating away from studios
+  if (targetView !== "art") {
+    if (typeof artCameraState !== "undefined" && artCameraState.isActive && typeof stopArtCamera === "function") {
+      stopArtCamera();
+    }
+  }
+  if (targetView !== "music") {
+    if (typeof micTunerState !== "undefined" && micTunerState.isActive && typeof stopMicTuner === "function") {
+      stopMicTuner();
+    }
+    if (typeof beatSeqState !== "undefined" && beatSeqState.isPlaying && typeof toggleBeatSequencer === "function") {
+      toggleBeatSequencer();
+    }
+  }
+
   if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -9540,6 +9556,83 @@ async function handleAction(action, target) {
   if (action === "prog-bit-toggle") {
     const bit = parseInt(target.dataset.bit, 10);
     toggleProgBit(bit);
+    return;
+  }
+  if (action === "prog-fp-bit-toggle") {
+    const bit = parseInt(target.dataset.bit, 10);
+    if (typeof toggleIeee754Bit === "function") toggleIeee754Bit(bit);
+    return;
+  }
+  if (action === "prog-fp-preset") {
+    const valStr = target.dataset.val;
+    const val = (valStr === "NaN") ? NaN : ((valStr === "Infinity") ? Infinity : parseFloat(valStr));
+    if (typeof setIeee754FromFloat === "function") setIeee754FromFloat(val);
+    return;
+  }
+  if (action === "copy-dovetail-specs") {
+    const specs = $("#wood-dt-result")?.innerText || "";
+    if (specs) {
+      void navigator.clipboard.writeText(specs).then(() => showToast("Copied Dovetail Layout Specs to clipboard!"));
+    }
+    return;
+  }
+  if (action === "add-dovetail-material") {
+    const w = $("#wood-dt-width")?.value || "150";
+    const u = $("#wood-dt-unit")?.value || "mm";
+    const t = $("#wood-dt-thick")?.value || "19";
+    await addMaterialToProjectShopping(`Dovetail Stock (${w}${u} × ${t}${u})`, "1 board", 0, "Lumber & Sheet Goods");
+    return;
+  }
+  if (action === "copy-yarn-holding-specs") {
+    const specs = $("#textiles-yarn-result")?.innerText || "";
+    if (specs) {
+      void navigator.clipboard.writeText(specs).then(() => showToast("Copied Yarn Combination Specs to clipboard!"));
+    }
+    return;
+  }
+  if (action === "add-yarn-holding-bundle") {
+    const s1Key = $("#textiles-yarn-strand1")?.value || "1";
+    const s2Key = $("#textiles-yarn-strand2")?.value || "0";
+    const s1 = typeof YARN_WEIGHT_STANDARDS !== "undefined" && YARN_WEIGHT_STANDARDS[s1Key] ? YARN_WEIGHT_STANDARDS[s1Key].name : "Strand 1";
+    const s2 = typeof YARN_WEIGHT_STANDARDS !== "undefined" && YARN_WEIGHT_STANDARDS[s2Key] ? YARN_WEIGHT_STANDARDS[s2Key].name : "Strand 2";
+    await addMaterialToProjectShopping(`Yarn Combo (${s1} + ${s2})`, "2 skeins", 0, "Yarn & Thread");
+    return;
+  }
+  if (action === "copy-pcb-trace-specs") {
+    const specs = $("#elec-trace-result")?.innerText || "";
+    if (specs) {
+      void navigator.clipboard.writeText(specs).then(() => showToast("Copied PCB Trace Routing Specs to clipboard!"));
+    }
+    return;
+  }
+  if (action === "copy-pigment-recipe") {
+    const specs = $("#art-pigment-result")?.innerText || "";
+    if (specs) {
+      void navigator.clipboard.writeText(specs).then(() => showToast("Copied Artist Paint Recipe to clipboard!"));
+    }
+    return;
+  }
+  if (action === "set-studio-palette-from-pigment") {
+    const hex = target.dataset.hex;
+    if (hex && $("#art-view-base-color")) {
+      $("#art-view-base-color").value = hex;
+      if (typeof updateArtStudioPalette === "function") updateArtStudioPalette();
+      showToast(`Updated Studio Base Color to ${hex.toUpperCase()}!`);
+    }
+    return;
+  }
+  if (action === "add-pigment-to-materials") {
+    const hex = target.dataset.hex || "#ffffff";
+    await addMaterialToProjectShopping(`Custom Mixed Artist Paint (${hex.toUpperCase()})`, "1 tube", 0, "Finishes & Solvents");
+    return;
+  }
+  if (action === "art-pigment-reset") {
+    if (typeof ART_PIGMENTS_DB !== "undefined" && typeof pigmentPartsState !== "undefined") {
+      ART_PIGMENTS_DB.forEach(p => { pigmentPartsState[p.id] = 0; });
+      if (typeof renderPigmentSlidersUI === "function") renderPigmentSlidersUI();
+      if (typeof updatePigmentMixer === "function") updatePigmentMixer();
+      showToast("Reset all tube pigment sliders to 0.");
+    }
     return;
   }
   if (action === "prog-bit-op") {
@@ -15959,7 +16052,7 @@ function autoCorrelatePitch(buf, sampleRate) {
     }
   }
   let T0 = maxpos;
-  if (T0 === 0) return -1;
+  if (T0 <= 0 || T0 >= newSize - 1) return (T0 > 0) ? (sampleRate / T0) : -1;
 
   // Parabolic interpolation for sub-bin precision
   const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
@@ -15970,6 +16063,43 @@ function autoCorrelatePitch(buf, sampleRate) {
   return sampleRate / T0;
 }
 
+const TUNER_INSTRUMENT_STRINGS = {
+  guitar_std: [
+    { note: "E", octave: 2, freq: 82.41, label: "6th String (Low E)" },
+    { note: "A", octave: 2, freq: 110.00, label: "5th String (A)" },
+    { note: "D", octave: 3, freq: 146.83, label: "4th String (D)" },
+    { note: "G", octave: 3, freq: 196.00, label: "3rd String (G)" },
+    { note: "B", octave: 3, freq: 246.94, label: "2nd String (B)" },
+    { note: "E", octave: 4, freq: 329.63, label: "1st String (High E)" }
+  ],
+  guitar_dropd: [
+    { note: "D", octave: 2, freq: 73.42, label: "6th String (Drop D)" },
+    { note: "A", octave: 2, freq: 110.00, label: "5th String (A)" },
+    { note: "D", octave: 3, freq: 146.83, label: "4th String (D)" },
+    { note: "G", octave: 3, freq: 196.00, label: "3rd String (G)" },
+    { note: "B", octave: 3, freq: 246.94, label: "2nd String (B)" },
+    { note: "E", octave: 4, freq: 329.63, label: "1st String (High E)" }
+  ],
+  bass_std: [
+    { note: "E", octave: 1, freq: 41.20, label: "4th String (Low E)" },
+    { note: "A", octave: 1, freq: 55.00, label: "3rd String (A)" },
+    { note: "D", octave: 2, freq: 73.42, label: "2nd String (D)" },
+    { note: "G", octave: 2, freq: 98.00, label: "1st String (G)" }
+  ],
+  ukulele_std: [
+    { note: "G", octave: 4, freq: 392.00, label: "4th String (High G)" },
+    { note: "C", octave: 4, freq: 261.63, label: "3rd String (C)" },
+    { note: "E", octave: 4, freq: 329.63, label: "2nd String (E)" },
+    { note: "A", octave: 4, freq: 440.00, label: "1st String (A)" }
+  ],
+  violin_std: [
+    { note: "G", octave: 3, freq: 196.00, label: "4th String (G)" },
+    { note: "D", octave: 4, freq: 293.66, label: "3rd String (D)" },
+    { note: "A", octave: 4, freq: 440.00, label: "2nd String (A)" },
+    { note: "E", octave: 5, freq: 659.25, label: "1st String (High E)" }
+  ]
+};
+
 function getNoteFromPitch(freq, concertA = 440) {
   const noteNum = 12 * (Math.log(freq / concertA) / Math.log(2)) + 69;
   const rounded = Math.round(noteNum);
@@ -15977,7 +16107,28 @@ function getNoteFromPitch(freq, concertA = 440) {
   const octave = Math.floor(rounded / 12) - 1;
   const targetFreq = concertA * Math.pow(2, (rounded - 69) / 12);
   const cents = Math.round(1200 * (Math.log(freq / targetFreq) / Math.log(2)));
-  return { noteName, octave, targetFreq, cents };
+
+  // Check instrument string match
+  const presetKey = $("#music-tuner-preset")?.value || "chromatic";
+  let stringLabel = "";
+  if (TUNER_INSTRUMENT_STRINGS[presetKey]) {
+    const list = TUNER_INSTRUMENT_STRINGS[presetKey];
+    // Find closest open string
+    let bestDist = Infinity;
+    let bestStr = null;
+    list.forEach(s => {
+      const d = Math.abs(1200 * Math.log2(freq / s.freq));
+      if (d < bestDist && d < 120) { // within a semitone
+        bestDist = d;
+        bestStr = s;
+      }
+    });
+    if (bestStr) {
+      stringLabel = bestStr.label;
+    }
+  }
+
+  return { noteName, octave, targetFreq, cents, stringLabel };
 }
 
 function renderTunerDisplay(pitchData) {
@@ -16013,7 +16164,7 @@ function renderTunerDisplay(pitchData) {
     return;
   }
 
-  const { noteName, octave, targetFreq, cents, freq } = pitchData;
+  const { noteName, octave, targetFreq, cents, freq, stringLabel } = pitchData;
   const clampedCents = Math.max(-50, Math.min(50, cents));
 
   // Needle angle: -50 cents = -45 deg, 0 = 0 deg, +50 cents = +45 deg
@@ -16037,6 +16188,7 @@ function renderTunerDisplay(pitchData) {
     <div class="tuner-note-display">
       <span class="tuner-note-letter" style="color:${statusClass === 'in-tune' ? '#10b981' : 'var(--ink)'}">${noteName}</span>
       <span class="tuner-note-octave">${octave}</span>
+      ${stringLabel ? `<span class="materials-group-badge" style="font-size:11px;margin-left:6px">${stringLabel}</span>` : ""}
     </div>
     <div class="tuner-freq-readout">
       <strong>${freq.toFixed(1)} Hz</strong> <span style="color:var(--muted)">(Target: ${targetFreq.toFixed(1)} Hz)</span>
@@ -19597,6 +19749,7 @@ function renderWoodworkingView() {
   updateWoodSafetyGuide();
   if (typeof updateSagulatorCalc === "function") updateSagulatorCalc();
   if (typeof updateWoodEmcCalc === "function") updateWoodEmcCalc();
+  if (typeof updateDovetailCalc === "function") updateDovetailCalc();
 }
 
 // --- 🧶 Textiles & Yarn Studio ---
@@ -20157,6 +20310,7 @@ function renderTextilesView() {
   if (typeof updateYarnSkeinCalculator === "function") updateYarnSkeinCalculator();
   if (typeof updateTextilesHatCalc === "function") updateTextilesHatCalc();
   if (typeof updateTextilesPooling === "function") updateTextilesPooling();
+  if (typeof updateYarnHoldingCalc === "function") updateYarnHoldingCalc();
   updateAmigurumiGenerator();
   updateSewingCuttingCalc();
   updateSewingNeedleGuide();
@@ -20415,6 +20569,7 @@ function renderElectronicsView() {
   if (typeof updateI2cSensorGuide === "function") updateI2cSensorGuide();
   if (typeof updateSmdDecoder === "function") updateSmdDecoder();
   if (typeof updateStepperMotorCalc === "function") updateStepperMotorCalc();
+  if (typeof updatePcbTraceCalc === "function") updatePcbTraceCalc();
 }
 
 // --- 💻 Programming & Microcontrollers Studio ---
@@ -20680,6 +20835,7 @@ function renderProgrammingView() {
   updateProgBaudCalc();
   updateProgCrcCalc();
   if (typeof updateProgBatteryLifeCalc === "function") updateProgBatteryLifeCalc();
+  if (typeof updateIeee754InspectorUI === "function") updateIeee754InspectorUI();
 }
 
 // --- 🎨 Art & Design Studio ---
@@ -20976,6 +21132,7 @@ function renderArtView() {
   updateArtPrintResCalc();
   updateArtCvdView();
   if (typeof updateArtFrameCalc === "function") updateArtFrameCalc();
+  if (typeof updatePigmentMixer === "function") updatePigmentMixer();
   if (typeof renderArtCameraDetails === "function" && typeof artCameraState !== "undefined") {
     renderArtCameraDetails(artCameraState.activeColor, artCameraState.topClusters, artCameraState.screenDominantColor);
   }
@@ -23593,6 +23750,754 @@ function setCameraColorAsStudioBase() {
   showToast(`Updated Studio Base Color to ${hex.toUpperCase()}! Harmonious palette regenerated.`);
 }
 
+// --- 🪚 Woodworking: Dovetail & Box Joint Layout Calculator ---
+function updateDovetailCalc() {
+  const jointType = $("#wood-dt-type")?.value || "through_dt";
+  const unit = $("#wood-dt-unit")?.value || "mm";
+  const width = Math.max(10, parseFloat($("#wood-dt-width")?.value) || 150);
+  const thick = Math.max(3, parseFloat($("#wood-dt-thick")?.value) || 19);
+  const slopeRatio = parseFloat($("#wood-dt-slope")?.value) || 8;
+  const numTails = Math.max(1, Math.min(20, parseInt($("#wood-dt-tails")?.value, 10) || 3));
+  const halfPinMargin = Math.max(1, parseFloat($("#wood-dt-halfpin")?.value) || (unit === "in" ? 0.25 : 6));
+  const res = $("#wood-dt-result");
+  if (!res) return;
+
+  const isBoxJoint = jointType === "box_joint";
+  const isHalfBlind = jointType === "half_blind";
+
+  let fingerW = 0;
+  let socketDepth = thick;
+  let slopeAngleDeg = 0;
+  let deltaSlope = 0;
+  let tailBaseW = 0;
+  let tailTipW = 0;
+  let pinBaseW = 0;
+  let pinTipW = 0;
+  let numFingers = 0;
+
+  if (isBoxJoint) {
+    numFingers = (numTails * 2) + 1;
+    fingerW = width / numFingers;
+  } else {
+    slopeAngleDeg = (Math.atan(1 / slopeRatio) * 180 / Math.PI);
+    socketDepth = isHalfBlind ? (thick * 0.75) : thick;
+    deltaSlope = socketDepth / slopeRatio;
+
+    const availableW = Math.max(1, width - (2 * halfPinMargin));
+    const pitch = availableW / numTails;
+    const tailMidW = pitch * 0.65;
+    const pinMidW = pitch * 0.35;
+
+    tailBaseW = Math.max(1, tailMidW - deltaSlope);
+    tailTipW = tailMidW + deltaSlope;
+    pinBaseW = Math.max(1, pinMidW + deltaSlope);
+    pinTipW = Math.max(0.5, pinMidW - deltaSlope);
+  }
+
+  let glueArea = 0;
+  if (isBoxJoint) {
+    glueArea = 2 * (numFingers - 1) * fingerW * socketDepth;
+  } else {
+    const flankLen = Math.sqrt(Math.pow(socketDepth, 2) + Math.pow(deltaSlope, 2));
+    glueArea = (2 * numTails * flankLen * thick) + (width * socketDepth * 0.5);
+  }
+  const buttJointArea = width * thick;
+  const strengthMultiplier = (glueArea / buttJointArea).toFixed(1);
+
+  // CAD Layout SVG
+  const svgW = 560;
+  const svgH = 140;
+  const marginX = 30;
+  const marginY = 20;
+  const drawW = svgW - (2 * marginX);
+  const drawH = 90;
+  const scaleX = drawW / width;
+  const drawSocketH = Math.min(drawH * 0.55, socketDepth * scaleX * 2.5);
+
+  let pathsHtml = "";
+  if (isBoxJoint) {
+    const fwSvg = drawW / numFingers;
+    for (let i = 0; i < numFingers; i++) {
+      const x = marginX + (i * fwSvg);
+      const isSocket = (i % 2 === 1);
+      if (isSocket) {
+        pathsHtml += `<rect x="${x}" y="${marginY}" width="${fwSvg}" height="${drawSocketH}" fill="rgba(239, 68, 68, 0.25)" stroke="#ef4444" stroke-dasharray="2,2" stroke-width="1.5"/>`;
+      } else {
+        pathsHtml += `<rect x="${x}" y="${marginY}" width="${fwSvg}" height="${drawSocketH}" fill="#38bdf8" opacity="0.4" stroke="#38bdf8" stroke-width="1.5"/>`;
+      }
+    }
+  } else {
+    const hwSvg = halfPinMargin * scaleX;
+    const pitchSvg = (drawW - (2 * hwSvg)) / numTails;
+    const deltaSvg = deltaSlope * scaleX;
+
+    pathsHtml += `<polygon points="${marginX},${marginY} ${marginX + hwSvg},${marginY} ${marginX + hwSvg + deltaSvg},${marginY + drawSocketH} ${marginX},${marginY + drawSocketH}" fill="#10b981" opacity="0.35" stroke="#10b981" stroke-width="1.5"/>`;
+
+    for (let t = 0; t < numTails; t++) {
+      const cx = marginX + hwSvg + (t * pitchSvg) + (pitchSvg / 2);
+      const tMidSvg = (pitchSvg * 0.65) / 2;
+
+      const xTopL = cx - tMidSvg - deltaSvg;
+      const xTopR = cx + tMidSvg + deltaSvg;
+      const xBotL = cx - tMidSvg + deltaSvg;
+      const xBotR = cx + tMidSvg - deltaSvg;
+
+      pathsHtml += `
+        <polygon points="${xTopL},${marginY} ${xTopR},${marginY} ${xBotR},${marginY + drawSocketH} ${xBotL},${marginY + drawSocketH}" fill="#38bdf8" opacity="0.5" stroke="#38bdf8" stroke-width="1.5"/>
+        <text x="${cx}" y="${marginY + (drawSocketH / 2) + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#f8fafc">T${t + 1}</text>
+      `;
+
+      if (t < numTails - 1) {
+        const nextCx = marginX + hwSvg + ((t + 1) * pitchSvg) + (pitchSvg / 2);
+        const nextTopL = nextCx - tMidSvg - deltaSvg;
+        const nextBotL = nextCx - tMidSvg + deltaSvg;
+        pathsHtml += `<polygon points="${xTopR},${marginY} ${nextTopL},${marginY} ${nextBotL},${marginY + drawSocketH} ${xBotR},${marginY + drawSocketH}" fill="rgba(239, 68, 68, 0.25)" stroke="#ef4444" stroke-dasharray="2,2" stroke-width="1"/>`;
+      }
+    }
+
+    const rightX = marginX + drawW;
+    pathsHtml += `<polygon points="${rightX - hwSvg},${marginY} ${rightX},${marginY} ${rightX},${marginY + drawSocketH} ${rightX - hwSvg - deltaSvg},${marginY + drawSocketH}" fill="#10b981" opacity="0.35" stroke="#10b981" stroke-width="1.5"/>`;
+  }
+
+  const svgDiagram = `
+    <div class="dt-cad-wrap">
+      <svg class="dt-cad-svg" viewBox="0 0 ${svgW} ${svgH}" width="100%">
+        <line x1="${marginX}" y1="${marginY + drawSocketH}" x2="${marginX + drawW}" y2="${marginY + drawSocketH}" stroke="var(--border)" stroke-width="2" stroke-dasharray="4,4"/>
+        <text x="${marginX + drawW - 8}" y="${marginY + drawSocketH - 5}" font-size="9" fill="var(--muted)" text-anchor="end">Depth: ${socketDepth.toFixed(1)}${unit}</text>
+
+        <rect x="${marginX}" y="${marginY}" width="${drawW}" height="${drawH}" fill="none" stroke="#64748b" stroke-width="1.5"/>
+        ${pathsHtml}
+
+        <line x1="${marginX}" y1="${marginY + drawH + 12}" x2="${marginX + drawW}" y2="${marginY + drawH + 12}" stroke="var(--ink)" stroke-width="1.5"/>
+        <line x1="${marginX}" y1="${marginY + drawH + 8}" x2="${marginX}" y2="${marginY + drawH + 16}" stroke="var(--ink)" stroke-width="1.5"/>
+        <line x1="${marginX + drawW}" y1="${marginY + drawH + 8}" x2="${marginX + drawW}" y2="${marginY + drawH + 16}" stroke="var(--ink)" stroke-width="1.5"/>
+        <text x="${svgW / 2}" y="${marginY + drawH + 24}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">Board Width: ${width}${unit}</text>
+      </svg>
+    </div>
+  `;
+
+  res.innerHTML = `
+    ${svgDiagram}
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Joint Configuration</div>
+        <div style="font-size:16px;font-weight:800;color:var(--ink);margin:2px 0">
+          ${isBoxJoint ? `${numFingers} Total Fingers` : `${numTails} Tails · ${numTails + 1} Pins`}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">
+          ${isBoxJoint ? `Equal ${fingerW.toFixed(1)}${unit} spacing` : `Slope 1:${slopeRatio} (${slopeAngleDeg.toFixed(1)}°)`}
+        </div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Socket Baseline Depth</div>
+        <div style="font-size:16px;font-weight:800;color:var(--green);margin:2px 0">
+          ${socketDepth.toFixed(1)} ${unit}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">
+          ${isHalfBlind ? `75% drawer front depth` : `Full stock thickness`}
+        </div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Half-Pin Outer Margin</div>
+        <div style="font-size:16px;font-weight:800;color:#0284c7;margin:2px 0">
+          ${halfPinMargin.toFixed(1)} ${unit}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Protects outer edge corners</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Glue Surface Area</div>
+        <div style="font-size:16px;font-weight:800;color:#f59e0b;margin:2px 0">
+          +${strengthMultiplier}× Strength
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${glueArea.toFixed(0)} ${unit}² mechanical interlock</div>
+      </div>
+    </div>
+
+    ${!isBoxJoint ? `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--ink)">
+        <strong>📏 Dovetail Cut Schedule:</strong><br>
+        • <strong>Tail Width:</strong> ${tailBaseW.toFixed(1)}${unit} (narrow base) → <strong>${tailTipW.toFixed(1)}${unit}</strong> (wide tip)<br>
+        • <strong>Interior Pin Width:</strong> ${pinTipW.toFixed(1)}${unit} (narrow face) → <strong>${pinBaseW.toFixed(1)}${unit}</strong> (broad baseline)<br>
+        • <strong>Half-Pin Margin:</strong> ${halfPinMargin.toFixed(1)}${unit} at outer corners<br>
+        ${pinTipW < (unit === 'in' ? 0.08 : 2.5) ? `<span style="color:#ef4444;font-weight:700">⚠️ Caution: Pin tip width is under 2.5mm. Use fine-kerf Japanese dozuki saw and narrow chisel.</span>` : ``}
+      </div>
+    ` : `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--ink)">
+        <strong>📏 Box Joint Finger Schedule:</strong><br>
+        • <strong>Finger Width:</strong> ${fingerW.toFixed(2)} ${unit}<br>
+        • <strong>Dado Depth:</strong> ${socketDepth.toFixed(2)} ${unit}<br>
+        • <strong>Table Saw Dado Blade:</strong> Set stack to ${fingerW.toFixed(2)}${unit} or use standard index pin jig
+      </div>
+    `}
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="button button-outline" data-action="copy-dovetail-specs" style="font-size:12px">
+        📋 Copy Cut Layout Specs
+      </button>
+      <button type="button" class="button button-outline" data-action="add-dovetail-material" style="font-size:12px">
+        + Add Board to Materials
+      </button>
+    </div>
+  `;
+}
+
+// --- 🧶 Textiles & Yarn Studio: Multi-Strand Yarn Equivalency Calculator ---
+const YARN_WEIGHT_STANDARDS = {
+  "0": { name: "Lace / Cobweb", mPer100g: 800, needleMm: "1.5 - 2.25 mm", needleUs: "US 000 - 1", hook: "Steel 6-8", gauge: "33-40 sts" },
+  "1": { name: "Super Fine (Fingering / Sock / 4-ply)", mPer100g: 400, needleMm: "2.25 - 3.25 mm", needleUs: "US 1 - 3", hook: "B/1 - E/4", gauge: "27-32 sts" },
+  "2": { name: "Fine (Sport / Baby / 5-ply)", mPer100g: 300, needleMm: "3.25 - 3.75 mm", needleUs: "US 3 - 5", hook: "E/4 - 7", gauge: "23-26 sts" },
+  "3": { name: "Light (DK / Light Worsted / 8-ply)", mPer100g: 225, needleMm: "3.75 - 4.5 mm", needleUs: "US 5 - 7", hook: "7 - I/9", gauge: "21-24 sts" },
+  "4": { name: "Medium (Worsted / Afghan / Aran / 10-ply)", mPer100g: 180, needleMm: "4.5 - 5.5 mm", needleUs: "US 7 - 9", hook: "I/9 - K/10.5", gauge: "16-20 sts" },
+  "5": { name: "Bulky (Chunky / Craft / Rug / 12-ply)", mPer100g: 120, needleMm: "5.5 - 8.0 mm", needleUs: "US 9 - 11", hook: "K/10.5 - M/13", gauge: "12-15 sts" },
+  "6": { name: "Super Bulky (Roving / 14-ply)", mPer100g: 70, needleMm: "8.0 - 12.75 mm", needleUs: "US 11 - 17", hook: "M/13 - Q", gauge: "7-11 sts" },
+  "7": { name: "Jumbo (Giant arm-knit)", mPer100g: 35, needleMm: "12.75+ mm", needleUs: "US 17+", hook: "Q+", gauge: "6 sts or fewer" }
+};
+
+function getCategoryFromMPer100g(m) {
+  if (m >= 550) return "0";
+  if (m >= 350) return "1";
+  if (m >= 260) return "2";
+  if (m >= 200) return "3";
+  if (m >= 140) return "4";
+  if (m >= 90) return "5";
+  if (m >= 50) return "6";
+  return "7";
+}
+
+function updateYarnHoldingCalc() {
+  const s1Key = $("#textiles-yarn-strand1")?.value || "1";
+  const s2Key = $("#textiles-yarn-strand2")?.value || "0";
+  const s3Key = $("#textiles-yarn-strand3")?.value || "none";
+  const targetLen = Math.max(10, parseFloat($("#textiles-yarn-target-len")?.value) || 950);
+  const lenUnit = $("#textiles-yarn-len-unit")?.value || "m";
+  const res = $("#textiles-yarn-result");
+  if (!res) return;
+
+  const s1 = YARN_WEIGHT_STANDARDS[s1Key] || YARN_WEIGHT_STANDARDS["1"];
+  const s2 = YARN_WEIGHT_STANDARDS[s2Key] || YARN_WEIGHT_STANDARDS["0"];
+  const s3 = (s3Key !== "none" && YARN_WEIGHT_STANDARDS[s3Key]) ? YARN_WEIGHT_STANDARDS[s3Key] : null;
+
+  let invSum = (1 / s1.mPer100g) + (1 / s2.mPer100g);
+  if (s3) invSum += (1 / s3.mPer100g);
+
+  const combinedMPer100g = Math.round(1 / invSum);
+  const combinedYardsPer100g = Math.round(combinedMPer100g * 1.09361);
+  const catKey = getCategoryFromMPer100g(combinedMPer100g);
+  const compositeStd = YARN_WEIGHT_STANDARDS[catKey];
+
+  const targetM = (lenUnit === "yd") ? (targetLen * 0.9144) : targetLen;
+  const s1Grams = (targetM / s1.mPer100g) * 100;
+  const s2Grams = (targetM / s2.mPer100g) * 100;
+  const s3Grams = s3 ? (targetM / s3.mPer100g) * 100 : 0;
+  const totalWeightGrams = Math.round(s1Grams + s2Grams + s3Grams);
+
+  const s1Skeins = Math.ceil(s1Grams / 100);
+  const s2Skeins = Math.ceil(s2Grams / 100);
+  const s3Skeins = s3 ? Math.ceil(s3Grams / 100) : 0;
+
+  res.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <span class="yarn-holding-badge">
+        🧶 Combined Weight: Category ${catKey} · ${compositeStd.name}
+      </span>
+      <span style="font-size:12px;color:var(--muted)">
+        Yields <strong>${combinedMPer100g} m</strong> (${combinedYardsPer100g} yds) per 100g
+      </span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Recommended Needles</div>
+        <div style="font-size:16px;font-weight:800;color:var(--ink);margin:2px 0">
+          ${compositeStd.needleUs}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${compositeStd.needleMm}</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Recommended Crochet Hook</div>
+        <div style="font-size:16px;font-weight:800;color:var(--green);margin:2px 0">
+          ${compositeStd.hook}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Standard ergonomic hook</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Stockinette Gauge</div>
+        <div style="font-size:16px;font-weight:800;color:#0284c7;margin:2px 0">
+          ${compositeStd.gauge}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">per 4 inches (10 cm)</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Total Garment Weight</div>
+        <div style="font-size:16px;font-weight:800;color:#f59e0b;margin:2px 0">
+          ~${totalWeightGrams} g
+        </div>
+        <div style="font-size:11px;color:var(--muted)">For ${targetLen} ${lenUnit} project</div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--ink);line-height:1.5">
+      <strong>📦 Yarn Purchase Plan for ${targetLen} ${lenUnit} Project:</strong><br>
+      • <strong>Strand 1 (${s1.name}):</strong> ~${Math.round(s1Grams)}g (${s1Skeins} × 100g skeins)<br>
+      • <strong>Strand 2 (${s2.name}):</strong> ~${Math.round(s2Grams)}g (${s2Skeins} × 100g skeins)<br>
+      ${s3 ? `• <strong>Strand 3 (${s3.name}):</strong> ~${Math.round(s3Grams)}g (${s3Skeins} × 100g skeins)<br>` : ""}
+      <span style="color:var(--muted);font-size:11px">Tip: Holding silk mohair with wool creates an airy, brushed halo without adding heavy garment weight!</span>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="button button-outline" data-action="add-yarn-holding-bundle" style="font-size:12px">
+        + Add All Strands to Project Shopping
+      </button>
+      <button type="button" class="button button-outline" data-action="copy-yarn-holding-specs" style="font-size:12px">
+        📋 Copy Yarn Specs
+      </button>
+    </div>
+  `;
+}
+
+// --- ⚡ Electronics Studio: IPC-2152 / IPC-2221 PCB Trace Width & Ampacity Solver ---
+function updatePcbTraceCalc() {
+  const current = Math.max(0.01, parseFloat($("#elec-trace-current")?.value) || 2.5);
+  const copperOz = parseFloat($("#elec-trace-copper")?.value) || 1.0;
+  const deltaT = parseFloat($("#elec-trace-deltat")?.value) || 20;
+  const layer = $("#elec-trace-layer")?.value || "external";
+  const lenRaw = Math.max(1, parseFloat($("#elec-trace-len")?.value) || 50);
+  const lenUnit = $("#elec-trace-len-unit")?.value || "mm";
+  const ambientT = parseFloat($("#elec-trace-ambient")?.value) || 25;
+  const res = $("#elec-trace-result");
+  if (!res) return;
+
+  const lenMm = (lenUnit === "in") ? (lenRaw * 25.4) : lenRaw;
+  const k = (layer === "external") ? 0.048 : 0.024;
+  const areaMils2 = Math.pow(current / (k * Math.pow(deltaT, 0.44)), 1 / 0.725);
+  const areaMm2 = areaMils2 * 0.00064516;
+
+  const copperThickMils = copperOz * 1.37;
+  const copperThickMm = copperOz * 0.035;
+
+  const traceWidthMils = areaMils2 / copperThickMils;
+  const traceWidthMm = traceWidthMils * 0.0254;
+
+  const opTemp = ambientT + deltaT;
+  const rhoOp = 1.724e-8 * (1 + 0.00393 * (opTemp - 20));
+  const areaM2 = (traceWidthMm / 1000) * (copperThickMm / 1000);
+  const lenM = lenMm / 1000;
+  const resistanceOhms = rhoOp * (lenM / areaM2);
+  const resistanceMilliOhms = resistanceOhms * 1000;
+
+  const voltDrop = current * resistanceOhms;
+  const voltDropMv = voltDrop * 1000;
+  const powerLossWatts = Math.pow(current, 2) * resistanceOhms;
+  const powerLossMw = powerLossWatts * 1000;
+
+  const svgWidth = 480;
+  const svgHeight = 110;
+  const traceVisualW = Math.max(20, Math.min(240, traceWidthMm * 40));
+  const traceVisualH = Math.max(6, Math.min(22, copperOz * 7));
+
+  const svgDiagram = `
+    <div class="pcb-trace-diagram">
+      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%">
+        <rect x="20" y="55" width="440" height="45" rx="3" fill="#14532d" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="35" y="82" font-size="11" font-weight="700" fill="#86efac">FR-4 Dielectric Core (Tg 140°C)</text>
+
+        <g transform="translate(${240 - traceVisualW/2}, ${55 - traceVisualH})">
+          <rect x="-8" y="-8" width="${traceVisualW + 16}" height="${traceVisualH + 16}" rx="4" fill="rgba(249, 115, 22, 0.15)"/>
+          <rect x="0" y="0" width="${traceVisualW}" height="${traceVisualH}" rx="1" fill="#f59e0b" stroke="#d97706" stroke-width="1.5"/>
+          <text x="${traceVisualW / 2}" y="${traceVisualH / 2 + 4}" text-anchor="middle" font-size="10" font-weight="900" fill="#78350f">
+            ${traceWidthMils.toFixed(1)} mils (${traceWidthMm.toFixed(2)}mm)
+          </text>
+        </g>
+
+        <line x1="20" y1="55" x2="${240 - traceVisualW/2 - 6}" y2="55" stroke="#16a34a" stroke-width="5"/>
+        <line x1="${240 + traceVisualW/2 + 6}" y1="55" x2="460" y2="55" stroke="#16a34a" stroke-width="5"/>
+
+        <text x="240" y="20" text-anchor="middle" font-size="11" font-weight="700" fill="#fdba74">
+          Continuous Current: ${current}A · ΔT +${deltaT}°C (Operating at ${opTemp.toFixed(1)}°C)
+        </text>
+      </svg>
+    </div>
+  `;
+
+  res.innerHTML = `
+    ${svgDiagram}
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">1. Required Width (Mils)</div>
+        <div style="font-size:20px;font-weight:800;color:var(--green);margin:2px 0">
+          ${traceWidthMils.toFixed(1)} mils
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${traceWidthMm.toFixed(3)} mm (thou)</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">2. Trace Resistance</div>
+        <div style="font-size:20px;font-weight:800;color:var(--ink);margin:2px 0">
+          ${resistanceMilliOhms.toFixed(2)} mΩ
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Over ${lenRaw} ${lenUnit} @ ${opTemp.toFixed(0)}°C</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">3. Voltage Drop (ΔV)</div>
+        <div style="font-size:20px;font-weight:800;color:#0284c7;margin:2px 0">
+          ${voltDropMv < 1000 ? `${voltDropMv.toFixed(1)} mV` : `${voltDrop.toFixed(3)} V`}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">At ${current}A continuous</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">4. Power Dissipation</div>
+        <div style="font-size:20px;font-weight:800;color:#f59e0b;margin:2px 0">
+          ${powerLossMw < 1000 ? `${powerLossMw.toFixed(1)} mW` : `${powerLossWatts.toFixed(2)} W`}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">I²R heat dissipation</div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--ink);line-height:1.5">
+      <strong>💡 EDA Routing Recommendations:</strong><br>
+      • <strong>Rule of Thumb:</strong> For standard 1.0 oz copper, budget ~<strong>${(traceWidthMils / current).toFixed(0)} mils per Amp</strong> for an external layer.<br>
+      • <strong>KiCad / Altium Net Class:</strong> Assign net to width <strong>${Math.ceil(traceWidthMm * 10) / 10} mm</strong> (${Math.ceil(traceWidthMils)} mils).<br>
+      • <strong>Via Current Capacity:</strong> A standard 0.3mm drill via carries ~1.5A to 2.0A. Use <strong>${Math.ceil(current / 1.5)} vias in parallel</strong> if switching layers.
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="button button-outline" data-action="copy-pcb-trace-specs" style="font-size:12px">
+        📋 Copy Trace Routing Specs
+      </button>
+    </div>
+  `;
+}
+
+// --- 🖩 Programming Studio: IEEE 754 32-Bit Floating Point Inspector ---
+let ieee754CurrentUint = 0x41560000;
+
+function setIeee754FromFloat(val) {
+  const buf = new ArrayBuffer(4);
+  const f32 = new Float32Array(buf);
+  const u32 = new Uint32Array(buf);
+  f32[0] = val;
+  ieee754CurrentUint = u32[0];
+  updateIeee754InspectorUI();
+}
+
+function setIeee754FromHex(hexStr) {
+  let cleaned = hexStr.trim().replace(/^0x/i, "");
+  if (!cleaned) return;
+  const u = parseInt(cleaned, 16);
+  if (!isNaN(u)) {
+    ieee754CurrentUint = (u >>> 0);
+    updateIeee754InspectorUI();
+  }
+}
+
+function toggleIeee754Bit(bitIdx) {
+  if (bitIdx < 0 || bitIdx > 31) return;
+  ieee754CurrentUint = ((ieee754CurrentUint ^ (1 << bitIdx)) >>> 0);
+  updateIeee754InspectorUI();
+}
+
+function updateIeee754InspectorUI() {
+  const buf = new ArrayBuffer(4);
+  const u32 = new Uint32Array(buf);
+  const f32 = new Float32Array(buf);
+  u32[0] = ieee754CurrentUint;
+  const floatVal = f32[0];
+
+  const hexVal = "0x" + ieee754CurrentUint.toString(16).toUpperCase().padStart(8, "0");
+  const binStr = ieee754CurrentUint.toString(2).padStart(32, "0");
+
+  const signBit = parseInt(binStr[0], 10);
+  const expBits = binStr.substring(1, 9);
+  const mantissaBits = binStr.substring(9);
+
+  const rawExp = parseInt(expBits, 2);
+  const biasedExp = rawExp - 127;
+  const mantissaInt = parseInt(mantissaBits, 2);
+  const mantissaFrac = mantissaInt / Math.pow(2, 23);
+
+  const decInput = $("#prog-fp-dec");
+  const hexInput = $("#prog-fp-hex");
+  if (decInput && document.activeElement !== decInput) {
+    decInput.value = isNaN(floatVal) ? "NaN" : (!isFinite(floatVal) ? (floatVal > 0 ? "Infinity" : "-Infinity") : floatVal);
+  }
+  if (hexInput && document.activeElement !== hexInput) {
+    hexInput.value = hexVal;
+  }
+
+  const res = $("#prog-fp-result");
+  if (!res) return;
+
+  let bitCells = "";
+  for (let i = 31; i >= 0; i--) {
+    const bitVal = (ieee754CurrentUint >>> i) & 1;
+    let cls = "fp-bit-mantissa";
+    if (i === 31) cls = "fp-bit-sign";
+    else if (i >= 23) cls = "fp-bit-exp";
+
+    bitCells += `
+      <div class="fp-bit-cell ${cls}" data-action="prog-fp-bit-toggle" data-bit="${i}" title="Toggle Bit ${i}">
+        <span class="bit-idx">${i}</span>
+        <span>${bitVal}</span>
+      </div>
+    `;
+  }
+
+  let typeDesc = "Normal Floating Point";
+  if (rawExp === 255) {
+    if (mantissaInt === 0) {
+      typeDesc = (signBit === 0) ? "+Infinity (Overflow)" : "-Infinity (Negative Overflow)";
+    } else {
+      typeDesc = (mantissaBits[0] === '1') ? "Quiet NaN (qNaN)" : "Signaling NaN (sNaN)";
+    }
+  } else if (rawExp === 0) {
+    if (mantissaInt === 0) {
+      typeDesc = (signBit === 0) ? "+0.0 (Positive Zero)" : "-0.0 (Negative Zero)";
+    } else {
+      typeDesc = "Subnormal / Denormalized Number (Gradual Underflow)";
+    }
+  }
+
+  res.innerHTML = `
+    <div style="margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px">
+        <span>Bit 31: Sign (Red)</span>
+        <span>Bits 30-23: Biased Exponent (Blue)</span>
+        <span>Bits 22-0: Mantissa / Fraction (Green)</span>
+      </div>
+      <div class="fp-bits-grid">
+        ${bitCells}
+      </div>
+      <div style="font-size:10px;color:var(--muted);text-align:center">Click any bit to flip 0 ↔ 1</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Sign (1 Bit)</div>
+        <div style="font-size:18px;font-weight:800;color:#ef4444;margin:2px 0">
+          ${signBit === 0 ? "+ (Positive)" : "- (Negative)"}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Bit 31: ${signBit}</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Exponent (8 Bits)</div>
+        <div style="font-size:18px;font-weight:800;color:#38bdf8;margin:2px 0">
+          2<sup>${biasedExp}</sup>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Raw ${rawExp} - 127 = ${biasedExp}</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Mantissa (23 Bits)</div>
+        <div style="font-size:18px;font-weight:800;color:#34d399;margin:2px 0">
+          ${(rawExp === 0 ? 0 : 1) + mantissaFrac < 2 ? (1 + mantissaFrac).toFixed(6) : "1.000000"}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${rawExp === 0 ? "0." : "1."}${mantissaBits.substring(0, 8)}...</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Evaluation</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          ${isNaN(floatVal) ? "NaN" : floatVal}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${typeDesc}</div>
+      </div>
+    </div>
+
+    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:10px 12px;font-family:monospace;font-size:12px;color:#94a3b8;line-height:1.5">
+      <span style="color:#64748b">// C / Embedded Microcontroller Type Punning</span><br>
+      <span style="color:#38bdf8">union</span> { <span style="color:#f59e0b">float</span> f; <span style="color:#f59e0b">uint32_t</span> u; } converter = { .u = <span style="color:#34d399">${hexVal}</span> };<br>
+      <span style="color:#f59e0b">float</span> value = converter.f; <span style="color:#64748b">// = ${floatVal}</span>
+    </div>
+  `;
+}
+
+// --- 🎨 Art & Design Studio: Physical Artist Pigment & Subtractive Paint Color Mixer ---
+const ART_PIGMENTS_DB = [
+  { id: "pw6", code: "PW6", name: "Titanium White", hex: "#ffffff", weight: 1.0, absorb: [0.02, 0.02, 0.02], scatter: 1.0, isOpaque: true },
+  { id: "py35", code: "PY35", name: "Cadmium Lemon Yellow", hex: "#fff000", weight: 1.2, absorb: [0.05, 0.08, 0.95], scatter: 0.6, isOpaque: true },
+  { id: "py43", code: "PY43", name: "Yellow Ochre", hex: "#c98f39", weight: 1.3, absorb: [0.25, 0.45, 0.85], scatter: 0.5, isOpaque: false },
+  { id: "pr108", code: "PR108", name: "Cadmium Red Medium", hex: "#d01c1f", weight: 1.8, absorb: [0.08, 0.92, 0.90], scatter: 0.7, isOpaque: true },
+  { id: "pv19", code: "PV19", name: "Quinacridone Magenta", hex: "#a40046", weight: 2.2, absorb: [0.15, 0.95, 0.55], scatter: 0.2, isOpaque: false },
+  { id: "pb15", code: "PB15:3", name: "Phthalo Blue", hex: "#00356b", weight: 3.5, absorb: [0.95, 0.40, 0.05], scatter: 0.1, isOpaque: false },
+  { id: "pb29", code: "PB29", name: "Ultramarine Blue", hex: "#18227d", weight: 1.5, absorb: [0.92, 0.75, 0.10], scatter: 0.3, isOpaque: false },
+  { id: "pbr7", code: "PBr7", name: "Burnt Umber", hex: "#462b1a", weight: 1.6, absorb: [0.75, 0.82, 0.90], scatter: 0.4, isOpaque: false },
+  { id: "pbk9", code: "PBk9", name: "Ivory / Carbon Black", hex: "#111111", weight: 4.0, absorb: [0.98, 0.98, 0.98], scatter: 0.8, isOpaque: true }
+];
+
+const PIGMENT_PRESETS = {
+  spring_green: { pw6: 1, py35: 5, py43: 0, pr108: 0, pv19: 0, pb15: 1, pb29: 0, pbr7: 0, pbk9: 0 },
+  deep_navy: { pw6: 0, py35: 0, py43: 0, pr108: 0, pv19: 0, pb15: 2, pb29: 4, pbr7: 2, pbk9: 1 },
+  flesh_tone: { pw6: 6, py35: 0, py43: 2, pr108: 1, pv19: 0, pb15: 0, pb29: 0.2, pbr7: 0.5, pbk9: 0 },
+  terracotta: { pw6: 1, py35: 0, py43: 4, pr108: 2, pv19: 0, pb15: 0, pb29: 0, pbr7: 2, pbk9: 0 },
+  chromatic_black: { pw6: 0, py35: 0, py43: 0, pr108: 0, pv19: 0, pb15: 0, pb29: 3, pbr7: 3, pbk9: 0 },
+  olive_drab: { pw6: 0, py35: 0, py43: 5, pr108: 0, pv19: 0, pb15: 0, pb29: 2, pbr7: 0, pbk9: 1 }
+};
+
+let pigmentPartsState = {
+  pw6: 0, py35: 4, py43: 0, pr108: 0, pv19: 0, pb15: 1, pb29: 0, pbr7: 0, pbk9: 0
+};
+
+function renderPigmentSlidersUI() {
+  const container = $("#art-pigment-sliders");
+  if (!container) return;
+  container.innerHTML = ART_PIGMENTS_DB.map(p => {
+    const val = pigmentPartsState[p.id] || 0;
+    return `
+      <div class="pigment-tube-card">
+        <span class="pigment-color-dot" style="background:${p.hex}"></span>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700">
+            <span>${p.name} <span style="font-size:9px;color:var(--muted)">(${p.code})</span></span>
+            <span id="pigment-val-${p.id}" style="color:var(--ink)">${val}</span>
+          </div>
+          <input type="range" id="pigment-slider-${p.id}" min="0" max="10" step="0.5" value="${val}" style="width:100%;margin-top:4px">
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  ART_PIGMENTS_DB.forEach(p => {
+    $(`#pigment-slider-${p.id}`)?.addEventListener("input", (e) => {
+      const v = parseFloat(e.target.value) || 0;
+      pigmentPartsState[p.id] = v;
+      const lbl = $(`#pigment-val-${p.id}`);
+      if (lbl) lbl.textContent = v;
+      if ($("#art-pigment-preset")) $("#art-pigment-preset").value = "custom";
+      updatePigmentMixer();
+    });
+  });
+}
+
+function updatePigmentMixer() {
+  const res = $("#art-pigment-result");
+  if (!res) return;
+
+  let totalParts = 0;
+  let totalWeightedParts = 0;
+  let absR = 0, absG = 0, absB = 0;
+  let totalScatter = 0;
+
+  ART_PIGMENTS_DB.forEach(p => {
+    const parts = pigmentPartsState[p.id] || 0;
+    if (parts > 0) {
+      totalParts += parts;
+      const w = parts * p.weight;
+      totalWeightedParts += w;
+      absR += p.absorb[0] * w;
+      absG += p.absorb[1] * w;
+      absB += p.absorb[2] * w;
+      totalScatter += p.scatter * parts;
+    }
+  });
+
+  let mixedHex = "#ffffff";
+  let r = 255, g = 255, b = 255;
+  let tintHex = "#ffffff";
+
+  if (totalParts > 0 && totalWeightedParts > 0) {
+    const normAbsR = absR / totalWeightedParts;
+    const normAbsG = absG / totalWeightedParts;
+    const normAbsB = absB / totalWeightedParts;
+
+    const density = Math.min(3.2, 0.8 + (totalWeightedParts * 0.25));
+    r = Math.round(255 * Math.exp(-normAbsR * density));
+    g = Math.round(255 * Math.exp(-normAbsG * density));
+    b = Math.round(255 * Math.exp(-normAbsB * density));
+
+    r = Math.max(8, Math.min(255, r));
+    g = Math.max(8, Math.min(255, g));
+    b = Math.max(8, Math.min(255, b));
+
+    mixedHex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+
+    const tr = Math.round(r * 0.5 + 255 * 0.5);
+    const tg = Math.round(g * 0.5 + 255 * 0.5);
+    const tb = Math.round(b * 0.5 + 255 * 0.5);
+    tintHex = `#${((1 << 24) + (tr << 16) + (tg << 8) + tb).toString(16).slice(1)}`;
+  }
+
+  const avgScatter = totalParts > 0 ? (totalScatter / totalParts) : 1;
+  let opacityLabel = "Semi-Transparent / Glaze";
+  if (avgScatter > 0.7) opacityLabel = "Opaque / High Covering Power";
+  else if (avgScatter > 0.45) opacityLabel = "Semi-Opaque";
+  else if (avgScatter < 0.25) opacityLabel = "Transparent (Staining Glaze)";
+
+  const recipeItems = ART_PIGMENTS_DB
+    .filter(p => (pigmentPartsState[p.id] || 0) > 0)
+    .map(p => {
+      const parts = pigmentPartsState[p.id];
+      const pct = totalParts > 0 ? ((parts / totalParts) * 100).toFixed(0) : 0;
+      return `<strong>${parts} parts (${pct}%)</strong> ${p.name} [${p.code}]`;
+    });
+
+  res.innerHTML = `
+    <div class="pigment-swatch-split">
+      <div class="pigment-swatch-half" style="background:${mixedHex}">
+        <span>Masstone (Full Body)</span>
+        <span style="font-family:monospace;font-size:12px">${mixedHex.toUpperCase()}</span>
+      </div>
+      <div class="pigment-swatch-half" style="background:${tintHex};color:#0f172a;text-shadow:none">
+        <span>50% Tint with White</span>
+        <span style="font-family:monospace;font-size:12px">${tintHex.toUpperCase()}</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Digital RGB Approximation</div>
+        <div style="font-size:18px;font-weight:800;color:var(--ink);margin:2px 0">
+          rgb(${r}, ${g}, ${b})
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Hex ${mixedHex.toUpperCase()}</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Film Opacity Rating</div>
+        <div style="font-size:16px;font-weight:800;color:var(--green);margin:2px 0">
+          ${opacityLabel}
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Based on pigment index scattering</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Total Mix Volume</div>
+        <div style="font-size:18px;font-weight:800;color:#0284c7;margin:2px 0">
+          ${totalParts} parts
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${recipeItems.length} tube pigments combined</div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--ink);line-height:1.5">
+      <strong>🎨 Physical Tube Recipe Breakdown:</strong><br>
+      ${recipeItems.length > 0 ? recipeItems.join("<br>") : "<em>All tube sliders at 0. Move sliders to mix paint.</em>"}
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="button button-outline" data-action="copy-pigment-recipe" data-hex="${mixedHex}" style="font-size:12px">
+        📋 Copy Recipe &amp; Hex
+      </button>
+      <button type="button" class="button button-outline" data-action="set-studio-palette-from-pigment" data-hex="${mixedHex}" style="font-size:12px">
+        🎯 Set as Studio Base Color
+      </button>
+      <button type="button" class="button button-outline" data-action="add-pigment-to-materials" data-hex="${mixedHex}" style="font-size:12px">
+        + Add Custom Paint to Materials
+      </button>
+    </div>
+  `;
+}
+
 function initCraftStudios() {
   // Piano keyboard & Music Theory & Fretboard Studio
   renderPianoKeyboardUI();
@@ -23646,6 +24551,11 @@ function initCraftStudios() {
   ["#wood-emc-temp", "#wood-emc-panel-w"].forEach(s => $(s)?.addEventListener("input", updateWoodEmcCalc));
   $("#wood-emc-rh-slider")?.addEventListener("input", updateWoodEmcCalc);
 
+  // Woodworking Dovetail & Box Joint Layout
+  updateDovetailCalc();
+  ["#wood-dt-type", "#wood-dt-unit", "#wood-dt-slope"].forEach(s => $(s)?.addEventListener("change", updateDovetailCalc));
+  ["#wood-dt-width", "#wood-dt-thick", "#wood-dt-tails", "#wood-dt-halfpin"].forEach(s => $(s)?.addEventListener("input", updateDovetailCalc));
+
   // Textiles Yardage, Gauge, Fiber Guide, Skein, Hat Sizing & Planned Pooling
   updateTextilesYardageEstimator();
   updateTextilesGaugeCalc();
@@ -23679,6 +24589,24 @@ function initCraftStudios() {
     }
   });
   ["#textiles-pool-stitch-seq", "#textiles-pool-mult"].forEach(s => $(s)?.addEventListener("input", updateTextilesPooling));
+
+  // Textiles Multi-Strand Yarn Equivalency
+  updateYarnHoldingCalc();
+  ["#textiles-yarn-strand1", "#textiles-yarn-strand2", "#textiles-yarn-strand3", "#textiles-yarn-len-unit"].forEach(s => $(s)?.addEventListener("change", updateYarnHoldingCalc));
+  $("#textiles-yarn-target-len")?.addEventListener("input", updateYarnHoldingCalc);
+  $("#textiles-yarn-preset")?.addEventListener("change", (e) => {
+    const val = e.target.value;
+    const s1 = $("#textiles-yarn-strand1");
+    const s2 = $("#textiles-yarn-strand2");
+    const s3 = $("#textiles-yarn-strand3");
+    if (val === "fingering_mohair") { if (s1) s1.value = "1"; if (s2) s2.value = "0"; if (s3) s3.value = "none"; }
+    else if (val === "double_fingering") { if (s1) s1.value = "1"; if (s2) s2.value = "1"; if (s3) s3.value = "none"; }
+    else if (val === "double_dk") { if (s1) s1.value = "3"; if (s2) s2.value = "3"; if (s3) s3.value = "none"; }
+    else if (val === "double_worsted") { if (s1) s1.value = "4"; if (s2) s2.value = "4"; if (s3) s3.value = "none"; }
+    else if (val === "triple_fingering") { if (s1) s1.value = "1"; if (s2) s2.value = "1"; if (s3) s3.value = "1"; }
+    else if (val === "dk_mohair") { if (s1) s1.value = "3"; if (s2) s2.value = "0"; if (s3) s3.value = "none"; }
+    updateYarnHoldingCalc();
+  });
 
   // Electronics Voltage Divider, Capacitor, AWG, 555 Timer, Passive RC Filter, I2C Sensors, SMD Decoder & Stepper Solver
   updateVoltageDividerCalc();
@@ -23730,6 +24658,11 @@ function initCraftStudios() {
   ["#elec-step-mech", "#elec-step-angle", "#elec-step-micro"].forEach(s => $(s)?.addEventListener("change", updateStepperMotorCalc));
   $("#elec-step-gear")?.addEventListener("input", updateStepperMotorCalc);
 
+  // Electronics PCB Trace Solver (IPC-2152)
+  updatePcbTraceCalc();
+  ["#elec-trace-copper", "#elec-trace-deltat", "#elec-trace-layer", "#elec-trace-len-unit"].forEach(s => $(s)?.addEventListener("change", updatePcbTraceCalc));
+  ["#elec-trace-current", "#elec-trace-len", "#elec-trace-ambient"].forEach(s => $(s)?.addEventListener("input", updatePcbTraceCalc));
+
   // Programming ALU, ASCII, Array Formatter, Baud, CRC & Battery Life
   updateProgAluCalc();
   searchProgAsciiTable();
@@ -23762,6 +24695,16 @@ function initCraftStudios() {
   });
   ["#prog-pwr-act-curr", "#prog-pwr-act-time", "#prog-pwr-sleep-curr", "#prog-pwr-sleep-time", "#prog-pwr-bat-cap"].forEach(s => $(s)?.addEventListener("input", updateProgBatteryLifeCalc));
 
+  // Programming IEEE 754 Floating Point Inspector
+  updateIeee754InspectorUI();
+  $("#prog-fp-dec")?.addEventListener("input", (e) => {
+    const v = parseFloat(e.target.value);
+    setIeee754FromFloat(v);
+  });
+  $("#prog-fp-hex")?.addEventListener("input", (e) => {
+    setIeee754FromHex(e.target.value);
+  });
+
   // Art Contrast, Gradient, Print Scaler, CVD Preview, Framing & Camera Color Picker
   updateArtContrastCalc();
   updateArtGradientStudio();
@@ -23789,6 +24732,18 @@ function initCraftStudios() {
   ["#art-frame-art-w", "#art-frame-art-h", "#art-frame-mat-w", "#art-frame-molding-w"].forEach(s => $(s)?.addEventListener("input", updateArtFrameCalc));
   $("#art-camera-file-input")?.addEventListener("change", (e) => {
     if (e.target.files && e.target.files[0]) handleArtCameraFileUpload(e.target.files[0]);
+  });
+
+  // Art Physical Pigment Mixer
+  renderPigmentSlidersUI();
+  updatePigmentMixer();
+  $("#art-pigment-preset")?.addEventListener("change", (e) => {
+    const p = PIGMENT_PRESETS[e.target.value];
+    if (p) {
+      Object.assign(pigmentPartsState, p);
+      renderPigmentSlidersUI();
+      updatePigmentMixer();
+    }
   });
 
   const instSelect = $("#music-main-instrument");

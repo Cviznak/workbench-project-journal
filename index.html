@@ -1396,6 +1396,62 @@
                 <div class="tool-result-box" id="wood-emc-result" style="margin-top:12px"></div>
               </div>
 
+              <!-- 🪚 Dovetail & Box Joint Layout Calculator -->
+              <div class="panel" id="panel-wood-dovetail" style="grid-column: 1 / -1">
+                <div class="eyebrow">JOINERY &amp; CAD LAYOUT</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🪚 Dovetail &amp; Box Joint Layout Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-dovetail" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate mathematically proportional pins, tails, and interlocking fingers with slope angles, socket depths, and an interactive CAD cutting layout.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Joint Style
+                    <select id="wood-dt-type">
+                      <option value="through_dt" selected>Through Dovetail (Classic Fine Woodworking)</option>
+                      <option value="half_blind">Half-Blind Dovetail (Drawer Front Joint)</option>
+                      <option value="box_joint">Finger / Box Joint (90° Interlocking)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Board Width
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="wood-dt-width" value="150" min="10" max="1000" step="any" style="flex:1">
+                      <select id="wood-dt-unit" style="width:75px">
+                        <option value="mm" selected>mm</option>
+                        <option value="in">in</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Board Stock Thickness
+                    <input type="number" id="wood-dt-thick" value="19" min="3" max="100" step="any">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Pin Slope / Angle
+                    <select id="wood-dt-slope">
+                      <option value="8" selected>1:8 Slope (~7.1° · Hardwood standard)</option>
+                      <option value="7">1:7 Slope (~8.1° · Medium density)</option>
+                      <option value="6">1:6 Slope (~9.5° · Softwoods &amp; Pine)</option>
+                      <option value="4">1:4 Slope (~14.0° · Bold Traditional Handcut)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Number of Tails
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="wood-dt-tails" value="3" min="1" max="15" step="1" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">tails</span>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Half-Pin Outer Margin
+                    <input type="number" id="wood-dt-halfpin" value="6" min="1" max="50" step="any">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="wood-dt-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -1944,6 +2000,77 @@
                 <div class="tool-result-box" id="textiles-pool-result" style="margin-top:12px"></div>
               </div>
 
+              <!-- 🧶 Multi-Strand Yarn Equivalency & Holding Double Solver -->
+              <div class="panel" id="panel-textiles-yarn-holding" style="grid-column: 1 / -1">
+                <div class="eyebrow">FIBER GAUGES &amp; STRAND COMPOSITING</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🧶 Multi-Strand Yarn Equivalency &amp; Holding Double Solver</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-textiles-yarn-holding" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate combined yarn weight, meters per 100g, recommended needle size, and swatch stitch gauge when holding 2 or 3 strands together.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Quick Combo Presets
+                    <select id="textiles-yarn-preset">
+                      <option value="custom" selected>Custom Selection Below...</option>
+                      <option value="fingering_mohair">Fingering (1) + Lace Silk Mohair (0) → Sport / DK (3)</option>
+                      <option value="double_fingering">2 Strands Fingering (1) held double → DK / Light Worsted (3)</option>
+                      <option value="double_dk">2 Strands DK (3) held double → Bulky (5)</option>
+                      <option value="double_worsted">2 Strands Worsted (4) held double → Super Bulky (6)</option>
+                      <option value="triple_fingering">3 Strands Fingering (1) held triple → Worsted / Aran (4)</option>
+                      <option value="dk_mohair">DK (3) + Lace Mohair (0) → Heavy Worsted / Aran (4)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Strand 1 Weight
+                    <select id="textiles-yarn-strand1">
+                      <option value="0">0 - Lace / Cobweb (~800 m / 100g)</option>
+                      <option value="1" selected>1 - Super Fine / Fingering / Sock (~400 m / 100g)</option>
+                      <option value="2">2 - Fine / Sport / 5-ply (~300 m / 100g)</option>
+                      <option value="3">3 - Light / DK / Light Worsted (~225 m / 100g)</option>
+                      <option value="4">4 - Medium / Worsted / Aran (~180 m / 100g)</option>
+                      <option value="5">5 - Bulky / Chunky (~120 m / 100g)</option>
+                      <option value="6">6 - Super Bulky / Roving (~70 m / 100g)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Strand 2 Weight
+                    <select id="textiles-yarn-strand2">
+                      <option value="0" selected>0 - Lace / Mohair (~800 m / 100g)</option>
+                      <option value="1">1 - Super Fine / Fingering / Sock (~400 m / 100g)</option>
+                      <option value="2">2 - Fine / Sport / 5-ply (~300 m / 100g)</option>
+                      <option value="3">3 - Light / DK / Light Worsted (~225 m / 100g)</option>
+                      <option value="4">4 - Medium / Worsted / Aran (~180 m / 100g)</option>
+                      <option value="5">5 - Bulky / Chunky (~120 m / 100g)</option>
+                      <option value="6">6 - Super Bulky / Roving (~70 m / 100g)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Strand 3 (Optional)
+                    <select id="textiles-yarn-strand3">
+                      <option value="none" selected>None (Holding Double)</option>
+                      <option value="0">0 - Lace / Mohair (~800 m / 100g)</option>
+                      <option value="1">1 - Super Fine / Fingering (~400 m / 100g)</option>
+                      <option value="2">2 - Fine / Sport (~300 m / 100g)</option>
+                      <option value="3">3 - Light / DK (~225 m / 100g)</option>
+                      <option value="4">4 - Medium / Worsted (~180 m / 100g)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Pattern Target Length
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="textiles-yarn-target-len" value="950" min="50" max="10000" step="10" style="flex:1">
+                      <select id="textiles-yarn-len-unit" style="width:75px">
+                        <option value="m" selected>m</option>
+                        <option value="yd">yd</option>
+                      </select>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="textiles-yarn-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -2392,6 +2519,69 @@
                 <div class="tool-result-box" id="elec-step-result" style="margin-top:12px"></div>
               </div>
 
+              <!-- ⚡ PCB Trace Width & Current Ampacity Solver (IPC-2152 / IPC-2221) -->
+              <div class="panel" id="panel-elec-pcb-trace" style="grid-column: 1 / -1">
+                <div class="eyebrow">IPC-2152 / IPC-2221 PCB THERMAL DESIGN</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">⚡ PCB Trace Width &amp; Ampacity Solver</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-elec-pcb-trace" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate required PCB copper trace width, temperature rise, electrical resistance, and voltage drop to prevent board overheating and trace burn-out.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Target Continuous Current
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="elec-trace-current" value="2.5" min="0.05" max="50" step="any" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">Amps</span>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Copper Weight / Thickness
+                    <select id="elec-trace-copper">
+                      <option value="0.5">0.5 oz / ft² (17.5 µm · 0.7 mil)</option>
+                      <option value="1.0" selected>1.0 oz / ft² (35 µm · 1.37 mil standard)</option>
+                      <option value="2.0">2.0 oz / ft² (70 µm · 2.74 mil power)</option>
+                      <option value="3.0">3.0 oz / ft² (105 µm · 4.1 mil heavy)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Allowable Temp Rise (ΔT)
+                    <select id="elec-trace-deltat">
+                      <option value="10">10°C (Conservative / Precision)</option>
+                      <option value="20" selected>20°C (Standard Industrial)</option>
+                      <option value="30">30°C (Compact Power Circuit)</option>
+                      <option value="45">45°C (Maximum Tolerable)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Trace Layer Placement
+                    <select id="elec-trace-layer">
+                      <option value="external" selected>External Layer (Air convective cooling · k=0.048)</option>
+                      <option value="internal">Internal Layer (Enclosed in FR-4 · k=0.024)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Trace Length
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="elec-trace-len" value="50" min="1" max="1000" step="any" style="flex:1">
+                      <select id="elec-trace-len-unit" style="width:75px">
+                        <option value="mm" selected>mm</option>
+                        <option value="in">in</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Ambient Temperature
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="elec-trace-ambient" value="25" min="-40" max="100" step="any" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">°C</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="elec-trace-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -2677,6 +2867,39 @@
                 </div>
 
                 <div class="tool-result-box" id="prog-pwr-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🖩 IEEE 754 32-Bit Floating Point Bit Inspector -->
+              <div class="panel" id="panel-prog-ieee754" style="grid-column: 1 / -1">
+                <div class="eyebrow">BINARY ARCHITECTURE &amp; MICROCONTROLLER TELEMETRY</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🖩 IEEE 754 Floating Point Bit Field Inspector</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-prog-ieee754" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Inspect single-precision (32-bit binary32) sign, biased exponent, and mantissa bit fields with interactive toggles, hex representations, and quantization error analysis.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Decimal Float Input
+                    <input type="number" id="prog-fp-dec" value="13.375" step="any" placeholder="e.g. 13.375">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Hexadecimal Representation
+                    <input type="text" id="prog-fp-hex" value="0x41560000" spellcheck="false" placeholder="e.g. 0x41560000">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Common Presets
+                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                      <button type="button" class="button button-outline" style="font-size:11px;padding:3px 8px" data-action="prog-fp-preset" data-val="3.14159265">π</button>
+                      <button type="button" class="button button-outline" style="font-size:11px;padding:3px 8px" data-action="prog-fp-preset" data-val="0.1">0.1</button>
+                      <button type="button" class="button button-outline" style="font-size:11px;padding:3px 8px" data-action="prog-fp-preset" data-val="-42.5">-42.5</button>
+                      <button type="button" class="button button-outline" style="font-size:11px;padding:3px 8px" data-action="prog-fp-preset" data-val="0">0.0</button>
+                      <button type="button" class="button button-outline" style="font-size:11px;padding:3px 8px" data-action="prog-fp-preset" data-val="Infinity">+Inf</button>
+                      <button type="button" class="button button-outline" style="font-size:11px;padding:3px 8px" data-action="prog-fp-preset" data-val="NaN">NaN</button>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="prog-fp-result" style="margin-top:12px"></div>
               </div>
 
             </div>
@@ -3011,6 +3234,37 @@
                 </div>
 
                 <div class="tool-result-box" id="art-frame-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🎨 Physical Pigment & Subtractive Paint Color Mixer -->
+              <div class="panel" id="panel-art-pigment-mixer" style="grid-column: 1 / -1">
+                <div class="eyebrow">SUBTRACTIVE COLOR THEORY &amp; FINE ART MIXING</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🎨 Physical Artist Pigment &amp; Subtractive Paint Mixer</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-art-pigment-mixer" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Simulate real-world oil, acrylic, and watercolor subtractive pigment blending with traditional artist tube pigments (where Yellow + Blue = Emerald Green, not digital grey!).</p>
+
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+                  <label class="field-label" style="font-size:11px;margin:0;flex:1;min-width:200px">Palette Preset Recipes
+                    <select id="art-pigment-preset">
+                      <option value="custom" selected>Custom Paint Mixture...</option>
+                      <option value="spring_green">Fresh Spring Foliage Green (Lemon Yellow + Phthalo Blue + White)</option>
+                      <option value="deep_navy">Deep Nautical Navy (Ultramarine + Phthalo + Burnt Umber)</option>
+                      <option value="flesh_tone">Portrait Flesh Undertone (Titanium White + Cadmium Red + Yellow Ochre + touch Ultramarine)</option>
+                      <option value="terracotta">Warm Tuscan Terracotta (Yellow Ochre + Cadmium Red + Burnt Umber)</option>
+                      <option value="chromatic_black">Rich Chromatic Shadow Black (Ultramarine + Burnt Umber)</option>
+                      <option value="olive_drab">Earthy Olive Drab (Yellow Ochre + Ultramarine + Ivory Black)</option>
+                    </select>
+                  </label>
+                  <button type="button" class="button button-outline" data-action="art-pigment-reset" style="font-size:12px">↺ Reset Tube Sliders</button>
+                </div>
+
+                <div id="art-pigment-sliders" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:10px">
+                  <!-- Pigment sliders will be rendered here -->
+                </div>
+
+                <div class="tool-result-box" id="art-pigment-result" style="margin-top:12px"></div>
               </div>
             </div>
           </section>

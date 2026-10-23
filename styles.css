@@ -8144,3 +8144,155 @@ body.theme-dark .materials-group-badge.group-electronics {
   height: 100%;
   transition: width .2s ease;
 }
+
+/* ============================================================
+   🪚 Dovetail & Box Joint Layout Calculator
+   ============================================================ */
+.dt-cad-wrap {
+  width: 100%;
+  max-width: 640px;
+  margin: 12px auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  text-align: center;
+}
+.dt-cad-svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+  background: #18181b;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+/* ============================================================
+   🧶 Multi-Strand Yarn Equivalency & Holding Double
+   ============================================================ */
+.yarn-holding-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 13px;
+  background: rgba(236, 72, 153, 0.12);
+  color: #ec4899;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+/* ============================================================
+   ⚡ PCB Trace Width & Current Ampacity Solver
+   ============================================================ */
+.pcb-trace-diagram {
+  width: 100%;
+  max-width: 540px;
+  margin: 12px auto;
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* ============================================================
+   🖩 IEEE 754 Floating Point Bit Field Inspector
+   ============================================================ */
+.fp-bits-grid {
+  display: grid;
+  grid-template-columns: repeat(32, minmax(0, 1fr));
+  gap: 2px;
+  margin: 12px 0 6px;
+  user-select: none;
+}
+@media (max-width: 640px) {
+  .fp-bits-grid {
+    grid-template-columns: repeat(16, minmax(0, 1fr));
+    gap: 3px;
+  }
+}
+.fp-bit-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 2px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .1s ease, filter .1s ease;
+  border: 1px solid transparent;
+}
+.fp-bit-cell:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+}
+.fp-bit-cell .bit-idx {
+  font-size: 8px;
+  font-weight: 400;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+.fp-bit-sign {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.fp-bit-exp {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+.fp-bit-mantissa {
+  background: rgba(52, 211, 153, 0.18);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+/* ============================================================
+   🎨 Physical Artist Pigment & Subtractive Paint Mixer
+   ============================================================ */
+.pigment-tube-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.pigment-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+.pigment-swatch-split {
+  height: 70px;
+  border-radius: 8px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.pigment-swatch-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
