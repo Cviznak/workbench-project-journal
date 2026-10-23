@@ -746,6 +746,46 @@
                   </button>
                 </div>
 
+                <!-- 🎤 Live Microphone Chromatic Tuner & Pitch Detector -->
+                <div class="panel music-card-panel" id="panel-music-mic-tuner" style="grid-column: 1 / -1">
+                  <div class="eyebrow">ACOUSTIC FREQUENCY &amp; INSTRUMENT INTONATION</div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+                    <h3 style="font-size:16px;margin:0">🎤 Live Microphone Chromatic Tuner &amp; Pitch Detector</h3>
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-music-mic-tuner" title="Minimize panel">— Minimize</button>
+                      <button type="button" class="button button-small button-primary" id="music-tuner-toggle-btn" data-action="toggle-mic-tuner">🎙️ Start Microphone Tuner</button>
+                    </div>
+                  </div>
+                  <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Listen to your voice or musical instrument (guitar, bass, ukulele, violin, piano) through your microphone to detect exact fundamental frequency in Hertz and intonation cents deviation.</p>
+
+                  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px;margin-bottom:12px">
+                    <label class="field-label" style="font-size:11px">Instrument Tuning Preset
+                      <select id="music-tuner-preset">
+                        <option value="chromatic" selected>Chromatic · All 12 Semitones</option>
+                        <option value="guitar_std">🎸 Guitar · Standard (E2 A2 D3 G3 B3 E4)</option>
+                        <option value="guitar_dropd">🎸 Guitar · Drop D (D2 A2 D3 G3 B3 E4)</option>
+                        <option value="bass_std">🎸 4-String Bass (E1 A1 D2 G2)</option>
+                        <option value="ukulele_std">🪕 Ukulele · High-G (G4 C4 E4 A4)</option>
+                        <option value="violin_std">🎻 Violin · Standard (G3 D4 A4 E5)</option>
+                      </select>
+                    </label>
+
+                    <label class="field-label" style="font-size:11px">Concert Pitch Calibration
+                      <select id="music-tuner-calib">
+                        <option value="440" selected>A4 = 440.0 Hz (Standard ISO)</option>
+                        <option value="432">A4 = 432.0 Hz (Verdi / Alternative)</option>
+                        <option value="444">A4 = 444.0 Hz (Bright Pitch)</option>
+                        <option value="415">A4 = 415.0 Hz (Baroque Pitch)</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <!-- Tuner Display Body -->
+                  <div class="tuner-meter-wrap" id="music-tuner-display">
+                    <!-- Dynamic analog dial & pitch readout rendered here -->
+                  </div>
+                </div>
+
                 <!-- Tempo Delay & Reverb Calculator -->
                 <div class="panel music-card-panel">
                   <div class="eyebrow">TIME &amp; REVERB SYNC</div>
@@ -1284,6 +1324,78 @@
                 <div class="tool-result-box" id="wood-sag-result" style="margin-top:12px"></div>
               </div>
 
+              <!-- 🌡️ Wood Equilibrium Moisture Content (EMC) & Movement Predictor -->
+              <div class="panel" id="panel-wood-emc" style="grid-column: 1 / -1">
+                <div class="eyebrow">PSYCHROMETRICS &amp; WOOD MOVEMENT PREDICTION</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🌡️ Wood Equilibrium Moisture Content (EMC) &amp; Shrinkage Solver</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-wood-emc" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Predict wood moisture content using US Forest Products Laboratory psychrometric equations and calculate seasonal tabletop expansion/shrinkage to prevent split tops and joint failure.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Wood Species
+                    <select id="wood-emc-species">
+                      <option value="red_oak" selected>Red Oak (Tangential 8.6%, Radial 4.0%)</option>
+                      <option value="white_oak">White Oak (Tangential 10.5%, Radial 5.6%)</option>
+                      <option value="hard_maple">Hard Sugar Maple (Tangential 9.9%, Radial 4.8%)</option>
+                      <option value="walnut">Black Walnut (Tangential 7.8%, Radial 5.5% · Very Stable)</option>
+                      <option value="cherry">Black Cherry (Tangential 7.1%, Radial 3.7% · Exceptional Stability)</option>
+                      <option value="white_pine">Eastern White Pine (Tangential 6.1%, Radial 2.3%)</option>
+                      <option value="doug_fir">Douglas Fir (Tangential 7.6%, Radial 4.8%)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Ambient Shop Temperature
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="wood-emc-temp" value="70" step="any" style="flex:1">
+                      <select id="wood-emc-temp-unit" style="width:75px">
+                        <option value="f" selected>°F</option>
+                        <option value="c">°C</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Relative Humidity (% RH)
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <input type="range" id="wood-emc-rh-slider" min="10" max="95" value="45" style="flex:1">
+                      <span id="wood-emc-rh-val" style="font-size:13px;font-weight:700;min-width:38px;color:var(--text)">45%</span>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Target Project Environment
+                    <select id="wood-emc-env">
+                      <option value="indoor_winter">Winter Heated Indoor (~30% RH · 6% EMC)</option>
+                      <option value="indoor_annual" selected>Normal Air-Conditioned Home (~45% RH · 8.5% EMC)</option>
+                      <option value="indoor_summer">Humid Summer Indoor (~70% RH · 13% EMC)</option>
+                      <option value="outdoor_covered">Covered Porch / Outdoor Deck (~75% RH · 14.5% EMC)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;margin-top:8px">
+                  <label class="field-label" style="font-size:11px">Panel / Tabletop Width
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="wood-emc-panel-w" value="36" min="1" max="144" step="any" style="flex:1">
+                      <select id="wood-emc-panel-unit" style="width:75px">
+                        <option value="in" selected>in</option>
+                        <option value="mm">mm</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Lumber Grain Orientation
+                    <select id="wood-emc-grain">
+                      <option value="flatsawn" selected>Flatsawn (Plain Sawn · Moves by Tangential Factor)</option>
+                      <option value="quartersawn">Quartersawn / Riftsawn (Moves by Radial Factor · 50% more stable)</option>
+                      <option value="mixed">Mixed Grain Edge-Glued Panel (Average Tangential/Radial)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="wood-emc-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -1788,6 +1900,50 @@
                 <div class="tool-result-box" id="textiles-hat-result" style="margin-top:12px"></div>
               </div>
 
+              <!-- 🧶 Yarn Planned Pooling & Argyle Pattern Generator -->
+              <div class="panel" id="panel-textiles-pooling" style="grid-column: 1 / -1">
+                <div class="eyebrow">VARIEGATED YARN MATH &amp; ARGYLE DIAMOND ARCHITECTURE</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🧶 Yarn Planned Pooling &amp; Argyle Pattern Generator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-textiles-pooling" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate the exact stitch count needed for variegated or space-dyed yarn to create breathtaking diagonal argyle diamonds instead of unintentional color pooling or muddy clumps.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Color Sequence Preset
+                    <select id="textiles-pool-preset">
+                      <option value="sunset" selected>🌅 Sunset Rainbow (Coral · Gold · Teal · Plum)</option>
+                      <option value="forest">🌲 Woodland Mist (Sage · Cream · Olive · Bark)</option>
+                      <option value="berry">🫐 Berry Jam (Berry · Lilac · Cream)</option>
+                      <option value="ocean">🌊 Deep Ocean (Navy · Sky · Seafoam · White)</option>
+                      <option value="custom">Custom Color Sequence</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Stitches per Color Section (A, B, C, D)
+                    <input type="text" id="textiles-pool-stitch-seq" value="6, 4, 6, 4" placeholder="e.g. 6, 4, 6, 4" style="font-family:monospace;font-weight:700">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Desired Pattern Alignment
+                    <select id="textiles-pool-shift">
+                      <option value="argyle_pos" selected>Diagonal Argyle Diamonds (+1 Stitch Shift)</option>
+                      <option value="argyle_neg">Reverse Diagonal Diamonds (-1 Stitch Shift)</option>
+                      <option value="vertical">Vertical Color Stripes (0 Stitch Shift)</option>
+                      <option value="zigzag">Chevron Zig-Zag (+2 Stitch Shift)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Project Width Target
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="textiles-pool-mult" value="2" min="1" max="10" step="1" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">cycle repeats</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="textiles-pool-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -2184,6 +2340,58 @@
                 <div class="tool-result-box" id="elec-smd-result" style="margin-top:12px"></div>
               </div>
 
+              <!-- ⚙️ Stepper Motor & Lead Screw / Belt Motion Resolution Solver -->
+              <div class="panel" id="panel-elec-stepper" style="grid-column: 1 / -1">
+                <div class="eyebrow">CNC, 3D PRINTING &amp; MOTION CONTROL MECHANICS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">⚙️ Stepper Motor &amp; Lead Screw / Belt Motion Resolution Solver</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-elec-stepper" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact steps-per-millimeter (M92) for GRBL, Marlin, Klipper, and RepRap 3D printers, CNC routers, laser cutters, and camera sliders.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Drive Mechanism
+                    <select id="elec-step-mech">
+                      <option value="belt_gt2_20t" selected>GT2 Timing Belt · 20-Tooth Pulley (2.0 mm pitch / standard 3D printer X/Y)</option>
+                      <option value="belt_gt2_16t">GT2 Timing Belt · 16-Tooth Pulley (2.0 mm pitch / higher torque)</option>
+                      <option value="leadscrew_t8x8">T8 Lead Screw · 4-Start (8 mm lead / standard Ender Z-axis)</option>
+                      <option value="leadscrew_t8x4">T8 Lead Screw · 2-Start (4 mm lead / CNC anti-backlash)</option>
+                      <option value="leadscrew_t8x2">T8 Lead Screw · 1-Start (2 mm pitch / ultra-fine resolution)</option>
+                      <option value="custom_pitch">Custom Pitch / Direct Drive</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Motor Step Angle
+                    <select id="elec-step-angle">
+                      <option value="1.8" selected>1.8° per step (200 steps / revolution · Standard NEMA 17/23)</option>
+                      <option value="0.9">0.9° per step (400 steps / revolution · Precision High-Res NEMA 17)</option>
+                      <option value="7.5">7.5° per step (48 steps / revolution · 28BYJ-48 unipolar)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Driver Microstepping
+                    <select id="elec-step-micro">
+                      <option value="16" selected>1/16 Microstepping (Standard A4988 / TMC2208 / TMC2209)</option>
+                      <option value="32">1/32 Microstepping (DRV8825)</option>
+                      <option value="64">1/64 Microstepping (TMC SilentStep)</option>
+                      <option value="8">1/8 Microstepping</option>
+                      <option value="4">1/4 Microstepping</option>
+                      <option value="2">1/2 Half-Step</option>
+                      <option value="1">1/1 Full Step (Maximum torque, lowest resolution)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Gear Ratio (Motor : Drive Shaft)
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="elec-step-gear" value="1.0" min="0.1" max="100" step="any" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">: 1</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="elec-step-result" style="margin-top:12px"></div>
+              </div>
+
             </div>
           </section>
 
@@ -2389,6 +2597,86 @@
                   </label>
                 </div>
                 <div class="tool-result-box" id="prog-crc-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🔋 Microcontroller Deep Sleep & Battery Life Calculator -->
+              <div class="panel" id="panel-prog-battery-life" style="grid-column: 1 / -1">
+                <div class="eyebrow">IOT EMBEDDED POWER BUDGET &amp; AUTONOMY</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🔋 Microcontroller Deep Sleep &amp; Battery Life Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-prog-battery-life" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate average current consumption and battery autonomy for wireless environmental sensors, weather stations, and battery-powered embedded devices.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Microcontroller Preset
+                    <select id="prog-pwr-mcu">
+                      <option value="esp32" selected>ESP32 · WiFi/BLE (Active 120mA / Deep Sleep 15 µA)</option>
+                      <option value="esp8266">ESP8266 · D1 Mini (Active 80mA / Deep Sleep 20 µA)</option>
+                      <option value="pico_w">Raspberry Pi Pico W (Active 45mA / Dormant Sleep 1.2 mA)</option>
+                      <option value="promini_3v3">Arduino Pro Mini 3.3V (Active 5mA / LowPower 4.5 µA)</option>
+                      <option value="nrf52840">Nordic nRF52840 BLE (Active 7mA / System OFF 1.5 µA)</option>
+                      <option value="custom">Custom Power Profile</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Active Tx/Wake Current
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="prog-pwr-act-curr" value="120" min="0.1" step="any" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">mA</span>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Active Duration per Wake
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="prog-pwr-act-time" value="350" min="1" step="any" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">ms</span>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Sleep Mode Current
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="prog-pwr-sleep-curr" value="15" min="0.1" step="any" style="flex:1">
+                      <select id="prog-pwr-sleep-unit" style="width:75px">
+                        <option value="ua" selected>µA</option>
+                        <option value="ma">mA</option>
+                      </select>
+                    </div>
+                  </label>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px;margin-top:8px">
+                  <label class="field-label" style="font-size:11px">Sleep Interval Between Readings
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="prog-pwr-sleep-time" value="15" min="1" step="any" style="flex:1">
+                      <select id="prog-pwr-sleep-time-unit" style="width:90px">
+                        <option value="sec">Seconds</option>
+                        <option value="min" selected>Minutes</option>
+                        <option value="hr">Hours</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Battery Pack Power Source
+                    <select id="prog-pwr-battery">
+                      <option value="18650_2600" selected>18650 Li-Ion Cell · 2600 mAh (3.7V)</option>
+                      <option value="18650_3500">18650 High-Capacity · 3500 mAh (3.7V)</option>
+                      <option value="lipo_1000">1S LiPo Flat Pack · 1000 mAh (3.7V)</option>
+                      <option value="aa_alkaline">2× AA Alkaline in Series · 2200 mAh (3.0V)</option>
+                      <option value="cr2032">CR2032 Lithium Coin Cell · 225 mAh (3.0V)</option>
+                      <option value="custom">Custom Battery Capacity</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Battery Capacity Rating
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="prog-pwr-bat-cap" value="2600" min="1" step="any" style="flex:1">
+                      <span style="display:flex;align-items:center;padding:0 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted)">mAh</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="prog-pwr-result" style="margin-top:12px"></div>
               </div>
 
             </div>

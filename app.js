@@ -9714,6 +9714,34 @@ async function handleAction(action, target) {
     void saveHatToProjectMaterials();
     return;
   }
+  if (action === "toggle-mic-tuner") {
+    toggleMicTuner();
+    return;
+  }
+  if (action === "copy-emc-specs") {
+    void copyEmcSpecs();
+    return;
+  }
+  if (action === "copy-stepper-code") {
+    void copyStepperM92();
+    return;
+  }
+  if (action === "save-stepper-to-materials") {
+    void saveStepperToMaterials();
+    return;
+  }
+  if (action === "copy-battery-life-specs") {
+    void copyBatteryLifeSpecs();
+    return;
+  }
+  if (action === "save-battery-to-materials") {
+    void saveBatteryToMaterials();
+    return;
+  }
+  if (action === "copy-pooling-notes") {
+    void copyPoolingNotes();
+    return;
+  }
   if (action === "copy-crc-result") {
     void copyCrcResult();
     return;
@@ -15873,6 +15901,247 @@ function renderMusicStudioView() {
   updateMusicScaleView();
   renderMetronomeDots();
   renderFretboardUI();
+  renderTunerDisplay(null);
+}
+
+// --- 🎤 Live Microphone Chromatic Tuner & Pitch Detector ---
+const micTunerState = {
+  audioCtx: null,
+  analyser: null,
+  stream: null,
+  isActive: false,
+  animFrameId: null,
+  noteName: "—",
+  octave: "",
+  freq: 0,
+  cents: 0,
+  smoothedCents: 0,
+  smoothedFreq: 0
+};
+
+const CHROMATIC_NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+function autoCorrelatePitch(buf, sampleRate) {
+  const SIZE = buf.length;
+  let rms = 0;
+  for (let i = 0; i < SIZE; i++) {
+    const val = buf[i];
+    rms += val * val;
+  }
+  rms = Math.sqrt(rms / SIZE);
+  if (rms < 0.015) return -1; // Audio too quiet
+
+  let r1 = 0, r2 = SIZE - 1, thres = 0.2;
+  for (let i = 0; i < SIZE / 2; i++) {
+    if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+  }
+  for (let i = 1; i < SIZE / 2; i++) {
+    if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+  }
+  const bufSlice = buf.slice(r1, r2);
+  const newSize = bufSlice.length;
+  if (newSize < 2) return -1;
+
+  const c = new Float32Array(newSize);
+  for (let i = 0; i < newSize; i++) {
+    for (let j = 0; j < newSize - i; j++) {
+      c[i] = c[i] + bufSlice[j] * bufSlice[j + i];
+    }
+  }
+
+  let d = 0;
+  while (c[d] > c[d + 1]) d++;
+  let maxval = -1, maxpos = -1;
+  for (let i = d; i < newSize; i++) {
+    if (c[i] > maxval) {
+      maxval = c[i];
+      maxpos = i;
+    }
+  }
+  let T0 = maxpos;
+  if (T0 === 0) return -1;
+
+  // Parabolic interpolation for sub-bin precision
+  const x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+  const a = (x1 + x3 - 2 * x2) / 2;
+  const b = (x3 - x1) / 2;
+  if (a) T0 = T0 - b / (2 * a);
+
+  return sampleRate / T0;
+}
+
+function getNoteFromPitch(freq, concertA = 440) {
+  const noteNum = 12 * (Math.log(freq / concertA) / Math.log(2)) + 69;
+  const rounded = Math.round(noteNum);
+  const noteName = CHROMATIC_NOTE_NAMES[((rounded % 12) + 12) % 12];
+  const octave = Math.floor(rounded / 12) - 1;
+  const targetFreq = concertA * Math.pow(2, (rounded - 69) / 12);
+  const cents = Math.round(1200 * (Math.log(freq / targetFreq) / Math.log(2)));
+  return { noteName, octave, targetFreq, cents };
+}
+
+function renderTunerDisplay(pitchData) {
+  const container = $("#music-tuner-display");
+  if (!container) return;
+
+  if (!pitchData || pitchData.freq <= 0) {
+    const isListening = micTunerState.isActive;
+    container.innerHTML = `
+      <div class="tuner-note-display">
+        <span class="tuner-note-letter">${isListening ? "· · ·" : "—"}</span>
+      </div>
+      <div class="tuner-freq-readout">
+        ${isListening ? "Listening... Play or hum a note into your microphone" : "Microphone tuner is stopped. Click Start to listen."}
+      </div>
+      <svg class="tuner-needle-svg" viewBox="0 0 320 120">
+        <!-- Scale Arc -->
+        <path d="M 40 100 A 120 120 0 0 1 280 100" fill="none" stroke="var(--border)" stroke-width="4"/>
+        <line x1="160" y1="20" x2="160" y2="35" stroke="var(--green)" stroke-width="3"/>
+        <text x="160" y="15" text-anchor="middle" font-size="10" font-weight="800" fill="var(--green)">IN TUNE</text>
+        <text x="40" y="115" text-anchor="middle" font-size="9" fill="var(--muted)">-50¢</text>
+        <text x="280" y="115" text-anchor="middle" font-size="9" fill="var(--muted)">+50¢</text>
+        <!-- Needle centered idle -->
+        <line x1="160" y1="110" x2="160" y2="40" stroke="var(--muted)" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="160" cy="110" r="6" fill="var(--muted)"/>
+      </svg>
+      <div>
+        <span class="tuner-status-pill" style="background:var(--surface);border:1px solid var(--border);color:var(--muted)">
+          ${isListening ? "🎙️ LISTENING..." : "STANDBY"}
+        </span>
+      </div>
+    `;
+    return;
+  }
+
+  const { noteName, octave, targetFreq, cents, freq } = pitchData;
+  const clampedCents = Math.max(-50, Math.min(50, cents));
+
+  // Needle angle: -50 cents = -45 deg, 0 = 0 deg, +50 cents = +45 deg
+  const needleAngle = (clampedCents / 50) * 45;
+
+  let statusClass = "in-tune";
+  let statusText = "PERFECT IN TUNE · ±3¢";
+  let needleColor = "#10b981";
+
+  if (cents < -3) {
+    statusClass = "flat";
+    statusText = `FLAT (${cents}¢) · TUNE UP ↑`;
+    needleColor = "#f59e0b";
+  } else if (cents > 3) {
+    statusClass = "sharp";
+    statusText = `SHARP (+${cents}¢) · TUNE DOWN ↓`;
+    needleColor = "#ef4444";
+  }
+
+  container.innerHTML = `
+    <div class="tuner-note-display">
+      <span class="tuner-note-letter" style="color:${statusClass === 'in-tune' ? '#10b981' : 'var(--ink)'}">${noteName}</span>
+      <span class="tuner-note-octave">${octave}</span>
+    </div>
+    <div class="tuner-freq-readout">
+      <strong>${freq.toFixed(1)} Hz</strong> <span style="color:var(--muted)">(Target: ${targetFreq.toFixed(1)} Hz)</span>
+    </div>
+
+    <svg class="tuner-needle-svg" viewBox="0 0 320 120">
+      <!-- Scale Arc -->
+      <path d="M 40 100 A 120 120 0 0 1 280 100" fill="none" stroke="var(--border)" stroke-width="4"/>
+      <!-- In-tune center target zone -->
+      <path d="M 150 25 A 120 120 0 0 1 170 25" fill="none" stroke="rgba(16, 185, 129, 0.4)" stroke-width="8"/>
+      <line x1="160" y1="20" x2="160" y2="35" stroke="#10b981" stroke-width="3"/>
+      <text x="160" y="15" text-anchor="middle" font-size="10" font-weight="900" fill="#10b981">IN TUNE</text>
+      <!-- Graduation Ticks -->
+      <line x1="95" y1="52" x2="102" y2="60" stroke="var(--border)" stroke-width="1.5"/>
+      <line x1="225" y1="52" x2="218" y2="60" stroke="var(--border)" stroke-width="1.5"/>
+      <text x="40" y="115" text-anchor="middle" font-size="9" fill="var(--muted)">-50¢</text>
+      <text x="280" y="115" text-anchor="middle" font-size="9" fill="var(--muted)">+50¢</text>
+      <!-- Pivoting Needle -->
+      <g transform="rotate(${needleAngle}, 160, 110)">
+        <line x1="160" y1="110" x2="160" y2="36" stroke="${needleColor}" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="160" cy="110" r="7" fill="${needleColor}"/>
+      </g>
+    </svg>
+
+    <div>
+      <span class="tuner-status-pill ${statusClass}">${statusText}</span>
+    </div>
+  `;
+}
+
+async function startMicTuner() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) {
+      showToast("Web Audio is not supported in this browser.");
+      return;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micTunerState.stream = stream;
+    micTunerState.audioCtx = new AudioContext();
+    const source = micTunerState.audioCtx.createMediaStreamSource(stream);
+    const analyser = micTunerState.audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+
+    micTunerState.analyser = analyser;
+    micTunerState.isActive = true;
+
+    const btn = $("#music-tuner-toggle-btn");
+    if (btn) {
+      btn.textContent = "⏹ Stop Tuner";
+      btn.classList.add("button-danger");
+    }
+
+    runMicTunerLoop();
+    showToast("Microphone Tuner started! Sing or play a note.");
+  } catch (err) {
+    showToast("Microphone access denied or unavailable.");
+  }
+}
+
+function stopMicTuner() {
+  micTunerState.isActive = false;
+  if (micTunerState.animFrameId) {
+    cancelAnimationFrame(micTunerState.animFrameId);
+    micTunerState.animFrameId = null;
+  }
+  if (micTunerState.stream) {
+    micTunerState.stream.getTracks().forEach(t => t.stop());
+    micTunerState.stream = null;
+  }
+  if (micTunerState.audioCtx) {
+    try { micTunerState.audioCtx.close(); } catch {}
+    micTunerState.audioCtx = null;
+  }
+
+  const btn = $("#music-tuner-toggle-btn");
+  if (btn) {
+    btn.textContent = "🎙️ Start Microphone Tuner";
+    btn.classList.remove("button-danger");
+  }
+  renderTunerDisplay(null);
+}
+
+function toggleMicTuner() {
+  if (micTunerState.isActive) stopMicTuner();
+  else void startMicTuner();
+}
+
+function runMicTunerLoop() {
+  if (!micTunerState.isActive || !micTunerState.analyser) return;
+
+  const buf = new Float32Array(micTunerState.analyser.fftSize);
+  micTunerState.analyser.getFloatTimeDomainData(buf);
+
+  const calib = parseFloat($("#music-tuner-calib")?.value) || 440;
+  const sampleRate = micTunerState.audioCtx.sampleRate;
+  const pitch = autoCorrelatePitch(buf, sampleRate);
+
+  if (pitch !== -1 && pitch >= 30 && pitch <= 4200) {
+    const details = getNoteFromPitch(pitch, calib);
+    renderTunerDisplay({ ...details, freq: pitch });
+  }
+
+  micTunerState.animFrameId = requestAnimationFrame(runMicTunerLoop);
 }
 
 function initChordStudio() {
@@ -19199,10 +19468,135 @@ async function saveSagToProjectMaterials() {
   await addMaterialToProjectShopping(`${species} Shelf Board (${thick} × ${depth}" × ${span}")`, "1 pc", 0, "Lumber & Sheet Goods");
 }
 
+// --- 🌡️ Woodworking: Equilibrium Moisture Content (EMC) & Wood Movement ---
+const WOOD_EMC_SPECIES = {
+  red_oak: { name: "Red Oak", tang: 0.00369, rad: 0.00158 },
+  white_oak: { name: "White Oak", tang: 0.00448, rad: 0.00222 },
+  hard_maple: { name: "Hard Sugar Maple", tang: 0.00353, rad: 0.00165 },
+  walnut: { name: "Black Walnut", tang: 0.00274, rad: 0.00190 },
+  cherry: { name: "Black Cherry", tang: 0.00248, rad: 0.00126 },
+  white_pine: { name: "Eastern White Pine", tang: 0.00216, rad: 0.00082 },
+  doug_fir: { name: "Douglas Fir", tang: 0.00267, rad: 0.00165 }
+};
+
+function calculateFplEmc(tempF, rhPercent) {
+  const h = Math.max(0.01, Math.min(0.99, rhPercent / 100));
+  const T = tempF;
+  const W = 330 + 0.452 * T + 0.00415 * Math.pow(T, 2);
+  const K = 0.791 + 0.000463 * T - 0.000000844 * Math.pow(T, 2);
+  const K1 = 6.34 + 0.00775 * T - 0.0000935 * Math.pow(T, 2);
+  const K2 = 1.09 + 0.0284 * T - 0.0000904 * Math.pow(T, 2);
+
+  const term1 = (K * h) / (1 - K * h);
+  const term2 = (K1 * K * h + 2 * K1 * K2 * Math.pow(K * h, 2)) / (1 + K1 * K * h + K1 * K2 * Math.pow(K * h, 2));
+  return (1800 / W) * (term1 + term2);
+}
+
+function updateWoodEmcCalc() {
+  const speciesKey = $("#wood-emc-species")?.value || "red_oak";
+  const species = WOOD_EMC_SPECIES[speciesKey] || WOOD_EMC_SPECIES.red_oak;
+  const tempUnit = $("#wood-emc-temp-unit")?.value || "f";
+  let tempRaw = parseFloat($("#wood-emc-temp")?.value) || 70;
+  const tempF = (tempUnit === "c") ? (tempRaw * 9/5 + 32) : tempRaw;
+  const rh = parseFloat($("#wood-emc-rh-slider")?.value) || 45;
+  const envKey = $("#wood-emc-env")?.value || "indoor_annual";
+  const panelUnit = $("#wood-emc-panel-unit")?.value || "in";
+  let panelW = parseFloat($("#wood-emc-panel-w")?.value) || 36;
+  const grain = $("#wood-emc-grain")?.value || "flatsawn";
+  const res = $("#wood-emc-result");
+  if (!res) return;
+
+  const rhValEl = $("#wood-emc-rh-val");
+  if (rhValEl) rhValEl.textContent = `${rh}%`;
+
+  const shopEmc = calculateFplEmc(tempF, rh);
+
+  // Target environment EMC
+  let targetEmc = 8.5;
+  let envLabel = "Normal Air-Conditioned Home (~45% RH · 8.5% EMC)";
+  if (envKey === "indoor_winter") { targetEmc = 6.0; envLabel = "Winter Heated Indoor (~30% RH · 6.0% EMC)"; }
+  else if (envKey === "indoor_summer") { targetEmc = 13.0; envLabel = "Humid Summer Indoor (~70% RH · 13.0% EMC)"; }
+  else if (envKey === "outdoor_covered") { targetEmc = 14.5; envLabel = "Covered Porch / Outdoor Deck (~75% RH · 14.5% EMC)"; }
+
+  // Grain shrinkage factor C
+  let factorC = species.tang;
+  if (grain === "quartersawn") factorC = species.rad;
+  else if (grain === "mixed") factorC = (species.tang + species.rad) / 2;
+
+  // Delta moisture between current shop EMC and target environment
+  const deltaM = targetEmc - shopEmc;
+  const widthInches = (panelUnit === "mm") ? (panelW / 25.4) : panelW;
+  const deltaWInches = widthInches * factorC * deltaM;
+  const deltaWMm = deltaWInches * 25.4;
+
+  let advice = "";
+  if (Math.abs(deltaM) < 1.0) {
+    advice = "🟢 <strong>Lumber is Acclimated:</strong> Current shop moisture content matches the target indoor environment within ±1%. Safe to mill, joint, and glue without excessive seasonal distortion.";
+  } else if (deltaM < 0) {
+    advice = `🟡 <strong>Lumber is Wetter Than Target:</strong> Wood will shrink by <strong>${Math.abs(deltaWInches).toFixed(3)}" (${Math.abs(deltaWMm).toFixed(1)} mm)</strong> after moving indoors. Allow boards to sticker and dry in the shop for 1-2 weeks before final jointing, or panel seams will gap.`;
+  } else {
+    advice = `🟡 <strong>Lumber is Drier Than Target:</strong> Wood will expand by <strong>+${deltaWInches.toFixed(3)}" (+${deltaWMm.toFixed(1)} mm)</strong> when installed. Always attach tabletops with Figure-8 fasteners, Z-clips, or slotted screw holes so the top can expand without splitting aprons.`;
+  }
+
+  const emcBarWidth = Math.min(100, (shopEmc / 25) * 100);
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Workshop Equilibrium (EMC)</div>
+        <div style="font-size:22px;font-weight:900;color:var(--ink);margin:2px 0">
+          ${shopEmc.toFixed(1)}% <span style="font-size:12px;color:var(--muted)">moisture</span>
+        </div>
+        <div class="emc-viz-bar"><div class="emc-viz-fill" style="width:${emcBarWidth}%"></div></div>
+        <div style="font-size:10px;color:var(--muted)">At ${tempRaw}°${tempUnit.toUpperCase()} &amp; ${rh}% RH (US FPL formula)</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Target Finished Room EMC</div>
+        <div style="font-size:22px;font-weight:900;color:var(--green);margin:2px 0">
+          ${targetEmc.toFixed(1)}% <span style="font-size:12px;color:var(--muted)">target</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">${envLabel}</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Tabletop Seasonal Width Shift</div>
+        <div style="font-size:22px;font-weight:900;color:${deltaWInches >= 0 ? '#38bdf8' : '#f59e0b'};margin:2px 0">
+          ${deltaWInches >= 0 ? '+' : ''}${deltaWInches.toFixed(3)}"
+          <span style="font-size:13px;color:var(--muted)">(${deltaWMm >= 0 ? '+' : ''}${deltaWMm.toFixed(1)} mm)</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">Across ${panelW} ${panelUnit} wide ${grain} panel</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink);background:var(--surface);padding:8px 12px;border:1px solid var(--border);border-radius:6px;margin:8px 0">
+      ${advice}
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button type="button" class="button button-small button-outline" data-action="copy-emc-specs">📋 Copy Wood Movement Specs</button>
+    </div>
+  `;
+}
+
+async function copyEmcSpecs() {
+  const species = $("#wood-emc-species option:checked")?.textContent.split("(")[0].trim() || "Wood";
+  const emcVal = $("#wood-emc-result div:first-child div:first-child div:nth-child(2)")?.textContent.trim() || "";
+  const shiftVal = $("#wood-emc-result div:first-child div:nth-child(3) div:nth-child(2)")?.textContent.trim() || "";
+  const text = `Wood Movement & Moisture Specs:\n• Species: ${species}\n• Shop EMC: ${emcVal}\n• Seasonal Width Shift: ${shiftVal}\nGenerated by Workbench Journal`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied Wood Movement specs to clipboard!");
+  } catch {
+    showToast("Specs generated.");
+  }
+}
+
 function renderWoodworkingView() {
   updateWoodworkingStudio();
   updateWoodSafetyGuide();
   if (typeof updateSagulatorCalc === "function") updateSagulatorCalc();
+  if (typeof updateWoodEmcCalc === "function") updateWoodEmcCalc();
 }
 
 // --- 🧶 Textiles & Yarn Studio ---
@@ -19762,6 +20156,7 @@ function renderTextilesView() {
   if (typeof updateTextilesGaugeCalc === "function") updateTextilesGaugeCalc();
   if (typeof updateYarnSkeinCalculator === "function") updateYarnSkeinCalculator();
   if (typeof updateTextilesHatCalc === "function") updateTextilesHatCalc();
+  if (typeof updateTextilesPooling === "function") updateTextilesPooling();
   updateAmigurumiGenerator();
   updateSewingCuttingCalc();
   updateSewingNeedleGuide();
@@ -20019,6 +20414,7 @@ function renderElectronicsView() {
   if (typeof updatePassiveFilterCalc === "function") updatePassiveFilterCalc();
   if (typeof updateI2cSensorGuide === "function") updateI2cSensorGuide();
   if (typeof updateSmdDecoder === "function") updateSmdDecoder();
+  if (typeof updateStepperMotorCalc === "function") updateStepperMotorCalc();
 }
 
 // --- 💻 Programming & Microcontrollers Studio ---
@@ -20283,6 +20679,7 @@ function renderProgrammingView() {
   formatProgByteArray();
   updateProgBaudCalc();
   updateProgCrcCalc();
+  if (typeof updateProgBatteryLifeCalc === "function") updateProgBatteryLifeCalc();
 }
 
 // --- 🎨 Art & Design Studio ---
@@ -21015,6 +21412,114 @@ async function saveHatToProjectMaterials() {
   const castOn = $("#textiles-hat-result div:first-child div:first-child div:nth-child(2)")?.textContent.trim() || "Stitches";
   const type = $("#textiles-hat-type option:checked")?.textContent.split("(")[0].trim() || "Beanie Hat";
   await addMaterialToProjectShopping(`${type} (${castOn})`, "1 item", 0, "Yarn & Fibers");
+}
+
+// --- 🧶 Textiles Studio: Planned Pooling & Argyle Generator ---
+const POOLING_PRESETS = {
+  sunset: { name: "Sunset Rainbow", colors: ["#f43f5e", "#fbbf24", "#0d9488", "#7e22ce"], lengths: [6, 4, 6, 4] },
+  forest: { name: "Woodland Mist", colors: ["#84cc16", "#fef3c7", "#4d7c0f", "#78350f"], lengths: [5, 4, 5, 4] },
+  berry:  { name: "Berry Jam", colors: ["#be123c", "#c084fc", "#fdf4ff"], lengths: [7, 5, 4] },
+  ocean:  { name: "Deep Ocean", colors: ["#1e3a8a", "#38bdf8", "#5eead4", "#f8fafc"], lengths: [6, 6, 6, 4] }
+};
+
+function updateTextilesPooling() {
+  const presetKey = $("#textiles-pool-preset")?.value || "sunset";
+  const seqStr = $("#textiles-pool-stitch-seq")?.value || "6, 4, 6, 4";
+  const shiftMode = $("#textiles-pool-shift")?.value || "argyle_pos";
+  const repeats = Math.max(1, parseInt($("#textiles-pool-mult")?.value, 10) || 2);
+  const res = $("#textiles-pool-result");
+  if (!res) return;
+
+  const counts = seqStr.split(",").map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n) && n > 0);
+  if (!counts.length) counts.push(6, 4, 6, 4);
+
+  const repeatCycleSts = counts.reduce((a, b) => a + b, 0);
+
+  let shiftSts = 1;
+  let effectName = "Diagonal Argyle Diamonds";
+  if (shiftMode === "argyle_neg") { shiftSts = -1; effectName = "Reverse Diagonal Argyle Diamonds"; }
+  else if (shiftMode === "vertical") { shiftSts = 0; effectName = "Vertical Color Columns"; }
+  else if (shiftMode === "zigzag") { shiftSts = 2; effectName = "Chevron Zig-Zag Pattern"; }
+
+  const targetRowSts = (repeats * repeatCycleSts) + shiftSts;
+
+  const preset = POOLING_PRESETS[presetKey] || POOLING_PRESETS.sunset;
+  const colors = preset.colors;
+
+  const cycleColorArray = [];
+  counts.forEach((cLen, cIdx) => {
+    const col = colors[cIdx % colors.length] || "#f43f5e";
+    for (let i = 0; i < cLen; i++) cycleColorArray.push(col);
+  });
+
+  const rows = 20;
+  const cols = targetRowSts;
+  const cellW = Math.max(6, Math.min(16, Math.floor(460 / cols)));
+  const cellH = cellW;
+  const svgW = cols * cellW;
+  const svgH = rows * cellH;
+
+  let rects = "";
+  let stitchCounter = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const colIdx = stitchCounter % cycleColorArray.length;
+      const color = cycleColorArray[colIdx];
+      const x = c * cellW;
+      const y = (rows - 1 - r) * cellH;
+      rects += `<rect x="${x}" y="${y}" width="${cellW - 0.5}" height="${cellH - 0.5}" rx="1" fill="${color}"/>`;
+      stitchCounter++;
+    }
+  }
+
+  const svgGrid = `
+    <div class="pool-grid-wrap">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">
+        Live Swatch Simulation (${cols} sts × ${rows} rows)
+      </div>
+      <svg class="pool-canvas" viewBox="0 0 ${svgW} ${svgH}" width="100%" style="max-height:220px;display:block;margin:0 auto">
+        ${rects}
+      </svg>
+    </div>
+  `;
+
+  res.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Calculated Stitch Count Per Row</div>
+        <div style="font-size:26px;font-weight:900;color:var(--green);margin:2px 0">
+          ${targetRowSts} <span style="font-size:14px;color:var(--muted);font-weight:600">stitches / row</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">${repeats} repeats of ${repeatCycleSts}-st color cycle ${shiftSts >= 0 ? `+ ${shiftSts}` : shiftSts} shift</div>
+      </div>
+      <div>
+        <span class="materials-group-badge" style="font-size:12px;padding:4px 10px">${effectName}</span>
+      </div>
+    </div>
+
+    ${svgGrid}
+
+    <div style="font-size:11px;color:var(--ink);background:var(--surface);padding:8px 12px;border:1px solid var(--border);border-radius:6px;margin:8px 0">
+      💡 <strong>Planned Pooling Tip:</strong> Keep your crochet/knitting tension uniform so each color section uses exactly its planned number of stitches (${counts.join(" · ")} sts). If your diamonds start to drift vertically or widen, tighten or loosen your stitch tension slightly!
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button type="button" class="button button-small button-outline" data-action="copy-pooling-notes">📋 Copy Pooling Pattern Notes</button>
+    </div>
+  `;
+}
+
+async function copyPoolingNotes() {
+  const rowSts = $("#textiles-pool-result div:first-child div:first-child div:nth-child(2)")?.textContent.trim() || "";
+  const shiftName = $("#textiles-pool-shift option:checked")?.textContent || "Argyle";
+  const seq = $("#textiles-pool-stitch-seq")?.value || "";
+  const text = `Yarn Planned Pooling Recipe:\n• Target Stitch Count: ${rowSts}\n• Pattern: ${shiftName}\n• Color Repeat Sequence: ${seq} stitches\nGenerated by Workbench Journal`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied Planned Pooling recipe to clipboard!");
+  } catch {
+    showToast("Recipe copied.");
+  }
 }
 
 function exportStitchChartPng() {
@@ -22023,6 +22528,107 @@ async function saveSmdToMaterials() {
   await addMaterialToProjectShopping(`SMD Resistor ${decVal} (${pkg} / ${code})`, "10 pcs", 0, "Sensors & Modules");
 }
 
+// --- ⚙️ Electronics: Stepper Motor & Lead Screw / Belt Motion Resolution ---
+function updateStepperMotorCalc() {
+  const mech = $("#elec-step-mech")?.value || "belt_gt2_20t";
+  const stepAngle = parseFloat($("#elec-step-angle")?.value) || 1.8;
+  const micro = parseInt($("#elec-step-micro")?.value, 10) || 16;
+  const gearRatio = parseFloat($("#elec-step-gear")?.value) || 1.0;
+  const res = $("#elec-step-result");
+  if (!res) return;
+
+  const fullStepsPerRev = 360 / stepAngle;
+  const totalStepsPerMotorRev = fullStepsPerRev * micro;
+
+  let pitchMm = 40.0;
+  let mechDesc = "GT2 Belt (20T Pulley · 40mm / rev)";
+
+  if (mech === "belt_gt2_20t") {
+    pitchMm = 20 * 2.0;
+    mechDesc = "GT2 Belt · 20T Pulley (40.0 mm / rev)";
+  } else if (mech === "belt_gt2_16t") {
+    pitchMm = 16 * 2.0;
+    mechDesc = "GT2 Belt · 16T Pulley (32.0 mm / rev)";
+  } else if (mech === "leadscrew_t8x8") {
+    pitchMm = 8.0;
+    mechDesc = "T8 Lead Screw · 4-Start (8.0 mm lead / rev)";
+  } else if (mech === "leadscrew_t8x4") {
+    pitchMm = 4.0;
+    mechDesc = "T8 Lead Screw · 2-Start (4.0 mm lead / rev)";
+  } else if (mech === "leadscrew_t8x2") {
+    pitchMm = 2.0;
+    mechDesc = "T8 Lead Screw · 1-Start (2.0 mm lead / rev)";
+  } else {
+    pitchMm = 10.0;
+    mechDesc = "Custom Direct Drive Pitch";
+  }
+
+  const stepsPerMm = (totalStepsPerMotorRev * gearRatio) / pitchMm;
+  const microstepResolutionUm = (1000 / stepsPerMm);
+  const maxFeedrateMmSec = Math.round(100000 / stepsPerMm);
+  const m92Code = `M92 X${stepsPerMm.toFixed(2)} Y${stepsPerMm.toFixed(2)} Z${stepsPerMm.toFixed(2)}`;
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Calculated Firmware Steps/mm</div>
+        <div style="font-size:24px;font-weight:900;color:var(--green);margin:2px 0">
+          ${stepsPerMm.toFixed(2)} <span style="font-size:12px;color:var(--muted)">steps / mm</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">Exact M92 value for Marlin / Klipper / GRBL</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Single Microstep Resolution</div>
+        <div style="font-size:24px;font-weight:900;color:var(--ink);margin:2px 0">
+          ${microstepResolutionUm.toFixed(2)} <span style="font-size:12px;color:var(--muted)">µm</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">${(microstepResolutionUm / 1000).toFixed(5)} mm linear resolution</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Theoretical Max Feedrate</div>
+        <div style="font-size:24px;font-weight:900;color:#0284c7;margin:2px 0">
+          ${maxFeedrateMmSec} <span style="font-size:12px;color:var(--muted)">mm/s</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">Based on standard 100 kHz step pulse limit</div>
+      </div>
+    </div>
+
+    <div class="stepper-code-box">
+      <div>
+        <span style="color:#64748b">// 3D Printer / CNC Configuration G-Code:</span><br>
+        <code>${m92Code}</code>
+      </div>
+      <button type="button" class="button button-small button-outline" data-action="copy-stepper-code">📋 Copy M92 G-Code</button>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">
+      ⚙️ <em>Mechanics:</em> ${fullStepsPerRev} full steps/rev × 1/${micro} microsteps × ${gearRatio}:1 gear ratio ÷ ${pitchMm} mm travel.
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button type="button" class="button button-small button-primary" data-action="save-stepper-to-materials">➕ Add Stepper &amp; Driver to Project</button>
+    </div>
+  `;
+}
+
+async function copyStepperM92() {
+  const code = $("#elec-step-result .stepper-code-box code")?.textContent.trim() || "";
+  try {
+    await navigator.clipboard.writeText(code);
+    showToast(`Copied "${code}" to clipboard!`);
+  } catch {
+    showToast(code);
+  }
+}
+
+async function saveStepperToMaterials() {
+  const angle = $("#elec-step-angle option:checked")?.textContent.split("(")[0].trim() || "NEMA 17";
+  const micro = $("#elec-step-micro")?.value || "16";
+  await addMaterialToProjectShopping(`${angle} Stepper Motor + 1/${micro} Driver`, "1 set", 0, "Sensors & Modules");
+}
+
 // --- 💻 Programming Studio: ALU, ASCII Search, Array Formatter ---
 function updateProgAluCalc() {
   const a = Math.max(0, Math.min(255, parseInt($("#prog-alu-rega")?.value, 10) || 0));
@@ -22259,6 +22865,119 @@ async function copyCrcResult() {
   } catch {
     showToast("Checksum ready.");
   }
+}
+
+// --- 🔋 Programming: Microcontroller Deep Sleep & Battery Life Calculator ---
+function updateProgBatteryLifeCalc() {
+  const mcu = $("#prog-pwr-mcu")?.value || "esp32";
+  const actCurr = Math.max(0.1, parseFloat($("#prog-pwr-act-curr")?.value) || 120);
+  const actTimeMs = Math.max(1, parseFloat($("#prog-pwr-act-time")?.value) || 350);
+  const sleepCurrRaw = Math.max(0.01, parseFloat($("#prog-pwr-sleep-curr")?.value) || 15);
+  const sleepUnit = $("#prog-pwr-sleep-unit")?.value || "ua";
+  const sleepCurrMa = (sleepUnit === "ua") ? (sleepCurrRaw / 1000) : sleepCurrRaw;
+
+  const sleepTimeRaw = Math.max(1, parseFloat($("#prog-pwr-sleep-time")?.value) || 15);
+  const sleepTimeUnit = $("#prog-pwr-sleep-time-unit")?.value || "min";
+  let sleepTimeMs = sleepTimeRaw * 1000;
+  if (sleepTimeUnit === "min") sleepTimeMs = sleepTimeRaw * 60 * 1000;
+  else if (sleepTimeUnit === "hr") sleepTimeMs = sleepTimeRaw * 3600 * 1000;
+
+  const batCap = Math.max(1, parseFloat($("#prog-pwr-bat-cap")?.value) || 2600);
+  const res = $("#prog-pwr-result");
+  if (!res) return;
+
+  const totalCycleMs = actTimeMs + sleepTimeMs;
+  const actFraction = actTimeMs / totalCycleMs;
+  const sleepFraction = sleepTimeMs / totalCycleMs;
+
+  const avgCurrentMa = (actCurr * actFraction) + (sleepCurrMa * sleepFraction);
+  const usableMah = batCap * 0.85;
+
+  const runtimeHours = usableMah / avgCurrentMa;
+  const runtimeDays = runtimeHours / 24;
+  const runtimeMonths = runtimeDays / 30.4375;
+  const runtimeYears = runtimeDays / 365.25;
+
+  let runtimeDisplay = "";
+  if (runtimeYears >= 1.0) {
+    runtimeDisplay = `${runtimeYears.toFixed(1)} Years (${Math.round(runtimeDays)} days)`;
+  } else if (runtimeMonths >= 1.0) {
+    runtimeDisplay = `${runtimeMonths.toFixed(1)} Months (${Math.round(runtimeDays)} days)`;
+  } else {
+    runtimeDisplay = `${runtimeDays.toFixed(1)} Days (${Math.round(runtimeHours)} hrs)`;
+  }
+
+  const actEnergy = actCurr * actTimeMs;
+  const sleepEnergy = sleepCurrMa * sleepTimeMs;
+  const totalEnergy = actEnergy + sleepEnergy;
+  const actPct = Math.round((actEnergy / totalEnergy) * 100);
+  const sleepPct = 100 - actPct;
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;margin-bottom:12px">
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Estimated Total Autonomy</div>
+        <div style="font-size:22px;font-weight:900;color:var(--green);margin:2px 0">
+          ${runtimeDisplay}
+        </div>
+        <div style="font-size:10px;color:var(--muted)">Based on 85% usable battery capacity</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Average Current Consumption</div>
+        <div style="font-size:22px;font-weight:900;color:var(--ink);margin:2px 0">
+          ${avgCurrentMa >= 1 ? `${avgCurrentMa.toFixed(2)} mA` : `${(avgCurrentMa * 1000).toFixed(1)} µA`}
+        </div>
+        <div style="font-size:10px;color:var(--muted)">Continuous equivalent load</div>
+      </div>
+
+      <div style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700">Duty Cycle Wake Ratio</div>
+        <div style="font-size:22px;font-weight:900;color:#0284c7;margin:2px 0">
+          ${(actFraction * 100).toFixed(3)}%
+        </div>
+        <div style="font-size:10px;color:var(--muted)">Wake ${(actTimeMs/1000).toFixed(2)}s every ${(sleepTimeMs/60000).toFixed(1)} mins</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">
+      Energy Consumption Distribution: <span style="color:#f97316">Active Tx ${actPct}%</span> vs <span style="color:#10b981">Deep Sleep ${sleepPct}%</span>
+    </div>
+    <div class="pwr-bar-wrap">
+      <div class="pwr-bar-active" style="width:${actPct}%" title="Active WiFi/Sensors: ${actPct}%"></div>
+      <div class="pwr-bar-sleep" style="width:${sleepPct}%" title="Sleep Current: ${sleepPct}%"></div>
+    </div>
+
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">
+      💡 <em>Optimization Tip:</em> ${actPct > 70 ? "Most battery energy is spent during the active wake burst. Consider caching sensor readings, shortening WiFi DHCP connection time with static IP, or using BLE advertisements instead of HTTP!" : "Most battery power is lost to sleep quiescent leakage current. Ensure your onboard 3.3V LDO regulator has low quiescent current (<15µA) or use a discrete MOSFET power gate!"}
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button type="button" class="button button-small button-outline" data-action="copy-battery-life-specs">📋 Copy Power Budget Specs</button>
+      <button type="button" class="button button-small button-primary" data-action="save-battery-to-materials">➕ Add Battery to Project</button>
+    </div>
+  `;
+}
+
+async function copyBatteryLifeSpecs() {
+  const mcu = $("#prog-pwr-mcu option:checked")?.textContent.split("(")[0].trim() || "MCU";
+  const runtime = $("#prog-pwr-result div:first-child div:first-child div:nth-child(2)")?.textContent.trim() || "";
+  const avg = $("#prog-pwr-result div:first-child div:nth-child(2) div:nth-child(2)")?.textContent.trim() || "";
+  const bat = $("#prog-pwr-battery option:checked")?.textContent || "Battery";
+
+  const text = `IoT Power Budget & Battery Life:\n• MCU: ${mcu}\n• Battery: ${bat}\n• Average Draw: ${avg}\n• Estimated Autonomy: ${runtime}\nGenerated by Workbench Journal`;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Copied Power Budget specs to clipboard!");
+  } catch {
+    showToast("Specs generated.");
+  }
+}
+
+async function saveBatteryToMaterials() {
+  const bat = $("#prog-pwr-battery option:checked")?.textContent.split("·")[0].trim() || "Li-Ion Battery";
+  const cap = $("#prog-pwr-bat-cap")?.value || "2600";
+  await addMaterialToProjectShopping(`${bat} (${cap} mAh)`, "1 unit", 0, "Sensors & Modules");
 }
 
 // --- 🛒 Studio to Project Supplies Helper ---
@@ -22885,8 +23604,10 @@ function initCraftStudios() {
   $("#fretboard-display-mode")?.addEventListener("change", renderFretboardUI);
   $("#fretboard-highlight-mode")?.addEventListener("change", renderFretboardUI);
 
-  // Studio Metronome
+  // Studio Metronome & Tuner
   renderMetronomeDots();
+  renderTunerDisplay(null);
+  $("#music-tuner-calib")?.addEventListener("change", () => { if (!micTunerState.isActive) renderTunerDisplay(null); });
   $("#metronome-bpm-slider")?.addEventListener("input", (e) => setMetronomeBpm(e.target.value));
   $("#metronome-time-sig")?.addEventListener("change", (e) => {
     metronomeState.timeSignature = parseInt(e.target.value, 10) || 4;
@@ -22901,7 +23622,7 @@ function initCraftStudios() {
     if (lbl) lbl.textContent = beatSeqState.swing + "%";
   });
 
-  // Woodworking Cutlist, Dust, Finishes, Joinery, Sanding & Safety
+  // Woodworking Cutlist, Dust, Finishes, Joinery, Sanding, Safety, Sagulator & EMC
   runWoodCutOptimizer();
   updateWoodDustCalc();
   updateWoodFinishView();
@@ -22909,6 +23630,7 @@ function initCraftStudios() {
   updateWoodSandingGuide();
   updateWoodSafetyGuide();
   updateSagulatorCalc();
+  updateWoodEmcCalc();
   ["#wood-cut-stock", "#wood-cut-kerf"].forEach(s => $(s)?.addEventListener("input", runWoodCutOptimizer));
   $("#wood-cut-pieces")?.addEventListener("input", runWoodCutOptimizer);
   $("#wood-dust-machine")?.addEventListener("change", updateWoodDustCalc);
@@ -22920,13 +23642,17 @@ function initCraftStudios() {
   $("#wood-safety-process-select")?.addEventListener("change", updateWoodSafetyGuide);
   ["#wood-sag-species", "#wood-sag-thick", "#wood-sag-edge", "#wood-sag-load-type", "#wood-sag-wt-unit", "#wood-sag-support"].forEach(s => $(s)?.addEventListener("change", updateSagulatorCalc));
   ["#wood-sag-span", "#wood-sag-depth", "#wood-sag-weight"].forEach(s => $(s)?.addEventListener("input", updateSagulatorCalc));
+  ["#wood-emc-species", "#wood-emc-temp-unit", "#wood-emc-env", "#wood-emc-panel-unit", "#wood-emc-grain"].forEach(s => $(s)?.addEventListener("change", updateWoodEmcCalc));
+  ["#wood-emc-temp", "#wood-emc-panel-w"].forEach(s => $(s)?.addEventListener("input", updateWoodEmcCalc));
+  $("#wood-emc-rh-slider")?.addEventListener("input", updateWoodEmcCalc);
 
-  // Textiles Yardage, Gauge, Fiber Guide, Skein & Hat Sizing
+  // Textiles Yardage, Gauge, Fiber Guide, Skein, Hat Sizing & Planned Pooling
   updateTextilesYardageEstimator();
   updateTextilesGaugeCalc();
   updateTextilesFiberGuide();
   updateYarnSkeinCalculator();
   updateTextilesHatCalc();
+  updateTextilesPooling();
   $("#textiles-est-project")?.addEventListener("change", updateTextilesYardageEstimator);
   $("#textiles-est-yarn-wt")?.addEventListener("change", updateTextilesYardageEstimator);
   ["#textiles-gauge-pattern", "#textiles-gauge-actual", "#textiles-gauge-target-w"].forEach(s => $(s)?.addEventListener("input", updateTextilesGaugeCalc));
@@ -22944,8 +23670,17 @@ function initCraftStudios() {
     }
   });
   ["#textiles-hat-circ", "#textiles-hat-gauge-sts", "#textiles-hat-gauge-rows"].forEach(s => $(s)?.addEventListener("input", updateTextilesHatCalc));
+  ["#textiles-pool-shift"].forEach(s => $(s)?.addEventListener("change", updateTextilesPooling));
+  $("#textiles-pool-preset")?.addEventListener("change", (e) => {
+    const p = POOLING_PRESETS[e.target.value];
+    if (p && $("#textiles-pool-stitch-seq")) {
+      $("#textiles-pool-stitch-seq").value = p.lengths.join(", ");
+      updateTextilesPooling();
+    }
+  });
+  ["#textiles-pool-stitch-seq", "#textiles-pool-mult"].forEach(s => $(s)?.addEventListener("input", updateTextilesPooling));
 
-  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer, Passive RC Filter, I2C Sensors & SMD Decoder
+  // Electronics Voltage Divider, Capacitor, AWG, 555 Timer, Passive RC Filter, I2C Sensors, SMD Decoder & Stepper Solver
   updateVoltageDividerCalc();
   updateCapacitorCodeView();
   updateWireAwgView();
@@ -22953,6 +23688,7 @@ function initCraftStudios() {
   updatePassiveFilterCalc();
   updateI2cSensorGuide();
   updateSmdDecoder();
+  updateStepperMotorCalc();
   ["#elec-div-vin", "#elec-div-r1", "#elec-div-r2"].forEach(s => $(s)?.addEventListener("input", updateVoltageDividerCalc));
   $("#elec-cap-code")?.addEventListener("input", updateCapacitorCodeView);
   $("#elec-cap-preset")?.addEventListener("change", (e) => {
@@ -22991,13 +23727,16 @@ function initCraftStudios() {
   $("#elec-sensor-secondary")?.addEventListener("change", updateI2cSensorGuide);
   $("#elec-smd-code")?.addEventListener("input", updateSmdDecoder);
   ["#elec-smd-mode", "#elec-smd-package"].forEach(s => $(s)?.addEventListener("change", updateSmdDecoder));
+  ["#elec-step-mech", "#elec-step-angle", "#elec-step-micro"].forEach(s => $(s)?.addEventListener("change", updateStepperMotorCalc));
+  $("#elec-step-gear")?.addEventListener("input", updateStepperMotorCalc);
 
-  // Programming ALU, ASCII, Array Formatter, Baud, CRC
+  // Programming ALU, ASCII, Array Formatter, Baud, CRC & Battery Life
   updateProgAluCalc();
   searchProgAsciiTable();
   formatProgByteArray();
   updateProgBaudCalc();
   updateProgCrcCalc();
+  updateProgBatteryLifeCalc();
   ["#prog-alu-rega", "#prog-alu-regb"].forEach(s => $(s)?.addEventListener("input", updateProgAluCalc));
   $("#prog-alu-op")?.addEventListener("change", updateProgAluCalc);
   $("#prog-ascii-search")?.addEventListener("input", searchProgAsciiTable);
@@ -23006,6 +23745,22 @@ function initCraftStudios() {
   ["#prog-baud-rate", "#prog-baud-databits", "#prog-baud-parity", "#prog-baud-stopbits"].forEach(s => $(s)?.addEventListener("change", updateProgBaudCalc));
   $("#prog-crc-input")?.addEventListener("input", updateProgCrcCalc);
   ["#prog-crc-format", "#prog-crc-algo"].forEach(s => $(s)?.addEventListener("change", updateProgCrcCalc));
+  ["#prog-pwr-sleep-unit", "#prog-pwr-sleep-time-unit"].forEach(s => $(s)?.addEventListener("change", updateProgBatteryLifeCalc));
+  $("#prog-pwr-mcu")?.addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (v === "esp32") { $("#prog-pwr-act-curr").value = 120; $("#prog-pwr-sleep-curr").value = 15; $("#prog-pwr-sleep-unit").value = "ua"; }
+    else if (v === "esp8266") { $("#prog-pwr-act-curr").value = 80; $("#prog-pwr-sleep-curr").value = 20; $("#prog-pwr-sleep-unit").value = "ua"; }
+    else if (v === "pico_w") { $("#prog-pwr-act-curr").value = 45; $("#prog-pwr-sleep-curr").value = 1.2; $("#prog-pwr-sleep-unit").value = "ma"; }
+    else if (v === "promini_3v3") { $("#prog-pwr-act-curr").value = 5; $("#prog-pwr-sleep-curr").value = 4.5; $("#prog-pwr-sleep-unit").value = "ua"; }
+    else if (v === "nrf52840") { $("#prog-pwr-act-curr").value = 7; $("#prog-pwr-sleep-curr").value = 1.5; $("#prog-pwr-sleep-unit").value = "ua"; }
+    updateProgBatteryLifeCalc();
+  });
+  $("#prog-pwr-battery")?.addEventListener("change", (e) => {
+    const map = { "18650_2600": 2600, "18650_3500": 3500, "lipo_1000": 1000, "aa_alkaline": 2200, "cr2032": 225 };
+    const cap = map[e.target.value];
+    if (cap && $("#prog-pwr-bat-cap")) { $("#prog-pwr-bat-cap").value = cap; updateProgBatteryLifeCalc(); }
+  });
+  ["#prog-pwr-act-curr", "#prog-pwr-act-time", "#prog-pwr-sleep-curr", "#prog-pwr-sleep-time", "#prog-pwr-bat-cap"].forEach(s => $(s)?.addEventListener("input", updateProgBatteryLifeCalc));
 
   // Art Contrast, Gradient, Print Scaler, CVD Preview, Framing & Camera Color Picker
   updateArtContrastCalc();
