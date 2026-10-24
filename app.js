@@ -2941,6 +2941,7 @@ function renderProjects() {
       if (filter === "all") return true;
       if (filter === "pinned") return project.pinned === true;
       if (filter === "collaborative") return isCollaborativeProject(project);
+      if (filter === "gift") return Boolean(project.isGift);
       return safeStatus(project.status) === filter;
     })
     .filter(project => {
@@ -2961,8 +2962,9 @@ function renderProjects() {
       const tagsStr = (project.tags || []).join(" ");
       const creatorStr = project.creator ? `${project.creator.name || ""} ${project.creator.email || ""}` : "";
       const collabStr = (project.coCreators || []).map(c => `${c.name || ""} ${c.email || ""} ${c.role || ""}`).join(" ");
+      const giftStr = project.isGift ? `gift ${project.giftRecipient || ""} ${project.giftOccasion || ""}` : "";
       const isCollabKeyword = isCollaborativeProject(project) && (query.includes("collab") || query.includes("shared") || query.includes("team"));
-      const combined = `${project.title} ${project.description} ${tagsStr} ${skillsStr} ${creatorStr} ${collabStr}`.toLowerCase();
+      const combined = `${project.title} ${project.description} ${tagsStr} ${skillsStr} ${creatorStr} ${collabStr} ${giftStr}`.toLowerCase();
       return combined.includes(query) || isCollabKeyword;
     })
     .sort((a, b) => {
@@ -2995,16 +2997,29 @@ function renderProjects() {
         const skills = projectSkillNames(project);
         const images = projectImageCount(project);
         const progress = projectTaskProgress(project);
-        return `<article class="project-card ${project.pinned ? "is-pinned" : ""}" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
+        const isSecret = Boolean(project.isGift && project.giftSecret);
+        const isRevealed = revealedSecretProjectIds.has(project.id);
+        const secretShieldClass = (isSecret && !isRevealed) ? "is-gift-secret" : (isSecret && isRevealed) ? "is-gift-secret is-revealed" : "";
+        const countdownInfo = project.giftDeadline ? formatGiftCountdown(project.giftDeadline) : null;
+
+        return `<article class="project-card ${project.pinned ? "is-pinned" : ""} ${secretShieldClass}" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
           <div class="project-card-head">
             <div class="project-card-mark">${["✳", "⌘", "◈", "✿"][index % 4]}</div>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               ${isCollaborativeProject(project) ? `<span class="collab-badge" title="Collaborative project with ${(project.coCreators || []).length + 1} members">👥 Team (${(project.coCreators || []).length + 1})</span>` : ""}
               ${project.pinned ? `<span class="pin-badge">★ Pinned</span>` : ""}
+              ${project.isGift ? `<span class="gift-badge" title="Handmade gift for ${escapeHTML(project.giftRecipient || "Someone")}">🎁 For ${escapeHTML(project.giftRecipient || "Someone")}</span>` : ""}
+              ${countdownInfo ? `<span class="gift-countdown-pill ${countdownInfo.className}" title="Gift handover deadline">${countdownInfo.text}</span>` : ""}
               <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
               <span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span>
             </div>
           </div>
+          ${isSecret ? `
+            <div class="secret-gift-overlay" data-action="toggle-secret-reveal" data-project="${project.id}" title="Click to toggle peek">
+              <span>🎁 Secret Surprise (${escapeHTML(project.giftRecipient || "Gift")})</span>
+              <span>${isRevealed ? "🛡️ Shield" : "👁️ Reveal"}</span>
+            </div>
+          ` : ""}
           <h3>${escapeHTML(project.title)}</h3><p class="project-card-description">${escapeHTML(project.description || "No description yet. Open this project to add one.")}</p>
           <div class="project-card-labels"><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>${(project.tags || []).slice(0, 3).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}${(project.tags || []).length > 3 ? `<span class="mini-tag">+${project.tags.length - 3}</span>` : ""}</div>
           <div class="project-card-skills">${skills.slice(0, 3).map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)}</span>`).join("")}${skills.length > 3 ? `<span class="mini-tag">+${skills.length - 3}</span>` : ""}</div>
@@ -3377,6 +3392,8 @@ function openIdeaDialog(ideaId = null) {
     form.supplies.value = idea.supplies || "";
     form.notes.value = idea.notes || "";
     form.status.value = idea.status || "brainstorming";
+    if (form.isGift) form.isGift.checked = Boolean(idea.isGift);
+    if (form.giftRecipient) form.giftRecipient.value = idea.giftRecipient || "";
     if (deleteBtn) {
       deleteBtn.classList.remove("hidden");
       deleteBtn.dataset.ideaId = idea.id;
@@ -3388,6 +3405,8 @@ function openIdeaDialog(ideaId = null) {
     form.priority.value = "normal";
     form.effort.value = "weekend";
     form.status.value = "brainstorming";
+    if (form.isGift) form.isGift.checked = false;
+    if (form.giftRecipient) form.giftRecipient.value = "";
     if (deleteBtn) deleteBtn.classList.add("hidden");
   }
 
@@ -3414,6 +3433,8 @@ async function saveIdeaFromForm(form) {
     cost: form.cost.value ? String(form.cost.value) : "",
     supplies: (form.supplies.value || "").trim(),
     notes: (form.notes.value || "").trim(),
+    isGift: Boolean(form.isGift?.checked),
+    giftRecipient: (form.giftRecipient?.value || "").trim(),
     status: form.status.value || "brainstorming",
     updatedAt: new Date().toISOString()
   };
@@ -3458,7 +3479,11 @@ async function promoteIdeaToProject(ideaId) {
     status: "in-progress",
     priority: idea.priority || "normal",
     budget: idea.cost ? Number(idea.cost) : undefined,
-    tags: [idea.category, "promoted-idea"].filter(Boolean),
+    tags: [idea.category, "promoted-idea", idea.isGift ? "gift" : ""].filter(Boolean),
+    isGift: Boolean(idea.isGift),
+    giftRecipient: idea.giftRecipient || "",
+    giftOccasion: "birthday",
+    giftStatus: "planning",
     folders: [{ id: uid(), name: "General", images: [] }],
     tasks: [
       { id: uid(), text: "Refine design specifications and CAD drawing", done: false },
@@ -3518,6 +3543,534 @@ function sparkRandomIdea() {
   const randomSpark = CURATED_SPARKS[Math.floor(Math.random() * CURATED_SPARKS.length)];
   if (!randomSpark) return;
   adoptSparkIdea(randomSpark.id);
+}
+
+/* ============================================================
+   🎁 Handmade Gift Preparation Hub & Maker Tag Studio Suite
+   ============================================================ */
+
+const revealedSecretProjectIds = new Set();
+let giftActiveFilter = "all";
+let giftCalcUnit = "in";
+
+const GIFT_OCCASIONS = {
+  birthday: { label: "Birthday", emoji: "🎂" },
+  holiday: { label: "Holiday / Christmas", emoji: "🎄" },
+  wedding: { label: "Wedding", emoji: "💍" },
+  anniversary: { label: "Anniversary", emoji: "🥂" },
+  housewarming: { label: "Housewarming", emoji: "🏡" },
+  baby: { label: "Baby Shower", emoji: "🍼" },
+  graduation: { label: "Graduation", emoji: "🎓" },
+  thankyou: { label: "Thank You", emoji: "💌" },
+  valentines: { label: "Valentine’s Day", emoji: "❤️" },
+  retirement: { label: "Retirement", emoji: "🌅" },
+  justbecause: { label: "Just Because", emoji: "✨" }
+};
+
+const GIFT_CARE_PRESETS = {
+  wood: "Hand wash only with warm water and mild soap. Never soak or put in a dishwasher. Towel dry immediately and stand upright. Apply food-safe mineral oil or beeswax conditioner every 4-8 weeks to keep wood nourished and moisture-resistant.",
+  textile: "Hand wash gently in cool water with mild wool-safe detergent. Do not wring or twist. Roll in a clean dry towel to press out excess moisture, then reshape and lay flat on a drying rack. Store folded in a breathable bag with cedar or lavender.",
+  knife: "Hand wash blade immediately after each use and dry thoroughly with a soft cloth. Never place in a dishwasher or leave wet in a sink. Coat lightly with food-grade camellia or mineral oil before storing in a dry block or sheath. Hone periodically with a ceramic rod.",
+  ceramic: "Finished with non-toxic, food-safe glaze. Gentle hand-washing recommended to preserve luster and rim edges. Microwave-safe unless accented with metallic gold or luster overglazes. Avoid thermal shock (e.g. cold water into a piping hot vessel).",
+  jewelry: "Store in an airtight pouch or soft cloth box away from humidity. Remove before swimming, showering, or applying perfume and lotion. Clean gently with a microfiber polishing cloth. Avoid ultrasonic cleaners for soft gemstones, pearls, or resin inlay.",
+  leather: "Keep away from prolonged direct sunlight and heat sources. Wipe clean with a slightly damp cloth if needed. Nourish 2-3 times per year with natural beeswax or neatsfoot oil leather balm. If wet, let dry naturally at room temperature.",
+  general: "Handmade with care and attention to detail. Handle gently and store away from extreme temperature or moisture fluctuations to preserve its beauty and function for decades to come."
+};
+
+function formatGiftOccasionLabel(key) {
+  return GIFT_OCCASIONS[key]?.label || key || "Special Occasion";
+}
+
+function formatGiftCountdown(deadline) {
+  if (!deadline) return null;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const target = new Date(deadline);
+  target.setHours(0, 0, 0, 0);
+  const diffTime = target.getTime() - now.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) {
+    return { text: `${Math.abs(diffDays)}d overdue`, className: "is-overdue", isOverdue: true };
+  }
+  if (diffDays === 0) {
+    return { text: "Gift today! 🎉", className: "is-today", isToday: true };
+  }
+  if (diffDays === 1) {
+    return { text: "Tomorrow! ⏳", className: "is-urgent", isUrgent: true };
+  }
+  if (diffDays <= 7) {
+    return { text: `${diffDays} days left ⏳`, className: "is-urgent", isUrgent: true };
+  }
+  return { text: `${diffDays} days left`, className: "", isNormal: true };
+}
+
+function renderProjectDetailGiftBanner(project) {
+  const cd = project.giftDeadline ? formatGiftCountdown(project.giftDeadline) : null;
+  const occasionLbl = formatGiftOccasionLabel(project.giftOccasion);
+  return `
+    <div class="detail-gift-banner">
+      <div class="detail-gift-header">
+        <div class="detail-gift-title">
+          <span>🎁</span> Handmade Gift for ${escapeHTML(project.giftRecipient || "Special Someone")}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${cd ? `<span class="gift-countdown-pill ${cd.className}" title="Handover event deadline">${cd.text}</span>` : ""}
+          <select class="kanban-shift-select" data-action="set-gift-status" data-project="${project.id}" title="Update gift preparation status" style="font-size:11.5px;padding:3px 8px">
+            <option value="planning" ${project.giftStatus === "planning" ? "selected" : ""}>📋 Planning &amp; Sourcing</option>
+            <option value="making" ${project.giftStatus === "making" ? "selected" : ""}>🛠️ In the Workshop (Making)</option>
+            <option value="wrapped" ${project.giftStatus === "wrapped" ? "selected" : ""}>🎀 Wrapped &amp; Tagged</option>
+            <option value="delivered" ${project.giftStatus === "delivered" ? "selected" : ""}>🎉 Delivered / Gifted</option>
+          </select>
+        </div>
+      </div>
+      <div class="detail-gift-meta-grid">
+        <div class="detail-gift-meta-item">
+          <div class="meta-label">Occasion</div>
+          <div class="meta-value">${escapeHTML(occasionLbl)}</div>
+        </div>
+        <div class="detail-gift-meta-item">
+          <div class="meta-label">Handover Date</div>
+          <div class="meta-value">${project.giftDeadline ? formatDate(project.giftDeadline) : "Not scheduled"}</div>
+        </div>
+        <div class="detail-gift-meta-item">
+          <div class="meta-label">Box Dimensions</div>
+          <div class="meta-value">${project.giftBoxLength && project.giftBoxWidth ? `${project.giftBoxLength}″ × ${project.giftBoxWidth}″ × ${project.giftBoxHeight || 0}″` : "Custom"}</div>
+        </div>
+        <div class="detail-gift-meta-item">
+          <div class="meta-label">Privacy Shield</div>
+          <div class="meta-value">${project.giftSecret ? "🛡️ Surprise Shielded" : "Public in Studio"}</div>
+        </div>
+      </div>
+      ${project.giftCareNotes ? `
+        <div class="detail-gift-care-box">
+          <strong>🏷️ Care &amp; Preservation Advice:</strong> ${escapeHTML(project.giftCareNotes)}
+        </div>
+      ` : ""}
+      <div class="detail-gift-actions">
+        <button type="button" class="button button-small button-primary" data-action="open-gift-tag" data-id="${project.id}">
+          🏷️ Print Gift Tag / Care Card
+        </button>
+        <button type="button" class="button button-small button-outline" data-action="open-gift-calc" data-id="${project.id}">
+          📐 Box &amp; Wrapping Calc
+        </button>
+        <button type="button" class="button button-small button-quiet" data-action="toggle-project-gift-secret" data-id="${project.id}">
+          ${project.giftSecret ? "👁️ Disable Privacy Shield" : "🛡️ Enable Surprise Shield"}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function openGiftHubDialog(defaultTab = "tracker") {
+  const dialog = $("#gift-hub-dialog");
+  if (!dialog) return;
+  setGiftHubTab(defaultTab);
+  renderGiftHub();
+  dialog.showModal();
+}
+
+function setGiftHubTab(tabKey) {
+  $$(".gift-hub-tab").forEach(tab => {
+    tab.classList.toggle("active", tab.dataset.tab === tabKey);
+  });
+  $$(".gift-hub-tab-panel").forEach(panel => {
+    panel.style.display = panel.id === `gift-tab-${tabKey}` ? "block" : "none";
+  });
+  if (tabKey === "calc") {
+    updateGiftWrappingCalc();
+  }
+}
+
+function renderGiftHub() {
+  const gifts = state.projects.filter(p => p.isGift);
+  const countEl = $("#gift-tracker-count");
+  if (countEl) countEl.textContent = gifts.length;
+
+  const makingCount = gifts.filter(p => p.giftStatus === "making").length;
+  const wrappedCount = gifts.filter(p => p.giftStatus === "wrapped").length;
+  const deliveredCount = gifts.filter(p => p.giftStatus === "delivered").length;
+
+  if ($("#gift-stat-total")) $("#gift-stat-total").textContent = gifts.length;
+  if ($("#gift-stat-making")) $("#gift-stat-making").textContent = makingCount;
+  if ($("#gift-stat-wrapped")) $("#gift-stat-wrapped").textContent = wrappedCount;
+  if ($("#gift-stat-delivered")) $("#gift-stat-delivered").textContent = deliveredCount;
+
+  renderGiftProjectsList();
+  updateGiftWrappingCalc();
+}
+
+function renderGiftProjectsList() {
+  const listEl = $("#gift-project-list");
+  if (!listEl) return;
+
+  const allGifts = state.projects.filter(p => p.isGift);
+  let filtered = [...allGifts];
+
+  if (giftActiveFilter === "upcoming") {
+    filtered = filtered.filter(p => p.giftDeadline && p.giftStatus !== "delivered")
+      .sort((a, b) => a.giftDeadline.localeCompare(b.giftDeadline));
+  } else if (giftActiveFilter === "making") {
+    filtered = filtered.filter(p => p.giftStatus === "making");
+  } else if (giftActiveFilter === "wrapped") {
+    filtered = filtered.filter(p => p.giftStatus === "wrapped");
+  } else if (giftActiveFilter === "delivered") {
+    filtered = filtered.filter(p => p.giftStatus === "delivered");
+  } else {
+    // "all": sort by deadline if available, then by updated
+    filtered.sort((a, b) => {
+      if (a.giftDeadline && b.giftDeadline) return a.giftDeadline.localeCompare(b.giftDeadline);
+      if (a.giftDeadline) return -1;
+      if (b.giftDeadline) return 1;
+      return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
+  }
+
+  $$(".gift-filter-pill").forEach(pill => {
+    pill.classList.toggle("active", pill.dataset.filter === giftActiveFilter);
+  });
+
+  if (!filtered.length) {
+    listEl.innerHTML = `
+      <div class="empty-state" style="padding:24px 16px">
+        <div class="empty-state-mark">🎁</div>
+        <h3>${allGifts.length ? "No gifts match this filter" : "No handmade gifts yet"}</h3>
+        <p>${allGifts.length ? "Try switching filters to view your other gift builds." : "Start a project as a handmade gift to track deadlines, calculate wrapping paper, and print custom tags."}</p>
+        <button type="button" class="button button-primary" data-action="new-gift-project">＋ Start a Gift Build</button>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(p => {
+    const cd = p.giftDeadline ? formatGiftCountdown(p.giftDeadline) : null;
+    const occ = formatGiftOccasionLabel(p.giftOccasion);
+    return `
+      <article class="gift-hub-card">
+        <div class="gift-hub-card-header">
+          <div class="gift-hub-card-main">
+            <h4 class="gift-hub-card-title">
+              <span>🎁</span> ${escapeHTML(p.title)}
+              <span class="gift-badge" style="font-size:10px">For ${escapeHTML(p.giftRecipient || "Someone")}</span>
+            </h4>
+            <div class="gift-hub-card-sub">
+              Occasion: <strong>${escapeHTML(occ)}</strong>${p.giftDeadline ? ` · Target Date: <strong>${formatDate(p.giftDeadline)}</strong>` : ""}
+            </div>
+          </div>
+          <div class="gift-hub-card-badges">
+            ${cd ? `<span class="gift-countdown-pill ${cd.className}" title="Gift handover countdown">${cd.text}</span>` : ""}
+            <select class="kanban-shift-select" data-action="set-gift-status" data-project="${p.id}" title="Change gift status" style="font-size:11.5px">
+              <option value="planning" ${p.giftStatus === "planning" ? "selected" : ""}>📋 Planning</option>
+              <option value="making" ${p.giftStatus === "making" ? "selected" : ""}>🛠️ In Progress</option>
+              <option value="wrapped" ${p.giftStatus === "wrapped" ? "selected" : ""}>🎀 Wrapped &amp; Tagged</option>
+              <option value="delivered" ${p.giftStatus === "delivered" ? "selected" : ""}>🎉 Delivered</option>
+            </select>
+          </div>
+        </div>
+
+        ${p.giftCareNotes ? `
+          <div style="font-size:11px;color:var(--muted);background:var(--surface-2, rgba(0,0,0,0.02));padding:4px 8px;border-radius:4px">
+            <strong>Care:</strong> ${escapeHTML(p.giftCareNotes)}
+          </div>
+        ` : ""}
+
+        <div class="gift-hub-card-actions">
+          <div style="font-size:11px;color:var(--muted)">
+            ${p.giftBoxLength && p.giftBoxWidth ? `Box: ${p.giftBoxLength}×${p.giftBoxWidth}×${p.giftBoxHeight || 0} in` : "Box size unassigned"}
+          </div>
+          <div class="gift-hub-card-btns">
+            <button type="button" class="button button-small button-outline" data-action="open-gift-tag" data-id="${p.id}">
+              🏷️ Tag &amp; Certificate
+            </button>
+            <button type="button" class="button button-small button-outline" data-action="open-gift-calc" data-id="${p.id}">
+              📐 Wrapping Calc
+            </button>
+            <button type="button" class="button button-small button-quiet" data-action="open-project" data-id="${p.id}">
+              View Project →
+            </button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+function updateGiftWrappingCalc() {
+  const lInput = $("#gift-calc-l");
+  const wInput = $("#gift-calc-w");
+  const hInput = $("#gift-calc-h");
+  const oInput = $("#gift-calc-overlap");
+  const bowSelect = $("#gift-calc-bow");
+
+  if (!lInput || !wInput || !hInput) return;
+
+  const isCm = giftCalcUnit === "cm";
+  const unitLabel = isCm ? "cm" : "in";
+
+  let L = Math.max(0.1, Number(lInput.value) || 8);
+  let W = Math.max(0.1, Number(wInput.value) || 6);
+  let H = Math.max(0.1, Number(hInput.value) || 4);
+  const overlap = Math.max(0.2, Number(oInput?.value) || (isCm ? 3.8 : 1.5));
+  const bowStyle = bowSelect?.value || "standard";
+
+  // Standard flat wrapping paper cut formulas:
+  // Paper Width = L + 2H
+  // Paper Length = 2W + 2H + overlap
+  const stdWidth = L + (2 * H);
+  const stdLength = (2 * W) + (2 * H) + overlap;
+  const stdArea = stdWidth * stdLength;
+
+  // Diagonal 45-degree wrapping paper cut formula:
+  // Side = (W + H) + (L + H) / sqrt(2)
+  const diagSide = (W + H) + ((L + H) / Math.SQRT2);
+  const diagArea = diagSide * diagSide;
+  const savingsPct = Math.max(0, Math.round(((stdArea - diagArea) / stdArea) * 100));
+
+  // Ribbon length formula:
+  // Ribbon = 2L + 2W + 4H + bowAllowance
+  let bowAllowance = 24; // inches
+  if (isCm) {
+    bowAllowance = bowStyle === "grand" ? 90 : bowStyle === "minimal" ? 30 : 60;
+  } else {
+    bowAllowance = bowStyle === "grand" ? 36 : bowStyle === "minimal" ? 12 : 24;
+  }
+  const ribbonLength = (2 * L) + (2 * W) + (4 * H) + bowAllowance;
+
+  // Update UI outputs
+  const stdDimsEl = $("#calc-res-standard-dims");
+  const stdSubEl = $("#calc-res-standard-sub");
+  if (stdDimsEl) {
+    stdDimsEl.textContent = `${stdWidth.toFixed(1)}${unitLabel} × ${stdLength.toFixed(1)}${unitLabel}`;
+  }
+  if (stdSubEl) {
+    stdSubEl.textContent = `Total Area: ${Math.round(stdArea)} sq ${unitLabel} · Cut size`;
+  }
+
+  const diagDimsEl = $("#calc-res-diagonal-dims");
+  const diagSubEl = $("#calc-res-diagonal-sub");
+  if (diagDimsEl) {
+    diagDimsEl.textContent = `${diagSide.toFixed(1)}${unitLabel} × ${diagSide.toFixed(1)}${unitLabel} Square`;
+  }
+  if (diagSubEl) {
+    diagSubEl.textContent = `Rotated 45° · Saves ~${savingsPct}% paper vs standard`;
+  }
+
+  const ribbonEl = $("#calc-res-ribbon-length");
+  const ribbonSubEl = $("#calc-res-ribbon-sub");
+  if (ribbonEl) {
+    const feetOrMeters = isCm ? `${(ribbonLength / 100).toFixed(2)} m` : `${(ribbonLength / 12).toFixed(1)} ft`;
+    ribbonEl.textContent = `${Math.round(ribbonLength)} ${unitLabel} (${feetOrMeters})`;
+  }
+  if (ribbonSubEl) {
+    ribbonSubEl.textContent = `Includes ${bowAllowance} ${unitLabel} for ${bowStyle} bow knot`;
+  }
+
+  // Update Visual Diagram
+  const boxDimsEl = $("#cut-diagram-box-dims");
+  if (boxDimsEl) {
+    boxDimsEl.textContent = `${L}${unitLabel} × ${W}${unitLabel}`;
+  }
+  const marginTop = $("#cut-margin-top");
+  const marginBottom = $("#cut-margin-bottom");
+  if (marginTop) marginTop.textContent = `H: ${H}${unitLabel}`;
+  if (marginBottom) marginBottom.textContent = `H: ${H}${unitLabel}`;
+}
+
+function openGiftTagDialog(projectId = null) {
+  const dialog = $("#gift-tag-dialog");
+  if (!dialog) return;
+
+  const select = $("#gift-tag-project-select");
+  if (select) {
+    select.innerHTML = `<option value="">Custom / Blank Dedication</option>` +
+      state.projects.map(p => `
+        <option value="${p.id}" ${p.id === projectId ? "selected" : ""}>
+          ${p.isGift ? "🎁 " : ""}${escapeHTML(p.title)} ${p.giftRecipient ? `(for ${escapeHTML(p.giftRecipient)})` : ""}
+        </option>
+      `).join("");
+    if (projectId) select.value = projectId;
+  }
+
+  populateGiftTagFromProject(projectId);
+  renderGiftTagPreview();
+  dialog.showModal();
+}
+
+function populateGiftTagFromProject(projectId) {
+  const project = state.projects.find(p => p.id === projectId);
+  const maker = getCurrentMakerIdentity();
+
+  const toInput = $("#gift-tag-to");
+  const fromInput = $("#gift-tag-from");
+  const titleInput = $("#gift-tag-title");
+  const occasionInput = $("#gift-tag-occasion");
+  const materialsInput = $("#gift-tag-materials");
+  const careInput = $("#gift-tag-care");
+  const dateInput = $("#gift-tag-date");
+  const editionInput = $("#gift-tag-edition");
+
+  if (project) {
+    if (toInput) toInput.value = project.giftRecipient || "";
+    if (fromInput) fromInput.value = project.creator?.name || maker.name || "Liam";
+    if (titleInput) titleInput.value = project.title || "";
+    if (occasionInput) occasionInput.value = project.giftRecipient ? `Handcrafted with love for ${project.giftRecipient} · ${formatGiftOccasionLabel(project.giftOccasion)}` : "Handcrafted with artisanal care";
+    if (materialsInput) {
+      const matNames = (project.materials || []).map(m => m.name).slice(0, 3).join(", ");
+      materialsInput.value = matNames || "Workshop Selected Materials";
+    }
+    if (careInput) {
+      careInput.value = project.giftCareNotes || GIFT_CARE_PRESETS.general;
+    }
+    if (dateInput) {
+      const d = project.targetDate || project.giftDeadline || new Date().toISOString();
+      const dt = new Date(d);
+      dateInput.value = dt.toLocaleDateString(undefined, { year: "numeric", month: "long" });
+    }
+    if (editionInput) {
+      editionInput.value = "1 of 1 · Workshop Original";
+    }
+  } else {
+    if (toInput) toInput.value = "";
+    if (fromInput) fromInput.value = maker.name || "Liam";
+    if (titleInput) titleInput.value = "Handcrafted Piece";
+    if (occasionInput) occasionInput.value = "Handcrafted with care & intention";
+    if (materialsInput) materialsInput.value = "Artisan Hardwood & Brass";
+    if (careInput) careInput.value = GIFT_CARE_PRESETS.wood;
+    if (dateInput) dateInput.value = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long" });
+    if (editionInput) editionInput.value = "1 of 1 · Workshop Original";
+  }
+}
+
+function renderGiftTagPreview() {
+  const sheet = $("#printable-gift-sheet");
+  if (!sheet) return;
+
+  const style = $("#gift-tag-style-select")?.value || "folding";
+  const theme = $("#gift-tag-theme-select")?.value || "kraft";
+
+  const to = ($("#gift-tag-to")?.value || "").trim();
+  const from = ($("#gift-tag-from")?.value || "").trim();
+  const title = ($("#gift-tag-title")?.value || "").trim();
+  const occasion = ($("#gift-tag-occasion")?.value || "").trim();
+  const materials = ($("#gift-tag-materials")?.value || "").trim();
+  const care = ($("#gift-tag-care")?.value || "").trim();
+  const date = ($("#gift-tag-date")?.value || "").trim();
+  const edition = ($("#gift-tag-edition")?.value || "").trim();
+
+  sheet.className = `printable-gift-sheet theme-${theme}`;
+
+  if (style === "folding") {
+    sheet.innerHTML = `
+      <div class="tag-folding-wrap">
+        <div class="tag-panel left-panel">
+          <div class="tag-punch-hole" title="Punch hole for baker's twine">○</div>
+          <div class="tag-back-header">A Note From the Workshop</div>
+          <div class="tag-back-dedication">“${escapeHTML(occasion || "Handcrafted with intention & care")}”</div>
+          ${materials ? `<div class="tag-back-materials"><strong>Craft:</strong> ${escapeHTML(materials)}</div>` : ""}
+          ${care ? `<div class="tag-back-care"><strong>Care:</strong> ${escapeHTML(care)}</div>` : ""}
+          <div class="tag-back-foot">
+            <span>${escapeHTML(date || "Workshop Made")}</span>
+            <span>${escapeHTML(edition || "Original Piece")}</span>
+          </div>
+        </div>
+        <div class="tag-panel right-panel">
+          <div class="tag-punch-hole" title="Punch hole for baker's twine">○</div>
+          <div class="tag-front-eyebrow">HANDMADE FOR YOU</div>
+          <div class="tag-front-icon">🎁</div>
+          <div class="tag-front-title">${escapeHTML(title || "Handmade Treasure")}</div>
+          <div class="tag-front-names">
+            <div><strong>To:</strong> ${escapeHTML(to || "A Cherished Recipient")}</div>
+            <div><strong>From:</strong> ${escapeHTML(from || "The Workshop")}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (style === "hangtag") {
+    sheet.innerHTML = `
+      <div class="tag-hangtag-wrap">
+        <div class="hangtag-top-notch">
+          <div class="tag-punch-hole-center" title="Punch hole for ribbon"></div>
+          <div class="tag-front-eyebrow">HANDMADE ORIGIN</div>
+        </div>
+        <div class="hangtag-title">${escapeHTML(title || "Handmade Piece")}</div>
+        <div class="hangtag-names">
+          <div><strong>To:</strong> ${escapeHTML(to || "You")}</div>
+          <div><strong>From:</strong> ${escapeHTML(from || "The Workshop")}</div>
+        </div>
+        ${occasion ? `<div class="hangtag-dedication">“${escapeHTML(occasion)}”</div>` : ""}
+        ${materials ? `<div style="font-size:10px;margin-bottom:6px"><strong>Materials:</strong> ${escapeHTML(materials)}</div>` : ""}
+        ${care ? `<div class="hangtag-care"><strong>Care:</strong> ${escapeHTML(care)}</div>` : ""}
+        <div class="hangtag-footer">
+          ${escapeHTML(date || "")} ${edition ? `· ${escapeHTML(edition)}` : ""}
+        </div>
+      </div>
+    `;
+  } else if (style === "certificate") {
+    sheet.innerHTML = `
+      <div class="tag-certificate-wrap">
+        <div class="cert-header">
+          <div class="cert-eyebrow">CERTIFICATE OF PROVENANCE &amp; AUTHENTICITY</div>
+          <div class="cert-title">${escapeHTML(title || "Handcrafted Original")}</div>
+        </div>
+        <div class="cert-proclamation">
+          This certifies that this piece was individually handcrafted with artisanal care and dedication${from ? ` by <strong>${escapeHTML(from)}</strong>` : ""}${to ? ` for <strong>${escapeHTML(to)}</strong>` : ""}.
+        </div>
+        <div class="cert-grid">
+          <div class="cert-grid-item">
+            <strong>Occasion / Dedication</strong>
+            ${escapeHTML(occasion || "Personal Gift")}
+          </div>
+          <div class="cert-grid-item">
+            <strong>Completion Date</strong>
+            ${escapeHTML(date || "Workshop Complete")}
+          </div>
+          <div class="cert-grid-item">
+            <strong>Primary Materials</strong>
+            ${escapeHTML(materials || "Artisan Selected Materials")}
+          </div>
+          <div class="cert-grid-item">
+            <strong>Edition / Serial</strong>
+            ${escapeHTML(edition || "1 of 1 · Workshop Original")}
+          </div>
+        </div>
+        ${care ? `
+          <div class="cert-care-block">
+            <strong>Care &amp; Preservation Instructions:</strong><br>
+            ${escapeHTML(care)}
+          </div>
+        ` : ""}
+        <div class="cert-signatures">
+          <div>
+            <strong>Studio / Workshop:</strong> ${escapeHTML(from || "Handmade Studio")}
+          </div>
+          <div class="cert-sign-line">
+            Maker’s Signature
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function printGiftTag() {
+  document.body.classList.add("printing-gift-tag");
+  window.print();
+  setTimeout(() => {
+    document.body.classList.remove("printing-gift-tag");
+  }, 500);
+}
+
+function copyGiftTagText() {
+  const to = ($("#gift-tag-to")?.value || "").trim();
+  const from = ($("#gift-tag-from")?.value || "").trim();
+  const title = ($("#gift-tag-title")?.value || "").trim();
+  const care = ($("#gift-tag-care")?.value || "").trim();
+
+  const text = `🎁 ${title}\nTo: ${to}\nFrom: ${from}\n\n🏷️ Care Instructions:\n${care}`;
+  navigator.clipboard?.writeText(text).then(() => {
+    showToast("Copied gift tag & care instructions to clipboard!");
+  }).catch(() => {
+    showToast("Could not copy to clipboard.");
+  });
 }
 
 function renderPlanner() {
@@ -4161,6 +4714,8 @@ function renderProjectDetail(projectId) {
             <button type="button" class="small-action" data-action="open-project-qr" data-id="${project.id}" title="Workshop QR bin label">🏷️ QR Label</button>
             <button type="button" class="small-action" data-action="save-project-template" data-id="${project.id}" title="Save as reusable template">💾 Template</button>
             <button type="button" class="small-action" data-action="open-compare-photos" data-project="${project.id}" title="Compare photos side-by-side">↔️ Compare</button>
+            <button type="button" class="small-action print-keep" data-action="open-gift-tag" data-id="${project.id}" title="Generate and print maker gift tag & care certificate">🎁 Gift Tag / Card</button>
+            <button type="button" class="small-action" data-action="open-gift-calc" data-id="${project.id}" title="Gift wrapping paper and box sizing calculator">📐 Box &amp; Wrap Calc</button>
             <button type="button" class="small-action print-keep" data-action="open-project-dossier" data-id="${project.id}" title="View comprehensive project dossier">📄 Dossier</button>
             <button type="button" class="small-action print-keep" data-action="open-workshop-blueprint" data-id="${project.id}" title="Printable workshop blueprint & cut-sheet">📐 Shop Blueprint</button>
             <button type="button" class="small-action print-keep" data-action="open-quote-dialog" data-id="${project.id}" title="Client quote, estimate & work order invoice generator">💼 Client Quote</button>
@@ -4194,6 +4749,7 @@ function renderProjectDetail(projectId) {
     </div>
     ${craftingBannerHtml}
     ${completionBannerHtml}
+    ${project.isGift ? renderProjectDetailGiftBanner(project) : ""}
     <p class="detail-description">${escapeHTML(project.description || "No description yet.")}</p>
     <div class="detail-top">
       <div class="project-card-labels">
@@ -4567,6 +5123,20 @@ function openProjectForm(project = null) {
     }
   }
   addProjectSkillOptions(project?.skillIds || []);
+  const isGift = Boolean(project?.isGift);
+  if (form.elements.isGift) form.elements.isGift.checked = isGift;
+  const giftFields = $("#project-gift-fields");
+  if (giftFields) giftFields.style.display = isGift ? "block" : "none";
+  if (form.elements.giftRecipient) form.elements.giftRecipient.value = project?.giftRecipient || "";
+  if (form.elements.giftOccasion) form.elements.giftOccasion.value = project?.giftOccasion || "birthday";
+  if (form.elements.giftDeadline) form.elements.giftDeadline.value = project?.giftDeadline || "";
+  if (form.elements.giftStatus) form.elements.giftStatus.value = project?.giftStatus || "planning";
+  if (form.elements.giftCareNotes) form.elements.giftCareNotes.value = project?.giftCareNotes || "";
+  if (form.elements.giftSecret) form.elements.giftSecret.checked = Boolean(project?.giftSecret);
+  if (form.elements.giftBoxLength) form.elements.giftBoxLength.value = project?.giftBoxLength ?? "";
+  if (form.elements.giftBoxWidth) form.elements.giftBoxWidth.value = project?.giftBoxWidth ?? "";
+  if (form.elements.giftBoxHeight) form.elements.giftBoxHeight.value = project?.giftBoxHeight ?? "";
+
   const deleteBtn = $("#delete-project-btn");
   if (deleteBtn) {
     deleteBtn.classList.toggle("hidden", !project);
@@ -4690,6 +5260,16 @@ async function handleProjectSubmit(event) {
     priority: ["high", "normal", "low"].includes(form.elements.priority.value) ? form.elements.priority.value : "normal",
     budget: form.elements.budget?.value ? Number(form.elements.budget.value) : (existing?.budget || null),
     tags: [...new Set(form.elements.tags.value.split(",").map(tag => tag.trim()).filter(Boolean))],
+    isGift: Boolean(form.elements.isGift?.checked),
+    giftRecipient: form.elements.giftRecipient?.value.trim() || "",
+    giftOccasion: form.elements.giftOccasion?.value || "birthday",
+    giftDeadline: form.elements.giftDeadline?.value || "",
+    giftStatus: form.elements.giftStatus?.value || "planning",
+    giftCareNotes: form.elements.giftCareNotes?.value.trim() || "",
+    giftSecret: Boolean(form.elements.giftSecret?.checked),
+    giftBoxLength: form.elements.giftBoxLength?.value ? Number(form.elements.giftBoxLength.value) : null,
+    giftBoxWidth: form.elements.giftBoxWidth?.value ? Number(form.elements.giftBoxWidth.value) : null,
+    giftBoxHeight: form.elements.giftBoxHeight?.value ? Number(form.elements.giftBoxHeight.value) : null,
     skillIds,
     creator: existing?.creator || { id: maker.id, name: maker.name, email: maker.email },
     coCreators: existing?.coCreators || [],
@@ -6042,6 +6622,7 @@ function renderKanban(projects) {
                     <span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>
                     ${isCollaborativeProject(project) ? `<span class="collab-badge" style="font-size:10px;padding:1px 5px">👥 Team</span>` : ""}
                     ${project.pinned ? `<span class="pin-badge">📌</span>` : ""}
+                    ${project.isGift ? `<span class="gift-badge-mini" title="Handmade gift for ${escapeHTML(project.giftRecipient || "Someone")}">🎁 ${escapeHTML(project.giftRecipient || "Gift")}</span>` : ""}
                   </div>
                   <div class="kanban-card-quickshift" onclick="event.stopPropagation()">
                     <select class="kanban-shift-select" data-project="${escapeHTML(project.id)}" title="Move project status" aria-label="Move project status">
@@ -10951,6 +11532,91 @@ async function handleAction(action, target) {
     closeFloatingTimer();
     return;
   }
+  if (action === "open-gift-hub") {
+    openGiftHubDialog(target.dataset.tab || "tracker");
+    return;
+  }
+  if (action === "new-gift-project") {
+    $("#gift-hub-dialog")?.close();
+    openProjectForm({ isGift: true, giftStatus: "planning", giftOccasion: "birthday" });
+    return;
+  }
+  if (action === "open-gift-tag") {
+    const projId = target.dataset.id || target.dataset.project || activeProjectId;
+    openGiftTagDialog(projId);
+    return;
+  }
+  if (action === "open-gift-calc") {
+    const projId = target.dataset.id || target.dataset.project || activeProjectId;
+    const p = state.projects.find(x => x.id === projId);
+    if (p && p.giftBoxLength && $("#gift-calc-l")) $("#gift-calc-l").value = p.giftBoxLength;
+    if (p && p.giftBoxWidth && $("#gift-calc-w")) $("#gift-calc-w").value = p.giftBoxWidth;
+    if (p && p.giftBoxHeight && $("#gift-calc-h")) $("#gift-calc-h").value = p.giftBoxHeight;
+    openGiftHubDialog("calc");
+    return;
+  }
+  if (action === "toggle-secret-reveal") {
+    const pid = target.dataset.project;
+    if (pid) {
+      if (revealedSecretProjectIds.has(pid)) {
+        revealedSecretProjectIds.delete(pid);
+      } else {
+        revealedSecretProjectIds.add(pid);
+      }
+      renderProjects();
+    }
+    return;
+  }
+  if (action === "toggle-project-gift-secret") {
+    const pid = target.dataset.id || target.dataset.project || activeProjectId;
+    const p = state.projects.find(x => x.id === pid);
+    if (p) {
+      p.giftSecret = !p.giftSecret;
+      p.updatedAt = new Date().toISOString();
+      await persistState();
+      renderProjects();
+      if (activeProjectId === p.id) renderProjectDetail(p.id);
+      showToast(p.giftSecret ? "Surprise gift privacy shield active." : "Surprise shield turned off.");
+    }
+    return;
+  }
+  if (action === "set-gift-tab") {
+    setGiftHubTab(target.dataset.tab || "tracker");
+    return;
+  }
+  if (action === "set-gift-status") {
+    const pid = target.dataset.project;
+    const p = state.projects.find(x => x.id === pid);
+    if (p) {
+      p.giftStatus = target.value;
+      p.updatedAt = new Date().toISOString();
+      await persistState();
+      renderProjects();
+      if (activeProjectId === p.id) renderProjectDetail(p.id);
+      renderGiftHub();
+      showToast(`Gift status updated to “${p.giftStatus}”.`);
+    }
+    return;
+  }
+  if (action === "filter-gifts") {
+    giftActiveFilter = target.dataset.filter || "all";
+    renderGiftProjectsList();
+    return;
+  }
+  if (action === "print-gift-tag") {
+    printGiftTag();
+    return;
+  }
+  if (action === "copy-gift-tag-text") {
+    copyGiftTagText();
+    return;
+  }
+  if (action === "set-gift-calc-unit") {
+    giftCalcUnit = target.dataset.unit || "in";
+    $$(".unit-pill").forEach(pill => pill.classList.toggle("active", pill.dataset.unit === giftCalcUnit));
+    updateGiftWrappingCalc();
+    return;
+  }
   if (action === "auth-forgot-password") {
     const email = $("#signin-email")?.value;
     if (!email) {
@@ -13339,6 +14005,65 @@ document.addEventListener("change", event => {
 });
 $("#photo-input").addEventListener("change", event => void handlePhotoUpload(event.target.files));
 $("#camera-input")?.addEventListener("change", event => void handlePhotoUpload(event.target.files));
+
+// 🎁 Handmade Gift Suite Event Listeners
+$("#project-is-gift")?.addEventListener("change", (e) => {
+  const f = $("#project-gift-fields");
+  if (f) f.style.display = e.target.checked ? "block" : "none";
+});
+
+document.addEventListener("click", (e) => {
+  const presetBtn = e.target.closest(".tag-preset-btn");
+  if (presetBtn) {
+    const key = presetBtn.dataset.preset;
+    if (key && GIFT_CARE_PRESETS[key]) {
+      const ta = $("#project-gift-fields textarea[name='giftCareNotes']");
+      if (ta) ta.value = GIFT_CARE_PRESETS[key];
+    }
+  }
+
+  const calcPreset = e.target.closest(".calc-preset-btn");
+  if (calcPreset) {
+    const { l, w, h } = calcPreset.dataset;
+    if (l && $("#gift-calc-l")) $("#gift-calc-l").value = l;
+    if (w && $("#gift-calc-w")) $("#gift-calc-w").value = w;
+    if (h && $("#gift-calc-h")) $("#gift-calc-h").value = h;
+    updateGiftWrappingCalc();
+  }
+
+  const tagCareBtn = e.target.closest(".tag-care-btn");
+  if (tagCareBtn) {
+    const careKey = tagCareBtn.dataset.care;
+    if (careKey && GIFT_CARE_PRESETS[careKey]) {
+      const ta = $("#gift-tag-care");
+      if (ta) {
+        ta.value = GIFT_CARE_PRESETS[careKey];
+        renderGiftTagPreview();
+      }
+    }
+  }
+});
+
+["#gift-calc-l", "#gift-calc-w", "#gift-calc-h", "#gift-calc-overlap", "#gift-calc-bow"].forEach(sel => {
+  const el = $(sel);
+  if (el) {
+    el.addEventListener("input", updateGiftWrappingCalc);
+    el.addEventListener("change", updateGiftWrappingCalc);
+  }
+});
+
+$("#gift-tag-project-select")?.addEventListener("change", (e) => {
+  populateGiftTagFromProject(e.target.value);
+  renderGiftTagPreview();
+});
+
+["#gift-tag-style-select", "#gift-tag-theme-select", "#gift-tag-to", "#gift-tag-from", "#gift-tag-title", "#gift-tag-occasion", "#gift-tag-materials", "#gift-tag-care", "#gift-tag-date", "#gift-tag-edition"].forEach(sel => {
+  const el = $(sel);
+  if (el) {
+    el.addEventListener("input", renderGiftTagPreview);
+    el.addEventListener("change", renderGiftTagPreview);
+  }
+});
 
 $("#timer-project-select")?.addEventListener("change", event => {
   const pid = event.target.value;

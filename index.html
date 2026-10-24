@@ -204,12 +204,13 @@
                   <button type="button" class="view-mode-btn active" data-action="set-project-mode" data-mode="grid" title="Grid view">⊞ Grid</button>
                   <button type="button" class="view-mode-btn" data-action="set-project-mode" data-mode="kanban" title="Kanban board">☷ Kanban</button>
                 </div>
+                <button type="button" class="button button-outline" data-action="open-gift-hub" title="Open Handmade Gift Preparation Hub">🎁 Gift Hub</button>
                 <button class="button button-primary" data-action="new-project">＋ New project</button>
               </div>
             </div>
             <div class="toolbar">
               <label class="search-box"><span aria-hidden="true">⌕</span><input id="project-search" type="search" placeholder="Find a project..." aria-label="Search projects"></label>
-              <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="collaborative">👥 Collaborative only</option><option value="pinned">★ Pinned only</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
+              <label class="select-wrap"><span class="sr-only">Filter by status</span><select id="project-status-filter"><option value="all">All statuses</option><option value="gift">🎁 Gifts only</option><option value="collaborative">👥 Collaborative only</option><option value="pinned">★ Pinned only</option><option value="in-progress">In progress</option><option value="planned">Planned</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
               <label class="select-wrap"><span class="sr-only">Filter by priority</span><select id="project-priority-filter"><option value="all">All priorities</option><option value="high">High priority</option><option value="normal">Normal priority</option><option value="low">Low priority</option></select></label>
               <label class="select-wrap"><span class="sr-only">Sort projects</span><select id="project-sort"><option value="updated">Recently updated</option><option value="due-soon">Due date</option><option value="priority">Priority</option><option value="name">Name</option></select></label>
               <span class="result-count" id="project-result-count"></span>
@@ -6933,6 +6934,16 @@
           <textarea name="notes" rows="3" maxlength="2000" placeholder="What sparked this? Dimensions, aesthetic references, design requirements..."></textarea>
         </label>
 
+        <div class="form-row">
+          <label class="field-label checkbox-label-wrap" style="margin-bottom:0">
+            <input type="checkbox" name="isGift" id="idea-is-gift">
+            <span><strong>🎁 Gift Idea</strong> (intended for someone)</span>
+          </label>
+          <label class="field-label">Recipient / For <span class="optional">(optional)</span>
+            <input name="giftRecipient" maxlength="60" placeholder="e.g. Mom, Alex">
+          </label>
+        </div>
+
         <label class="field-label">Status
           <select name="status">
             <option value="brainstorming" selected>💭 Brainstorming</option>
@@ -6981,6 +6992,87 @@
         </div>
         <label class="field-label">Tags <span class="optional">(comma separated)</span><input name="tags" maxlength="200" placeholder="e.g. gift, electronics, home"></label>
         <fieldset class="skill-picker"><legend>Skills involved <span class="optional">(choose any)</span></legend><div class="skill-checklist" id="project-skill-options"></div></fieldset>
+
+        <!-- 🎁 Gift Preparation Section -->
+        <div class="gift-form-toggle-wrap">
+          <label class="gift-checkbox-label">
+            <input type="checkbox" id="project-is-gift" name="isGift">
+            <span class="gift-checkbox-custom">🎁</span>
+            <span class="gift-checkbox-text">
+              <strong>Prepare as a handmade gift</strong>
+              <small>Track recipient, occasion deadline, wrapping &amp; print custom maker gift tags / care cards</small>
+            </span>
+          </label>
+        </div>
+
+        <div class="gift-fields-panel" id="project-gift-fields" style="display:none">
+          <div class="gift-fields-header">
+            <div class="eyebrow" style="color:var(--brand-terracotta, #e07a5f)">🎁 HANDMADE GIFT DETAILS</div>
+            <p class="form-hint" style="margin:2px 0 10px">Keep deadlines on track, craft custom care cards, and preserve the surprise.</p>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Recipient Name / For
+              <input name="giftRecipient" maxlength="80" placeholder="e.g. Sarah, Mom &amp; Dad, Liam">
+            </label>
+            <label class="field-label">Occasion
+              <select name="giftOccasion">
+                <option value="birthday">🎂 Birthday</option>
+                <option value="holiday">🎄 Holiday / Christmas</option>
+                <option value="wedding">💍 Wedding</option>
+                <option value="anniversary">🥂 Anniversary</option>
+                <option value="housewarming">🏡 Housewarming</option>
+                <option value="baby">🍼 Baby Shower / Newborn</option>
+                <option value="graduation">🎓 Graduation</option>
+                <option value="thankyou">💌 Thank You / Gratitude</option>
+                <option value="valentines">❤️ Valentine’s Day</option>
+                <option value="retirement">🌅 Retirement</option>
+                <option value="justbecause">✨ Just Because / Surprise</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row">
+            <label class="field-label">Gift Event / Handover Date
+              <input name="giftDeadline" type="date">
+            </label>
+            <label class="field-label">Gift Status
+              <select name="giftStatus">
+                <option value="planning">📋 Planning &amp; Sourcing</option>
+                <option value="making">🛠️ In the Workshop (Making)</option>
+                <option value="wrapped">🎀 Wrapped &amp; Tagged</option>
+                <option value="delivered">🎉 Delivered / Gifted</option>
+              </select>
+            </label>
+          </div>
+          <label class="field-label">
+            Care &amp; Maintenance Instructions <span class="optional">(printed on care tag)</span>
+            <div class="gift-care-presets">
+              <span class="preset-label">Quick fill:</span>
+              <button type="button" class="tag-preset-btn" data-preset="wood">🪵 Wood</button>
+              <button type="button" class="tag-preset-btn" data-preset="textile">🧶 Textiles</button>
+              <button type="button" class="tag-preset-btn" data-preset="ceramic">🏺 Ceramic</button>
+              <button type="button" class="tag-preset-btn" data-preset="knife">🔪 Steel</button>
+              <button type="button" class="tag-preset-btn" data-preset="leather">🪡 Leather</button>
+              <button type="button" class="tag-preset-btn" data-preset="jewelry">💍 Jewelry</button>
+            </div>
+            <textarea name="giftCareNotes" rows="2" maxlength="500" placeholder="e.g. Hand wash only with mild soap. Dry immediately. Oil periodically with mineral oil."></textarea>
+          </label>
+          <div class="form-row">
+            <label class="field-label">Box / Item Dimensions (L × W × H in inches) <span class="optional">(optional)</span>
+              <div class="dimension-inputs-row">
+                <input name="giftBoxLength" type="number" step="0.1" min="0" placeholder="L" style="max-width:70px">
+                <span>×</span>
+                <input name="giftBoxWidth" type="number" step="0.1" min="0" placeholder="W" style="max-width:70px">
+                <span>×</span>
+                <input name="giftBoxHeight" type="number" step="0.1" min="0" placeholder="H" style="max-width:70px">
+                <span class="dim-unit">in</span>
+              </div>
+            </label>
+            <label class="field-label checkbox-label-wrap" style="justify-content:center;margin-top:20px">
+              <input type="checkbox" name="giftSecret" id="project-gift-secret">
+              <span><strong>🛡️ Surprise Gift Mode:</strong> Blur workshop previews so the recipient won’t see if they walk by.</span>
+            </label>
+          </div>
+        </div>
         <div class="dialog-actions"><button type="button" class="danger-button hidden" id="delete-project-btn" data-action="delete-project" style="margin-right:auto">Delete project</button><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Save project <span>→</span></button></div>
       </form>
     </dialog>
@@ -8661,6 +8753,306 @@
           <strong>Bicycle Framebuilding</strong>
           <span class="mobile-studio-desc">Spoke lengths, wheel dish balance, trail &amp; tube miters</span>
         </button>
+      </div>
+    </dialog>
+
+    <!-- 🎁 Handmade Gift Preparation Hub Dialog -->
+    <dialog class="app-dialog gift-hub-dialog" id="gift-hub-dialog" aria-label="Handmade Gift Preparation Hub">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">HANDMADE WITH INTENTION · WORKSHOP GIFT SUITE</div>
+          <h2>Handmade Gift Hub <span style="font-size:22px">🎁</span></h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="gift-hub-body">
+        <div class="gift-hub-tabs">
+          <button type="button" class="gift-hub-tab active" data-action="set-gift-tab" data-tab="tracker">
+            <span>🎁</span> Active Gifts &amp; Deadlines <span class="tab-badge" id="gift-tracker-count">0</span>
+          </button>
+          <button type="button" class="gift-hub-tab" data-action="set-gift-tab" data-tab="calc">
+            <span>📐</span> Wrapping &amp; Box Calculator
+          </button>
+          <button type="button" class="gift-hub-tab" data-action="set-gift-tab" data-tab="tips">
+            <span>✨</span> Presentation &amp; Packing Guide
+          </button>
+        </div>
+
+        <!-- Tab 1: Active Gifts Tracker -->
+        <div class="gift-hub-tab-panel" id="gift-tab-tracker">
+          <div class="gift-stats-grid">
+            <div class="gift-stat-card">
+              <span class="gift-stat-icon">🎁</span>
+              <div>
+                <div class="gift-stat-val" id="gift-stat-total">0</div>
+                <div class="gift-stat-lbl">Active Gifts</div>
+              </div>
+            </div>
+            <div class="gift-stat-card">
+              <span class="gift-stat-icon">🛠️</span>
+              <div>
+                <div class="gift-stat-val" id="gift-stat-making">0</div>
+                <div class="gift-stat-lbl">In Crafting</div>
+              </div>
+            </div>
+            <div class="gift-stat-card">
+              <span class="gift-stat-icon">🎀</span>
+              <div>
+                <div class="gift-stat-val" id="gift-stat-wrapped">0</div>
+                <div class="gift-stat-lbl">Wrapped &amp; Tagged</div>
+              </div>
+            </div>
+            <div class="gift-stat-card">
+              <span class="gift-stat-icon">🎉</span>
+              <div>
+                <div class="gift-stat-val" id="gift-stat-delivered">0</div>
+                <div class="gift-stat-lbl">Delivered</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gift-tracker-controls">
+            <div class="gift-filter-group">
+              <button type="button" class="gift-filter-pill active" data-action="filter-gifts" data-filter="all">All Gifts</button>
+              <button type="button" class="gift-filter-pill" data-action="filter-gifts" data-filter="upcoming">⏳ Upcoming Deadlines</button>
+              <button type="button" class="gift-filter-pill" data-action="filter-gifts" data-filter="making">🛠️ In Progress</button>
+              <button type="button" class="gift-filter-pill" data-action="filter-gifts" data-filter="wrapped">🎀 Ready to Give</button>
+              <button type="button" class="gift-filter-pill" data-action="filter-gifts" data-filter="delivered">🎉 Delivered</button>
+            </div>
+            <button type="button" class="button button-primary button-small" data-action="new-gift-project">
+              ＋ Start a Gift Build
+            </button>
+          </div>
+
+          <div class="gift-project-list" id="gift-project-list"></div>
+        </div>
+
+        <!-- Tab 2: Wrapping Paper & Box Size Calculator -->
+        <div class="gift-hub-tab-panel" id="gift-tab-calc" style="display:none">
+          <div class="gift-calc-layout">
+            <div class="gift-calc-inputs-pane">
+              <div class="gift-calc-section-title">
+                <strong>📦 Item / Box Dimensions</strong>
+                <div class="unit-toggle-group">
+                  <button type="button" class="unit-pill active" data-action="set-gift-calc-unit" data-unit="in">Inches (in)</button>
+                  <button type="button" class="unit-pill" data-action="set-gift-calc-unit" data-unit="cm">Centimeters (cm)</button>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label class="field-label">Length (L)
+                  <input type="number" id="gift-calc-l" value="8" min="0.1" step="0.1">
+                </label>
+                <label class="field-label">Width (W)
+                  <input type="number" id="gift-calc-w" value="6" min="0.1" step="0.1">
+                </label>
+                <label class="field-label">Height / Depth (H)
+                  <input type="number" id="gift-calc-h" value="4" min="0.1" step="0.1">
+                </label>
+              </div>
+
+              <div class="form-row">
+                <label class="field-label">Seam Overlap
+                  <input type="number" id="gift-calc-overlap" value="1.5" min="0.5" step="0.25">
+                </label>
+                <label class="field-label">Bow Style
+                  <select id="gift-calc-bow">
+                    <option value="standard">Classic Cross Bow (+24 in / 60 cm)</option>
+                    <option value="minimal">Single Band Wrap (+12 in / 30 cm)</option>
+                    <option value="grand">Elaborate Multi-Loop Bow (+36 in / 90 cm)</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="gift-calc-presets">
+                <span class="preset-label">Standard Box Sizes:</span>
+                <button type="button" class="calc-preset-btn" data-l="4" data-w="4" data-h="2">💍 Jewelry (4×4×2")</button>
+                <button type="button" class="calc-preset-btn" data-l="9" data-w="6" data-h="4">☕ Mug / Bowl (9×6×4")</button>
+                <button type="button" class="calc-preset-btn" data-l="12" data-w="9" data-h="3">🧣 Scarf / Apparel (12×9×3")</button>
+                <button type="button" class="calc-preset-btn" data-l="16" data-w="12" data-h="4">🪵 Cutting Board (16×12×4")</button>
+              </div>
+            </div>
+
+            <div class="gift-calc-results-pane">
+              <div class="gift-calc-section-title">
+                <strong>✂️ Cutting &amp; Wrapping Requirements</strong>
+              </div>
+
+              <div class="gift-calc-result-grid">
+                <div class="calc-res-card highlight">
+                  <div class="calc-res-lbl">Standard Flat Wrapping Paper</div>
+                  <div class="calc-res-num" id="calc-res-standard-dims">16.0" × 21.5"</div>
+                  <div class="calc-res-sub" id="calc-res-standard-sub">Paper Cut Size: Length × Width</div>
+                </div>
+
+                <div class="calc-res-card diagonal">
+                  <div class="calc-res-lbl">Diagonal Wrap (Japanese Fold)</div>
+                  <div class="calc-res-num" id="calc-res-diagonal-dims">18.5" × 18.5"</div>
+                  <div class="calc-res-sub" id="calc-res-diagonal-sub">Square sheet rotated 45° · Saves ~12% paper</div>
+                </div>
+
+                <div class="calc-res-card ribbon">
+                  <div class="calc-res-lbl">Ribbon Length Required</div>
+                  <div class="calc-res-num" id="calc-res-ribbon-length">68 inches (5.7 ft)</div>
+                  <div class="calc-res-sub" id="calc-res-ribbon-sub">Includes bow knot allowance</div>
+                </div>
+              </div>
+
+              <div class="gift-cut-diagram" id="gift-cut-diagram">
+                <div class="cut-diagram-paper">
+                  <div class="cut-diagram-box" id="cut-diagram-box">
+                    <span>Box Footprint<br><small id="cut-diagram-box-dims">8" × 6"</small></span>
+                  </div>
+                  <div class="cut-diagram-margin cut-margin-top" id="cut-margin-top">H: 4"</div>
+                  <div class="cut-diagram-margin cut-margin-bottom" id="cut-margin-bottom">H: 4"</div>
+                  <div class="cut-diagram-margin cut-margin-left" id="cut-margin-left">Wrap</div>
+                  <div class="cut-diagram-margin cut-margin-right" id="cut-margin-right">Wrap + Overlap</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Presentation, Packing & Unboxing Guide -->
+        <div class="gift-hub-tab-panel" id="gift-tab-tips" style="display:none">
+          <div class="gift-presentation-grid">
+            <article class="pres-guide-card">
+              <div class="pres-guide-icon">🏷️</div>
+              <h4>Maker Provenance &amp; Care Card</h4>
+              <p>Handmade gifts feel infinitely more treasured when accompanied by the story of who made it, the materials used, hours invested, and specific care advice.</p>
+              <button type="button" class="button button-outline button-small" data-action="open-gift-tag">Open Tag &amp; Certificate Studio →</button>
+            </article>
+
+            <article class="pres-guide-card">
+              <div class="pres-guide-icon">📦</div>
+              <h4>Artisan Box Presentation</h4>
+              <p>Use unbleached kraft boxes, shredded wood excelsior or acid-free tissue paper. Place the care certificate right under the lid as the first reveal.</p>
+            </article>
+
+            <article class="pres-guide-card">
+              <div class="pres-guide-icon">🎀</div>
+              <h4>Twine, Wax Seal &amp; Botanical Accents</h4>
+              <p>Natural jute twine, baker’s twine, or grosgrain ribbon paired with a dried sprig of rosemary, lavender, or eucalyptus elevates a handmade gift immediately.</p>
+            </article>
+
+            <article class="pres-guide-card">
+              <div class="pres-guide-icon">🛡️</div>
+              <h4>Surprise Gift Privacy</h4>
+              <p>Working on a gift in a shared home workshop? Enable "Surprise Gift Mode" in project settings to blur thumbnails and hide titles until you click reveal.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Done</button>
+      </div>
+    </dialog>
+
+    <!-- 🏷️ Printable Maker Gift Tag & Certificate Studio -->
+    <dialog class="app-dialog gift-tag-dialog" id="gift-tag-dialog" aria-label="Printable Maker Gift Tag & Certificate Studio">
+      <div class="dialog-heading no-print">
+        <div>
+          <div class="eyebrow">ARTISAN PROVENANCE &amp; DEDICATION</div>
+          <h2>Maker Gift Tag &amp; Certificate Studio 🏷️</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="gift-tag-studio-body">
+        <!-- Left: Customizer Form (no-print) -->
+        <div class="gift-tag-controls no-print">
+          <label class="field-label">Select Project
+            <select id="gift-tag-project-select">
+              <option value="">Custom / Blank Dedication</option>
+            </select>
+          </label>
+
+          <div class="form-row">
+            <label class="field-label">Tag Format
+              <select id="gift-tag-style-select">
+                <option value="folding">💌 Folding Gift Card (Fold &amp; Ribbon)</option>
+                <option value="hangtag">🏷️ Artisan Hang Tag (Chamfered Top)</option>
+                <option value="certificate">📜 Heirloom Certificate of Authenticity</option>
+              </select>
+            </label>
+            <label class="field-label">Visual Theme
+              <select id="gift-tag-theme-select">
+                <option value="kraft">🪵 Warm Kraft &amp; Sepia</option>
+                <option value="minimal">🖋️ Minimalist Monochrome</option>
+                <option value="botanical">🌿 Botanical Terracotta &amp; Sage</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form-row">
+            <label class="field-label">To (Recipient)
+              <input id="gift-tag-to" maxlength="60" placeholder="e.g. Sarah">
+            </label>
+            <label class="field-label">From (Maker / Workshop)
+              <input id="gift-tag-from" maxlength="60" placeholder="e.g. Liam">
+            </label>
+          </div>
+
+          <label class="field-label">Piece / Project Title
+            <input id="gift-tag-title" maxlength="80" placeholder="e.g. Handcrafted Walnut Charcuterie Board">
+          </label>
+
+          <label class="field-label">Occasion / Dedication
+            <input id="gift-tag-occasion" maxlength="100" placeholder="e.g. Handcrafted with love for Sarah’s 30th Birthday">
+          </label>
+
+          <label class="field-label">Materials &amp; Craft Description
+            <input id="gift-tag-materials" maxlength="120" placeholder="e.g. Solid American Black Walnut, brass hardware, food-grade mineral oil">
+          </label>
+
+          <label class="field-label">Care &amp; Preservation Instructions
+            <div class="gift-care-presets">
+              <span class="preset-label">Presets:</span>
+              <button type="button" class="tag-care-btn" data-care="wood">🪵 Wood</button>
+              <button type="button" class="tag-care-btn" data-care="textile">🧶 Textiles</button>
+              <button type="button" class="tag-care-btn" data-care="ceramic">🏺 Ceramics</button>
+              <button type="button" class="tag-care-btn" data-care="knife">🔪 Steel</button>
+              <button type="button" class="tag-care-btn" data-care="leather">🪡 Leather</button>
+              <button type="button" class="tag-care-btn" data-care="jewelry">💍 Jewelry</button>
+            </div>
+            <textarea id="gift-tag-care" rows="2" maxlength="300" placeholder="e.g. Hand wash only with mild soap. Do not soak. Apply mineral oil every 2 months."></textarea>
+          </label>
+
+          <div class="form-row">
+            <label class="field-label">Date / Year
+              <input id="gift-tag-date" type="text" maxlength="30" placeholder="e.g. Autumn 2026">
+            </label>
+            <label class="field-label">Edition / Serial (optional)
+              <input id="gift-tag-edition" type="text" maxlength="40" placeholder="e.g. No. 1 of 1 · Workshop Original">
+            </label>
+          </div>
+
+          <div class="dialog-actions" style="margin-top:16px;padding:0">
+            <button type="button" class="button button-primary" data-action="print-gift-tag">
+              🖶 Print Gift Tag / Certificate
+            </button>
+            <button type="button" class="button button-outline" data-action="copy-gift-tag-text">
+              📋 Copy Care Text
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Live Interactive & Printable Preview -->
+        <div class="gift-tag-preview-pane">
+          <div class="preview-banner no-print">
+            <span>Live Cardstock Preview · High-Resolution Print Ready</span>
+          </div>
+
+          <div class="printable-gift-sheet" id="printable-gift-sheet">
+            <!-- Dynamically populated card layout -->
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-actions no-print">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Close</button>
       </div>
     </dialog>
 
