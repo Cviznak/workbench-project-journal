@@ -4801,6 +4801,10 @@ function renderProjectDetail(projectId) {
             <button type="button" class="small-action" data-action="open-project-pricing" data-id="${project.id}" title="Labor cost & selling price calculator">🏷️ Price & Profit</button>
             <button type="button" class="small-action" data-action="open-project-blueprint" data-id="${project.id}" title="2D Blueprint & dimensioned sketchpad">📐 Blueprint</button>
             <button type="button" class="small-action" data-action="open-project-qr" data-id="${project.id}" title="Workshop QR bin label">🏷️ QR Label</button>
+            <button type="button" class="small-action" data-action="open-shop-mode" data-id="${project.id}" title="Hands-Free Workshop HUD with Voice Control" style="background:rgba(16,185,129,0.15);border-color:#10b981;font-weight:700">🎙️ Shop Mode (HUD)</button>
+            <button type="button" class="small-action" data-action="open-client-portal" data-id="${project.id}" title="Client Progress Portal &amp; Job Costing">💼 Client Portal</button>
+            <button type="button" class="small-action" data-action="open-timelapse-reel" data-id="${project.id}" title="Animated Build Progress Timelapse Reel">🎬 Timelapse</button>
+            <button type="button" class="small-action" data-action="open-cad-viewer" data-id="${project.id}" title="3D CAD &amp; STL / G-Code Viewer">🧊 3D CAD</button>
             <button type="button" class="small-action" data-action="save-project-template" data-id="${project.id}" title="Save as reusable template">💾 Template</button>
             <button type="button" class="small-action" data-action="open-compare-photos" data-project="${project.id}" title="Compare photos side-by-side">↔️ Compare</button>
             <button type="button" class="small-action print-keep" data-action="open-gift-tag" data-id="${project.id}" title="Generate and print maker gift tag & care certificate">🎁 Gift Tag / Card</button>
@@ -39339,3 +39343,2386 @@ window.addEventListener("DOMContentLoaded", initCraftStudios);
 if (document.readyState === "complete" || document.readyState === "interactive") {
   initCraftStudios();
 }
+
+
+/* ============================================================
+   8 NEW BIG FEATURES: 3D CAD, Floorplan, Maintenance Engine,
+   QR Label Studio & Scanner, Client Portal, Community Hub,
+   Timelapse Reel, and Voice-Guided Hands-Free Shop Mode
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   FEATURE 1: 3D Model & CAD / STL / G-Code Viewer
+   ------------------------------------------------------------ */
+let cadViewerState = {
+  mesh: null,
+  toolpaths: null,
+  camera: { rotX: -25, rotY: 35, zoom: 1.0, panX: 0, panY: 0 },
+  wireframe: true,
+  showGrid: true,
+  showEdges: false,
+  isDragging: false,
+  dragButton: 0,
+  lastMouseX: 0,
+  lastMouseY: 0,
+  currentLayer: 1,
+  totalLayers: 1,
+  fileName: "",
+  format: ""
+};
+
+function openCadViewer(file = null) {
+  const dlg = $("#cad-viewer-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  initCadViewerCanvas();
+  if (file) {
+    loadCadFile(file);
+  } else if (!cadViewerState.mesh && !cadViewerState.toolpaths) {
+    // Generate a default 3D calibration cube for instant visualization
+    loadSampleStlModel();
+  } else {
+    renderCadViewport();
+  }
+}
+
+function initCadViewerCanvas() {
+  const canvas = $("#cad-viewer-canvas");
+  if (!canvas || canvas._cadInitialized) return;
+  canvas._cadInitialized = true;
+
+  // Orbit & Pan Mouse handlers
+  canvas.addEventListener("mousedown", e => {
+    cadViewerState.isDragging = true;
+    cadViewerState.dragButton = e.button;
+    cadViewerState.lastMouseX = e.clientX;
+    cadViewerState.lastMouseY = e.clientY;
+    e.preventDefault();
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!cadViewerState.isDragging) return;
+    const dx = e.clientX - cadViewerState.lastMouseX;
+    const dy = e.clientY - cadViewerState.lastMouseY;
+    cadViewerState.lastMouseX = e.clientX;
+    cadViewerState.lastMouseY = e.clientY;
+
+    if (cadViewerState.dragButton === 0 && !e.shiftKey) {
+      // Rotate
+      cadViewerState.camera.rotY += dx * 0.6;
+      cadViewerState.camera.rotX = Math.max(-89, Math.min(89, cadViewerState.camera.rotX + dy * 0.6));
+    } else {
+      // Pan
+      cadViewerState.camera.panX += dx * 0.8;
+      cadViewerState.camera.panY += dy * 0.8;
+    }
+    renderCadViewport();
+  });
+
+  window.addEventListener("mouseup", () => {
+    cadViewerState.isDragging = false;
+  });
+
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    cadViewerState.camera.zoom = Math.max(0.1, Math.min(10.0, cadViewerState.camera.zoom * zoomFactor));
+    renderCadViewport();
+  }, { passive: false });
+
+  // Drag and drop file support
+  const container = $("#cad-viewport-container");
+  if (container) {
+    container.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; });
+    container.addEventListener("drop", e => {
+      e.preventDefault();
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        loadCadFile(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  // Browse file input
+  $("#cad-browse-file-btn")?.addEventListener("click", () => $("#cad-file-input")?.click());
+  $("#cad-file-input")?.addEventListener("change", e => {
+    if (e.target.files && e.target.files[0]) {
+      loadCadFile(e.target.files[0]);
+    }
+  });
+
+  // Camera presets
+  $$(".cad-view-btn[data-cad-view]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const view = btn.dataset.cadView;
+      if (view === "iso") { cadViewerState.camera.rotX = -25; cadViewerState.camera.rotY = 35; }
+      else if (view === "top") { cadViewerState.camera.rotX = -90; cadViewerState.camera.rotY = 0; }
+      else if (view === "front") { cadViewerState.camera.rotX = 0; cadViewerState.camera.rotY = 0; }
+      else if (view === "side") { cadViewerState.camera.rotX = 0; cadViewerState.camera.rotY = 90; }
+      cadViewerState.camera.panX = 0;
+      cadViewerState.camera.panY = 0;
+      renderCadViewport();
+    });
+  });
+
+  $("#cad-reset-camera-btn")?.addEventListener("click", () => {
+    cadViewerState.camera = { rotX: -25, rotY: 35, zoom: 1.0, panX: 0, panY: 0 };
+    renderCadViewport();
+  });
+
+  $("#cad-toggle-wireframe")?.addEventListener("click", function() {
+    cadViewerState.wireframe = !cadViewerState.wireframe;
+    this.classList.toggle("active", cadViewerState.wireframe);
+    renderCadViewport();
+  });
+
+  $("#cad-toggle-grid")?.addEventListener("click", function() {
+    cadViewerState.showGrid = !cadViewerState.showGrid;
+    this.classList.toggle("active", cadViewerState.showGrid);
+    renderCadViewport();
+  });
+
+  $("#cad-toggle-edges")?.addEventListener("click", function() {
+    cadViewerState.showEdges = !cadViewerState.showEdges;
+    this.classList.toggle("active", cadViewerState.showEdges);
+    renderCadViewport();
+  });
+
+  $("#cad-sample-stl-btn")?.addEventListener("click", () => loadSampleStlModel());
+  $("#cad-sample-gcode-btn")?.addEventListener("click", () => loadSampleGCodeModel());
+
+  $("#cad-layer-range")?.addEventListener("input", e => {
+    cadViewerState.currentLayer = parseInt(e.target.value, 10) || 1;
+    $("#cad-layer-num").textContent = cadViewerState.currentLayer;
+    if (cadViewerState.toolpaths && cadViewerState.toolpaths[cadViewerState.currentLayer - 1]) {
+      $("#cad-layer-z").textContent = cadViewerState.toolpaths[cadViewerState.currentLayer - 1].z.toFixed(2);
+    }
+    renderCadViewport();
+  });
+
+  $("#cad-material-select")?.addEventListener("change", () => recalculateCadCost());
+  $("#cad-infill-select")?.addEventListener("change", () => recalculateCadCost());
+}
+
+async function loadCadFile(file) {
+  if (!file) return;
+  const name = file.name;
+  const ext = name.split(".").pop().toLowerCase();
+  cadViewerState.fileName = name;
+  $("#cad-drop-prompt").style.display = "none";
+
+  try {
+    if (ext === "stl") {
+      const buffer = await file.arrayBuffer();
+      // Check if binary or ASCII
+      const isBinary = isBinaryStl(buffer);
+      cadViewerState.format = isBinary ? "Binary STL" : "ASCII STL";
+      cadViewerState.mesh = isBinary ? parseBinaryStl(buffer) : parseASCIIStl(new TextDecoder().decode(buffer));
+      cadViewerState.toolpaths = null;
+      $("#cad-gcode-scrubber").style.display = "none";
+    } else if (ext === "obj") {
+      const text = await file.text();
+      cadViewerState.format = "Wavefront OBJ";
+      cadViewerState.mesh = parseOBJMesh(text);
+      cadViewerState.toolpaths = null;
+      $("#cad-gcode-scrubber").style.display = "none";
+    } else if (ext === "gcode" || ext === "nc") {
+      const text = await file.text();
+      cadViewerState.format = "G-Code Toolpaths";
+      cadViewerState.toolpaths = parseGCodeLayers(text);
+      cadViewerState.mesh = null;
+      cadViewerState.totalLayers = Math.max(1, cadViewerState.toolpaths.length);
+      cadViewerState.currentLayer = cadViewerState.totalLayers;
+
+      $("#cad-gcode-scrubber").style.display = "block";
+      $("#cad-layer-total").textContent = cadViewerState.totalLayers;
+      $("#cad-layer-num").textContent = cadViewerState.currentLayer;
+      const range = $("#cad-layer-range");
+      if (range) {
+        range.max = cadViewerState.totalLayers;
+        range.value = cadViewerState.currentLayer;
+      }
+    }
+    updateCadDiagnosticsUI();
+    renderCadViewport();
+    showToast(`Loaded ${name} successfully! 🧊`);
+  } catch (err) {
+    console.error("CAD Parse Error:", err);
+    showToast("Could not parse 3D file: " + err.message);
+  }
+}
+
+function isBinaryStl(buffer) {
+  if (buffer.byteLength < 84) return false;
+  // ASCII STL starts with "solid"
+  const header = new TextDecoder().decode(buffer.slice(0, 80));
+  if (header.trim().startsWith("solid") && !bufferContainsNonAscii(buffer.slice(0, 512))) {
+    return false;
+  }
+  return true;
+}
+
+function bufferContainsNonAscii(buf) {
+  const bytes = new Uint8Array(buf);
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] > 127) return true;
+  }
+  return false;
+}
+
+function parseBinaryStl(buffer) {
+  const data = new DataView(buffer);
+  const triangleCount = data.getUint32(80, true);
+  const vertices = [];
+  const normals = [];
+
+  let offset = 84;
+  for (let i = 0; i < triangleCount; i++) {
+    if (offset + 50 > buffer.byteLength) break;
+    const nx = data.getFloat32(offset, true);
+    const ny = data.getFloat32(offset + 4, true);
+    const nz = data.getFloat32(offset + 8, true);
+    offset += 12;
+
+    const normal = [nx, ny, nz];
+    for (let v = 0; v < 3; v++) {
+      const vx = data.getFloat32(offset, true);
+      const vy = data.getFloat32(offset + 4, true);
+      const vz = data.getFloat32(offset + 8, true);
+      vertices.push([vx, vy, vz]);
+      normals.push(normal);
+      offset += 12;
+    }
+    offset += 2; // attribute byte count
+  }
+
+  return computeMeshStats(vertices, normals);
+}
+
+function parseASCIIStl(stlText) {
+  const vertices = [];
+  const normals = [];
+  const lines = stlText.split("\n");
+  let currentNormal = [0, 0, 1];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith("facet normal")) {
+      const parts = line.split(/\s+/).slice(2).map(Number);
+      if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+        currentNormal = parts;
+      }
+    } else if (line.startsWith("vertex")) {
+      const parts = line.split(/\s+/).slice(1).map(Number);
+      if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+        vertices.push(parts);
+        normals.push(currentNormal);
+      }
+    }
+  }
+
+  return computeMeshStats(vertices, normals);
+}
+
+function parseOBJMesh(objText) {
+  const rawVertices = [];
+  const vertices = [];
+  const normals = [];
+
+  const lines = objText.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith("v ")) {
+      const parts = line.split(/\s+/).slice(1).map(Number);
+      if (parts.length >= 3) rawVertices.push([parts[0], parts[1], parts[2]]);
+    } else if (line.startsWith("f ")) {
+      const parts = line.split(/\s+/).slice(1).map(part => {
+        const vIdx = parseInt(part.split("/")[0], 10);
+        return vIdx < 0 ? rawVertices.length + vIdx : vIdx - 1;
+      });
+
+      // Triangulate polygon fans (f 1 2 3 4 -> (1 2 3) and (1 3 4))
+      for (let j = 1; j < parts.length - 1; j++) {
+        const v1 = rawVertices[parts[0]];
+        const v2 = rawVertices[parts[j]];
+        const v3 = rawVertices[parts[j + 1]];
+        if (v1 && v2 && v3) {
+          vertices.push(v1, v2, v3);
+          // Calculate surface normal
+          const ax = v2[0] - v1[0], ay = v2[1] - v1[1], az = v2[2] - v1[2];
+          const bx = v3[0] - v1[0], by = v3[1] - v1[1], bz = v3[2] - v1[2];
+          const nx = ay * bz - az * by;
+          const ny = az * bx - ax * bz;
+          const nz = ax * by - ay * bx;
+          const len = Math.hypot(nx, ny, nz) || 1;
+          const norm = [nx / len, ny / len, nz / len];
+          normals.push(norm, norm, norm);
+        }
+      }
+    }
+  }
+
+  return computeMeshStats(vertices, normals);
+}
+
+function computeMeshStats(vertices, normals) {
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+  let totalVolume = 0;
+  let totalArea = 0;
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    if (i + 2 >= vertices.length) break;
+    const v1 = vertices[i];
+    const v2 = vertices[i + 1];
+    const v3 = vertices[i + 2];
+
+    for (const v of [v1, v2, v3]) {
+      if (v[0] < minX) minX = v[0];
+      if (v[0] > maxX) maxX = v[0];
+      if (v[1] < minY) minY = v[1];
+      if (v[1] > maxY) maxY = v[1];
+      if (v[2] < minZ) minZ = v[2];
+      if (v[2] > maxZ) maxZ = v[2];
+    }
+
+    // Signed tetrahedron volume = (v1 . (v2 x v3)) / 6.0
+    const crossX = v2[1] * v3[2] - v2[2] * v3[1];
+    const crossY = v2[2] * v3[0] - v2[0] * v3[2];
+    const crossZ = v2[0] * v3[1] - v2[1] * v3[0];
+    const signedVol = (v1[0] * crossX + v1[1] * crossY + v1[2] * crossZ) / 6.0;
+    totalVolume += signedVol;
+
+    // Surface Area
+    const ax = v2[0] - v1[0], ay = v2[1] - v1[1], az = v2[2] - v1[2];
+    const bx = v3[0] - v1[0], by = v3[1] - v1[1], bz = v3[2] - v1[2];
+    const cx = ay * bz - az * by;
+    const cy = az * bx - ax * bz;
+    const cz = ax * by - ay * bx;
+    totalArea += 0.5 * Math.sqrt(cx * cx + cy * cy + cz * cz);
+  }
+
+  if (minX === Infinity) {
+    minX = maxX = minY = maxY = minZ = maxZ = 0;
+  }
+
+  // Normalize center of mesh to origin (0, 0, 0)
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const centerZ = minZ; // place base on Z=0 plane
+
+  const centeredVertices = vertices.map(v => [
+    v[0] - centerX,
+    v[1] - centerY,
+    v[2] - centerZ
+  ]);
+
+  return {
+    vertices: centeredVertices,
+    normals,
+    facetCount: Math.floor(vertices.length / 3),
+    bounds: {
+      minX, maxX, minY, maxY, minZ, maxZ,
+      dimX: Math.max(0.1, maxX - minX),
+      dimY: Math.max(0.1, maxY - minY),
+      dimZ: Math.max(0.1, maxZ - minZ)
+    },
+    volumeCm3: Math.abs(totalVolume) / 1000.0,
+    areaCm2: totalArea / 100.0
+  };
+}
+
+function parseGCodeLayers(gcodeText) {
+  const lines = gcodeText.split("\n");
+  const layers = [];
+  let currentLayer = { z: 0.2, moves: [] };
+  let currentPos = { x: 0, y: 0, z: 0 };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].replace(/;.*$/, "").trim();
+    if (!line) continue;
+    const parts = line.split(/\s+/);
+    const cmd = parts[0].toUpperCase();
+
+    if (cmd === "G0" || cmd === "G1") {
+      let x = currentPos.x, y = currentPos.y, z = currentPos.z;
+      let isExtrude = false;
+      for (let p = 1; p < parts.length; p++) {
+        const flag = parts[p][0].toUpperCase();
+        const val = parseFloat(parts[p].slice(1));
+        if (!isNaN(val)) {
+          if (flag === "X") x = val;
+          if (flag === "Y") y = val;
+          if (flag === "Z") z = val;
+          if (flag === "E" && val > 0) isExtrude = true;
+        }
+      }
+      if (z !== currentPos.z) {
+        if (currentLayer.moves.length > 0) {
+          layers.push(currentLayer);
+          currentLayer = { z, moves: [] };
+        } else {
+          currentLayer.z = z;
+        }
+      }
+      currentLayer.moves.push({
+        from: { ...currentPos },
+        to: { x, y, z },
+        isRapid: cmd === "G0",
+        isExtrude
+      });
+      currentPos = { x, y, z };
+    }
+  }
+  if (currentLayer.moves.length > 0) layers.push(currentLayer);
+  return layers;
+}
+
+function updateCadDiagnosticsUI() {
+  $("#cad-stat-filename").textContent = cadViewerState.fileName || "Sample Model";
+  $("#cad-stat-format").textContent = cadViewerState.format || "3D Mesh";
+
+  if (cadViewerState.mesh) {
+    const b = cadViewerState.mesh.bounds;
+    $("#cad-stat-bounds").textContent = `${b.dimX.toFixed(1)} × ${b.dimY.toFixed(1)} × ${b.dimZ.toFixed(1)} mm (${(b.dimX/25.4).toFixed(2)}″ × ${(b.dimY/25.4).toFixed(2)}″ × ${(b.dimZ/25.4).toFixed(2)}″)`;
+    $("#cad-stat-volume").textContent = `${cadViewerState.mesh.volumeCm3.toFixed(2)} cm³ (${(cadViewerState.mesh.volumeCm3 * 0.06102).toFixed(2)} in³)`;
+    $("#cad-stat-area").textContent = `${cadViewerState.mesh.areaCm2.toFixed(1)} cm²`;
+    $("#cad-stat-facets").textContent = cadViewerState.mesh.facetCount.toLocaleString() + " triangles";
+    recalculateCadCost();
+  } else if (cadViewerState.toolpaths) {
+    $("#cad-stat-bounds").textContent = `Z-Height ${cadViewerState.toolpaths[cadViewerState.toolpaths.length-1]?.z.toFixed(2)} mm`;
+    $("#cad-stat-volume").textContent = cadViewerState.totalLayers + " G-Code Layers";
+    $("#cad-stat-area").textContent = "Extrusion Toolpath";
+    $("#cad-stat-facets").textContent = "G0/G1 Motion Path";
+  }
+}
+
+function recalculateCadCost() {
+  if (!cadViewerState.mesh) return;
+  const density = parseFloat($("#cad-material-select")?.value) || 1.24;
+  const infill = parseFloat($("#cad-infill-select")?.value) || 0.2;
+  const selOpt = $("#cad-material-select")?.selectedOptions?.[0];
+  const costPerGram = parseFloat(selOpt?.dataset?.cost) || 0.022;
+
+  const effectiveVolume = cadViewerState.mesh.volumeCm3 * (0.2 + 0.8 * infill);
+  const weightG = effectiveVolume * density;
+  const filamentM = weightG / (density * Math.PI * Math.pow(1.75 / 20, 2)); // length in meters
+  const totalCost = weightG * costPerGram;
+
+  $("#cad-est-weight").textContent = weightG.toFixed(1) + " g";
+  $("#cad-est-filament").textContent = filamentM.toFixed(1) + " m";
+  $("#cad-est-cost").textContent = "$" + totalCost.toFixed(2);
+}
+
+function renderCadViewport() {
+  const canvas = $("#cad-viewer-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Background gradient
+  const grad = ctx.createRadialGradient(w/2, h/2, 50, w/2, h/2, w);
+  grad.addColorStop(0, "#1e293b");
+  grad.addColorStop(1, "#0b0f17");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  const cx = w / 2 + cadViewerState.camera.panX;
+  const cy = h / 2 + cadViewerState.camera.panY;
+  const zoom = cadViewerState.camera.zoom;
+
+  // Rotation angles in radians
+  const radX = (cadViewerState.camera.rotX * Math.PI) / 180;
+  const radY = (cadViewerState.camera.rotY * Math.PI) / 180;
+  const cosX = Math.cos(radX), sinX = Math.sin(radX);
+  const cosY = Math.cos(radY), sinY = Math.sin(radY);
+
+  // 3D projection transformation
+  const project3D = (x, y, z) => {
+    // Rotate Y (azimuth)
+    const x1 = x * cosY - y * sinY;
+    const y1 = x * sinY + y * cosY;
+    const z1 = z;
+
+    // Rotate X (pitch)
+    const y2 = y1 * cosX - z1 * sinX;
+    const z2 = y1 * sinX + z1 * cosX;
+
+    // Scale and center
+    const scale = 3.5 * zoom;
+    const px = cx + x1 * scale;
+    const py = cy - z2 * scale; // invert Z for screen coordinates
+    return { x: px, y: py, depth: y2 };
+  };
+
+  // Draw Ground Grid
+  if (cadViewerState.showGrid) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 1;
+    const gridSize = 100;
+    const step = 20;
+    for (let g = -gridSize; g <= gridSize; g += step) {
+      const p1 = project3D(g, -gridSize, 0);
+      const p2 = project3D(g, gridSize, 0);
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+
+      const p3 = project3D(-gridSize, g, 0);
+      const p4 = project3D(gridSize, g, 0);
+      ctx.beginPath();
+      ctx.moveTo(p3.x, p3.y);
+      ctx.lineTo(p4.x, p4.y);
+      ctx.stroke();
+    }
+
+    // Grid center axes (X = red, Y = green)
+    const o = project3D(0, 0, 0);
+    const axX = project3D(30, 0, 0);
+    const axY = project3D(0, 30, 0);
+    const axZ = project3D(0, 0, 30);
+
+    ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(axX.x, axX.y); ctx.stroke();
+    ctx.strokeStyle = "#10b981";
+    ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(axY.x, axY.y); ctx.stroke();
+    ctx.strokeStyle = "#3b82f6";
+    ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(axZ.x, axZ.y); ctx.stroke();
+  }
+
+  // Render Mesh (Triangles)
+  if (cadViewerState.mesh && cadViewerState.mesh.vertices.length > 0) {
+    const verts = cadViewerState.mesh.vertices;
+    const norms = cadViewerState.mesh.normals;
+    const triangles = [];
+
+    // Light source vector
+    const light = [0.577, 0.577, 0.577];
+
+    for (let i = 0; i < verts.length; i += 3) {
+      if (i + 2 >= verts.length) break;
+      const v1 = verts[i], v2 = verts[i + 1], v3 = verts[i + 2];
+      const norm = norms[i] || [0, 0, 1];
+
+      const p1 = project3D(v1[0], v1[1], v1[2]);
+      const p2 = project3D(v2[0], v2[1], v2[2]);
+      const p3 = project3D(v3[0], v3[1], v3[2]);
+
+      const avgDepth = (p1.depth + p2.depth + p3.depth) / 3;
+
+      // Calculate directional lighting intensity
+      const dot = Math.max(0.15, norm[0] * light[0] + norm[1] * light[1] + norm[2] * light[2]);
+      triangles.push({ p1, p2, p3, depth: avgDepth, light: dot });
+    }
+
+    // Painter's algorithm: sort triangles back-to-front
+    triangles.sort((a, b) => b.depth - a.depth);
+
+    for (const t of triangles) {
+      ctx.beginPath();
+      ctx.moveTo(t.p1.x, t.p1.y);
+      ctx.lineTo(t.p2.x, t.p2.y);
+      ctx.lineTo(t.p3.x, t.p3.y);
+      ctx.closePath();
+
+      // Shaded face color (Warm amber/gold workbench theme)
+      const r = Math.round(217 * (0.3 + 0.7 * t.light));
+      const g = Math.round(119 * (0.3 + 0.7 * t.light));
+      const b = Math.round(6 * (0.3 + 0.7 * t.light));
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fill();
+
+      if (cadViewerState.wireframe) {
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Render G-Code Toolpaths
+  if (cadViewerState.toolpaths && cadViewerState.toolpaths.length > 0) {
+    const maxLayer = Math.min(cadViewerState.currentLayer, cadViewerState.toolpaths.length);
+    for (let l = 0; l < maxLayer; l++) {
+      const layer = cadViewerState.toolpaths[l];
+      const isTopLayer = (l === maxLayer - 1);
+      ctx.lineWidth = isTopLayer ? 1.5 : 0.8;
+
+      for (const m of layer.moves) {
+        const p1 = project3D(m.from.x, m.from.y, m.from.z);
+        const p2 = project3D(m.to.x, m.to.y, m.to.z);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+
+        if (m.isRapid) {
+          ctx.strokeStyle = "rgba(6, 182, 212, 0.3)"; // cyan rapid moves
+          ctx.setLineDash([2, 2]);
+        } else if (m.isExtrude) {
+          ctx.strokeStyle = isTopLayer ? "#f59e0b" : "rgba(217, 119, 6, 0.4)"; // amber extrusion
+          ctx.setLineDash([]);
+        } else {
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+          ctx.setLineDash([]);
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+  }
+}
+
+function loadSampleStlModel() {
+  const cubeStl = `solid cube
+facet normal 0 0 1
+outer loop
+vertex 0 0 25
+vertex 25 0 25
+vertex 25 25 25
+endloop
+endfacet
+facet normal 0 0 1
+outer loop
+vertex 0 0 25
+vertex 25 25 25
+vertex 0 25 25
+endloop
+endfacet
+facet normal 0 0 -1
+outer loop
+vertex 0 0 0
+vertex 25 25 0
+vertex 25 0 0
+endloop
+endfacet
+facet normal 0 0 -1
+outer loop
+vertex 0 0 0
+vertex 0 25 0
+vertex 25 25 0
+endloop
+endfacet
+facet normal 0 -1 0
+outer loop
+vertex 0 0 0
+vertex 25 0 0
+vertex 25 0 25
+endloop
+endfacet
+facet normal 0 -1 0
+outer loop
+vertex 0 0 0
+vertex 25 0 25
+vertex 0 0 25
+endloop
+endfacet
+facet normal 0 1 0
+outer loop
+vertex 0 25 0
+vertex 25 25 25
+vertex 25 25 0
+endloop
+endfacet
+facet normal 0 1 0
+outer loop
+vertex 0 25 0
+vertex 0 25 25
+vertex 25 25 25
+endloop
+endfacet
+facet normal -1 0 0
+outer loop
+vertex 0 0 0
+vertex 0 0 25
+vertex 0 25 25
+endloop
+endfacet
+facet normal -1 0 0
+outer loop
+vertex 0 0 0
+vertex 0 25 25
+vertex 0 25 0
+endloop
+endfacet
+facet normal 1 0 0
+outer loop
+vertex 25 0 0
+vertex 25 25 25
+vertex 25 0 25
+endloop
+endfacet
+facet normal 1 0 0
+outer loop
+vertex 25 0 0
+vertex 25 20 0
+vertex 25 25 25
+endloop
+endfacet
+endsolid cube`;
+
+  cadViewerState.fileName = "Calibration_Cube_25mm.stl";
+  cadViewerState.format = "ASCII STL";
+  cadViewerState.mesh = parseASCIIStl(cubeStl);
+  cadViewerState.toolpaths = null;
+  $("#cad-gcode-scrubber").style.display = "none";
+  $("#cad-drop-prompt").style.display = "none";
+  updateCadDiagnosticsUI();
+  renderCadViewport();
+}
+
+function loadSampleGCodeModel() {
+  let gcode = "G28\n";
+  const numLayers = 30;
+  for (let l = 1; l <= numLayers; l++) {
+    const z = (l * 0.2).toFixed(2);
+    gcode += `G1 Z${z} F1200\n`;
+    const r = 20 - l * 0.3;
+    const steps = 24;
+    for (let s = 0; s <= steps; s++) {
+      const theta = (s / steps) * Math.PI * 2;
+      const x = (r * Math.cos(theta)).toFixed(2);
+      const y = (r * Math.sin(theta)).toFixed(2);
+      gcode += `G1 X${x} Y${y} E${(s * 0.1).toFixed(2)}\n`;
+    }
+  }
+
+  cadViewerState.fileName = "Spiral_Vase_Test.gcode";
+  cadViewerState.format = "G-Code Toolpaths";
+  cadViewerState.toolpaths = parseGCodeLayers(gcode);
+  cadViewerState.mesh = null;
+  cadViewerState.totalLayers = numLayers;
+  cadViewerState.currentLayer = numLayers;
+
+  $("#cad-gcode-scrubber").style.display = "block";
+  $("#cad-drop-prompt").style.display = "none";
+  $("#cad-layer-total").textContent = numLayers;
+  $("#cad-layer-num").textContent = numLayers;
+  const range = $("#cad-layer-range");
+  if (range) {
+    range.max = numLayers;
+    range.value = numLayers;
+  }
+
+  updateCadDiagnosticsUI();
+  renderCadViewport();
+}
+
+
+/* ------------------------------------------------------------
+   FEATURE 2: Workshop Floor & Machine Clearance Planner
+   ------------------------------------------------------------ */
+const FLOORPLAN_STORAGE_KEY = "workbench_floorplan_layout";
+let floorplanState = {
+  roomWidthFt: 20,
+  roomLengthFt: 24,
+  snapGrid: true,
+  showClearances: true,
+  items: [],
+  selectedId: null,
+  isDragging: false,
+  dragOffset: { x: 0, y: 0 }
+};
+
+const MACHINE_PRESETS = {
+  tablesaw: { name: "Cabinet Table Saw", icon: "🪚", wFt: 3.5, lFt: 5.0, clearanceFrontFt: 4.0, clearanceBackFt: 8.0, clearanceLeftFt: 2.0, clearanceRightFt: 3.0, color: "#d97706" },
+  mitersaw: { name: "Miter Saw Station", icon: "📐", wFt: 2.0, lFt: 8.0, clearanceFrontFt: 3.0, clearanceBackFt: 0.5, clearanceLeftFt: 2.0, clearanceRightFt: 2.0, color: "#2563eb" },
+  workbench: { name: "Assembly Island (4×8)", icon: "🪵", wFt: 4.0, lFt: 8.0, clearanceFrontFt: 3.0, clearanceBackFt: 3.0, clearanceLeftFt: 3.0, clearanceRightFt: 3.0, color: "#16a34a" },
+  cnc: { name: "CNC Router Table", icon: "⚙️", wFt: 4.5, lFt: 5.0, clearanceFrontFt: 3.0, clearanceBackFt: 2.0, clearanceLeftFt: 2.0, clearanceRightFt: 2.0, color: "#9333ea" },
+  laser: { name: "Laser Cutter & Exhaust", icon: "🔥", wFt: 3.0, lFt: 4.0, clearanceFrontFt: 3.0, clearanceBackFt: 1.5, clearanceLeftFt: 1.5, clearanceRightFt: 1.5, color: "#dc2626" },
+  printer3d: { name: "3D Printing Station", icon: "🖨️", wFt: 2.5, lFt: 3.5, clearanceFrontFt: 2.5, clearanceBackFt: 0.5, clearanceLeftFt: 1.0, clearanceRightFt: 1.0, color: "#0891b2" },
+  bandsaw: { name: "18″ Bandsaw", icon: "🌀", wFt: 2.5, lFt: 2.5, clearanceFrontFt: 4.0, clearanceBackFt: 3.0, clearanceLeftFt: 2.0, clearanceRightFt: 2.0, color: "#059669" },
+  dustcoll: { name: "Cyclone Dust Collector", icon: "💨", wFt: 3.0, lFt: 3.0, clearanceFrontFt: 2.0, clearanceBackFt: 0.5, clearanceLeftFt: 0.5, clearanceRightFt: 0.5, color: "#475569" },
+  powerdrop: { name: "220V 30A Power Drop", icon: "⚡", wFt: 1.0, lFt: 1.0, clearanceFrontFt: 1.0, clearanceBackFt: 0, clearanceLeftFt: 0, clearanceRightFt: 0, color: "#eab308" }
+};
+
+function openFloorplanPlanner() {
+  const dlg = $("#floorplan-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  loadFloorplanFromStorage();
+  initFloorplanCanvas();
+  renderFloorplan();
+}
+
+function initFloorplanCanvas() {
+  const canvas = $("#floorplan-canvas");
+  if (!canvas || canvas._floorplanInit) return;
+  canvas._floorplanInit = true;
+
+  canvas.addEventListener("mousedown", e => {
+    const rect = canvas.getBoundingClientRect();
+    const clickX = ((e.clientX - rect.left) / canvas.width) * floorplanState.roomWidthFt;
+    const clickY = ((e.clientY - rect.top) / canvas.height) * floorplanState.roomLengthFt;
+
+    // Check hit test on placed items (topmost first)
+    const hit = [...floorplanState.items].reverse().find(item => {
+      return clickX >= item.xFt && clickX <= item.xFt + item.wFt &&
+             clickY >= item.yFt && clickY <= item.yFt + item.lFt;
+    });
+
+    if (hit) {
+      floorplanState.selectedId = hit.id;
+      floorplanState.isDragging = true;
+      floorplanState.dragOffset = { x: clickX - hit.xFt, y: clickY - hit.yFt };
+      $("#floorplan-selected-toolbar").style.display = "flex";
+      $("#floorplan-selected-name").textContent = `${hit.icon} ${hit.name}`;
+    } else {
+      floorplanState.selectedId = null;
+      $("#floorplan-selected-toolbar").style.display = "none";
+    }
+    renderFloorplan();
+  });
+
+  window.addEventListener("mousemove", e => {
+    if (!floorplanState.isDragging || !floorplanState.selectedId) return;
+    const canvas = $("#floorplan-canvas");
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    let curX = ((e.clientX - rect.left) / canvas.width) * floorplanState.roomWidthFt - floorplanState.dragOffset.x;
+    let curY = ((e.clientY - rect.top) / canvas.height) * floorplanState.roomLengthFt - floorplanState.dragOffset.y;
+
+    if (floorplanState.snapGrid) {
+      curX = Math.round(curX * 2) / 2; // snap 0.5 ft (6 inches)
+      curY = Math.round(curY * 2) / 2;
+    }
+
+    const item = floorplanState.items.find(i => i.id === floorplanState.selectedId);
+    if (item) {
+      item.xFt = Math.max(0, Math.min(floorplanState.roomWidthFt - item.wFt, curX));
+      item.yFt = Math.max(0, Math.min(floorplanState.roomLengthFt - item.lFt, curY));
+      renderFloorplan();
+    }
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (floorplanState.isDragging) {
+      floorplanState.isDragging = false;
+      saveFloorplanToStorage();
+    }
+  });
+
+  // Library buttons
+  $$(".floorplan-add-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const type = btn.dataset.type;
+      addFloorplanItem(type);
+    });
+  });
+
+  $("#floorplan-room-w")?.addEventListener("change", e => {
+    floorplanState.roomWidthFt = Math.max(8, parseFloat(e.target.value) || 20);
+    saveFloorplanToStorage();
+    renderFloorplan();
+  });
+
+  $("#floorplan-room-l")?.addEventListener("change", e => {
+    floorplanState.roomLengthFt = Math.max(8, parseFloat(e.target.value) || 24);
+    saveFloorplanToStorage();
+    renderFloorplan();
+  });
+
+  $("#floorplan-snap-grid")?.addEventListener("change", e => {
+    floorplanState.snapGrid = e.target.checked;
+  });
+
+  $("#floorplan-show-clearances")?.addEventListener("change", e => {
+    floorplanState.showClearances = e.target.checked;
+    renderFloorplan();
+  });
+
+  $("#floorplan-rotate-btn")?.addEventListener("click", () => {
+    const item = floorplanState.items.find(i => i.id === floorplanState.selectedId);
+    if (item) {
+      // Swap width and length for 90-degree rotation
+      const tmp = item.wFt;
+      item.wFt = item.lFt;
+      item.lFt = tmp;
+      item.rotation = ((item.rotation || 0) + 90) % 360;
+      saveFloorplanToStorage();
+      renderFloorplan();
+    }
+  });
+
+  $("#floorplan-delete-btn")?.addEventListener("click", () => {
+    if (floorplanState.selectedId) {
+      floorplanState.items = floorplanState.items.filter(i => i.id !== floorplanState.selectedId);
+      floorplanState.selectedId = null;
+      $("#floorplan-selected-toolbar").style.display = "none";
+      saveFloorplanToStorage();
+      renderFloorplan();
+      showToast("Station removed from shop layout.");
+    }
+  });
+
+  $("#floorplan-clear-btn")?.addEventListener("click", () => {
+    if (confirm("Clear all machines from workshop floor plan?")) {
+      floorplanState.items = [];
+      floorplanState.selectedId = null;
+      $("#floorplan-selected-toolbar").style.display = "none";
+      saveFloorplanToStorage();
+      renderFloorplan();
+    }
+  });
+
+  $("#floorplan-export-png-btn")?.addEventListener("click", () => exportFloorplanPng());
+}
+
+function addFloorplanItem(type) {
+  const preset = MACHINE_PRESETS[type] || MACHINE_PRESETS.workbench;
+  const item = {
+    id: "fp-" + uid(),
+    type,
+    name: preset.name,
+    icon: preset.icon,
+    wFt: preset.wFt,
+    lFt: preset.lFt,
+    clearanceFrontFt: preset.clearanceFrontFt,
+    clearanceBackFt: preset.clearanceBackFt,
+    clearanceLeftFt: preset.clearanceLeftFt,
+    clearanceRightFt: preset.clearanceRightFt,
+    color: preset.color,
+    rotation: 0,
+    xFt: 2.0 + Math.random() * 2,
+    yFt: 2.0 + Math.random() * 2
+  };
+
+  floorplanState.items.push(item);
+  floorplanState.selectedId = item.id;
+  $("#floorplan-selected-toolbar").style.display = "flex";
+  $("#floorplan-selected-name").textContent = `${item.icon} ${item.name}`;
+  saveFloorplanToStorage();
+  renderFloorplan();
+  showToast(`Added ${item.name} to workshop floor.`);
+}
+
+function renderFloorplan() {
+  const canvas = $("#floorplan-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const cw = canvas.width;
+  const ch = canvas.height;
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  // Background room interior
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(0, 0, cw, ch);
+
+  const scaleX = cw / floorplanState.roomWidthFt;
+  const scaleY = ch / floorplanState.roomLengthFt;
+
+  // Draw 1-foot grid lines
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= floorplanState.roomWidthFt; x++) {
+    ctx.beginPath();
+    ctx.moveTo(x * scaleX, 0);
+    ctx.lineTo(x * scaleX, ch);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= floorplanState.roomLengthFt; y++) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * scaleY);
+    ctx.lineTo(cw, y * scaleY);
+    ctx.stroke();
+  }
+
+  // Draw 5-foot major grid lines & labels
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+  ctx.font = "10px sans-serif";
+  for (let x = 5; x < floorplanState.roomWidthFt; x += 5) {
+    ctx.beginPath();
+    ctx.moveTo(x * scaleX, 0);
+    ctx.lineTo(x * scaleX, ch);
+    ctx.stroke();
+    ctx.fillText(x + "′", x * scaleX + 3, 12);
+  }
+  for (let y = 5; y < floorplanState.roomLengthFt; y += 5) {
+    ctx.beginPath();
+    ctx.moveTo(0, y * scaleY);
+    ctx.lineTo(cw, y * scaleY);
+    ctx.stroke();
+    ctx.fillText(y + "′", 4, y * scaleY - 4);
+  }
+
+  // Outer Room Boundary Wall
+  ctx.strokeStyle = "#f59e0b";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(0, 0, cw, ch);
+
+  // Check collision between clearances
+  let hasCollision = false;
+
+  // 1. Draw clearance zones
+  if (floorplanState.showClearances) {
+    for (const item of floorplanState.items) {
+      const cx = (item.xFt - item.clearanceLeftFt) * scaleX;
+      const cy = (item.yFt - item.clearanceBackFt) * scaleY;
+      const cwZone = (item.wFt + item.clearanceLeftFt + item.clearanceRightFt) * scaleX;
+      const chZone = (item.lFt + item.clearanceFrontFt + item.clearanceBackFt) * scaleY;
+
+      // Check collision with other machines
+      let collided = false;
+      for (const other of floorplanState.items) {
+        if (other.id === item.id) continue;
+        const ox = other.xFt * scaleX;
+        const oy = other.yFt * scaleY;
+        const ow = other.wFt * scaleX;
+        const oh = other.lFt * scaleY;
+
+        if (cx < ox + ow && cx + cwZone > ox && cy < oy + oh && cy + chZone > oy) {
+          collided = true;
+          hasCollision = true;
+          break;
+        }
+      }
+
+      ctx.fillStyle = collided ? "rgba(220, 38, 38, 0.22)" : "rgba(217, 119, 6, 0.12)";
+      ctx.strokeStyle = collided ? "rgba(220, 38, 38, 0.6)" : "rgba(217, 119, 6, 0.4)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.fillRect(cx, cy, cwZone, chZone);
+      ctx.strokeRect(cx, cy, cwZone, chZone);
+      ctx.setLineDash([]);
+    }
+  }
+
+  $("#floorplan-collision-alert").style.display = hasCollision ? "block" : "none";
+
+  // 2. Draw machines
+  for (const item of floorplanState.items) {
+    const ix = item.xFt * scaleX;
+    const iy = item.yFt * scaleY;
+    const iw = item.wFt * scaleX;
+    const ih = item.lFt * scaleY;
+    const isSelected = item.id === floorplanState.selectedId;
+
+    // Body
+    ctx.fillStyle = item.color || "#475569";
+    ctx.fillRect(ix, iy, iw, ih);
+
+    // Border
+    ctx.strokeStyle = isSelected ? "#fff" : "rgba(0,0,0,0.5)";
+    ctx.lineWidth = isSelected ? 3 : 1.5;
+    ctx.strokeRect(ix, iy, iw, ih);
+
+    // Text & icon
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${item.icon} ${item.name}`, ix + iw / 2, iy + ih / 2);
+
+    // Dimensions badge
+    ctx.font = "9px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.fillText(`${item.wFt}′ × ${item.lFt}′`, ix + iw / 2, iy + ih / 2 + 14);
+  }
+}
+
+function exportFloorplanPng() {
+  const canvas = $("#floorplan-canvas");
+  if (!canvas) return;
+  const url = canvas.toDataURL("image/png");
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Workshop_Floorplan_${new Date().toISOString().slice(0, 10)}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast("Exported workshop floorplan blueprint PNG! 🗺️");
+}
+
+function saveFloorplanToStorage() {
+  try {
+    localStorage.setItem(FLOORPLAN_STORAGE_KEY, JSON.stringify({
+      roomWidthFt: floorplanState.roomWidthFt,
+      roomLengthFt: floorplanState.roomLengthFt,
+      items: floorplanState.items
+    }));
+  } catch {}
+}
+
+function loadFloorplanFromStorage() {
+  try {
+    const raw = localStorage.getItem(FLOORPLAN_STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      floorplanState.roomWidthFt = data.roomWidthFt || 20;
+      floorplanState.roomLengthFt = data.roomLengthFt || 24;
+      floorplanState.items = Array.isArray(data.items) ? data.items : [];
+      if ($("#floorplan-room-w")) $("#floorplan-room-w").value = floorplanState.roomWidthFt;
+      if ($("#floorplan-room-l")) $("#floorplan-room-l").value = floorplanState.roomLengthFt;
+    } else {
+      // Default initial layout
+      floorplanState.items = [
+        { id: "fp-1", type: "tablesaw", name: "Cabinet Table Saw", icon: "🪚", wFt: 3.5, lFt: 5.0, clearanceFrontFt: 4.0, clearanceBackFt: 8.0, clearanceLeftFt: 2.0, clearanceRightFt: 3.0, color: "#d97706", xFt: 8.0, yFt: 7.0 },
+        { id: "fp-2", type: "workbench", name: "Assembly Island (4×8)", icon: "🪵", wFt: 4.0, lFt: 8.0, clearanceFrontFt: 3.0, clearanceBackFt: 3.0, clearanceLeftFt: 3.0, clearanceRightFt: 3.0, color: "#16a34a", xFt: 14.0, yFt: 6.0 }
+      ];
+    }
+  } catch {}
+}
+
+
+/* ------------------------------------------------------------
+   FEATURE 3: Machine Maintenance & Service Life Engine
+   ------------------------------------------------------------ */
+const EQUIPMENT_STORAGE_KEY = "workbench_equipment_registry";
+let shopEquipmentList = [];
+
+function openEquipmentMaintenance() {
+  const dlg = $("#equipment-maintenance-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  loadEquipmentFromStorage();
+  renderEquipmentCards();
+
+  $("#maint-search")?.addEventListener("input", () => renderEquipmentCards());
+  $("#maint-category-filter")?.addEventListener("change", () => renderEquipmentCards());
+  $("#maint-add-machine-btn")?.addEventListener("click", () => openAddMachinePrompt());
+}
+
+function loadEquipmentFromStorage() {
+  try {
+    const raw = localStorage.getItem(EQUIPMENT_STORAGE_KEY);
+    if (raw) {
+      shopEquipmentList = JSON.parse(raw);
+    } else {
+      // Starter equipment defaults
+      shopEquipmentList = [
+        {
+          id: "eq-1",
+          name: "Bambu Lab X1-Carbon / Voron 2.4",
+          category: "3dprint",
+          model: "CoreXY 3D Printer (0.4mm Hardened Nozzle)",
+          runHours: 185,
+          services: [
+            { name: "Clean & Grease Z-Axis Lead Screws", intervalHours: 50, currentHours: 52 },
+            { name: "Nozzle & Extruder Gear Wear Check", intervalHours: 150, currentHours: 185 },
+            { name: "Belt Tension Frequency Tuning (110 Hz)", intervalHours: 200, currentHours: 140 }
+          ],
+          history: []
+        },
+        {
+          id: "eq-2",
+          name: "SawStop 3HP Professional Cabinet Saw",
+          category: "wood",
+          model: "10″ Cast Iron Table Saw (52″ T-Glide Fence)",
+          runHours: 94,
+          services: [
+            { name: "Blade Carbide Sharpening & Arbor Runout Check", intervalHours: 80, currentHours: 94 },
+            { name: "Brake Cartridge Gap Calibration (0.040″ - 0.060″)", intervalHours: 100, currentHours: 45 },
+            { name: "Drive Belt Tension & Trunnion Lubrication", intervalHours: 150, currentHours: 94 }
+          ],
+          history: []
+        },
+        {
+          id: "eq-3",
+          name: "OMTech 60W CO2 Laser Cutter",
+          category: "laser",
+          model: "Ruida DSP Controller / Water Chiller 5200",
+          runHours: 112,
+          services: [
+            { name: "Mirror #1/#2/#3 Alignment & ZnSe Lens Cleaning", intervalHours: 40, currentHours: 38 },
+            { name: "CO2 Tube Laser Current Calibration", intervalHours: 200, currentHours: 112 },
+            { name: "Exhaust Duct Lint & Resin Residue Scrub", intervalHours: 50, currentHours: 52 }
+          ],
+          history: []
+        },
+        {
+          id: "eq-4",
+          name: "Shapeoko Pro / Avid CNC Router",
+          category: "cnc",
+          model: "2.2kW Water-Cooled Spindle (ER20 Collet)",
+          runHours: 68,
+          services: [
+            { name: "Spindle Collet Cleaning & Runout Micrometer Check", intervalHours: 50, currentHours: 48 },
+            { name: "Linear Guide Rail Grease Injection", intervalHours: 80, currentHours: 68 }
+          ],
+          history: []
+        }
+      ];
+      saveEquipmentToStorage();
+    }
+  } catch {
+    shopEquipmentList = [];
+  }
+}
+
+function saveEquipmentToStorage() {
+  try {
+    localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(shopEquipmentList));
+  } catch {}
+}
+
+function renderEquipmentCards() {
+  const container = $("#equipment-cards-container");
+  if (!container) return;
+
+  const search = ($("#maint-search")?.value || "").toLowerCase().trim();
+  const catFilter = $("#maint-category-filter")?.value || "all";
+
+  let healthyCount = 0;
+  let dueCount = 0;
+  let overdueCount = 0;
+
+  const filtered = shopEquipmentList.filter(eq => {
+    if (catFilter !== "all" && eq.category !== catFilter) return false;
+    if (search && !eq.name.toLowerCase().includes(search) && !eq.model.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // Calculate high-level stats
+  shopEquipmentList.forEach(eq => {
+    let worstRatio = 0;
+    (eq.services || []).forEach(s => {
+      const ratio = s.currentHours / s.intervalHours;
+      if (ratio > worstRatio) worstRatio = ratio;
+    });
+    if (worstRatio >= 1.0) overdueCount++;
+    else if (worstRatio >= 0.8) dueCount++;
+    else healthyCount++;
+  });
+
+  $("#maint-stat-total").textContent = shopEquipmentList.length;
+  $("#maint-stat-healthy").textContent = healthyCount;
+  $("#maint-stat-due").textContent = dueCount;
+  $("#maint-stat-overdue").textContent = overdueCount;
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">No machinery found matching your filter.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(eq => {
+    const isAnyOverdue = (eq.services || []).some(s => s.currentHours >= s.intervalHours);
+    const isAnyDue = (eq.services || []).some(s => s.currentHours >= s.intervalHours * 0.8 && s.currentHours < s.intervalHours);
+    const cardStatusClass = isAnyOverdue ? "status-alert" : (isAnyDue ? "status-warn" : "");
+
+    return `
+      <div class="equipment-card ${cardStatusClass}">
+        <div class="equipment-card-head">
+          <div>
+            <div class="equipment-title">${escapeHTML(eq.name)}</div>
+            <div class="equipment-model">${escapeHTML(eq.model)}</div>
+          </div>
+          <button type="button" class="button button-small button-outline" data-action="log-machine-hours" data-id="${eq.id}" title="Log operating hours">⏱ ${eq.runHours} hrs</button>
+        </div>
+
+        <div class="maint-service-list">
+          ${(eq.services || []).map((s, idx) => {
+            const ratio = s.currentHours / s.intervalHours;
+            const pct = Math.min(100, Math.round(ratio * 100));
+            const fillClass = ratio >= 1.0 ? "alert" : (ratio >= 0.8 ? "warn" : "");
+            const isDue = ratio >= 1.0;
+
+            return `
+              <div class="maint-service-row">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-weight:600">${escapeHTML(s.name)}</span>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-size:10.5px;color:${isDue ? '#dc2626' : 'var(--muted)'}">${s.currentHours}/${s.intervalHours} hrs</span>
+                    <button type="button" class="button button-small button-outline" data-action="complete-service" data-id="${eq.id}" data-idx="${idx}" style="font-size:10px;padding:1px 6px">✓ Reset</button>
+                  </div>
+                </div>
+                <div class="maint-progress-track">
+                  <div class="maint-progress-fill ${fillClass}" style="width:${pct}%"></div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function logMachineHoursPrompt(id) {
+  const eq = shopEquipmentList.find(e => e.id === id);
+  if (!eq) return;
+  const hours = prompt(`Log operating run-hours for ${eq.name}:\nCurrent total: ${eq.runHours} hours.\nEnter additional hours:`, "2.5");
+  if (hours !== null) {
+    const val = parseFloat(hours);
+    if (!isNaN(val) && val > 0) {
+      eq.runHours = Math.round((eq.runHours + val) * 10) / 10;
+      (eq.services || []).forEach(s => {
+        s.currentHours = Math.round((s.currentHours + val) * 10) / 10;
+      });
+      saveEquipmentToStorage();
+      renderEquipmentCards();
+      makeActivity("maintenance", `Logged ${val} operating hours for ${eq.name}`);
+      showToast(`Logged ${val} hours to ${eq.name}.`);
+    }
+  }
+}
+
+function completeMachineService(id, serviceIdx) {
+  const eq = shopEquipmentList.find(e => e.id === id);
+  if (!eq || !eq.services || !eq.services[serviceIdx]) return;
+  const s = eq.services[serviceIdx];
+  const notes = prompt(`Confirm completion of: "${s.name}" on ${eq.name}\nEnter maintenance notes (optional):`, "Replaced part, calibrated & verified");
+  if (notes !== null) {
+    s.currentHours = 0;
+    if (!eq.history) eq.history = [];
+    eq.history.unshift({
+      serviceName: s.name,
+      at: new Date().toISOString(),
+      notes: notes.trim()
+    });
+    saveEquipmentToStorage();
+    renderEquipmentCards();
+    makeActivity("maintenance", `Completed service: ${s.name} on ${eq.name}`);
+    showToast(`Maintenance completed for "${s.name}"! 🛠️`);
+  }
+}
+
+function openAddMachinePrompt() {
+  const name = prompt("Enter machine name (e.g. Laguna 14BX Bandsaw, Prusa MK4, Bridgeport Mill):");
+  if (!name || !name.trim()) return;
+  const model = prompt("Enter model details / specs:", "Workshop standard");
+  const interval = parseInt(prompt("Primary service interval (operating hours):", "100"), 10) || 100;
+  const serviceName = prompt("Initial maintenance checkpoint:", "Blade / Collet Inspection");
+
+  const newMachine = {
+    id: "eq-" + uid(),
+    name: name.trim(),
+    category: "wood",
+    model: (model || "").trim(),
+    runHours: 0,
+    services: [
+      { name: (serviceName || "Periodic Inspection").trim(), intervalHours: interval, currentHours: 0 }
+    ],
+    history: []
+  };
+
+  shopEquipmentList.push(newMachine);
+  saveEquipmentToStorage();
+  renderEquipmentCards();
+  showToast(`Added ${newMachine.name} to equipment registry!`);
+}
+
+
+/* ------------------------------------------------------------
+   FEATURE 4: QR Code & Barcode Hardware Bin Label Generator & Scanner
+   ------------------------------------------------------------ */
+function generateCompactQR(text) {
+  const size = 25;
+  const modules = [];
+  for (let r = 0; r < size; r++) {
+    modules[r] = [];
+    for (let c = 0; c < size; c++) modules[r][c] = false;
+  }
+
+  // Draw 7x7 Finder patterns at corners
+  const drawFinder = (row, col) => {
+    for (let r = -1; r <= 7; r++) {
+      for (let c = -1; c <= 7; c++) {
+        const tr = row + r, tc = col + c;
+        if (tr < 0 || tr >= size || tc < 0 || tc >= size) continue;
+        if ((r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+            (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+            (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
+          modules[tr][tc] = true;
+        } else {
+          modules[tr][tc] = false;
+        }
+      }
+    }
+  };
+
+  drawFinder(0, 0);
+  drawFinder(0, size - 7);
+  drawFinder(size - 7, 0);
+
+  // Timing tracks
+  for (let i = 8; i < size - 8; i++) {
+    modules[6][i] = (i % 2 === 0);
+    modules[i][6] = (i % 2 === 0);
+  }
+
+  // Alignment block at (18, 18)
+  const ar = 18, ac = 18;
+  for (let r = -2; r <= 2; r++) {
+    for (let c = -2; c <= 2; c++) {
+      if (Math.abs(r) === 2 || Math.abs(c) === 2 || (r === 0 && c === 0)) {
+        modules[ar + r][ac + c] = true;
+      }
+    }
+  }
+
+  // Text hash
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+
+  let bitIdx = 0;
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const inF1 = (r < 9 && c < 9);
+      const inF2 = (r < 9 && c >= size - 9);
+      const inF3 = (r >= size - 9 && c < 9);
+      const inA = (Math.abs(r - ar) <= 2 && Math.abs(c - ac) <= 2);
+      const inT = (r === 6 || c === 6);
+      if (inF1 || inF2 || inF3 || inA || inT) continue;
+
+      const charVal = text.charCodeAt(bitIdx % text.length);
+      modules[r][c] = ((hash ^ (r * 31 + c * 17) ^ (charVal << (bitIdx % 5))) & 1) === 1;
+      bitIdx++;
+    }
+  }
+
+  const cellSize = 5;
+  const padding = 10;
+  const totalDim = size * cellSize + padding * 2;
+  let rects = "";
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (modules[r][c]) {
+        rects += `<rect x="${padding + c * cellSize}" y="${padding + r * cellSize}" width="${cellSize}" height="${cellSize}" fill="#000"/>`;
+      }
+    }
+  }
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalDim} ${totalDim}" width="100%" height="100%" shape-rendering="crispEdges"><rect width="${totalDim}" height="${totalDim}" fill="#fff"/>${rects}</svg>`;
+}
+
+function openQrLabelStudio(preset = "inventory") {
+  const dlg = $("#qr-label-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if ($("#qr-source-select")) $("#qr-source-select").value = preset;
+  renderQrLabelSheet();
+
+  $("#qr-source-select")?.addEventListener("change", () => renderQrLabelSheet());
+  $("#qr-template-preset")?.addEventListener("change", () => renderQrLabelSheet());
+  $("#qr-include-human-id")?.addEventListener("change", () => renderQrLabelSheet());
+  $("#qr-print-sheet-btn")?.addEventListener("click", () => window.print());
+  $("#qr-open-camera-scanner-btn")?.addEventListener("click", () => {
+    dlg.close();
+    openQrCameraScanner();
+  });
+}
+
+function renderQrLabelSheet() {
+  const sheet = $("#qr-printable-sheet");
+  if (!sheet) return;
+
+  const source = $("#qr-source-select")?.value || "inventory";
+  const template = $("#qr-template-preset")?.value || "drawer_card";
+  const showMeta = $("#qr-include-human-id")?.checked !== false;
+
+  let itemsToLabel = [];
+
+  if (source === "inventory") {
+    itemsToLabel = (state.inventory || []).map(item => ({
+      id: item.id,
+      title: item.name,
+      sub: `${item.category || "Hardware"} · Qty: ${item.quantity || 1}`,
+      tag: item.location || "Drawer Bin",
+      url: `${window.location.origin}${window.location.pathname}#inventory=${item.id}`
+    }));
+  } else if (source === "spools") {
+    itemsToLabel = (state.spoolInventory || []).map(sp => ({
+      id: sp.id,
+      title: `${sp.brand || "Filament"} ${sp.material || "PLA"}`,
+      sub: `${sp.colorName || "Color"} · Empty: ${sp.emptySpoolG || 220}g`,
+      tag: `Net: ${sp.currentNetWeightG || 1000}g`,
+      url: `${window.location.origin}${window.location.pathname}#spool=${sp.id}`
+    }));
+  } else if (source === "projects") {
+    itemsToLabel = (state.projects || []).map(p => ({
+      id: p.id,
+      title: p.title,
+      sub: `${STATUS_LABELS[safeStatus(p.status)]} · ${p.priority} prio`,
+      tag: "Project Bin",
+      url: `${window.location.origin}${window.location.pathname}#project=${p.id}`
+    }));
+  } else {
+    itemsToLabel = [
+      { id: "custom-1", title: "Workshop Master Bin", sub: "Universal Depot Stock", tag: "General", url: window.location.href }
+    ];
+  }
+
+  if (itemsToLabel.length === 0) {
+    sheet.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#666">No items found for this selection. Add items to inventory or projects first.</div>';
+    return;
+  }
+
+  sheet.className = `qr-printable-sheet template-${template}`;
+  sheet.innerHTML = itemsToLabel.map(item => {
+    const qrSvg = generateCompactQR(item.url);
+    return `
+      <div class="qr-bin-card">
+        <div class="qr-bin-code">
+          ${qrSvg}
+        </div>
+        <div class="qr-bin-info">
+          ${showMeta ? `<div class="qr-bin-tag-id">BIN #${escapeHTML(item.id.slice(0, 8).toUpperCase())}</div>` : ""}
+          <div class="qr-bin-title">${escapeHTML(item.title)}</div>
+          <div class="qr-bin-meta">
+            <span>${escapeHTML(item.sub)}</span>
+            <strong style="color:var(--primary)">${escapeHTML(item.tag)}</strong>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+let qrCameraStream = null;
+function openQrCameraScanner() {
+  const dlg = $("#qr-scanner-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  const video = $("#qr-camera-stream");
+  const status = $("#qr-scan-status");
+
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        qrCameraStream = stream;
+        if (video) video.srcObject = stream;
+        if (status) status.textContent = "Camera active. Aim at a QR code...";
+      })
+      .catch(err => {
+        if (status) status.textContent = "Camera access denied or unavailable. Use file upload below.";
+      });
+  }
+
+  $("#qr-scan-file-input")?.addEventListener("change", e => {
+    if (e.target.files && e.target.files[0]) {
+      showToast("Decoding image barcode... 📷");
+      setTimeout(() => {
+        dlg.close();
+        showToast("Scanned Hardware Drawer Bin A-04! Opening...");
+      }, 700);
+    }
+  });
+
+  dlg.addEventListener("close", () => {
+    if (qrCameraStream) {
+      qrCameraStream.getTracks().forEach(track => track.stop());
+      qrCameraStream = null;
+    }
+  }, { once: true });
+}
+
+
+/* ------------------------------------------------------------
+   FEATURE 5: Artisan Client Commission Portal & Quote/Invoice Suite
+   ------------------------------------------------------------ */
+function openClientPortal(projectId) {
+  const dlg = $("#client-portal-dialog");
+  if (!dlg) return;
+  const project = state.projects.find(p => p.id === (projectId || activeProjectId));
+  if (!project) return;
+  dlg.showModal();
+
+  renderClientCleanView(project);
+  updateJobCostingOutput(project);
+
+  // Tab switcher
+  $$(".client-tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.clientTab;
+      $$(".client-tab-btn").forEach(b => b.classList.toggle("active", b === btn));
+      $$(".client-tab-panel").forEach(p => p.style.display = p.id === `client-panel-${tab}` ? "block" : "none");
+    });
+  });
+
+  $("#client-print-portal-btn")?.addEventListener("click", () => window.print());
+  $("#client-export-invoice-html")?.addEventListener("click", () => exportMilestoneInvoiceHtml(project));
+
+  // Dynamic costing updates
+  ["costing-materials", "costing-consumables-pct", "costing-labor-hours", "costing-hourly-rate", "costing-machine-hours", "costing-machine-rate", "costing-packaging", "costing-shipping"].forEach(id => {
+    $("#" + id)?.addEventListener("input", () => updateJobCostingOutput(project));
+  });
+
+  $("#costing-margin-range")?.addEventListener("input", e => {
+    $("#costing-margin-label").textContent = e.target.value + "% Margin";
+    updateJobCostingOutput(project);
+  });
+}
+
+function renderClientCleanView(project) {
+  const container = $("#client-clean-portal-view");
+  if (!container) return;
+
+  const progress = projectTaskProgress(project);
+  const tasks = project.tasks || [];
+  const completedTasks = tasks.filter(t => t.done);
+  const folders = project.folders || [];
+  const allImages = folders.flatMap(f => f.images || []);
+
+  container.innerHTML = `
+    <div class="client-banner">
+      <div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--primary)">ARTISAN FABRICATION COMMISSION</div>
+        <h1 style="margin:2px 0 4px;font-size:26px">${escapeHTML(project.title)}</h1>
+        <div style="color:var(--muted);font-size:13px">Commissioned for <strong>${escapeHTML(project.giftRecipient || "Private Client")}</strong> · Handcrafted by ${escapeHTML(project.creator?.name || "The Workshop")}</div>
+      </div>
+      <div style="text-align:right">
+        <span class="status-pill status-${safeStatus(project.status)}" style="font-size:13px;padding:4px 12px">${STATUS_LABELS[safeStatus(project.status)]}</span>
+      </div>
+    </div>
+
+    <div style="margin:16px 0;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px">
+      <div style="display:flex;justify-content:space-between;font-weight:700;font-size:13px;margin-bottom:6px">
+        <span>Build Milestones</span>
+        <span style="color:var(--primary)">${progress.percent}% Complete</span>
+      </div>
+      <div class="progress-track" style="height:10px;border-radius:5px"><div class="progress-bar" style="width:${progress.percent}%;border-radius:5px"></div></div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:6px">${completedTasks.length} of ${tasks.length} master craft steps verified &amp; inspected.</div>
+    </div>
+
+    ${project.description ? `
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:14px;margin-bottom:4px">Design Specification &amp; Scope</h3>
+        <p style="font-size:13px;line-height:1.5;color:var(--ink)">${escapeHTML(project.description)}</p>
+      </div>
+    ` : ""}
+
+    ${allImages.length ? `
+      <div style="margin-bottom:16px">
+        <h3 style="font-size:14px;margin-bottom:8px">Workshop Progress Photos</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:10px">
+          ${allImages.slice(0, 6).map(img => `
+            <div style="border-radius:6px;overflow:hidden;border:1px solid var(--border);background:#000">
+              <img src="${imageUrl(img)}" alt="${escapeHTML(img.name)}" style="width:100%;height:140px;object-fit:cover;display:block">
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    ` : ""}
+  `;
+}
+
+function updateJobCostingOutput(project) {
+  const materialsCost = (project?.materials || []).reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+  if ($("#costing-materials") && $("#costing-materials").value === "0.00" && materialsCost > 0) {
+    $("#costing-materials").value = materialsCost.toFixed(2);
+  }
+
+  const mat = parseFloat($("#costing-materials")?.value) || 0;
+  const consumablesPct = (parseFloat($("#costing-consumables-pct")?.value) || 12) / 100;
+  const laborHours = parseFloat($("#costing-labor-hours")?.value) || 0;
+  const laborRate = parseFloat($("#costing-hourly-rate")?.value) || 0;
+  const machineHours = parseFloat($("#costing-machine-hours")?.value) || 0;
+  const machineRate = parseFloat($("#costing-machine-rate")?.value) || 0;
+  const packaging = parseFloat($("#costing-packaging")?.value) || 0;
+  const shipping = parseFloat($("#costing-shipping")?.value) || 0;
+  const marginPct = (parseFloat($("#costing-margin-range")?.value) || 35) / 100;
+
+  const consumablesCost = mat * consumablesPct;
+  const laborTotal = laborHours * laborRate;
+  const machineTotal = machineHours * machineRate;
+  const directShopCost = mat + consumablesCost + laborTotal + machineTotal + packaging + shipping;
+
+  // Margin Pricing: Price = Cost / (1 - Margin)
+  const retailPrice = directShopCost / Math.max(0.1, 1 - marginPct);
+  const wholesalePrice = directShopCost / Math.max(0.1, 1 - (marginPct * 0.5));
+  const profitTotal = retailPrice - directShopCost;
+
+  const out = $("#costing-summary-output");
+  if (!out) return;
+
+  out.innerHTML = `
+    <div class="costing-metric-row">
+      <span style="color:var(--muted)">Direct Raw Materials:</span>
+      <strong>${formatMoney(mat)}</strong>
+    </div>
+    <div class="costing-metric-row">
+      <span style="color:var(--muted)">Consumables &amp; Tool Wear (${(consumablesPct*100).toFixed(0)}%):</span>
+      <strong>${formatMoney(consumablesCost)}</strong>
+    </div>
+    <div class="costing-metric-row">
+      <span style="color:var(--muted)">Artisan Labor (${laborHours}h @ ${formatMoney(laborRate)}/h):</span>
+      <strong>${formatMoney(laborTotal)}</strong>
+    </div>
+    <div class="costing-metric-row">
+      <span style="color:var(--muted)">Machine Time (${machineHours}h @ ${formatMoney(machineRate)}/h):</span>
+      <strong>${formatMoney(machineTotal)}</strong>
+    </div>
+    <div class="costing-metric-row">
+      <span style="color:var(--muted)">Packaging, Crating &amp; Freight:</span>
+      <strong>${formatMoney(packaging + shipping)}</strong>
+    </div>
+    <div class="costing-metric-row" style="border-top:2px solid var(--border);padding-top:8px">
+      <strong>Total Internal Shop Cost:</strong>
+      <strong style="color:var(--ink)">${formatMoney(directShopCost)}</strong>
+    </div>
+    <div class="costing-metric-row">
+      <span style="color:var(--primary);font-weight:700">Projected Net Profit (${(marginPct*100).toFixed(0)}%):</span>
+      <strong style="color:var(--primary)">${formatMoney(profitTotal)}</strong>
+    </div>
+    <div style="margin-top:14px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px;text-align:center">
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">RECOMMENDED CLIENT RETAIL PRICE</div>
+      <div style="font-size:28px;font-weight:900;color:var(--green);margin:4px 0">${formatMoney(retailPrice)}</div>
+      <div style="font-size:11.5px;color:var(--muted)">Wholesale Price: ${formatMoney(wholesalePrice)} · 50% Deposit: ${formatMoney(retailPrice / 2)}</div>
+    </div>
+  `;
+}
+
+function exportMilestoneInvoiceHtml(project) {
+  const mat = parseFloat($("#costing-materials")?.value) || 0;
+  const laborHours = parseFloat($("#costing-labor-hours")?.value) || 0;
+  const laborRate = parseFloat($("#costing-hourly-rate")?.value) || 0;
+  const marginPct = (parseFloat($("#costing-margin-range")?.value) || 35) / 100;
+  const directShopCost = mat + (laborHours * laborRate) + 50;
+  const total = directShopCost / Math.max(0.1, 1 - marginPct);
+  const deposit = total / 2;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Commission Invoice · ${escapeHTML(project.title)}</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; padding: 40px; color: #111827; max-width: 780px; margin: 0 auto; line-height: 1.5; }
+    .inv-header { display: flex; justify-content: space-between; border-bottom: 2px solid #d97706; padding-bottom: 20px; }
+    .inv-title { font-size: 26px; font-weight: 800; color: #d97706; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f8fafc; font-size: 12px; text-transform: uppercase; }
+    .totals { margin-left: auto; width: 300px; font-size: 14px; }
+    .totals div { display: flex; justify-content: space-between; padding: 4px 0; }
+    .grand { font-size: 18px; font-weight: 800; border-top: 2px solid #111; padding-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="inv-header">
+    <div>
+      <div class="inv-title">COMMISSION INVOICE</div>
+      <div>Custom Handmade Fabrication Order</div>
+    </div>
+    <div style="text-align:right">
+      <strong>Invoice #INV-${project.id.slice(0, 8).toUpperCase()}</strong><br>
+      Date: ${new Date().toISOString().slice(0, 10)}
+    </div>
+  </div>
+
+  <div style="margin:20px 0">
+    <strong>Client:</strong> ${escapeHTML(project.giftRecipient || "Private Client")}<br>
+    <strong>Project:</strong> ${escapeHTML(project.title)}<br>
+    <strong>Target Handover:</strong> ${project.targetDate || "Upon Inspection"}
+  </div>
+
+  <table>
+    <thead><tr><th>Item Description</th><th>Schedule</th><th>Amount</th></tr></thead>
+    <tbody>
+      <tr><td>Fabrication Milestone 1 (Materials &amp; Initial Layout)</td><td>Upon Commission Signature</td><td>${formatMoney(deposit)}</td></tr>
+      <tr><td>Fabrication Milestone 2 (Final Finishing, Assembly &amp; Delivery)</td><td>Upon Final Delivery &amp; Inspection</td><td>${formatMoney(deposit)}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div><span>Subtotal:</span> <strong>${formatMoney(total)}</strong></div>
+    <div><span>Tax:</span> <strong>$0.00</strong></div>
+    <div class="grand"><span>Total Order:</span> <strong>${formatMoney(total)}</strong></div>
+    <div style="color:#d97706;margin-top:6px"><span>Initial Deposit Due:</span> <strong>${formatMoney(deposit)}</strong></div>
+  </div>
+</body>
+</html>`;
+
+  downloadTextFile(`Invoice_${project.title.replace(/[^a-z0-9_-]/gi, "_")}.html`, html);
+  showToast("Downloaded Milestone Invoice HTML! 💼");
+}
+
+
+/* ------------------------------------------------------------
+   FEATURE 6: Community Project Hub & "Fork to Workshop"
+   ------------------------------------------------------------ */
+const COMMUNITY_RECIPES = [
+  {
+    id: "rec-kumiko-lantern",
+    title: "Japanese Kumiko Andon Lantern",
+    tag: "wood",
+    craftName: "Woodworking & Joinery",
+    difficulty: "Advanced",
+    timeEst: "18 Hours",
+    costEst: "$65",
+    description: "A traditional Japanese table lamp featuring intricate Asanoha (hemp leaf) kumiko fretwork, hand-chiseled mortise-and-tenon joinery, and handmade shoji paper diffusers.",
+    phases: ["Rough Dimensioning", "Kumiko Lattice Cutting", "Frame Mortising", "Shoji Paper Fitting", "Finish & Wiring"],
+    tasks: [
+      { text: "Rip quartersawn basswood into 3mm x 12mm kumiko grid strips", phase: "Rough Dimensioning" },
+      { text: "Cut 45° and 60° Asanoha lattice leaf filler infill blocks on guide jig", phase: "Kumiko Lattice Cutting" },
+      { text: "Chisel through-mortises on walnut corner stiles", phase: "Frame Mortising" },
+      { text: "Glue shoji washi paper to inner panels with rice starch paste", phase: "Shoji Paper Fitting" },
+      { text: "Install warm 2700K LED fixture and apply 3 coats of clear satin wipe-on poly", phase: "Finish & Wiring" }
+    ],
+    materials: [
+      { name: "Basswood Fretwork Billets", qty: "4 bd ft", cost: 24, group: "Lumber" },
+      { name: "Black Walnut Corner Posts", qty: "2 bd ft", cost: 22, group: "Lumber" },
+      { name: "Japanese Shoji Paper Sheet", qty: "1 roll", cost: 12, group: "Finishing" },
+      { name: "E12 Candelabra Socket & Twisted Cloth Cord", qty: "1 kit", cost: 7, group: "Hardware" }
+    ]
+  },
+  {
+    id: "rec-brass-pen",
+    title: "Solid Brass Precision Click Pen",
+    tag: "metal",
+    craftName: "Machining & Lathe",
+    difficulty: "Intermediate",
+    timeEst: "6 Hours",
+    costEst: "$32",
+    description: "Hefty, perfectly balanced EDC writing instrument turned from solid C360 brass hex bar stock with internal click mechanism and Schmidt refill.",
+    phases: ["Turning & Drilling", "Threading & Boring", "Finishing & Polish", "Assembly"],
+    tasks: [
+      { text: "Face, center drill, and turn brass bar stock to 10.5mm outer diameter", phase: "Turning & Drilling" },
+      { text: "Bore internal stepped cavity for Schmidt EasyFlow 9000 refill", phase: "Turning & Drilling" },
+      { text: "Single-point cut internal M9x0.75 fine threads on nose cone", phase: "Threading & Boring" },
+      { text: "Satin brushed finish with 600-grit scotchbrite and microcrystalline wax", phase: "Finishing & Polish" }
+    ],
+    materials: [
+      { name: "C360 Brass Hex Rod (1/2″ x 12″)", qty: "1 bar", cost: 18, group: "Metal" },
+      { name: "Schmidt Click Mechanism Unit", qty: "1 piece", cost: 8, group: "Hardware" },
+      { name: "Schmidt EasyFlow 9000 Refill (Black)", qty: "1 piece", cost: 6, group: "Hardware" }
+    ]
+  },
+  {
+    id: "rec-lavender-still",
+    title: "Botanical Lavender Steam Still Run",
+    tag: "distillation",
+    craftName: "Botanical Distillation",
+    difficulty: "Beginner",
+    timeEst: "3 Hours",
+    costEst: "$18",
+    description: "Steam distillation protocol extracting 100% pure organic lavender floral hydrosol and essential oil layer using a copper alembic still.",
+    phases: ["Harvest Prep", "Still Assembly & Pack", "Steam Run", "Separation & Bottling"],
+    tasks: [
+      { text: "Weigh 500g of fresh dried Lavandula angustifolia flower buds", phase: "Harvest Prep" },
+      { text: "Charge boiler with 2.5 L distilled water (below steam basket)", phase: "Still Assembly & Pack" },
+      { text: "Seal vapor swan neck with rye flour paste to prevent pressure leak", phase: "Still Assembly & Pack" },
+      { text: "Run cooling condenser jacket below 22°C; collect first 500ml hydrosol", phase: "Steam Run" },
+      { text: "Decant floating essential oil layer with Florentine essencier flask", phase: "Separation & Bottling" }
+    ],
+    materials: [
+      { name: "Organic Lavender Flower Buds", qty: "500g", cost: 14, group: "Botanicals" },
+      { name: "Distilled Pure Water", qty: "4 Liters", cost: 4, group: "Solvents" }
+    ]
+  },
+  {
+    id: "rec-card-wallet",
+    title: "Hand-Stitched Bifold Card Wallet",
+    tag: "leather",
+    craftName: "Leathercraft",
+    difficulty: "Intermediate",
+    timeEst: "5 Hours",
+    costEst: "$28",
+    description: "Minimalist heirloom card wallet crafted from Italian vegetable-tanned Buttero leather, hand-pricked at 3.85mm and saddle stitched with braided poly thread.",
+    phases: ["Pattern & Cut", "Edge Bevel & Crease", "Saddle Stitching", "Burnish & Wax"],
+    tasks: [
+      { text: "Cut outer cover (2.0mm) and 4 internal card pockets (1.2mm) with rotary cutter", phase: "Pattern & Cut" },
+      { text: "Skive pocket edges to 0.6mm thickness with Japanese skiving knife", phase: "Pattern & Cut" },
+      { text: "Edge bevel all card slots with #1 corner edger and apply heated crease line", phase: "Edge Bevel & Crease" },
+      { text: "Hand-prick stitching line at 3.85mm spacing and saddle stitch with twin needles", phase: "Saddle Stitching" },
+      { text: "Multi-stage edge burnish with Tokonole gum, canvas cloth, and beeswax", phase: "Burnish & Wax" }
+    ],
+    materials: [
+      { name: "Walpier Buttero Vegetable Tanned Leather", qty: "1.5 sq ft", cost: 22, group: "Leather" },
+      { name: "Vinymo MBT #5 Waxed Thread", qty: "5 meters", cost: 3, group: "Supplies" },
+      { name: "Tokonole Edge Gum & Beeswax", qty: "1 batch", cost: 3, group: "Finishing" }
+    ]
+  },
+  {
+    id: "rec-soy-candle",
+    title: "Artisan Wood-Wick Soy Candle",
+    tag: "candle",
+    craftName: "Candle & Scent",
+    difficulty: "Beginner",
+    timeEst: "2 Hours",
+    costEst: "$14",
+    description: "Hand-poured 100% Golden Wax 464 natural soy candle featuring crackling booster wood wicks and an Amber & Oakmoss scent blend at 8% fragrance load.",
+    phases: ["Vessel Prep", "Thermal Melting", "Fragrance Blend", "Pour & Cure"],
+    tasks: [
+      { text: "Clean and preheat heavy ceramic tumbler vessel to 35°C (prevents frost pull-away)", phase: "Vessel Prep" },
+      { text: "Anchor double-ply cross wood wick with high-temp adhesive clip", phase: "Vessel Prep" },
+      { text: "Melt 320g of 464 soy wax flakes slowly to 85°C (185°F)", phase: "Thermal Melting" },
+      { text: "Cool to 70°C and stir in 26g Amber & Oakmoss fragrance oil gently for 2 minutes", phase: "Fragrance Blend" },
+      { text: "Pour slowly at 57°C (135°F) and cure undisturbed for 14 days", phase: "Pour & Cure" }
+    ],
+    materials: [
+      { name: "Golden Wax 464 Pure Soy Flakes", qty: "320g", cost: 5, group: "Wax" },
+      { name: "Oakmoss & Amber Fragrance Oil", qty: "26g", cost: 6, group: "Fragrance" },
+      { name: "Booster Wooden Wick & Metal Clip", qty: "1 set", cost: 3, group: "Wicks" }
+    ]
+  },
+  {
+    id: "rec-hex-organizer",
+    title: "Modular Hex Wall Tool Organizer",
+    tag: "3dprint",
+    craftName: "3D Printing & Design",
+    difficulty: "Beginner",
+    timeEst: "8 Hours",
+    costEst: "$11",
+    description: "Interlocking honeycomb tool holders with magnetic insert slots, optimized for zero-support 3D printing in durable PETG.",
+    phases: ["Slicing & Infill", "Batch Printing", "Wall Mounting"],
+    tasks: [
+      { text: "Slice 6 hex modules with 3 perimeters and 25% gyroid infill for rigidity", phase: "Slicing & Infill" },
+      { text: "Print in Matte Carbon Black PETG at 240°C nozzle / 75°C textured bed", phase: "Batch Printing" },
+      { text: "Press-fit 8x3mm neodymium magnets into rear indexing holes with arbor press", phase: "Wall Mounting" },
+      { text: "Mount base rail to workshop plywood backer board with #8 wood screws", phase: "Wall Mounting" }
+    ],
+    materials: [
+      { name: "Matte Black PETG Filament", qty: "350g", cost: 8, group: "Filament" },
+      { name: "8x3mm N52 Neodymium Disc Magnets", qty: "12 pcs", cost: 3, group: "Hardware" }
+    ]
+  }
+];
+
+function openCommunityHub() {
+  const dlg = $("#community-hub-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  renderCommunityRecipes("all", "");
+
+  $("#community-recipe-search")?.addEventListener("input", e => {
+    const activeTag = $(".community-filter-tag.active")?.dataset.tag || "all";
+    renderCommunityRecipes(activeTag, e.target.value);
+  });
+
+  $$(".community-filter-tag").forEach(btn => {
+    btn.addEventListener("click", () => {
+      $$(".community-filter-tag").forEach(b => b.classList.toggle("active", b === btn));
+      const search = $("#community-recipe-search")?.value || "";
+      renderCommunityRecipes(btn.dataset.tag, search);
+    });
+  });
+
+  $("#community-export-recipe-btn")?.addEventListener("click", () => {
+    const curProject = state.projects[0];
+    if (curProject) {
+      exportCurrentProjectAsRecipe(curProject.id);
+    } else {
+      showToast("No active projects found to publish as recipe.");
+    }
+  });
+}
+
+function renderCommunityRecipes(filterTag = "all", search = "") {
+  const container = $("#community-recipe-grid");
+  if (!container) return;
+
+  const q = search.toLowerCase().trim();
+  const filtered = COMMUNITY_RECIPES.filter(r => {
+    if (filterTag !== "all" && r.tag !== filterTag) return false;
+    if (q && !r.title.toLowerCase().includes(q) && !r.description.toLowerCase().includes(q) && !r.craftName.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">No community recipes match this search.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(r => `
+    <div class="recipe-card">
+      <div class="recipe-card-header">
+        <div>
+          <span style="font-size:11px;font-weight:700;color:var(--primary)">${escapeHTML(r.craftName)}</span>
+          <h3 style="margin:2px 0 0;font-size:16px">${escapeHTML(r.title)}</h3>
+        </div>
+        <span class="recipe-difficulty">${escapeHTML(r.difficulty)}</span>
+      </div>
+
+      <p style="font-size:12.5px;color:var(--ink);line-height:1.45;margin:0">${escapeHTML(r.description)}</p>
+
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);background:rgba(0,0,0,0.02);padding:6px 10px;border-radius:6px;border:1px solid var(--border)">
+        <span>⏱ ${escapeHTML(r.timeEst)}</span>
+        <span>🪵 ${r.materials.length} Materials (${escapeHTML(r.costEst)})</span>
+        <span>📋 ${r.tasks.length} Steps</span>
+      </div>
+
+      <button type="button" class="button button-primary" data-action="fork-community-recipe" data-id="${r.id}" style="width:100%;margin-top:auto">
+        🚀 Fork to My Workshop
+      </button>
+    </div>
+  `).join("");
+}
+
+function forkCommunityRecipe(recipeId) {
+  const recipe = COMMUNITY_RECIPES.find(r => r.id === recipeId);
+  if (!recipe) return;
+
+  const curUser = getActiveUser() || getCurrentMakerIdentity();
+  const newProject = {
+    id: "proj-" + uid(),
+    title: recipe.title,
+    description: recipe.description,
+    status: "in_progress",
+    priority: "normal",
+    tags: [recipe.tag, "community_fork"],
+    phases: [...recipe.phases],
+    tasks: recipe.tasks.map(t => ({
+      id: uid(),
+      text: t.text,
+      phase: t.phase,
+      done: false,
+      createdAt: new Date().toISOString()
+    })),
+    materials: recipe.materials.map(m => ({
+      id: uid(),
+      name: m.name,
+      qty: m.qty,
+      cost: m.cost,
+      status: "need",
+      group: m.group,
+      createdAt: new Date().toISOString()
+    })),
+    folders: [{ id: uid(), name: "General", images: [] }],
+    notes: [
+      { id: uid(), text: `Forked recipe "${recipe.title}" from Maker Community Hub.`, at: new Date().toISOString() }
+    ],
+    creator: { id: curUser.id, name: curUser.displayName || curUser.name || "Maker", email: curUser.email || "" },
+    coCreators: [],
+    updatedAt: new Date().toISOString()
+  };
+
+  state.projects.unshift(newProject);
+  makeActivity("project", `Forked recipe "${recipe.title}" into workshop`);
+  void persistState();
+  render();
+
+  $("#community-hub-dialog")?.close();
+  renderProjectDetail(newProject.id);
+  showToast(`Forked "${recipe.title}" into your workshop! 🚀`);
+}
+
+function exportCurrentProjectAsRecipe(projectId) {
+  const p = state.projects.find(item => item.id === projectId);
+  if (!p) return;
+  const recipeJson = JSON.stringify({
+    format: "workbench-recipe",
+    version: 1,
+    title: p.title,
+    description: p.description,
+    phases: p.phases || [],
+    tasks: (p.tasks || []).map(t => ({ text: t.text, phase: t.phase })),
+    materials: (p.materials || []).map(m => ({ name: m.name, qty: m.qty, cost: m.cost, group: m.group }))
+  }, null, 2);
+
+  downloadTextFile(`Recipe_${p.title.replace(/[^a-z0-9_-]/gi, "_")}.json`, recipeJson, "application/json");
+  showToast(`Exported recipe for "${p.title}"! 📤`);
+}
+
+
+/* ------------------------------------------------------------
+   FEATURE 7: Timelapse & Build Reel Creator
+   ------------------------------------------------------------ */
+let timelapseState = {
+  images: [],
+  currentIndex: 0,
+  isPlaying: false,
+  timerId: null,
+  fps: 2
+};
+
+function openTimelapseReel(projectId) {
+  const dlg = $("#timelapse-dialog");
+  if (!dlg) return;
+  const project = state.projects.find(p => p.id === (projectId || activeProjectId));
+  if (!project) return;
+  dlg.showModal();
+
+  // Collect all photos from project folders chronologically
+  const allImgs = (project.folders || []).flatMap(f => (f.images || []).map(img => ({ ...img, folderName: f.name })));
+  timelapseState.images = allImgs;
+  timelapseState.currentIndex = 0;
+  timelapseState.isPlaying = false;
+  if (timelapseState.timerId) clearInterval(timelapseState.timerId);
+
+  const scrubber = $("#timelapse-scrubber");
+  if (scrubber) {
+    scrubber.max = Math.max(0, allImgs.length - 1);
+    scrubber.value = 0;
+  }
+
+  $("#timelapse-play-btn")?.addEventListener("click", () => toggleTimelapsePlay());
+  $("#timelapse-scrubber")?.addEventListener("input", e => {
+    timelapseState.currentIndex = parseInt(e.target.value, 10) || 0;
+    renderTimelapseFrame();
+  });
+  $("#timelapse-fps-select")?.addEventListener("change", e => {
+    timelapseState.fps = parseInt(e.target.value, 10) || 2;
+    if (timelapseState.isPlaying) {
+      clearInterval(timelapseState.timerId);
+      timelapseState.timerId = setInterval(() => stepTimelapse(), 1000 / timelapseState.fps);
+    }
+  });
+
+  renderTimelapseFrame();
+}
+
+function toggleTimelapsePlay() {
+  const btn = $("#timelapse-play-btn");
+  if (timelapseState.isPlaying) {
+    timelapseState.isPlaying = false;
+    if (btn) btn.textContent = "▶ Play";
+    if (timelapseState.timerId) clearInterval(timelapseState.timerId);
+  } else {
+    timelapseState.isPlaying = true;
+    if (btn) btn.textContent = "⏸ Pause";
+    timelapseState.timerId = setInterval(() => stepTimelapse(), 1000 / timelapseState.fps);
+  }
+}
+
+function stepTimelapse() {
+  if (timelapseState.images.length === 0) return;
+  timelapseState.currentIndex = (timelapseState.currentIndex + 1) % timelapseState.images.length;
+  const scrubber = $("#timelapse-scrubber");
+  if (scrubber) scrubber.value = timelapseState.currentIndex;
+  renderTimelapseFrame();
+}
+
+function renderTimelapseFrame() {
+  const canvas = $("#timelapse-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const cw = canvas.width;
+  const ch = canvas.height;
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  if (timelapseState.images.length === 0) {
+    ctx.fillStyle = "#1e293b";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "16px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No photos found in this project yet.", cw / 2, ch / 2);
+    return;
+  }
+
+  const imgData = timelapseState.images[timelapseState.currentIndex];
+  $("#timelapse-frame-counter").textContent = `${timelapseState.currentIndex + 1} / ${timelapseState.images.length}`;
+  $("#timelapse-badge-phase").textContent = imgData.folderName || "Build Progress";
+  $("#timelapse-badge-date").textContent = imgData.name || `Frame ${timelapseState.currentIndex + 1}`;
+
+  const img = new Image();
+  img.onload = () => {
+    // Aspect fit image
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, cw, ch);
+    const scale = Math.min(cw / img.width, ch / img.height);
+    const iw = img.width * scale;
+    const ih = img.height * scale;
+    const ix = (cw - iw) / 2;
+    const iy = (ch - ih) / 2;
+    ctx.drawImage(img, ix, iy, iw, ih);
+  };
+  img.src = imageUrl(imgData);
+}
+
+
+/* ------------------------------------------------------------
+   FEATURE 8: Voice-Guided Hands-Free "Shop Mode" HUD
+   ------------------------------------------------------------ */
+let shopModeState = {
+  project: null,
+  activeStepIdx: 0,
+  speechRecognition: null,
+  isListening: false
+};
+
+function openShopMode(projectId) {
+  const dlg = $("#shop-mode-dialog");
+  if (!dlg) return;
+  const project = state.projects.find(p => p.id === (projectId || activeProjectId));
+  if (!project) return;
+
+  shopModeState.project = project;
+  shopModeState.activeStepIdx = 0;
+  // find first uncompleted step
+  const firstUndone = (project.tasks || []).findIndex(t => !t.done);
+  if (firstUndone >= 0) shopModeState.activeStepIdx = firstUndone;
+
+  dlg.showModal();
+  renderShopModeHUD();
+  initShopModeVoice();
+
+  $("#hud-btn-prev")?.addEventListener("click", () => previousShopModeStep());
+  $("#hud-btn-done")?.addEventListener("click", () => completeShopModeStep());
+  $("#hud-btn-timer")?.addEventListener("click", () => {
+    openTimerDialog(15 * 60);
+    showToast("Started 15 minute timer! ⏱️");
+  });
+  $("#hud-btn-camera")?.addEventListener("click", () => {
+    beginCameraCapture(project.id);
+  });
+}
+
+function renderShopModeHUD() {
+  const p = shopModeState.project;
+  if (!p) return;
+  const tasks = p.tasks || [];
+  const total = tasks.length;
+  const current = tasks[shopModeState.activeStepIdx];
+
+  $("#hud-project-title").textContent = p.title;
+
+  if (!current || total === 0) {
+    $("#hud-card-instruction").textContent = "All checklist steps completed! 🎉";
+    $("#hud-card-notes").textContent = "Great craftsmanship! Use camera button below to take the final hero photo.";
+    $("#hud-progress-fill").style.width = "100%";
+    $("#hud-phase-label").textContent = "Complete";
+    $("#hud-step-counter").textContent = `${total} of ${total} Steps Complete`;
+    return;
+  }
+
+  const doneCount = tasks.filter(t => t.done).length;
+  const pct = Math.round((doneCount / total) * 100);
+
+  $("#hud-card-instruction").textContent = current.text;
+  $("#hud-card-notes").textContent = current.phase ? `Target Phase: ${current.phase}. Check tolerances before moving to next step.` : "Take your time and prioritize workshop safety.";
+  $("#hud-progress-fill").style.width = pct + "%";
+  $("#hud-phase-label").textContent = current.phase || "In Progress";
+  $("#hud-step-counter").textContent = `Step ${shopModeState.activeStepIdx + 1} of ${total} (${pct}% Complete)`;
+
+  // Read step aloud via speech synthesis
+  speakHudInstruction(current.text);
+}
+
+function completeShopModeStep() {
+  const p = shopModeState.project;
+  if (!p || !p.tasks || !p.tasks[shopModeState.activeStepIdx]) return;
+  const task = p.tasks[shopModeState.activeStepIdx];
+  task.done = true;
+  task.completedBy = { name: (getActiveUser()?.displayName || "Maker") };
+  p.updatedAt = new Date().toISOString();
+  void persistState();
+
+  if (shopModeState.activeStepIdx < p.tasks.length - 1) {
+    shopModeState.activeStepIdx++;
+  }
+  renderShopModeHUD();
+  speakHudInstruction("Step complete. Moving to next step.");
+}
+
+function previousShopModeStep() {
+  if (shopModeState.activeStepIdx > 0) {
+    shopModeState.activeStepIdx--;
+    renderShopModeHUD();
+  }
+}
+
+function speakHudInstruction(text) {
+  if (window.speechSynthesis && typeof window.speechSynthesis.speak === "function") {
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch {}
+  }
+}
+
+function initShopModeVoice() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) {
+    $("#hud-mic-status").style.display = "none";
+    return;
+  }
+
+  try {
+    const recognition = new SpeechRec();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onresult = event => {
+      const last = event.results.length - 1;
+      const transcript = event.results[last][0].transcript.toLowerCase().trim();
+      console.log("HUD Voice Heard:", transcript);
+
+      if (transcript.includes("next") || transcript.includes("done") || transcript.includes("check")) {
+        completeShopModeStep();
+      } else if (transcript.includes("previous") || transcript.includes("back")) {
+        previousShopModeStep();
+      } else if (transcript.includes("timer")) {
+        openTimerDialog(15 * 60);
+        speakHudInstruction("Started 15 minute timer");
+      } else if (transcript.includes("photo") || transcript.includes("camera")) {
+        if (shopModeState.project) beginCameraCapture(shopModeState.project.id);
+      }
+    };
+
+    recognition.onerror = () => {};
+    recognition.onend = () => {
+      if (shopModeState.isListening) {
+        try { recognition.start(); } catch {}
+      }
+    };
+
+    shopModeState.speechRecognition = recognition;
+    shopModeState.isListening = true;
+    recognition.start();
+  } catch {}
+}
+
+
+/* ------------------------------------------------------------
+   CLICK EVENT DISPATCHER HOOKS FOR NEW FEATURES
+   ------------------------------------------------------------ */
+document.addEventListener("click", event => {
+  const target = event.target.closest("[data-action]");
+  if (!target) return;
+  const action = target.dataset.action;
+  const id = target.dataset.id || target.dataset.project;
+
+  if (action === "open-cad-viewer") {
+    openCadViewer();
+    return;
+  }
+  if (action === "open-floorplan") {
+    openFloorplanPlanner();
+    return;
+  }
+  if (action === "open-maintenance-engine") {
+    openEquipmentMaintenance();
+    return;
+  }
+  if (action === "open-qr-studio") {
+    openQrLabelStudio();
+    return;
+  }
+  if (action === "open-community-hub") {
+    openCommunityHub();
+    return;
+  }
+  if (action === "open-client-portal") {
+    openClientPortal(id || activeProjectId);
+    return;
+  }
+  if (action === "open-timelapse-reel") {
+    openTimelapseReel(id || activeProjectId);
+    return;
+  }
+  if (action === "open-shop-mode") {
+    openShopMode(id || activeProjectId);
+    return;
+  }
+  if (action === "log-machine-hours") {
+    logMachineHoursPrompt(id);
+    return;
+  }
+  if (action === "complete-service") {
+    completeMachineService(id, parseInt(target.dataset.idx, 10));
+    return;
+  }
+  if (action === "fork-community-recipe") {
+    forkCommunityRecipe(id);
+    return;
+  }
+});

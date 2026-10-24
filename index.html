@@ -140,6 +140,9 @@
             <button type="button" class="button button-outline button-small user-top-btn" id="top-auth-btn" data-action="open-auth-modal">Sign in</button>
             <button type="button" class="button button-outline button-small" data-action="open-invite-modal" title="Invite makers to your shop">👥 Invite</button>
             <button type="button" class="button button-outline button-small" data-action="open-tools" title="Workshop Reference &amp; Conversion Tools">📐 Tools</button>
+            <button type="button" class="button button-outline button-small" data-action="open-cad-viewer" title="3D Model &amp; STL / G-Code Viewer">🧊 3D CAD</button>
+            <button type="button" class="button button-outline button-small" data-action="open-floorplan" title="Workshop Floor &amp; Machine Clearance Planner">🗺️ Floorplan</button>
+            <button type="button" class="button button-outline button-small" data-action="open-community-hub" title="Open-Source Maker Recipe Hub &amp; Forking">🌐 Recipe Hub</button>
             <button type="button" class="button button-outline button-small" id="topbar-timer-btn" data-action="open-timer" title="Focus Timer &amp; Ambient Workshop Sounds">⏱️ Focus &amp; Sounds</button>
 
             <button type="button" class="button button-outline button-small" id="topbar-units-btn" data-action="open-units-modal" title="Currency &amp; Measurement Units">💱 <span id="topbar-units-label">$ USD · in</span></button>
@@ -8112,6 +8115,11 @@ With warm regards and friendship,</textarea>
         <button type="button" class="tool-tab-btn" data-tool-tab="scale">⚖️ Scale &amp; Proportions</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="epoxy">🧪 Epoxy &amp; Resin Mixing</button>
         <button type="button" class="tool-tab-btn" data-tool-tab="units">🔄 Universal Units</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-cad-trigger" data-action="open-cad-viewer">🧊 3D CAD &amp; STL</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-floorplan-trigger" data-action="open-floorplan">🗺️ Workshop Floorplan</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-maint-trigger" data-action="open-maintenance-engine">🛠️ Tool Maintenance</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-qr-trigger" data-action="open-qr-studio">🏷️ QR Label Studio</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-community-trigger" data-action="open-community-hub">🌐 Recipe Hub</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -9964,5 +9972,592 @@ With warm regards and friendship,</textarea>
     <input type="file" id="camera-input" accept="image/*" capture="environment" hidden>
     <input type="file" id="backup-input" accept="application/json,.json" hidden>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  
+    <!-- 🧊 1. Interactive 3D / CAD & STL / G-Code Viewer Dialog -->
+    <dialog class="app-dialog cad-dialog" id="cad-viewer-dialog" aria-label="3D Model & CAD Viewer">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">3D &amp; TOOLPATH DIAGNOSTICS</div>
+          <h2>Interactive 3D / CAD &amp; STL Viewer</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="cad-reset-camera-btn">↺ Reset Camera</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="cad-layout-grid">
+        <div class="cad-viewport-column">
+          <div class="cad-viewport-container" id="cad-viewport-container">
+            <canvas id="cad-viewer-canvas" width="800" height="520"></canvas>
+            <div class="cad-overlay-controls">
+              <button type="button" class="cad-view-btn" data-cad-view="iso">ISO</button>
+              <button type="button" class="cad-view-btn" data-cad-view="top">TOP</button>
+              <button type="button" class="cad-view-btn" data-cad-view="front">FRONT</button>
+              <button type="button" class="cad-view-btn" data-cad-view="side">SIDE</button>
+              <span class="cad-ctrl-divider"></span>
+              <button type="button" class="cad-view-btn active" id="cad-toggle-wireframe" title="Toggle wireframe mode">▦ Wire</button>
+              <button type="button" class="cad-view-btn" id="cad-toggle-grid" title="Toggle ground grid">⊞ Grid</button>
+              <button type="button" class="cad-view-btn" id="cad-toggle-edges" title="Toggle sharp edges">∠ Edges</button>
+            </div>
+            <div class="cad-drop-prompt" id="cad-drop-prompt">
+              <div class="cad-drop-icon">📦</div>
+              <div style="font-weight:700;font-size:15px;margin-bottom:4px">Drop 3D CAD File Here</div>
+              <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Supports .STL (Binary/ASCII), .OBJ (Wavefront 3D), .GCODE toolpaths, and .SVG</div>
+              <button type="button" class="button button-small button-primary" id="cad-browse-file-btn">Browse Computer</button>
+              <input type="file" id="cad-file-input" accept=".stl,.obj,.gcode,.nc,.svg" style="display:none">
+            </div>
+            <div class="cad-gcode-scrubber" id="cad-gcode-scrubber" style="display:none">
+              <label style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:8px">
+                Layer <span id="cad-layer-num">1</span> / <span id="cad-layer-total">100</span> (Z = <span id="cad-layer-z">0.2</span> mm):
+                <input type="range" id="cad-layer-range" min="1" max="100" value="1" style="flex:1">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="cad-sidebar-column">
+          <div class="panel cad-diagnostics-panel">
+            <h3 style="margin-top:0;font-size:14px;border-bottom:1px solid var(--border);padding-bottom:6px">📐 Geometric Diagnostics</h3>
+            <div class="cad-stat-grid" id="cad-diagnostics-body">
+              <div class="cad-stat-row">
+                <span class="cad-stat-label">File Name</span>
+                <span class="cad-stat-val" id="cad-stat-filename">—</span>
+              </div>
+              <div class="cad-stat-row">
+                <span class="cad-stat-label">Format / Mesh</span>
+                <span class="cad-stat-val" id="cad-stat-format">—</span>
+              </div>
+              <div class="cad-stat-row">
+                <span class="cad-stat-label">Bounding Dimensions</span>
+                <span class="cad-stat-val" id="cad-stat-bounds" style="color:var(--primary);font-weight:700">—</span>
+              </div>
+              <div class="cad-stat-row">
+                <span class="cad-stat-label">Solid Volume</span>
+                <span class="cad-stat-val" id="cad-stat-volume">—</span>
+              </div>
+              <div class="cad-stat-row">
+                <span class="cad-stat-label">Surface Area</span>
+                <span class="cad-stat-val" id="cad-stat-area">—</span>
+              </div>
+              <div class="cad-stat-row">
+                <span class="cad-stat-label">Triangles / Facets</span>
+                <span class="cad-stat-val" id="cad-stat-facets">—</span>
+              </div>
+            </div>
+
+            <h3 style="margin:12px 0 6px;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:4px">⚖️ Material Mass &amp; Cost Estimator</h3>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <label class="field-label">Target Material Density:
+                <select id="cad-material-select" class="calc-input">
+                  <option value="1.24" data-name="PLA (3D Printing)" data-cost="0.022">PLA (1.24 g/cm³) · ~$22/kg</option>
+                  <option value="1.27" data-name="PETG (3D Printing)" data-cost="0.024">PETG (1.27 g/cm³) · ~$24/kg</option>
+                  <option value="1.04" data-name="ABS (3D Printing)" data-cost="0.023">ABS (1.04 g/cm³) · ~$23/kg</option>
+                  <option value="1.15" data-name="UV Photopolymer Resin" data-cost="0.035">SLA Resin (1.15 g/cm³) · ~$35/kg</option>
+                  <option value="2.70" data-name="Aluminum 6061-T6 (CNC)" data-cost="0.015">Aluminum 6061 (2.70 g/cm³) · ~$15/kg</option>
+                  <option value="8.50" data-name="Brass 360 (Turning/CNC)" data-cost="0.030">Brass 360 (8.50 g/cm³) · ~$30/kg</option>
+                  <option value="0.75" data-name="Hard Maple / Walnut" data-cost="0.008">Hardwood (0.75 g/cm³) · ~$8/kg</option>
+                </select>
+              </label>
+
+              <label class="field-label">Infill Density / Solid Core:
+                <select id="cad-infill-select" class="calc-input">
+                  <option value="1.0">100% Solid Billet / Solid Mold</option>
+                  <option value="0.4">40% Heavy Functional Infill</option>
+                  <option value="0.2" selected>20% Standard 3D Print Infill</option>
+                  <option value="0.15">15% Lightweight Prototype Infill</option>
+                </select>
+              </label>
+
+              <div class="cad-estimate-card" id="cad-estimate-card">
+                <div style="display:flex;justify-content:space-between">
+                  <span style="color:var(--muted)">Est. Part Weight:</span>
+                  <strong id="cad-est-weight" style="color:var(--primary)">0.0 g</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                  <span style="color:var(--muted)">1.75mm Filament Length:</span>
+                  <strong id="cad-est-filament">0.0 m</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between">
+                  <span style="color:var(--muted)">Estimated Raw Material Cost:</span>
+                  <strong id="cad-est-cost" style="color:var(--green)">$0.00</strong>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <button type="button" class="button button-small button-outline" id="cad-sample-stl-btn" style="flex:1">Load Sample STL</button>
+                <button type="button" class="button button-small button-outline" id="cad-sample-gcode-btn" style="flex:1">Load Sample G-Code</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🗺️ 2. Workshop Floor & Machine Clearance Planner Dialog -->
+    <dialog class="app-dialog floorplan-dialog" id="floorplan-dialog" aria-label="Workshop Floor &amp; Machine Clearance Planner">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">SHOP ARCHITECTURE &amp; SPATIAL WORKFLOW</div>
+          <h2>Workshop Floor &amp; Machine Clearance Planner</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="floorplan-export-png-btn">📷 Export Blueprint PNG</button>
+          <button type="button" class="button button-small button-outline" id="floorplan-clear-btn">Clear All</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="floorplan-container-grid">
+        <div class="floorplan-palette-sidebar">
+          <div class="panel" style="padding:10px">
+            <h3 style="margin-top:0;font-size:13px">📐 Room Dimensions</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+              <label class="field-label">Width (ft):
+                <input type="number" id="floorplan-room-w" value="20" min="8" max="60" step="1" class="calc-input">
+              </label>
+              <label class="field-label">Length (ft):
+                <input type="number" id="floorplan-room-l" value="24" min="8" max="80" step="1" class="calc-input">
+              </label>
+            </div>
+            <label class="field-label" style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:8px">
+              <input type="checkbox" id="floorplan-snap-grid" checked>
+              <span>Snap to 6″ grid increments</span>
+            </label>
+            <label class="field-label" style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:12px">
+              <input type="checkbox" id="floorplan-show-clearances" checked>
+              <span>Show safety &amp; outfeed clearance zones</span>
+            </label>
+
+            <h3 style="margin:10px 0 6px;font-size:13px;border-top:1px solid var(--border);padding-top:8px">➕ Add Machine / Station</h3>
+            <div class="floorplan-item-library" id="floorplan-item-library">
+              <button type="button" class="floorplan-add-btn" data-type="tablesaw">
+                <span>🪚</span>
+                <div>
+                  <strong>Cabinet Table Saw</strong>
+                  <div class="hint">Includes 8ft outfeed zone</div>
+                </div>
+              </button>
+              <button type="button" class="floorplan-add-btn" data-type="mitersaw">
+                <span>📐</span>
+                <div>
+                  <strong>Miter Saw Station</strong>
+                  <div class="hint">Long wings for stock support</div>
+                </div>
+              </button>
+              <button type="button" class="floorplan-add-btn" data-type="workbench">
+                <span>🪵</span>
+                <div>
+                  <strong>Assembly Island</strong>
+                  <div class="hint">4x8 ft Center Workbench</div>
+                </div>
+              </button>
+              <button type="button" class="floorplan-add-btn" data-type="cnc">
+                <span>⚙️</span>
+                <div>
+                  <strong>CNC Router / Gantry</strong>
+                  <div class="hint">4x4 ft footprint + clearance</div>
+                </div>
+              </button>
+              <button type="button" class="floorplan-add-btn" data-type="laser">
+                <span>🔥</span>
+                <div>
+                  <strong>Laser Cutter &amp; Exhaust</strong>
+                  <div class="hint">Enclosure + vent access</div>
+                </div>
+              </button>
+              <button type="button" class="floorplan-add-btn" data-type="printer3d">
+                <span>🖨️</span>
+                <div>
+                  <strong>3D Printing Enclosure</strong>
+                  <div class="hint">Filament storage rack</div>
+                </div>
+              </button>
+              <button type="button" class="floorplan-add-btn" data-type="bandsaw">
+                <span>🌀</span>
+                <div>
+                  <strong>Bandsaw Station</strong>
+                  <div class="hint">18″ vertical throat</div>
+                </div>
+              </button>
+              <button type="button" class="floorplan-add-btn" data-type="dustcoll">
+                <span>💨</span>
+                <div>
+                  <strong>Cyclone Dust Collector</strong>
+                  <div class="hint">Main trunk drop point</div>
+                </div>
+              </button>
+              <button type="button" class="floorplan-add-btn" data-type="powerdrop">
+                <span>⚡</span>
+                <div>
+                  <strong>220V 30A Power Drop</strong>
+                  <div class="hint">Heavy machine circuit</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="floorplan-canvas-column">
+          <div class="floorplan-canvas-wrap" id="floorplan-canvas-wrap">
+            <canvas id="floorplan-canvas" width="850" height="580"></canvas>
+            <div class="floorplan-collision-alert" id="floorplan-collision-alert" style="display:none">
+              ⚠️ <strong>CLEARANCE CONFLICT:</strong> Machine outfeed paths are obstructed! Adjust machine placement to prevent kickback and sheet feeding hazards.
+            </div>
+          </div>
+          <div class="floorplan-selected-toolbar" id="floorplan-selected-toolbar" style="display:none">
+            <span id="floorplan-selected-name" style="font-weight:700">Cabinet Table Saw</span>
+            <div style="display:flex;gap:6px">
+              <button type="button" class="button button-small button-outline" id="floorplan-rotate-btn">↻ Rotate 90°</button>
+              <button type="button" class="button button-small button-outline danger-hover" id="floorplan-delete-btn">🗑️ Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🛠️ 3. Machine Maintenance & Service Life Engine Dialog -->
+    <dialog class="app-dialog maintenance-engine-dialog" id="equipment-maintenance-dialog" aria-label="Machine Maintenance &amp; Equipment Lifecycle">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">PREVENTATIVE RELIABILITY &amp; LIFECYCLE</div>
+          <h2>Machine Maintenance &amp; Tool Health Engine</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-primary" id="maint-add-machine-btn">＋ Add Machine</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="maintenance-summary-bar">
+        <div class="maint-summary-card">
+          <span class="maint-summary-count" id="maint-stat-total">0</span>
+          <span class="maint-summary-label">Total Machines</span>
+        </div>
+        <div class="maint-summary-card maint-card-good">
+          <span class="maint-summary-count" id="maint-stat-healthy">0</span>
+          <span class="maint-summary-label">Optimal &amp; Calibrated</span>
+        </div>
+        <div class="maint-summary-card maint-card-warn">
+          <span class="maint-summary-count" id="maint-stat-due">0</span>
+          <span class="maint-summary-label">Service Due Soon</span>
+        </div>
+        <div class="maint-summary-card maint-card-alert">
+          <span class="maint-summary-count" id="maint-stat-overdue">0</span>
+          <span class="maint-summary-label">Overdue Maintenance</span>
+        </div>
+      </div>
+
+      <div class="maintenance-filter-strip">
+        <input type="search" id="maint-search" placeholder="Search machinery, models, blades, nozzles..." style="max-width:280px;font-size:12px">
+        <select id="maint-category-filter" style="max-width:180px;font-size:12px">
+          <option value="all">All Shop Categories</option>
+          <option value="3dprint">3D Printers</option>
+          <option value="cnc">CNC Routers &amp; Mills</option>
+          <option value="laser">Laser Cutters</option>
+          <option value="wood">Woodworking Machinery</option>
+          <option value="metal">Metalworking &amp; Welding</option>
+          <option value="ceramics">Kilns &amp; Pottery</option>
+        </select>
+      </div>
+
+      <div class="equipment-grid" id="equipment-cards-container">
+        <!-- Rendered dynamically -->
+      </div>
+    </dialog>
+
+    <!-- 🏷️ 4. Batch QR Code Bin & Spool Label Generator Dialog -->
+    <dialog class="app-dialog qr-label-dialog" id="qr-label-dialog" aria-label="Printable Workshop QR Bin &amp; Spool Label Studio">
+      <div class="dialog-heading no-print">
+        <div>
+          <div class="eyebrow">PHYSICAL SHOP INVENTORY TAGGING</div>
+          <h2>QR Bin &amp; Hardware Label Studio</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-primary" id="qr-print-sheet-btn">🖶 Print Label Sheet</button>
+          <button type="button" class="button button-small button-outline" id="qr-open-camera-scanner-btn">📷 Scan Bin with Camera</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="qr-studio-controls no-print">
+        <div class="qr-controls-row">
+          <label class="field-label">Label Template:
+            <select id="qr-template-preset" class="calc-input">
+              <option value="drawer_card">Drawer Face Bin Card (2.5″ × 1.25″)</option>
+              <option value="avery_5160">Avery 5160 / 30-per-sheet (2.625″ × 1″)</option>
+              <option value="spool_ring">Filament Spool Hub Label (Round/Hex 2.25″)</option>
+              <option value="lumber_tag">Lumber / Raw Stock Hanging Tag</option>
+            </select>
+          </label>
+
+          <label class="field-label">Populate From:
+            <select id="qr-source-select" class="calc-input">
+              <option value="inventory">All Hardware &amp; Depot Inventory Items</option>
+              <option value="spools">Filament Spools (3D Printing)</option>
+              <option value="projects">Active Workshop Projects</option>
+              <option value="custom">Custom Text / Single Custom Code</option>
+            </select>
+          </label>
+
+          <label class="field-label" style="display:flex;align-items:center;gap:6px;margin-top:22px">
+            <input type="checkbox" id="qr-include-human-id" checked>
+            <span>Print Item ID &amp; Location</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="qr-printable-sheet-container">
+        <div class="qr-printable-sheet" id="qr-printable-sheet">
+          <!-- Populated dynamically with vector QR codes -->
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 📷 4b. Live Camera QR & Barcode Scanner Dialog -->
+    <dialog class="app-dialog compact-dialog" id="qr-scanner-dialog" aria-label="Scan Workshop QR Label">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">OPTICAL SHOP FINDER</div>
+          <h2>Scan Bin / Spool QR Code</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="qr-scanner-body">
+        <div class="qr-video-wrapper">
+          <video id="qr-camera-stream" autoplay playsinline muted></video>
+          <div class="qr-scan-reticle"></div>
+          <div class="qr-scan-status" id="qr-scan-status">Point camera at a bin label...</div>
+        </div>
+
+        <div style="margin-top:12px;text-align:center">
+          <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Or upload an image containing a QR code:</p>
+          <input type="file" id="qr-scan-file-input" accept="image/*" class="calc-input" style="max-width:280px;margin:0 auto">
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 💼 5. Artisan Client Commission Portal & Quote/Invoice Suite Dialog -->
+    <dialog class="app-dialog client-portal-dialog" id="client-portal-dialog" aria-label="Client Progress Portal &amp; Commission Pricing">
+      <div class="dialog-heading no-print">
+        <div>
+          <div class="eyebrow">CLIENT RELATIONSHIPS &amp; COMMISSION PROFITABILITY</div>
+          <h2>Artisan Client Portal &amp; Job Costing Suite</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="client-export-invoice-html">📥 Download Milestone Invoice (HTML)</button>
+          <button type="button" class="button button-small button-primary" id="client-print-portal-btn">🖶 Print Client Dossier</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="client-portal-tabs no-print">
+        <button type="button" class="client-tab-btn active" data-client-tab="preview">👁️ Shareable Client Portal View</button>
+        <button type="button" class="client-tab-btn" data-client-tab="costing">💰 Advanced Job Costing &amp; Profit Engine</button>
+      </div>
+
+      <!-- Tab 1: Shareable Client View -->
+      <div class="client-tab-panel active" id="client-panel-preview">
+        <div class="client-clean-portal-view" id="client-clean-portal-view">
+          <!-- Branded client progress view with secret-shielding -->
+        </div>
+      </div>
+
+      <!-- Tab 2: True Job Costing & Profit Engine -->
+      <div class="client-tab-panel" id="client-panel-costing" style="display:none">
+        <div class="job-costing-grid">
+          <div class="panel">
+            <h3 style="margin-top:0;font-size:14px">Cost Breakdown Parameters</h3>
+            <div class="job-costing-form">
+              <label class="field-label">Direct Materials BOM Total ($):
+                <input type="number" id="costing-materials" step="0.01" value="0.00" class="calc-input">
+              </label>
+              <label class="field-label">Consumables &amp; Waste Overhead (%):
+                <input type="number" id="costing-consumables-pct" value="12" min="0" max="50" step="1" class="calc-input">
+                <span class="hint">Sandpaper, finishes, glue, solder, CNC bits, purge waste</span>
+              </label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <label class="field-label">Maker Labor Hours:
+                  <input type="number" id="costing-labor-hours" value="14" step="0.5" class="calc-input">
+                </label>
+                <label class="field-label">Hourly Labor Rate ($/hr):
+                  <input type="number" id="costing-hourly-rate" value="55" step="1" class="calc-input">
+                </label>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <label class="field-label">Machine Run Hours:
+                  <input type="number" id="costing-machine-hours" value="4" step="0.5" class="calc-input">
+                </label>
+                <label class="field-label">Machine Rate ($/hr):
+                  <input type="number" id="costing-machine-rate" value="18" step="1" class="calc-input">
+                </label>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <label class="field-label">Packaging &amp; Presentation ($):
+                  <input type="number" id="costing-packaging" value="25.00" step="1" class="calc-input">
+                </label>
+                <label class="field-label">Shipping &amp; Insurance ($):
+                  <input type="number" id="costing-shipping" value="35.00" step="1" class="calc-input">
+                </label>
+              </div>
+              <label class="field-label">Target Profit Margin (%):
+                <input type="range" id="costing-margin-range" min="15" max="65" value="35" class="calc-input">
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">
+                  <span>Standard 20%</span>
+                  <strong id="costing-margin-label" style="color:var(--primary)">35% Margin</strong>
+                  <span>Luxury 50%+</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3 style="margin-top:0;font-size:14px">Pricing Output &amp; Financial Summary</h3>
+            <div class="costing-summary-box" id="costing-summary-output">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🌐 6. Community Project Hub & "Fork to Workshop" Dialog -->
+    <dialog class="app-dialog community-hub-dialog" id="community-hub-dialog" aria-label="Open-Source Maker Recipe Hub &amp; Forking">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">OPEN-SOURCE MAKER RECIPES &amp; BLUEPRINTS</div>
+          <h2>Community Recipe Hub · Fork to My Workshop</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="community-export-recipe-btn">📤 Publish Current Project as Recipe</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="community-filter-row">
+        <input type="search" id="community-recipe-search" placeholder="Search curated maker projects &amp; blueprints..." style="flex:1;max-width:320px;font-size:12px">
+        <div class="community-tag-pills" id="community-tag-filters">
+          <button type="button" class="community-filter-tag active" data-tag="all">All Crafts</button>
+          <button type="button" class="community-filter-tag" data-tag="wood">Woodworking</button>
+          <button type="button" class="community-filter-tag" data-tag="leather">Leather</button>
+          <button type="button" class="community-filter-tag" data-tag="electronics">Electronics</button>
+          <button type="button" class="community-filter-tag" data-tag="distillation">Botanical</button>
+          <button type="button" class="community-filter-tag" data-tag="3dprint">3D Print</button>
+          <button type="button" class="community-filter-tag" data-tag="candle">Candles</button>
+        </div>
+      </div>
+
+      <div class="community-recipe-grid" id="community-recipe-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </dialog>
+
+    <!-- 🎬 7. Build Timelapse & Progress Reel Creator Dialog -->
+    <dialog class="app-dialog timelapse-dialog" id="timelapse-dialog" aria-label="Project Build Timelapse Reel Creator">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">CHRONOLOGICAL BUILD ANIMATION</div>
+          <h2>Build Timelapse &amp; Progress Reel Creator</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-primary" id="timelapse-export-gif-btn">💾 Export Animated Reel</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="timelapse-player-layout">
+        <div class="timelapse-stage-wrap">
+          <canvas id="timelapse-canvas" width="800" height="500"></canvas>
+          <div class="timelapse-overlay-badge" id="timelapse-overlay-badge">
+            <span id="timelapse-badge-phase">Rough Dimensioning</span>
+            <span id="timelapse-badge-date">Oct 24, 2026</span>
+          </div>
+        </div>
+
+        <div class="timelapse-controls-bar">
+          <button type="button" class="button button-small button-outline" id="timelapse-play-btn">▶ Play</button>
+          <label style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">
+            Frame: <span id="timelapse-frame-counter">1 / 1</span>
+            <input type="range" id="timelapse-scrubber" min="0" max="0" value="0" style="flex:1">
+          </label>
+          <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px">
+            Speed:
+            <select id="timelapse-fps-select" style="font-size:11px;padding:2px 6px">
+              <option value="1">1 frame/sec (Slow Study)</option>
+              <option value="2" selected>2 frames/sec (Standard)</option>
+              <option value="4">4 frames/sec (Brisk)</option>
+              <option value="8">8 frames/sec (Hyperlapse)</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🎙️ 8. Voice-Guided Hands-Free "Shop Mode" HUD Dialog -->
+    <dialog class="app-dialog shop-mode-dialog" id="shop-mode-dialog" aria-label="Voice-Guided Hands-Free Shop Mode HUD">
+      <div class="shop-mode-hud-header">
+        <div>
+          <div class="hud-eyebrow">HANDS-FREE WORKSHOP HUD</div>
+          <h2 id="hud-project-title" style="margin:0;font-size:22px">Dining Table Build</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="hud-mic-status" id="hud-mic-status">
+            <span class="hud-mic-dot"></span>
+            <span id="hud-mic-text">Voice Active ("Next", "Done", "Timer 10m")</span>
+          </div>
+          <button type="button" class="button button-outline" id="hud-exit-btn" data-action="close-dialog" style="color:#fff;border-color:rgba(255,255,255,0.3)">✕ Exit Shop Mode</button>
+        </div>
+      </div>
+
+      <div class="shop-mode-hud-body">
+        <div class="hud-progress-strip">
+          <div class="hud-progress-track">
+            <div class="hud-progress-fill" id="hud-progress-fill" style="width:50%"></div>
+          </div>
+          <div class="hud-progress-labels">
+            <span id="hud-phase-label" class="hud-badge">Phase: Joinery</span>
+            <span id="hud-step-counter">Step 4 of 8 (50% Complete)</span>
+          </div>
+        </div>
+
+        <div class="hud-main-card">
+          <div class="hud-card-instruction" id="hud-card-instruction">
+            Route mortise slots on front apron rails to 3/8" depth.
+          </div>
+          <div class="hud-card-notes" id="hud-card-notes">
+            Use spiral upcut bit with edge guide fence. Check depth with depth gauge.
+          </div>
+        </div>
+
+        <div class="hud-tactile-controls">
+          <button type="button" class="hud-big-btn hud-btn-prev" id="hud-btn-prev">
+            <span class="hud-btn-icon">⏮</span>
+            <span class="hud-btn-text">Previous Step</span>
+          </button>
+          <button type="button" class="hud-big-btn hud-btn-done" id="hud-btn-done">
+            <span class="hud-btn-icon">✓</span>
+            <span class="hud-btn-text">Complete &amp; Next</span>
+          </button>
+          <button type="button" class="hud-big-btn hud-btn-timer" id="hud-btn-timer">
+            <span class="hud-btn-icon">⏱</span>
+            <span class="hud-btn-text" id="hud-timer-text">15m Timer</span>
+          </button>
+          <button type="button" class="hud-big-btn hud-btn-camera" id="hud-btn-camera">
+            <span class="hud-btn-icon">📷</span>
+            <span class="hud-btn-text">Snap Photo</span>
+          </button>
+        </div>
+
+        <div class="hud-voice-hints">
+          <span>🎙 Voice Commands:</span>
+          <code>"Next" / "Done"</code>
+          <code>"Previous"</code>
+          <code>"Timer [N] minutes"</code>
+          <code>"Note [your text]"</code>
+        </div>
+      </div>
+    </dialog>
+
   </body>
 </html>
