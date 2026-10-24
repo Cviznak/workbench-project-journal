@@ -3939,6 +3939,7 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "electronics") renderElectronicsView();
   if (targetView === "programming") renderProgrammingView();
   if (targetView === "art") renderArtView();
+  if (targetView === "printing") renderSpoolRack();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -6433,6 +6434,7 @@ function renderInventory() {
     const unitPrice = Number(item.price || item.cost) || 0;
     const totalVal = qty * unitPrice;
     const isLow = qty <= (Number(item.lowStockThreshold) || 1);
+    const bumpDelta = item.unit === "g" ? 50 : 1;
 
     return `
       <div class="inventory-card inventory-card-material">
@@ -6447,31 +6449,38 @@ function renderInventory() {
 
         <div>
           <h3 class="inventory-card-title">${escapeHTML(item.name)}</h3>
+          ${item.spoolData ? `
+            <div style="display:inline-flex;align-items:center;gap:6px;margin:2px 0 6px">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${escapeHTML(item.spoolData.colorHex || '#333')};border:1.5px solid rgba(0,0,0,0.2)"></span>
+              <span style="font-size:11px;font-weight:600;color:var(--ink-secondary)">${escapeHTML(item.spoolData.material || "Filament")} · ${escapeHTML(item.spoolData.colorName || "")}</span>
+              ${item.spoolData.slot ? `<span class="inventory-chip" style="font-size:10px;padding:1px 5px">📍 ${escapeHTML(item.spoolData.slot)}</span>` : ""}
+            </div>
+          ` : ""}
           ${item.notes ? `<p class="inventory-card-notes">${escapeHTML(item.notes)}</p>` : ""}
         </div>
 
         <div class="inventory-chips-row">
           ${item.supplier ? `<span class="inventory-chip">🏷️ ${escapeHTML(item.supplier)}</span>` : ""}
-          ${totalVal > 0 ? `<span class="inventory-chip highlight">Stock Value: ${formatMoney(totalVal)}</span>` : ""}
+          ${totalVal > 0 ? `<span class="inventory-chip highlight">Stock Value: ${formatMoney(totalVal)}${item.spoolData?.spoolCost ? ` ($${item.spoolData.spoolCost.toFixed(2)}/spool)` : ""}</span>` : ""}
         </div>
 
         <div class="inventory-qty-row">
           <div class="inventory-qty-control">
-            <button type="button" class="qty-btn" data-action="inventory-bump" data-id="${item.id}" data-delta="-1" title="Subtract 1">−</button>
+            <button type="button" class="qty-btn" data-action="inventory-bump" data-id="${item.id}" data-delta="${-bumpDelta}" title="Subtract ${bumpDelta}">−</button>
             <span class="inventory-qty-val">${qty}</span>
             <span class="inventory-unit">${escapeHTML(item.unit || "units")}</span>
-            <button type="button" class="qty-btn" data-action="inventory-bump" data-id="${item.id}" data-delta="1" title="Add 1">＋</button>
+            <button type="button" class="qty-btn" data-action="inventory-bump" data-id="${item.id}" data-delta="${bumpDelta}" title="Add ${bumpDelta}">＋</button>
           </div>
         </div>
 
         <div class="inventory-card-bottom">
-          <div style="display:flex;gap:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">📥 Use in Project</button>
-            <button type="button" class="small-action" data-action="restock-material" data-id="${item.id}" title="Send this item to Shopping List">🛒 Restock</button>
+            ${item.spoolData ? `<button type="button" class="small-action" data-action="weigh-spool" data-id="${item.id}" title="Weigh or deduct filament">⚖️ Weigh / Deduct</button>` : `<button type="button" class="small-action" data-action="restock-material" data-id="${item.id}" title="Send this item to Shopping List">🛒 Restock</button>`}
           </div>
           <div style="display:flex;gap:4px">
-            <button type="button" class="icon-link-btn" data-action="edit-inventory-item" data-id="${item.id}" title="Edit material">✎</button>
-            <button type="button" class="icon-link-btn danger-hover" data-action="delete-inventory-item" data-id="${item.id}" title="Delete material">×</button>
+            <button type="button" class="icon-link-btn" data-action="${item.spoolData ? 'edit-spool' : 'edit-inventory-item'}" data-id="${item.id}" title="${item.spoolData ? 'Edit filament spool' : 'Edit material'}">✎</button>
+            <button type="button" class="icon-link-btn danger-hover" data-action="${item.spoolData ? 'delete-spool' : 'delete-inventory-item'}" data-id="${item.id}" title="Delete">×</button>
           </div>
         </div>
       </div>
@@ -6727,6 +6736,7 @@ async function handleInventorySubmit(event) {
 
   state.inventory = state.inventory || [];
   if (existing) {
+    if (existing.spoolData) item.spoolData = existing.spoolData;
     Object.assign(existing, item);
   } else {
     state.inventory.unshift(item);
@@ -6750,12 +6760,17 @@ async function handleInventoryBump(id, delta) {
   if (!item) return;
 
   item.quantity = Math.max(0, (Number(item.quantity) || 0) + delta);
+  if (item.spoolData) {
+    item.spoolData.netWeight = item.quantity;
+    item.spoolData.grossWeight = item.quantity + (Number(item.spoolData.tareWeight) || 240);
+  }
   item.updatedAt = new Date().toISOString();
 
   try {
     await persistState();
     renderInventory();
     renderNavigation();
+    if (typeof renderSpoolRack === "function") renderSpoolRack();
   } catch (e) {
     console.error(e);
   }
@@ -10449,6 +10464,49 @@ async function handleAction(action, target) {
     if (specs) {
       void navigator.clipboard.writeText(specs).then(() => showToast("Copied 3D print flow specs to clipboard!"));
     }
+    return;
+  }
+  if (action === "open-add-spool-dialog") {
+    openAddSpoolDialog();
+    return;
+  }
+  if (action === "close-spool-dialog") {
+    closeSpoolDialog();
+    return;
+  }
+  if (action === "edit-spool") {
+    openAddSpoolDialog(target.dataset.id || id);
+    return;
+  }
+  if (action === "delete-spool") {
+    void deleteSpool(target.dataset.id || id);
+    return;
+  }
+  if (action === "delete-spool-from-modal") {
+    const modalId = $("#spool-form input[name='id']")?.value;
+    if (modalId) void deleteSpool(modalId);
+    return;
+  }
+  if (action === "weigh-spool") {
+    openWeighSpoolDialog(target.dataset.id || id);
+    return;
+  }
+  if (action === "close-spool-weigh-dialog") {
+    closeWeighSpoolDialog();
+    return;
+  }
+  if (action === "load-spool-to-calc") {
+    loadSpoolToCostCalc(target.dataset.id || id);
+    return;
+  }
+  if (action === "quick-add-sample-spools") {
+    void quickAddSampleSpools();
+    return;
+  }
+  if (action === "deduct-job-from-spool") {
+    const spoolId = target.dataset.spoolId;
+    const weightG = parseFloat(target.dataset.weight) || 0;
+    void deductJobFromSpool(spoolId, weightG);
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -27038,6 +27096,680 @@ function updateResinInhibition() {
   }
 }
 
+// --- 🧵 Filament Spool Rack & Multi-Spool Depot Management ---
+const FILAMENT_DENSITIES = {
+  PLA: 1.24,
+  "PLA+": 1.24,
+  PETG: 1.27,
+  ABS: 1.04,
+  ASA: 1.07,
+  "TPU 95A": 1.21,
+  TPU: 1.21,
+  "PA-CF": 1.14,
+  PA: 1.14,
+  Nylon: 1.14,
+  PC: 1.20,
+  PVA: 1.23,
+  Resin: 1.10
+};
+
+function getFilamentDensity(material) {
+  if (!material) return 1.24;
+  const matUpper = String(material).trim().toUpperCase();
+  for (const [key, val] of Object.entries(FILAMENT_DENSITIES)) {
+    if (matUpper.includes(key.toUpperCase())) return val;
+  }
+  return 1.24;
+}
+
+function calculateFilamentLength(netWeightG, material = "PLA", diameterMm = 1.75) {
+  const density = getFilamentDensity(material);
+  const volCm3 = Math.max(0, Number(netWeightG) || 0) / density;
+  const radiusCm = (Number(diameterMm) || 1.75) / 20; // convert mm diameter to cm radius
+  const areaCm2 = Math.PI * Math.pow(radiusCm, 2);
+  const lengthM = areaCm2 > 0 ? (volCm3 / areaCm2) / 100 : 0;
+  return Math.round(lengthM);
+}
+
+function getSpoolInventoryItems() {
+  state.inventory = state.inventory || [];
+  return state.inventory.filter(item => item.spoolData || item.category === "3D Printing & Filament");
+}
+
+function renderSpoolRack() {
+  const grid = $("#spool-rack-grid");
+  const statsBadge = $("#spool-rack-stats-badge");
+  const spoolSelect = $("#print-cost-spool-select");
+  if (!grid) return;
+
+  const spools = getSpoolInventoryItems();
+  const search = ($("#spool-rack-search")?.value || "").trim().toLowerCase();
+  const matFilter = $("#spool-rack-material-filter")?.value || "all";
+  const sortMode = $("#spool-rack-sort")?.value || "remaining-desc";
+
+  // Filter spools
+  let filtered = spools.filter(item => {
+    const sData = item.spoolData || {};
+    const mat = sData.material || "PLA";
+    if (matFilter !== "all" && !mat.toLowerCase().includes(matFilter.toLowerCase())) return false;
+    if (search) {
+      const haystack = `${item.name} ${sData.material || ""} ${sData.brand || ""} ${sData.colorName || ""} ${sData.slot || ""} ${item.location || ""} ${item.notes || ""}`.toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort spools
+  filtered.sort((a, b) => {
+    const aNet = Number(a.spoolData?.netWeight ?? a.quantity) || 0;
+    const bNet = Number(b.spoolData?.netWeight ?? b.quantity) || 0;
+    if (sortMode === "remaining-desc") return bNet - aNet;
+    if (sortMode === "remaining-asc") return aNet - bNet;
+    if (sortMode === "material") return (a.spoolData?.material || "").localeCompare(b.spoolData?.material || "");
+    if (sortMode === "name") return (a.name || "").localeCompare(b.name || "");
+    return 0;
+  });
+
+  // Calculate overall stats
+  const totalNetG = spools.reduce((sum, s) => sum + (Number(s.spoolData?.netWeight ?? s.quantity) || 0), 0);
+  const totalVal = spools.reduce((sum, s) => {
+    const net = Number(s.spoolData?.netWeight ?? s.quantity) || 0;
+    const pricePerG = Number(s.price) || ((Number(s.spoolData?.spoolCost) || 0) / (Number(s.spoolData?.initialNetWeight) || 1000));
+    return sum + (net * pricePerG);
+  }, 0);
+
+  if (statsBadge) {
+    statsBadge.textContent = `${spools.length} spool${spools.length === 1 ? "" : "s"} · ${(totalNetG / 1000).toFixed(2)}kg ($${totalVal.toFixed(2)})`;
+  }
+
+  // Update spool selector in #panel-print-cost
+  if (spoolSelect) {
+    const curVal = spoolSelect.value;
+    spoolSelect.innerHTML = `<option value="">-- Manual Material &amp; Spool Price --</option>` +
+      spools.map(s => {
+        const net = Math.round(Number(s.spoolData?.netWeight ?? s.quantity) || 0);
+        const cost = Number(s.spoolData?.spoolCost ?? s.cost ?? 22).toFixed(2);
+        return `<option value="${s.id}" ${s.id === curVal ? "selected" : ""}>${escapeHTML(s.name)} (${net}g left · $${cost})</option>`;
+      }).join("");
+  }
+
+  // Render cards
+  if (filtered.length === 0) {
+    grid.innerHTML = `
+      <div class="spool-rack-empty">
+        <div style="font-size:32px;margin-bottom:6px">🧵</div>
+        <h4 style="margin:0 0 4px;font-size:15px;color:var(--ink)">${spools.length === 0 ? "No Filament Spools in Inventory Yet" : "No Spools Match Your Search"}</h4>
+        <p style="font-size:12px;margin:0 0 12px;color:var(--muted)">${spools.length === 0 ? "Track filament polymer, color, tare weight, remaining grams, and AMS slots." : "Try clearing filters or search query."}</p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button type="button" class="button button-primary button-small" data-action="open-add-spool-dialog">＋ Add New Spool</button>
+          ${spools.length === 0 ? `<button type="button" class="button button-outline button-small" data-action="quick-add-sample-spools">✨ Load 5 Starter Spools</button>` : ""}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(item => {
+    const sData = item.spoolData || {};
+    const material = sData.material || "PLA";
+    const colorHex = sData.colorHex || "#333333";
+    const colorName = sData.colorName || "Standard";
+    const brand = sData.brand || item.supplier || "";
+    const slot = sData.slot || item.location || "";
+    const initialNet = Number(sData.initialNetWeight) || 1000;
+    const tare = Number(sData.tareWeight) || 240;
+    const netG = Math.max(0, Math.round(Number(sData.netWeight ?? item.quantity) || 0));
+    const grossG = sData.grossWeight ? Math.round(sData.grossWeight) : (netG + tare);
+    const spoolCost = Number(sData.spoolCost ?? item.cost ?? 21.99);
+    const pricePerG = Number(item.price) || (spoolCost / initialNet);
+    const remainingVal = netG * pricePerG;
+    const remainingMeters = calculateFilamentLength(netG, material, sData.diameterMm || 1.75);
+    const pct = Math.min(100, Math.max(0, Math.round((netG / initialNet) * 100)));
+    const lowStock = netG <= (Number(item.lowStockThreshold) || 150);
+
+    // Color tag class
+    const matKey = material.toLowerCase().replace(/[^a-z]/g, "");
+    const matTagClass = `material-${matKey}`;
+
+    // Meter bar color
+    const meterColor = pct <= 15 ? "#ef4444" : (pct <= 40 ? "#f59e0b" : "#10b981");
+
+    return `
+      <div class="spool-card ${lowStock ? 'low-stock' : ''}" data-id="${item.id}">
+        <div class="spool-card-top">
+          <div class="spool-reel-icon" style="background:${escapeHTML(colorHex)};" title="${escapeHTML(colorName)}">
+            <div class="spool-reel-hub"></div>
+          </div>
+          <div class="spool-card-info">
+            <div class="spool-badges-row">
+              <span class="spool-tag ${matTagClass}">${escapeHTML(material)}</span>
+              ${slot ? `<span class="spool-tag slot-tag">📍 ${escapeHTML(slot)}</span>` : ""}
+              ${lowStock ? `<span class="spool-tag" style="background:#fee2e2;color:#b91c1c;border-color:#fca5a5">⚠️ Low Stock</span>` : ""}
+            </div>
+            <h4 class="spool-card-title" title="${escapeHTML(item.name)}">${escapeHTML(item.name)}</h4>
+            <div class="spool-card-sub">
+              <span>${brand ? escapeHTML(brand) : "Filament"}</span>
+              <span>•</span>
+              <span>$${spoolCost.toFixed(2)} spool</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Meter bar -->
+        <div class="spool-meter-container">
+          <div class="spool-meter-header">
+            <span style="font-weight:600;color:var(--ink-secondary)">Remaining: ${pct}%</span>
+            <span style="color:var(--muted)">Tare: ${tare}g · Gross: ${grossG}g</span>
+          </div>
+          <div class="spool-meter-track">
+            <div class="spool-meter-fill" style="width:${pct}%;background:${meterColor};"></div>
+          </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="spool-stats-grid">
+          <div class="spool-stat-col">
+            <span class="spool-stat-label">Net Grams</span>
+            <span class="spool-stat-val">${netG}g</span>
+          </div>
+          <div class="spool-stat-col">
+            <span class="spool-stat-label">Length</span>
+            <span class="spool-stat-val">~${remainingMeters}m</span>
+          </div>
+          <div class="spool-stat-col">
+            <span class="spool-stat-label">Asset Value</span>
+            <span class="spool-stat-val">$${remainingVal.toFixed(2)}</span>
+          </div>
+        </div>
+
+        ${item.notes ? `
+          <div style="font-size:11px;color:var(--muted);background:var(--surface-sunken);padding:4px 8px;border-radius:6px;border:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escapeHTML(item.notes)}">
+            ⚙️ ${escapeHTML(item.notes)}
+          </div>
+        ` : ""}
+
+        <!-- Actions -->
+        <div class="spool-card-actions">
+          <div style="display:flex;gap:4px">
+            <button type="button" class="button button-small button-primary" data-action="weigh-spool" data-id="${item.id}" title="Scale weigh-in or deduct print usage">⚖️ Weigh / Deduct</button>
+            <button type="button" class="button button-small button-outline" data-action="load-spool-to-calc" data-id="${item.id}" title="Pre-fill 3D Print Cost Estimator with this spool">📥 Load to Calc</button>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button type="button" class="icon-link-btn" data-action="edit-spool" data-id="${item.id}" title="Edit spool details">✎</button>
+            <button type="button" class="icon-link-btn danger-hover" data-action="delete-spool" data-id="${item.id}" title="Delete spool from rack & inventory">×</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function openAddSpoolDialog(spoolId = null) {
+  const dialog = $("#spool-dialog");
+  const form = $("#spool-form");
+  if (!dialog || !form) return;
+
+  form.reset();
+  const idInput = form.querySelector("input[name='id']");
+  const delBtn = $("#delete-spool-modal-btn");
+  const titleEl = $("#spool-dialog-title");
+
+  if (spoolId) {
+    const existing = (state.inventory || []).find(i => i.id === spoolId);
+    if (!existing) return;
+    const sData = existing.spoolData || {};
+
+    if (idInput) idInput.value = existing.id;
+    if (titleEl) titleEl.innerHTML = `Edit Filament Spool<span class="heading-period">.</span>`;
+    if (delBtn) delBtn.classList.remove("hidden");
+
+    if (form.elements.material) form.elements.material.value = sData.material || "PLA";
+    if (form.elements.brand) form.elements.brand.value = sData.brand || existing.supplier || "";
+    if (form.elements.colorName) form.elements.colorName.value = sData.colorName || "";
+    if (form.elements.colorHex) form.elements.colorHex.value = sData.colorHex || "#333333";
+    if (form.elements.spoolCost) form.elements.spoolCost.value = sData.spoolCost ?? existing.cost ?? 21.99;
+    if (form.elements.diameterMm) form.elements.diameterMm.value = sData.diameterMm || 1.75;
+    if (form.elements.initialNetWeight) form.elements.initialNetWeight.value = sData.initialNetWeight || 1000;
+    const tare = sData.tareWeight ?? 240;
+    if (form.elements.tareWeight) form.elements.tareWeight.value = tare;
+    const net = sData.netWeight ?? existing.quantity ?? 1000;
+    if (form.elements.grossWeight) form.elements.grossWeight.value = sData.grossWeight ?? (Number(net) + Number(tare));
+    if (form.elements.netWeight) form.elements.netWeight.value = net;
+    if (form.elements.location) form.elements.location.value = sData.slot || existing.location || "";
+    if (form.elements.lowStockThreshold) form.elements.lowStockThreshold.value = existing.lowStockThreshold ?? 150;
+    if (form.elements.notes) form.elements.notes.value = existing.notes || "";
+  } else {
+    if (idInput) idInput.value = "";
+    if (titleEl) titleEl.innerHTML = `Add Filament Spool<span class="heading-period">.</span>`;
+    if (delBtn) delBtn.classList.add("hidden");
+    if (form.elements.material) form.elements.material.value = "PLA";
+    if (form.elements.colorHex) form.elements.colorHex.value = "#333333";
+    if (form.elements.spoolCost) form.elements.spoolCost.value = 21.99;
+    if (form.elements.diameterMm) form.elements.diameterMm.value = "1.75";
+    if (form.elements.initialNetWeight) form.elements.initialNetWeight.value = 1000;
+    if (form.elements.tareWeight) form.elements.tareWeight.value = 240;
+    if (form.elements.grossWeight) form.elements.grossWeight.value = 1240;
+    if (form.elements.netWeight) form.elements.netWeight.value = 1000;
+    if (form.elements.lowStockThreshold) form.elements.lowStockThreshold.value = 150;
+  }
+
+  updateSpoolModalWeightHint();
+  if (typeof dialog.showModal === "function") {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute("open", "");
+  }
+}
+
+function closeSpoolDialog() {
+  const dialog = $("#spool-dialog");
+  if (!dialog) return;
+  if (typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
+}
+
+function updateSpoolModalWeightHint() {
+  const form = $("#spool-form");
+  const hint = $("#spool-weight-calc-hint");
+  if (!form || !hint) return;
+  const gross = parseFloat(form.elements.grossWeight?.value) || 0;
+  const tare = parseFloat(form.elements.tareWeight?.value) || 0;
+  const net = Math.max(0, gross - tare);
+  const mat = form.elements.material?.value || "PLA";
+  const lengthM = calculateFilamentLength(net, mat, parseFloat(form.elements.diameterMm?.value) || 1.75);
+  hint.innerHTML = `💡 Gross (${gross}g) − Tare (${tare}g) = <strong>${net}g net remaining</strong> (~${lengthM} meters of ${escapeHTML(mat)})`;
+}
+
+async function handleSpoolSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const idVal = form.elements.id?.value;
+  const material = (form.elements.material?.value || "PLA").trim();
+  const brand = (form.elements.brand?.value || "").trim();
+  const colorName = (form.elements.colorName?.value || "Standard").trim();
+  const colorHex = form.elements.colorHex?.value || "#333333";
+  const spoolCost = Math.max(0, parseFloat(form.elements.spoolCost?.value) || 21.99);
+  const diameterMm = parseFloat(form.elements.diameterMm?.value) || 1.75;
+  const initialNet = Math.max(50, parseFloat(form.elements.initialNetWeight?.value) || 1000);
+  const tare = Math.max(0, parseFloat(form.elements.tareWeight?.value) || 240);
+  const gross = Math.max(0, parseFloat(form.elements.grossWeight?.value) || (initialNet + tare));
+  const netWeight = Math.max(0, gross - tare);
+  const location = (form.elements.location?.value || "").trim();
+  const lowStockThreshold = Math.max(0, parseInt(form.elements.lowStockThreshold?.value, 10) || 150);
+  const notes = (form.elements.notes?.value || "").trim();
+
+  state.inventory = state.inventory || [];
+  const existing = idVal ? state.inventory.find(i => i.id === idVal) : null;
+  const itemId = existing?.id || ("spool_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6));
+
+  const pricePerGram = Number((spoolCost / initialNet).toFixed(4));
+  const name = `${brand ? brand + ' ' : ''}${material} - ${colorName}`;
+
+  const spoolItem = {
+    id: itemId,
+    type: "material",
+    name,
+    category: "3D Printing & Filament",
+    quantity: netWeight,
+    unit: "g",
+    price: pricePerGram,
+    cost: spoolCost,
+    location: location || "Spool Rack",
+    supplier: brand || "",
+    lowStockThreshold,
+    notes,
+    spoolData: {
+      material,
+      brand,
+      colorName,
+      colorHex,
+      diameterMm,
+      density: getFilamentDensity(material),
+      spoolCost,
+      initialNetWeight: initialNet,
+      tareWeight: tare,
+      grossWeight: gross,
+      netWeight,
+      slot: location || ""
+    },
+    updatedAt: new Date().toISOString()
+  };
+
+  if (existing) {
+    Object.assign(existing, spoolItem);
+  } else {
+    spoolItem.createdAt = new Date().toISOString();
+    state.inventory.unshift(spoolItem);
+  }
+
+  makeActivity("note", `Updated filament depot: ${name} (${netWeight}g remaining in ${location || "Spool Rack"})`);
+  await persistState();
+  renderSpoolRack();
+  if (typeof renderInventory === "function") renderInventory();
+  closeSpoolDialog();
+  showToast(`Saved ${name} (${netWeight}g) to rack & inventory!`);
+}
+
+async function deleteSpool(spoolId) {
+  if (!spoolId) return;
+  state.inventory = state.inventory || [];
+  const idx = state.inventory.findIndex(i => i.id === spoolId);
+  if (idx === -1) return;
+  const name = state.inventory[idx].name;
+  if (!confirm(`Are you sure you want to remove "${name}" from your spool rack and inventory?`)) return;
+
+  state.inventory.splice(idx, 1);
+  await persistState();
+  renderSpoolRack();
+  if (typeof renderInventory === "function") renderInventory();
+  closeSpoolDialog();
+  showToast(`Removed "${name}" from rack and inventory.`);
+}
+
+let activeWeighSpoolId = null;
+let activeWeighMode = "scale";
+
+function openWeighSpoolDialog(spoolId) {
+  const dialog = $("#spool-weigh-dialog");
+  const spool = (state.inventory || []).find(i => i.id === spoolId);
+  if (!dialog || !spool) return;
+
+  activeWeighSpoolId = spoolId;
+  activeWeighMode = "scale";
+  const idInput = $("#spool-weigh-id");
+  if (idInput) idInput.value = spoolId;
+
+  const sData = spool.spoolData || {};
+  const summaryEl = $("#spool-weigh-summary");
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div class="spool-reel-icon" style="background:${escapeHTML(sData.colorHex || '#333')};width:36px;height:36px">
+        <div class="spool-reel-hub" style="width:12px;height:12px"></div>
+      </div>
+      <div style="flex:1">
+        <h4 style="margin:0;font-size:13px;font-weight:700;color:var(--ink)">${escapeHTML(spool.name)}</h4>
+        <div style="font-size:11px;color:var(--muted)">Current Net: <strong>${Math.round(spool.quantity || 0)}g</strong> · Tare: ${sData.tareWeight ?? 240}g</div>
+      </div>
+    `;
+  }
+
+  setWeighDialogMode("scale");
+
+  const tare = Number(sData.tareWeight ?? 240);
+  const curNet = Number(spool.quantity ?? 0);
+  const grossInput = $("#spool-weigh-gross-input");
+  const deductInput = $("#spool-weigh-deduct-input");
+  if (grossInput) grossInput.value = curNet + tare;
+  if (deductInput) deductInput.value = "";
+
+  updateWeighDialogPreview();
+
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+}
+
+function closeWeighSpoolDialog() {
+  const dialog = $("#spool-weigh-dialog");
+  if (!dialog) return;
+  if (typeof dialog.close === "function") dialog.close();
+  else dialog.removeAttribute("open");
+  activeWeighSpoolId = null;
+}
+
+function setWeighDialogMode(mode) {
+  activeWeighMode = mode;
+  const isScale = mode === "scale";
+  const scalePanel = $("#spool-weigh-scale-panel");
+  const deductPanel = $("#spool-weigh-deduct-panel");
+  if (scalePanel) scalePanel.style.display = isScale ? "block" : "none";
+  if (deductPanel) deductPanel.style.display = isScale ? "none" : "block";
+  $("#spool-weigh-tab-scale")?.classList.toggle("button-primary", isScale);
+  $("#spool-weigh-tab-scale")?.classList.toggle("button-outline", !isScale);
+  $("#spool-weigh-tab-deduct")?.classList.toggle("button-primary", !isScale);
+  $("#spool-weigh-tab-deduct")?.classList.toggle("button-outline", isScale);
+  updateWeighDialogPreview();
+}
+
+function updateWeighDialogPreview() {
+  const spool = (state.inventory || []).find(i => i.id === activeWeighSpoolId);
+  const previewBox = $("#spool-weigh-preview-box");
+  if (!spool || !previewBox) return;
+
+  const sData = spool.spoolData || {};
+  const tare = Number(sData.tareWeight ?? 240);
+  const curNet = Number(spool.quantity ?? 0);
+  let newNet = curNet;
+
+  if (activeWeighMode === "scale") {
+    const gross = parseFloat($("#spool-weigh-gross-input")?.value);
+    if (!isNaN(gross)) {
+      newNet = Math.max(0, Math.round(gross - tare));
+    }
+  } else {
+    const deduct = parseFloat($("#spool-weigh-deduct-input")?.value);
+    if (!isNaN(deduct)) {
+      newNet = Math.max(0, Math.round(curNet - deduct));
+    }
+  }
+
+  const delta = newNet - curNet;
+  const lengthM = calculateFilamentLength(newNet, sData.material || "PLA", sData.diameterMm || 1.75);
+  const initialNet = Number(sData.initialNetWeight || 1000);
+  const pct = Math.min(100, Math.round((newNet / initialNet) * 100));
+
+  previewBox.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:11px;font-weight:700">UPDATED NET FILAMENT:</span>
+      <strong style="font-size:16px;color:var(--ink)">${newNet}g <span style="font-size:11px;font-weight:normal;color:var(--muted)">(${pct}% remaining)</span></strong>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary)">
+      ${delta !== 0 ? `Change: <strong style="color:${delta < 0 ? '#ef4444' : '#10b981'}">${delta > 0 ? '+' + delta : delta}g</strong> • ` : ""}
+      Estimated remaining length: <strong>~${lengthM} meters</strong>
+    </div>
+  `;
+}
+
+async function handleWeighSpoolSubmit(event) {
+  event.preventDefault();
+  const spool = (state.inventory || []).find(i => i.id === activeWeighSpoolId);
+  if (!spool) return;
+
+  const sData = spool.spoolData || {};
+  const tare = Number(sData.tareWeight ?? 240);
+  const curNet = Number(spool.quantity ?? 0);
+  let newNet = curNet;
+
+  if (activeWeighMode === "scale") {
+    const gross = parseFloat($("#spool-weigh-gross-input")?.value);
+    if (isNaN(gross) || gross < 0) {
+      showToast("Please enter a valid scale reading.", "warning");
+      return;
+    }
+    newNet = Math.max(0, Math.round(gross - tare));
+  } else {
+    const deduct = parseFloat($("#spool-weigh-deduct-input")?.value);
+    if (isNaN(deduct) || deduct <= 0) {
+      showToast("Please enter print grams to deduct.", "warning");
+      return;
+    }
+    newNet = Math.max(0, Math.round(curNet - deduct));
+  }
+
+  spool.quantity = newNet;
+  if (!spool.spoolData) spool.spoolData = {};
+  spool.spoolData.netWeight = newNet;
+  spool.spoolData.grossWeight = newNet + tare;
+  spool.updatedAt = new Date().toISOString();
+
+  makeActivity("note", `Weighed spool ${spool.name}: updated to ${newNet}g remaining.`);
+  await persistState();
+  renderSpoolRack();
+  if (typeof renderInventory === "function") renderInventory();
+  closeWeighSpoolDialog();
+  showToast(`Updated ${spool.name}: ${newNet}g remaining!`);
+}
+
+async function quickAddSampleSpools() {
+  const starterSpools = [
+    {
+      brand: "Bambu Lab",
+      material: "PLA",
+      colorName: "Matte Charcoal",
+      colorHex: "#262626",
+      spoolCost: 19.99,
+      tareWeight: 240,
+      initialNetWeight: 1000,
+      netWeight: 820,
+      location: "AMS Slot 1",
+      notes: "Nozzle 220°C, Bed 55°C, Flow 0.98"
+    },
+    {
+      brand: "Polymaker",
+      material: "PLA",
+      colorName: "Alpine White",
+      colorHex: "#f8f9fa",
+      spoolCost: 21.99,
+      tareWeight: 180,
+      initialNetWeight: 1000,
+      netWeight: 1000,
+      location: "AMS Slot 2",
+      notes: "Cardboard spool. PolyLite PLA."
+    },
+    {
+      brand: "eSun",
+      material: "PETG",
+      colorName: "Fire Red",
+      colorHex: "#dc2626",
+      spoolCost: 18.50,
+      tareWeight: 220,
+      initialNetWeight: 1000,
+      netWeight: 650,
+      location: "AMS Slot 3",
+      notes: "Nozzle 240°C, Bed 75°C, Fan 30%"
+    },
+    {
+      brand: "Overture",
+      material: "TPU 95A",
+      colorName: "Royal Blue",
+      colorHex: "#2563eb",
+      spoolCost: 24.99,
+      tareWeight: 140,
+      initialNetWeight: 1000,
+      netWeight: 420,
+      location: "Drybox A",
+      notes: "Direct drive only, Speed max 35mm/s"
+    },
+    {
+      brand: "Bambu Lab",
+      material: "PLA",
+      colorName: "Silk Gold",
+      colorHex: "#eab308",
+      spoolCost: 23.99,
+      tareWeight: 240,
+      initialNetWeight: 1000,
+      netWeight: 910,
+      location: "AMS Slot 4",
+      notes: "Outer perimeter slow 40mm/s for max shine"
+    }
+  ];
+
+  state.inventory = state.inventory || [];
+  let addedCount = 0;
+  for (const s of starterSpools) {
+    const pricePerG = Number((s.spoolCost / s.initialNetWeight).toFixed(4));
+    const name = `${s.brand} ${s.material} - ${s.colorName}`;
+    if (state.inventory.some(i => i.name === name)) continue;
+
+    state.inventory.push({
+      id: "spool_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+      type: "material",
+      name,
+      category: "3D Printing & Filament",
+      quantity: s.netWeight,
+      unit: "g",
+      price: pricePerG,
+      cost: s.spoolCost,
+      location: s.location,
+      supplier: s.brand,
+      lowStockThreshold: 150,
+      notes: s.notes,
+      spoolData: {
+        material: s.material,
+        brand: s.brand,
+        colorName: s.colorName,
+        colorHex: s.colorHex,
+        diameterMm: 1.75,
+        density: getFilamentDensity(s.material),
+        spoolCost: s.spoolCost,
+        initialNetWeight: s.initialNetWeight,
+        tareWeight: s.tareWeight,
+        grossWeight: s.netWeight + s.tareWeight,
+        netWeight: s.netWeight,
+        slot: s.location
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    addedCount++;
+  }
+
+  await persistState();
+  renderSpoolRack();
+  if (typeof renderInventory === "function") renderInventory();
+  showToast(addedCount > 0 ? `Added ${addedCount} popular starter spools to your rack and inventory!` : "Starter spools are already in your inventory!");
+}
+
+function loadSpoolToCostCalc(spoolId) {
+  const spool = (state.inventory || []).find(i => i.id === spoolId);
+  if (!spool) return;
+
+  const sData = spool.spoolData || {};
+  const spoolSelect = $("#print-cost-spool-select");
+  const priceInput = $("#print-spool-price");
+  const techSelect = $("#print-tech");
+
+  if (spoolSelect) spoolSelect.value = spoolId;
+  if (priceInput) priceInput.value = sData.spoolCost ?? spool.cost ?? 22;
+  if (techSelect) {
+    if (sData.material === "Resin") techSelect.value = "sla";
+    else techSelect.value = "fdm";
+  }
+
+  update3DPrintCostCalc();
+
+  const costPanel = $("#panel-print-cost");
+  if (costPanel) {
+    costPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+    costPanel.style.outline = "2px solid var(--primary)";
+    setTimeout(() => { costPanel.style.outline = ""; }, 1500);
+  }
+
+  showToast(`Loaded "${spool.name}" ($${(sData.spoolCost ?? spool.cost ?? 22).toFixed(2)}) into Cost Estimator.`);
+}
+
+async function deductJobFromSpool(spoolId, weightG) {
+  const spool = (state.inventory || []).find(i => i.id === spoolId);
+  if (!spool || !weightG) return;
+
+  const curNet = Number(spool.quantity ?? 0);
+  const newNet = Math.max(0, Math.round(curNet - weightG));
+  const sData = spool.spoolData || {};
+  const tare = Number(sData.tareWeight ?? 240);
+
+  spool.quantity = newNet;
+  if (!spool.spoolData) spool.spoolData = {};
+  spool.spoolData.netWeight = newNet;
+  spool.spoolData.grossWeight = newNet + tare;
+  spool.updatedAt = new Date().toISOString();
+
+  makeActivity("note", `Deducted ${weightG}g print from ${spool.name} (${newNet}g left).`);
+  await persistState();
+  renderSpoolRack();
+  update3DPrintCostCalc();
+  if (typeof renderInventory === "function") renderInventory();
+  showToast(`Deducted ${weightG}g! ${spool.name} now has ${newNet}g remaining.`);
+}
+
 // --- 🖨️ 3D Printing Studio Tools ---
 function update3DPrintCostCalc() {
   const tech = $("#print-tech")?.value || "fdm";
@@ -27062,6 +27794,30 @@ function update3DPrintCostCalc() {
   const profit = baseCost * (markupPct / 100);
   const quoteTotal = baseCost + profit;
 
+  const selectedSpoolId = $("#print-cost-spool-select")?.value;
+  const activeSpool = selectedSpoolId ? (state.inventory || []).find(i => i.id === selectedSpoolId) : null;
+
+  let spoolCalloutHTML = "";
+  if (activeSpool) {
+    const sData = activeSpool.spoolData || {};
+    const curNet = Number(activeSpool.quantity ?? 0);
+    const afterNet = Math.max(0, Math.round(curNet - weightG));
+    const remMeters = calculateFilamentLength(afterNet, sData.material || "PLA", sData.diameterMm || 1.75);
+    spoolCalloutHTML = `
+      <div style="margin-top:10px;padding:8px 12px;background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${escapeHTML(sData.colorHex || '#333')};border:1.5px solid rgba(0,0,0,0.2)"></span>
+          <span style="font-size:12px;font-weight:600;color:var(--ink)">${escapeHTML(activeSpool.name)}</span>
+          <span style="font-size:11px;color:var(--muted)">(${curNet}g on spool)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--ink-secondary)">Remaining after job: <strong>${afterNet}g</strong> (~${remMeters}m)</span>
+          <button type="button" class="button button-small button-outline" data-action="deduct-job-from-spool" data-spool-id="${activeSpool.id}" data-weight="${weightG}">✂️ Deduct ${weightG}g from Spool</button>
+        </div>
+      </div>
+    `;
+  }
+
   res.innerHTML = `
     <div class="print-cost-card">
       <div class="cnc-stat-pill">
@@ -27085,6 +27841,7 @@ function update3DPrintCostCalc() {
         <span class="cnc-stat-pill-val" style="color:var(--primary)">$${quoteTotal.toFixed(2)}</span>
       </div>
     </div>
+    ${spoolCalloutHTML}
   `;
 }
 
@@ -27711,7 +28468,8 @@ function initCraftStudios() {
   $("#resin-pigment-batch")?.addEventListener("input", updateResinPigment);
   ["#resin-master-mat", "#resin-rubber-class"].forEach(s => $(s)?.addEventListener("change", updateResinInhibition));
 
-  // 3D Printing Studio
+  // 3D Printing Studio & Spool Depot
+  renderSpoolRack();
   update3DPrintCostCalc();
   update3DFlowCalc();
   update3DSpoolCalc();
@@ -27723,6 +28481,73 @@ function initCraftStudios() {
   ["#print-spool-tare", "#print-polymer-type"].forEach(s => $(s)?.addEventListener("change", update3DSpoolCalc));
   ["#print-spool-gross", "#print-spool-check"].forEach(s => $(s)?.addEventListener("input", update3DSpoolCalc));
   ["#print-resin-chem", "#print-sla-geometry"].forEach(s => $(s)?.addEventListener("change", update3DSlaGuide));
+
+  // Spool Rack filter & search
+  $("#spool-rack-search")?.addEventListener("input", renderSpoolRack);
+  ["#spool-rack-material-filter", "#spool-rack-sort"].forEach(s => $(s)?.addEventListener("change", renderSpoolRack));
+
+  // Spool selection in print cost calculator
+  $("#print-cost-spool-select")?.addEventListener("change", (e) => {
+    const sId = e.target.value;
+    if (sId) {
+      const spool = (state.inventory || []).find(i => i.id === sId);
+      if (spool) {
+        const sData = spool.spoolData || {};
+        if ($("#print-spool-price")) $("#print-spool-price").value = sData.spoolCost ?? spool.cost ?? 22;
+        if (sData.material === "Resin" && $("#print-tech")) $("#print-tech").value = "sla";
+      }
+    }
+    update3DPrintCostCalc();
+  });
+
+  // Spool Form Submission & Field Interactivity
+  $("#spool-form")?.addEventListener("submit", handleSpoolSubmit);
+  $$(".spool-preset-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const color = btn.dataset.color;
+      const picker = $("#spool-color-picker");
+      if (color && picker) {
+        picker.value = color;
+      }
+    });
+  });
+
+  $("#spool-tare-preset")?.addEventListener("change", (e) => {
+    const val = e.target.value;
+    if (val !== "custom" && $("#spool-tare-weight")) {
+      $("#spool-tare-weight").value = val;
+      const gross = parseFloat($("#spool-input-gross")?.value) || 0;
+      const tare = parseFloat(val) || 0;
+      if ($("#spool-input-net")) $("#spool-input-net").value = Math.max(0, gross - tare);
+      updateSpoolModalWeightHint();
+    }
+  });
+
+  $("#spool-input-gross")?.addEventListener("input", () => {
+    const gross = parseFloat($("#spool-input-gross")?.value) || 0;
+    const tare = parseFloat($("#spool-tare-weight")?.value) || 0;
+    if ($("#spool-input-net")) $("#spool-input-net").value = Math.max(0, gross - tare);
+    updateSpoolModalWeightHint();
+  });
+
+  $("#spool-input-net")?.addEventListener("input", () => {
+    const net = parseFloat($("#spool-input-net")?.value) || 0;
+    const tare = parseFloat($("#spool-tare-weight")?.value) || 0;
+    if ($("#spool-input-gross")) $("#spool-input-gross").value = net + tare;
+    updateSpoolModalWeightHint();
+  });
+
+  ["#spool-tare-weight", "#spool-material-select", "#spool-dia-select"].forEach(s => {
+    $(s)?.addEventListener("input", updateSpoolModalWeightHint);
+    $(s)?.addEventListener("change", updateSpoolModalWeightHint);
+  });
+
+  // Spool Quick Weigh & Deduct Dialog
+  $("#spool-weigh-form")?.addEventListener("submit", handleWeighSpoolSubmit);
+  $("#spool-weigh-tab-scale")?.addEventListener("click", () => setWeighDialogMode("scale"));
+  $("#spool-weigh-tab-deduct")?.addEventListener("click", () => setWeighDialogMode("deduct"));
+  $("#spool-weigh-gross-input")?.addEventListener("input", updateWeighDialogPreview);
+  $("#spool-weigh-deduct-input")?.addEventListener("input", updateWeighDialogPreview);
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();
