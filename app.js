@@ -39376,6 +39376,14 @@ function openCadViewer(file = null) {
   if (!dlg) return;
   dlg.showModal();
   initCadViewerCanvas();
+  // Adjust canvas drawing buffer to match container bounds
+  const canvas = $("#cad-viewer-canvas");
+  const container = $("#cad-viewport-container");
+  if (canvas && container) {
+    const rect = container.getBoundingClientRect();
+    if (rect.width > 100) canvas.width = Math.round(rect.width);
+    if (rect.height > 100) canvas.height = Math.round(rect.height);
+  }
   if (file) {
     loadCadFile(file);
   } else if (!cadViewerState.mesh && !cadViewerState.toolpaths) {
@@ -39390,6 +39398,13 @@ function initCadViewerCanvas() {
   const canvas = $("#cad-viewer-canvas");
   if (!canvas || canvas._cadInitialized) return;
   canvas._cadInitialized = true;
+
+  const container = $("#cad-viewport-container");
+  if (container) {
+    const rect = container.getBoundingClientRect();
+    if (rect.width > 100) canvas.width = Math.round(rect.width);
+    if (rect.height > 100) canvas.height = Math.round(rect.height);
+  }
 
   // Orbit & Pan Mouse handlers
   canvas.addEventListener("mousedown", e => {
@@ -39430,19 +39445,39 @@ function initCadViewerCanvas() {
     renderCadViewport();
   }, { passive: false });
 
-  // Drag and drop file support
-  const container = $("#cad-viewport-container");
+  // Drag and drop file support on viewport and dialog
+  const dialog = $("#cad-viewer-dialog");
+  const handleDragOver = e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    container?.classList.add("drag-over");
+  };
+  const handleDragLeave = () => {
+    container?.classList.remove("drag-over");
+  };
+  const handleDrop = e => {
+    e.preventDefault();
+    container?.classList.remove("drag-over");
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      loadCadFile(e.dataTransfer.files[0]);
+    }
+  };
+
   if (container) {
-    container.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; });
-    container.addEventListener("drop", e => {
-      e.preventDefault();
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        loadCadFile(e.dataTransfer.files[0]);
-      }
-    });
+    container.addEventListener("dragover", handleDragOver);
+    container.addEventListener("dragleave", handleDragLeave);
+    container.addEventListener("drop", handleDrop);
+  }
+  if (dialog) {
+    dialog.addEventListener("dragover", handleDragOver);
+    dialog.addEventListener("dragleave", handleDragLeave);
+    dialog.addEventListener("drop", handleDrop);
   }
 
-  // Browse file input
+  // Browse file input triggers
+  $$('[data-action="cad-import-file"]').forEach(btn => {
+    btn.addEventListener("click", () => $("#cad-file-input")?.click());
+  });
   $("#cad-browse-file-btn")?.addEventListener("click", () => $("#cad-file-input")?.click());
   $("#cad-file-input")?.addEventListener("change", e => {
     if (e.target.files && e.target.files[0]) {
@@ -39509,21 +39544,61 @@ async function loadCadFile(file) {
   const ext = name.split(".").pop().toLowerCase();
   cadViewerState.fileName = name;
   $("#cad-drop-prompt").style.display = "none";
+  const fileInput = $("#cad-file-input");
+  if (fileInput) fileInput.value = "";
 
   try {
     if (ext === "stl") {
       const buffer = await file.arrayBuffer();
-      // Check if binary or ASCII
       const isBinary = isBinaryStl(buffer);
-      cadViewerState.format = isBinary ? "Binary STL" : "ASCII STL";
-      cadViewerState.mesh = isBinary ? parseBinaryStl(buffer) : parseASCIIStl(new TextDecoder().decode(buffer));
+      let mesh = null;
+      let format = isBinary ? "Binary STL" : "ASCII STL";
+
+      if (isBinary) {
+        mesh = parseBinaryStl(buffer);
+        // Fallback: If binary parsing yielded 0 triangles, try ASCII parser
+        if (!mesh || mesh.facetCount === 0) {
+          try {
+            const asciiMesh = parseASCIIStl(new TextDecoder().decode(buffer));
+            if (asciiMesh && asciiMesh.facetCount > 0) {
+              mesh = asciiMesh;
+              format = "ASCII STL";
+            }
+          } catch (_) {}
+        }
+      } else {
+        mesh = parseASCIIStl(new TextDecoder().decode(buffer));
+        // Fallback: If ASCII parsing yielded 0 triangles, try Binary parser
+        if (!mesh || mesh.facetCount === 0) {
+          try {
+            const binMesh = parseBinaryStl(buffer);
+            if (binMesh && binMesh.facetCount > 0) {
+              mesh = binMesh;
+              format = "Binary STL";
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (!mesh || mesh.facetCount === 0) {
+        throw new Error("No triangles could be extracted from this STL file.");
+      }
+
+      cadViewerState.format = format;
+      cadViewerState.mesh = mesh;
       cadViewerState.toolpaths = null;
+      cadViewerState.camera.zoom = 1.0;
+      cadViewerState.camera.panX = 0;
+      cadViewerState.camera.panY = 0;
       $("#cad-gcode-scrubber").style.display = "none";
     } else if (ext === "obj") {
       const text = await file.text();
       cadViewerState.format = "Wavefront OBJ";
       cadViewerState.mesh = parseOBJMesh(text);
       cadViewerState.toolpaths = null;
+      cadViewerState.camera.zoom = 1.0;
+      cadViewerState.camera.panX = 0;
+      cadViewerState.camera.panY = 0;
       $("#cad-gcode-scrubber").style.display = "none";
     } else if (ext === "gcode" || ext === "nc") {
       const text = await file.text();
@@ -39532,6 +39607,9 @@ async function loadCadFile(file) {
       cadViewerState.mesh = null;
       cadViewerState.totalLayers = Math.max(1, cadViewerState.toolpaths.length);
       cadViewerState.currentLayer = cadViewerState.totalLayers;
+      cadViewerState.camera.zoom = 1.0;
+      cadViewerState.camera.panX = 0;
+      cadViewerState.camera.panY = 0;
 
       $("#cad-gcode-scrubber").style.display = "block";
       $("#cad-layer-total").textContent = cadViewerState.totalLayers;
@@ -39552,21 +39630,26 @@ async function loadCadFile(file) {
 }
 
 function isBinaryStl(buffer) {
-  if (buffer.byteLength < 84) return false;
-  // ASCII STL starts with "solid"
-  const header = new TextDecoder().decode(buffer.slice(0, 80));
-  if (header.trim().startsWith("solid") && !bufferContainsNonAscii(buffer.slice(0, 512))) {
-    return false;
-  }
-  return true;
-}
+  if (!buffer || buffer.byteLength < 84) return false;
+  const data = new DataView(buffer);
+  const triangleCount = data.getUint32(80, true);
+  const expectedBinarySize = 84 + triangleCount * 50;
 
-function bufferContainsNonAscii(buf) {
-  const bytes = new Uint8Array(buf);
-  for (let i = 0; i < bytes.length; i++) {
-    if (bytes[i] > 127) return true;
+  // 1. Exact mathematical binary STL file size check
+  if (Math.abs(buffer.byteLength - expectedBinarySize) <= 2 && triangleCount > 0) {
+    return true;
   }
-  return false;
+
+  // 2. Null byte check: ASCII STL text files NEVER contain 0x00 bytes
+  const checkLen = Math.min(buffer.byteLength, 1024);
+  const bytes = new Uint8Array(buffer, 0, checkLen);
+  for (let i = 0; i < checkLen; i++) {
+    if (bytes[i] === 0) return true;
+  }
+
+  // 3. Fallback header check
+  const header = new TextDecoder().decode(buffer.slice(0, Math.min(buffer.byteLength, 80))).trim().toLowerCase();
+  return !header.startsWith("solid");
 }
 
 function parseBinaryStl(buffer) {
@@ -39834,6 +39917,15 @@ function renderCadViewport() {
   const cy = h / 2 + cadViewerState.camera.panY;
   const zoom = cadViewerState.camera.zoom;
 
+  // Auto-fit scale based on bounding box
+  const maxDim = cadViewerState.mesh && cadViewerState.mesh.bounds
+    ? Math.max(cadViewerState.mesh.bounds.dimX, cadViewerState.mesh.bounds.dimY, cadViewerState.mesh.bounds.dimZ, 1)
+    : (cadViewerState.toolpaths ? 150 : 50);
+
+  // Fit to ~45% of minimum canvas dimension so full geometry is comfortably visible
+  const fitScale = (Math.min(w, h) * 0.45) / Math.max(10, maxDim);
+  const scale = fitScale * zoom;
+
   // Rotation angles in radians
   const radX = (cadViewerState.camera.rotX * Math.PI) / 180;
   const radY = (cadViewerState.camera.rotY * Math.PI) / 180;
@@ -39852,7 +39944,6 @@ function renderCadViewport() {
     const z2 = y1 * sinX + z1 * cosX;
 
     // Scale and center
-    const scale = 3.5 * zoom;
     const px = cx + x1 * scale;
     const py = cy - z2 * scale; // invert Z for screen coordinates
     return { x: px, y: py, depth: y2 };
@@ -39862,8 +39953,8 @@ function renderCadViewport() {
   if (cadViewerState.showGrid) {
     ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
     ctx.lineWidth = 1;
-    const gridSize = 100;
-    const step = 20;
+    const gridSize = Math.max(50, Math.ceil(maxDim / 20) * 20);
+    const step = Math.max(10, Math.round(gridSize / 5));
     for (let g = -gridSize; g <= gridSize; g += step) {
       const p1 = project3D(g, -gridSize, 0);
       const p2 = project3D(g, gridSize, 0);
@@ -39880,11 +39971,12 @@ function renderCadViewport() {
       ctx.stroke();
     }
 
-    // Grid center axes (X = red, Y = green)
+    // Grid center axes (X = red, Y = green, Z = blue)
+    const axisLen = Math.max(15, Math.round(gridSize * 0.25));
     const o = project3D(0, 0, 0);
-    const axX = project3D(30, 0, 0);
-    const axY = project3D(0, 30, 0);
-    const axZ = project3D(0, 0, 30);
+    const axX = project3D(axisLen, 0, 0);
+    const axY = project3D(0, axisLen, 0);
+    const axZ = project3D(0, 0, axisLen);
 
     ctx.strokeStyle = "#ef4444"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(axX.x, axX.y); ctx.stroke();
