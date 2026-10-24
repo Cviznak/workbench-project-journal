@@ -1988,6 +1988,10 @@ async function signInWithEmail(email, password) {
     await upsertUserProfile(session.user);
     await loadUserScopedState();
     await syncCloudWorkspace("pull");
+    loadSharedCollaborationsIntoState();
+    await syncCloudCollaborations().catch(() => {});
+    syncSharedCollaborations();
+    await persistState({ syncCloud: false });
   } catch (e) {
     console.warn("Initial sync pull notice", e);
   }
@@ -2045,6 +2049,9 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
 
       try {
         await upsertUserProfile(res.user);
+        loadSharedCollaborationsIntoState();
+        await syncCloudCollaborations().catch(() => {});
+        syncSharedCollaborations();
         await persistState();
         await storeRemoteWorkspace();
       } catch (e) {
@@ -2073,6 +2080,7 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
 
 async function signOutUser() {
   try {
+    syncSharedCollaborations();
     await cloudRequest("/auth/v1/logout", { method: "POST" });
   } catch {}
   clearTimeout(syncTimer);
@@ -2568,6 +2576,32 @@ async function loadRemoteWorkspace(remote) {
       }
     }
   }
+
+  // Merge remote projects with existing collaborative projects so co-created projects are never lost
+  const mergedProjectMap = new Map();
+  for (const p of (state.projects || [])) {
+    if (p?.id && isCollaborativeProject(p)) {
+      mergedProjectMap.set(p.id, p);
+    }
+  }
+  for (const sp of getSharedCollaborations()) {
+    if (sp?.id && isCollaborativeProject(sp)) {
+      const existing = mergedProjectMap.get(sp.id);
+      if (!existing || new Date(sp.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+        mergedProjectMap.set(sp.id, sp);
+      }
+    }
+  }
+  for (const rp of remoteState.projects) {
+    if (rp?.id) {
+      const existing = mergedProjectMap.get(rp.id);
+      if (!existing || new Date(rp.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+        mergedProjectMap.set(rp.id, rp);
+      }
+    }
+  }
+  remoteState.projects = Array.from(mergedProjectMap.values());
+
   Object.assign(state, remoteState, { updatedAt: remote.updated_at });
   state.starterSkillsAdded = true;
   state.hasUserChanges = remoteState.hasUserChanges === true;
@@ -2934,6 +2968,11 @@ function renderProjects() {
   renderTagFilterPills();
   const query = ($("#project-search")?.value || "").trim().toLowerCase();
   const filter = $("#project-status-filter")?.value || "all";
+  const collabOpt = $("#project-status-filter option[value='collaborative']");
+  if (collabOpt) {
+    const collabCount = (state.projects || []).filter(isCollaborativeProject).length;
+    collabOpt.textContent = `👥 Collaborative (${collabCount})`;
+  }
   const priorityFilter = $("#project-priority-filter")?.value || "all";
   const sort = $("#project-sort")?.value || "updated";
   const filtered = [...state.projects]
@@ -3006,7 +3045,10 @@ function renderProjects() {
           <div class="project-card-head">
             <div class="project-card-mark">${["✳", "⌘", "◈", "✿"][index % 4]}</div>
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-              ${isCollaborativeProject(project) ? `<span class="collab-badge" title="Collaborative project with ${(project.coCreators || []).length + 1} members">👥 Team (${(project.coCreators || []).length + 1})</span>` : ""}
+              ${isCollaborativeProject(project) ? `<span class="collab-badge" title="Collaborative project with ${(project.coCreators || []).length + 1} members">👥 Team (${(project.coCreators || []).length + 1})</span>${(() => {
+                const ur = getProjectUserRole(project);
+                return ur ? `<span class="collab-role-pill ${ur.className}" title="Your role: ${ur.role}">${ur.label}</span>` : "";
+              })()}` : ""}
               ${project.pinned ? `<span class="pin-badge">★ Pinned</span>` : ""}
               ${project.isGift ? `<span class="gift-badge" title="Handmade gift for ${escapeHTML(project.giftRecipient || "Someone")}">🎁 For ${escapeHTML(project.giftRecipient || "Someone")}</span>` : ""}
               ${countdownInfo ? `<span class="gift-countdown-pill ${countdownInfo.className}" title="Gift handover deadline">${countdownInfo.text}</span>` : ""}
@@ -4719,6 +4761,7 @@ function renderProjectDetail(projectId) {
             <button type="button" class="small-action print-keep" data-action="open-project-dossier" data-id="${project.id}" title="View comprehensive project dossier">📄 Dossier</button>
             <button type="button" class="small-action print-keep" data-action="open-workshop-blueprint" data-id="${project.id}" title="Printable workshop blueprint & cut-sheet">📐 Shop Blueprint</button>
             <button type="button" class="small-action print-keep" data-action="open-quote-dialog" data-id="${project.id}" title="Client quote, estimate & work order invoice generator">💼 Client Quote</button>
+            <button type="button" class="small-action print-keep" data-action="export-project-binder" data-id="${project.id}" title="Export self-contained, offline-runnable interactive HTML Build Binder archive">📦 Export Binder (HTML)</button>
             <button type="button" class="small-action" data-action="copy-project-summary" data-id="${project.id}" title="Copy project summary to clipboard">📋 Copy summary</button>
             <button type="button" class="small-action print-keep" data-action="print-project" data-id="${project.id}" title="Print workshop sheet">🖶 Print sheet</button>
           </div>
@@ -4802,6 +4845,8 @@ function renderProjectDetail(projectId) {
         <span class="subtle-count">${materials.length ? `${materials.length} items · ${formatMoney(totalCost)} total` : "Track parts & build budget"}</span>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" class="small-action" data-action="check-materials-inventory" data-project="${project.id}" title="Auto-match supplies against shop inventory">📦 Shop Stock Match</button>
+        <button type="button" class="small-action" data-action="add-missing-materials-to-restock" data-project="${project.id}" title="Send needed/out-of-stock items to Depot Restock List">🛒 Add Needed to Restock List</button>
         <button type="button" class="small-action" data-action="transfer-project-to-cutlist" data-id="${project.id}" title="Send lumber items to Workshop Cut List Optimizer">✂️ Send to Cut List</button>
         <button type="button" class="small-action" data-action="pick-from-inventory" data-project="${project.id}">📥 Add from inventory</button>
       </div>
@@ -4883,6 +4928,7 @@ function renderProjectDetail(projectId) {
                     <span class="materials-status-tag status-${mat.status || "need"}" data-action="cycle-material-status" data-project="${project.id}" data-id="${mat.id}" title="Click to cycle status">
                       ${mat.status === "have" ? "✓ Have / In stock" : mat.status === "ordered" ? "↗ Ordered" : "○ Need to buy"}
                     </span>
+                    ${mat._stockStatus ? `<span class="materials-stock-badge ${mat._stockStatus.class}">${mat._stockStatus.text}</span>` : ""}
                   </td>
                   <td style="text-align:right">
                     <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
@@ -4920,6 +4966,38 @@ function renderProjectDetail(projectId) {
     <div class="detail-section-heading"><h3>Progress journal <span class="subtle-count">${notes.length ? `${notes.length} ${notes.length === 1 ? "entry" : "entries"}` : "Keep a note of the journey"}</span></h3></div>
     <form class="journal-add-form" data-project="${project.id}"><label class="sr-only" for="journal-entry">Progress note</label><textarea id="journal-entry" name="journalText" rows="2" required maxlength="1000" placeholder="What did you try, learn, or figure out today?"></textarea><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span class="form-hint">A dated note, just for this project.</span><div style="display:flex;gap:6px"><button type="button" class="small-action mic-btn" data-action="dictate-note" data-project="${project.id}" title="Voice dictate note">🎙 Dictate</button><button type="button" class="small-action voice-record-btn" data-action="start-voice-memo" data-project="${project.id}" title="Record audio voice memo directly">🔴 Voice Memo</button><button class="button button-outline" type="submit">＋ Add note</button></div></div><div id="journal-voice-recording-indicator" style="display:none;margin-top:8px;padding:6px 12px;background:rgba(239,68,68,0.12);border:1px solid #ef4444;border-radius:6px;align-items:center;justify-content:space-between"><span class="voice-memo-recording-active" style="font-size:12px;color:#ef4444;font-weight:700">🔴 Recording audio memo... <span id="journal-voice-timer">00:00</span></span><button type="button" class="button button-small button-primary" data-action="stop-voice-memo">■ Stop &amp; Save</button></div></form>
     ${notes.length ? `<div class="journal-list">${[...notes].sort((a, b) => new Date(b.at) - new Date(a.at)).map(note => `<article class="journal-entry"><div class="journal-date">${formatFullDateTime(note.at)}</div><p>${escapeHTML(note.text)}</p>${safeMediaUrl(note.audioUrl) ? `<audio controls src="${safeMediaUrl(note.audioUrl)}" class="journal-audio-player"></audio>` : ""}<div class="journal-actions"><button type="button" class="journal-action-btn" data-action="edit-note" data-project="${project.id}" data-id="${note.id}" title="Edit progress note" aria-label="Edit progress note">✎</button><button type="button" class="task-remove" data-action="delete-note" data-project="${project.id}" data-id="${note.id}" aria-label="Delete progress note">×</button></div></article>`).join("")}</div>` : ""}
+    ${isCollab ? `
+      <div class="team-timeline-box">
+        <div class="team-timeline-header">
+          <span class="team-timeline-title">👥 Team Activity Timeline</span>
+          <span style="font-size:11px;color:var(--muted)">${(project.coCreators || []).length + 1} members</span>
+        </div>
+        <div class="team-timeline-list">
+          <div class="team-timeline-item">
+            <span>👑 <strong>${escapeHTML(project.creator?.name || "Creator")}</strong> created project</span>
+            <span style="color:var(--muted);font-size:11px">${relativeTime(project.createdAt || project.updatedAt)}</span>
+          </div>
+          ${(project.coCreators || []).map(c => `
+            <div class="team-timeline-item">
+              <span>${c.role === "editor" || !c.role ? "✏️" : "👁️"} <strong>${escapeHTML(c.name || c.email)}</strong> joined as ${c.role || "editor"}</span>
+              <span class="collab-role-pill role-${(c.role || "editor").toLowerCase()}">${c.role || "editor"}</span>
+            </div>
+          `).join("")}
+          ${project.lastStatusChange ? `
+            <div class="team-timeline-item">
+              <span>🔄 <strong>${escapeHTML(project.lastStatusChange.by)}</strong> changed status to <em>${STATUS_LABELS[safeStatus(project.status)]}</em></span>
+              <span style="color:var(--muted);font-size:11px">${relativeTime(project.lastStatusChange.at)}</span>
+            </div>
+          ` : ""}
+          ${notes.slice(0, 3).map(n => `
+            <div class="team-timeline-item">
+              <span>📝 Progress journal note logged</span>
+              <span style="color:var(--muted);font-size:11px">${relativeTime(n.at)}</span>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    ` : ""}
     <div class="detail-section-heading"><h3>Project photos</h3><div><button class="small-action" data-action="new-folder" data-id="${project.id}">＋ Folder</button> <button class="small-action" data-action="open-compare-photos" data-project="${project.id}">↔️ Compare</button> <button class="small-action" data-action="snap-photo" data-id="${project.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}">＋ Add photos</button></div></div>
     ${folders.map(folder => `<div class="folder-block"><div class="folder-heading"><div class="folder-title-wrap"><span class="folder-name-text">${escapeHTML(folder.name)}</span><button type="button" class="icon-link-btn" data-action="rename-folder" data-project="${project.id}" data-folder="${folder.id}" title="Rename folder" aria-label="Rename folder">✎</button>${folders.length > 1 ? `<button type="button" class="icon-link-btn danger-hover" data-action="delete-folder" data-project="${project.id}" data-folder="${folder.id}" title="Delete folder" aria-label="Delete folder">×</button>` : ""}</div><span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="snap-photo" data-id="${project.id}" data-folder="${folder.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button type="button" class="photo-annotate-badge" data-action="annotate-photo" data-image-id="${image.id}" title="Annotate photo" style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer">✏️</button><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
     <div class="detail-footer"><button class="danger-button" data-action="delete-project" data-id="${project.id}">Delete project</button><span class="project-card-meta">${projectImageCount(project)} photos · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}</span></div>
@@ -6620,7 +6698,10 @@ function renderKanban(projects) {
                 <div class="kanban-card-top">
                   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                     <span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>
-                    ${isCollaborativeProject(project) ? `<span class="collab-badge" style="font-size:10px;padding:1px 5px">👥 Team</span>` : ""}
+                    ${isCollaborativeProject(project) ? `<span class="collab-badge" style="font-size:10px;padding:1px 5px">👥 Team</span>${(() => {
+                      const ur = getProjectUserRole(project);
+                      return ur ? `<span class="collab-role-pill ${ur.className}" style="font-size:9.5px;padding:1px 5px">${ur.label}</span>` : "";
+                    })()}` : ""}
                     ${project.pinned ? `<span class="pin-badge">📌</span>` : ""}
                     ${project.isGift ? `<span class="gift-badge-mini" title="Handmade gift for ${escapeHTML(project.giftRecipient || "Someone")}">🎁 ${escapeHTML(project.giftRecipient || "Gift")}</span>` : ""}
                   </div>
@@ -11919,6 +12000,18 @@ async function handleAction(action, target) {
   }
   if (action === "open-quote-dialog") {
     openQuoteDialog(id || target.dataset.project || activeProjectId);
+    return;
+  }
+  if (action === "export-project-binder") {
+    exportProjectBinder(id || target.dataset.project || target.dataset.id || activeProjectId);
+    return;
+  }
+  if (action === "check-materials-inventory") {
+    checkMaterialsInventory(id || target.dataset.project || target.dataset.id || activeProjectId);
+    return;
+  }
+  if (action === "add-missing-materials-to-restock") {
+    addMissingMaterialsToRestock(id || target.dataset.project || target.dataset.id || activeProjectId);
     return;
   }
   if (action === "print-quote-invoice") {
@@ -20862,17 +20955,20 @@ function isCollaborativeProject(project) {
 function isUserCollaborator(project, user = null, includeAdmin = false) {
   if (!project) return false;
   ensureProjectCreator(project);
-  const curUser = user || getActiveUser();
+  const curUser = user || getActiveUser() || getCurrentMakerIdentity();
   if (!curUser) return false;
   if (curUser.id === "local-maker" && !getCloudSession()) return true;
 
-  const uId = curUser.id;
+  const uId = curUser.id || "";
   const uEmail = (curUser.email || "").toLowerCase().trim();
   const uName = (curUser.displayName || curUser.display_name || curUser.name || (uEmail ? uEmail.split("@")[0] : "")).toLowerCase().trim();
 
   const normalize = s => (s || "").toLowerCase().replace(/[\s._-]+/g, "");
   const uNorm = normalize(uName);
   const uPrefix = uEmail ? normalize(uEmail.split("@")[0]) : "";
+
+  const tokenize = s => (s || "").toLowerCase().split(/[\s._@-]+/).filter(t => t.length >= 2);
+  const uTokens = tokenize(uName).concat(tokenize(uEmail));
 
   const matchesUser = (member) => {
     if (!member) return false;
@@ -20885,6 +20981,7 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
     const mName = (member.displayName || member.display_name || member.name || "").toLowerCase().trim();
     const mNorm = normalize(mName);
     const mPrefix = mEmail ? normalize(mEmail.split("@")[0]) : "";
+    const mTokens = tokenize(mName).concat(tokenize(mEmail));
 
     // 1. Direct name match (e.g. "Editor User" === "Editor User" or "test" === "test")
     if (!isGenericName(mName) && !isGenericName(uName) && mNorm && mNorm === uNorm) return true;
@@ -20898,7 +20995,13 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
     // 4. Both email prefixes match
     if (mPrefix && uPrefix && mPrefix === uPrefix) return true;
 
-    // 5. Containment / Substring matching for full/partial names and prefixes
+    // 5. Token overlap matching (e.g. "Bob Editor" and "Bob" or "bob@xyz.com")
+    if (mTokens.length > 0 && uTokens.length > 0) {
+      const hasTokenMatch = mTokens.some(mt => !isGenericName(mt) && uTokens.some(ut => !isGenericName(ut) && (mt === ut || (mt.length >= 3 && ut.length >= 3 && (mt.includes(ut) || ut.includes(mt))))));
+      if (hasTokenMatch) return true;
+    }
+
+    // 6. Containment / Substring matching for full/partial names and prefixes
     if (!isGenericName(mName) && !isGenericName(uName)) {
       if (mNorm && uNorm && (mNorm.includes(uNorm) || uNorm.includes(mNorm))) return true;
     }
@@ -20913,23 +21016,83 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
   const isCoCreator = Array.isArray(project.coCreators) && project.coCreators.some(matchesUser);
 
   // Self-heal real Supabase UID onto member object if matched by name or email
+  let healed = false;
   if (uId && (isCreator || isCoCreator)) {
     if (isCreator && (!project.creator.id || project.creator.id !== uId || project.creator.id === "local-maker")) {
       project.creator.id = uId;
       if (uEmail && !project.creator.email) project.creator.email = uEmail;
+      healed = true;
     }
     if (Array.isArray(project.coCreators)) {
       for (const c of project.coCreators) {
         if (matchesUser(c)) {
-          if (!c.id || c.id !== uId || c.id === "local-maker") c.id = uId;
-          if (uEmail && !c.email) c.email = uEmail;
-          if (uName && (!c.name || isGenericName(c.name))) c.name = curUser.displayName || curUser.name || uName;
+          if (!c.id || c.id !== uId || c.id === "local-maker") {
+            c.id = uId;
+            healed = true;
+          }
+          if (uEmail && !c.email) {
+            c.email = uEmail;
+            healed = true;
+          }
+          if (uName && (!c.name || isGenericName(c.name))) {
+            c.name = curUser.displayName || curUser.name || uName;
+            healed = true;
+          }
         }
       }
     }
   }
 
+  if (healed) {
+    try {
+      syncSharedCollaborations();
+    } catch {}
+  }
+
   return Boolean(isCreator || isCoCreator);
+}
+
+function getProjectUserRole(project, user = null) {
+  if (!project || !isCollaborativeProject(project)) return null;
+  ensureProjectCreator(project);
+  const curUser = user || getActiveUser() || getCurrentMakerIdentity();
+  if (!curUser) return null;
+
+  const uId = curUser.id || "";
+  const uEmail = (curUser.email || "").toLowerCase().trim();
+  const uName = (curUser.displayName || curUser.display_name || curUser.name || (uEmail ? uEmail.split("@")[0] : "")).toLowerCase().trim();
+
+  const cId = project.creator?.id;
+  const cEmail = (project.creator?.email || "").toLowerCase().trim();
+  const cName = (project.creator?.name || project.creator?.displayName || (cEmail ? cEmail.split("@")[0] : "")).toLowerCase().trim();
+
+  const isCreator = Boolean(
+    (uId && cId && uId === cId && uId !== "local-maker") ||
+    (uEmail && cEmail && uEmail === cEmail) ||
+    (!isGenericName(cName) && !isGenericName(uName) && cName === uName)
+  );
+  if (isCreator) return { role: "creator", label: "👑 Creator", className: "role-creator" };
+
+  if (Array.isArray(project.coCreators)) {
+    for (const c of project.coCreators) {
+      const mId = c.id || c.user_id;
+      const mEmail = (c.email || "").toLowerCase().trim();
+      const mName = (c.displayName || c.display_name || c.name || "").toLowerCase().trim();
+
+      const matched = Boolean(
+        (uId && mId && uId === mId) ||
+        (uEmail && mEmail && uEmail === mEmail) ||
+        (!isGenericName(mName) && !isGenericName(uName) && (mName === uName || mName.includes(uName) || uName.includes(mName)))
+      );
+      if (matched) {
+        const r = (c.role || "editor").toLowerCase();
+        if (r === "viewer") return { role: "viewer", label: "👁️ Viewer", className: "role-viewer" };
+        return { role: "editor", label: "✏️ Editor", className: "role-editor" };
+      }
+    }
+  }
+
+  return { role: "editor", label: "✏️ Editor", className: "role-editor" };
 }
 
 async function syncCloudCollaborations() {
@@ -21173,7 +21336,7 @@ function syncSharedCollaborations() {
 }
 
 function loadSharedCollaborationsIntoState() {
-  const curUser = getActiveUser();
+  const curUser = getActiveUser() || getCurrentMakerIdentity();
   if (!curUser) return;
   const shared = getSharedCollaborations();
   if (!shared || shared.length === 0) return;
@@ -21392,8 +21555,36 @@ async function handleAddCoCreator(projectId) {
 
 async function pushProjectToCollaboratorWorkspaces(project) {
   if (!project) return;
+  syncSharedCollaborations();
   const session = getCloudSession();
   const curUser = getActiveUser();
+
+  // Also push project to local user-scoped IndexedDB state for all collaborators on this browser
+  try {
+    const knownMakersRaw = localStorage.getItem("workbench_known_makers");
+    const knownList = knownMakersRaw ? JSON.parse(knownMakersRaw) : [];
+    for (const m of knownList) {
+      if (!m?.id || m.id === curUser?.id || m.id === "local-maker") continue;
+      if (isUserCollaborator(project, m)) {
+        const userStateKey = `workbench_state_${m.id}`;
+        const uState = await readSavedState(userStateKey);
+        if (uState) {
+          uState.projects = Array.isArray(uState.projects) ? uState.projects : [];
+          const idx = uState.projects.findIndex(p => p.id === project.id);
+          if (idx >= 0) {
+            uState.projects[idx] = structuredClone(project);
+          } else {
+            uState.projects.unshift(structuredClone(project));
+          }
+          const tx = database.transaction(STORE_NAME, "readwrite");
+          tx.objectStore(STORE_NAME).put(uState, userStateKey);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not push project to local collaborator IndexedDB state:", err);
+  }
+
   if (!session?.access_token || !curUser) return;
 
   try {
@@ -21660,6 +21851,7 @@ async function reconcileProjectOwnership() {
   }
 
   // 3. Remote cloud sanitization (Primary Owner scans Supabase to scrub any leaked data in collaborator rows):
+  if (!isPrimary) return;
   try {
     const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`).catch(() => []);
     if (!Array.isArray(rows) || rows.length === 0) return;
@@ -22021,6 +22213,565 @@ async function removeCoCreator(projectId, targetId) {
     console.error(err);
     showToast("Could not remove co-creator.");
   }
+}
+
+function checkMaterialsInventory(projectId) {
+  const project = state.projects.find(p => p.id === (projectId || activeProjectId));
+  if (!project || !Array.isArray(project.materials) || project.materials.length === 0) {
+    showToast("No materials found in this project to check against inventory.");
+    return;
+  }
+  const inventory = Array.isArray(state.inventory) ? state.inventory : [];
+  let inStockCount = 0;
+  let partialCount = 0;
+  let outCount = 0;
+
+  for (const mat of project.materials) {
+    const mName = (mat.name || "").toLowerCase().trim();
+    if (!mName) continue;
+
+    const matched = inventory.find(inv => {
+      const invName = (inv.name || "").toLowerCase().trim();
+      return invName === mName || invName.includes(mName) || mName.includes(invName);
+    });
+
+    const parsedQty = parseFloat(mat.qty || mat.quantity || 1) || 1;
+    if (matched) {
+      const invQty = parseFloat(matched.quantity || matched.stock || 0) || 0;
+      if (invQty >= parsedQty) {
+        inStockCount++;
+        mat._stockStatus = { class: "stock-in", text: `✓ In Depot (${invQty} avail)` };
+      } else if (invQty > 0) {
+        partialCount++;
+        mat._stockStatus = { class: "stock-partial", text: `⚠ Partial (${invQty}/${parsedQty})` };
+      } else {
+        outCount++;
+        mat._stockStatus = { class: "stock-out", text: `✕ Out of Stock (0 in depot)` };
+      }
+    } else {
+      outCount++;
+      mat._stockStatus = { class: "stock-out", text: `✕ Not in Depot` };
+    }
+  }
+
+  renderProjectDetail(project.id);
+  showToast(`Inventory Check: ${inStockCount} In Stock, ${partialCount} Partial, ${outCount} Out of Stock / Missing.`);
+}
+
+async function addMissingMaterialsToRestock(projectId) {
+  const project = state.projects.find(p => p.id === (projectId || activeProjectId));
+  if (!project || !Array.isArray(project.materials) || project.materials.length === 0) {
+    showToast("No materials found in this project.");
+    return;
+  }
+  state.depotRestockList = state.depotRestockList || [];
+  const inventory = Array.isArray(state.inventory) ? state.inventory : [];
+  let addedCount = 0;
+
+  for (const mat of project.materials) {
+    const mName = (mat.name || "").toLowerCase().trim();
+    if (!mName) continue;
+
+    const matched = inventory.find(inv => {
+      const invName = (inv.name || "").toLowerCase().trim();
+      return invName === mName || invName.includes(mName) || mName.includes(invName);
+    });
+
+    const parsedQty = parseFloat(mat.qty || mat.quantity || 1) || 1;
+    const invQty = matched ? (parseFloat(matched.quantity || matched.stock || 0) || 0) : 0;
+    const hasEnoughInDepot = Boolean(matched && invQty >= parsedQty);
+    const isNeeded = !hasEnoughInDepot && mat.status !== "have";
+
+    if (isNeeded) {
+      const alreadyInRestock = state.depotRestockList.find(r => (r.name || "").toLowerCase().trim() === mName);
+      if (!alreadyInRestock) {
+        state.depotRestockList.push({
+          id: matched ? matched.id : `restock-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: mat.name,
+          category: mat.group || "Project Material",
+          currentQty: invQty,
+          restockQty: Math.max(1, Math.ceil(parsedQty - invQty)),
+          unit: "units",
+          price: Number(mat.cost) || 0,
+          supplier: "",
+          location: matched?.location || "",
+          notes: `Needed for project: ${project.title}`,
+          addedAt: new Date().toISOString()
+        });
+        addedCount++;
+      }
+    }
+  }
+
+  await persistState();
+  renderInventory();
+  if (addedCount > 0) {
+    showToast(`Added ${addedCount} needed item(s) to Depot Restock List! 🛒`);
+  } else {
+    showToast("All needed items are already on your Restock List or in stock.");
+  }
+}
+
+function downloadTextFile(filename, text, mimeType = "text/html;charset=utf-8") {
+  const blob = new Blob([text], { type: mimeType });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  }, 100);
+}
+
+function exportProjectBinder(projectId) {
+  const project = state.projects.find(p => p.id === (projectId || activeProjectId));
+  if (!project) return;
+
+  const safeTitle = (project.title || "Project").replace(/[^a-z0-9_-]/gi, "_");
+  const tasks = Array.isArray(project.tasks) ? project.tasks : [];
+  const materials = Array.isArray(project.materials) ? project.materials : [];
+  const notes = Array.isArray(project.notes) ? [...project.notes].sort((a, b) => new Date(b.at) - new Date(a.at)) : [];
+  const totalCost = materials.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+  const doneTasks = tasks.filter(t => t.done).length;
+  const initialPercent = tasks.length ? Math.round((doneTasks / tasks.length) * 100) : 0;
+  const isCollab = isCollaborativeProject(project);
+
+  const htmlDoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHTML(project.title)} — Digital Build Binder</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #d97706;
+      --primary-hover: #b45309;
+      --success: #16a34a;
+      --accent: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0f17;
+        --card-bg: #151b26;
+        --text: #f1f5f9;
+        --muted: #94a3b8;
+        --border: #1e293b;
+        --primary: #f59e0b;
+        --primary-hover: #d97706;
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 30px 20px 80px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    header {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 16px;
+      background: var(--border);
+      color: var(--text);
+    }
+    .badge.primary { background: #fef3c7; color: #b45309; }
+    .badge.success { background: #dcfce7; color: #15803d; }
+    .badge.info { background: #e0f2fe; color: #0369a1; }
+    .description {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 18px;
+      white-space: pre-line;
+    }
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      font-size: 13px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+    .actions-bar {
+      margin-top: 18px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { background: var(--border); }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .progress-box {
+      margin-bottom: 18px;
+    }
+    .progress-track {
+      height: 10px;
+      background: var(--border);
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--success);
+      width: ${initialPercent}%;
+      transition: width 0.25s ease;
+    }
+    .progress-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .task-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      transition: background 0.15s;
+    }
+    .task-item.is-done {
+      text-decoration: line-through;
+      opacity: 0.65;
+    }
+    .task-item input[type="checkbox"] {
+      width: 17px;
+      height: 17px;
+      cursor: pointer;
+    }
+    .task-phase-tag {
+      font-size: 10.5px;
+      padding: 2px 6px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-left: auto;
+      color: var(--muted);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .journal-entry {
+      border-left: 3px solid var(--primary);
+      padding: 8px 16px;
+      margin-bottom: 14px;
+      background: var(--bg);
+      border-radius: 0 6px 6px 0;
+    }
+    .journal-date {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .team-card {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .team-role {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+    }
+    @media print {
+      body { background: #fff; color: #000; padding: 0; max-width: 100%; }
+      .actions-bar, button { display: none !important; }
+      .card, header { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <div>
+        <h1>${escapeHTML(project.title)}</h1>
+        <div class="badges">
+          <span class="badge primary">● ${escapeHTML(project.status || "In Progress")}</span>
+          <span class="badge info">⚡ ${escapeHTML(project.priority || "Normal")} Priority</span>
+          ${isCollab ? `<span class="badge">👥 Team (${(project.coCreators || []).length + 1} members)</span>` : ""}
+          ${project.isGift ? `<span class="badge" style="background:#fce7f3;color:#be185d">🎁 Gift for ${escapeHTML(project.giftRecipient || "Someone")}</span>` : ""}
+        </div>
+      </div>
+    </div>
+    <p class="description">${escapeHTML(project.description || "Digital build binder and project archive.")}</p>
+    <div class="meta-bar">
+      <span>📅 Updated: ${new Date(project.updatedAt || Date.now()).toLocaleDateString()}</span>
+      ${project.targetDate ? `<span>🎯 Target Due Date: ${escapeHTML(project.targetDate)}</span>` : ""}
+      ${project.timeSpent ? `<span>⏱️ Time Logged: ${formatMinutes(project.timeSpent)}</span>` : ""}
+      <span>🏷️ Tags: ${(project.tags || []).join(", ") || "None"}</span>
+    </div>
+    <div class="actions-bar">
+      <button type="button" class="btn" onclick="window.print()">🖶 Print Build Binder</button>
+      <button type="button" class="btn btn-outline" onclick="resetChecklist()">↺ Reset Checklist</button>
+    </div>
+  </header>
+
+  ${isCollab ? `
+  <section class="card">
+    <div class="card-title"><span>👥 Project Build Team</span></div>
+    <div class="team-grid">
+      <div class="team-card">
+        <div class="team-role">👑 Project Creator</div>
+        <strong>${escapeHTML(project.creator?.name || "Creator")}</strong>
+        <div style="font-size:12px;color:var(--muted)">${escapeHTML(project.creator?.email || "")}</div>
+      </div>
+      ${(project.coCreators || []).map(c => `
+        <div class="team-card">
+          <div class="team-role">${c.role === "viewer" ? "👁️ Viewer" : "✏️ " + (c.role || "Editor")}</div>
+          <strong>${escapeHTML(c.name || c.email || "Collaborator")}</strong>
+          <div style="font-size:12px;color:var(--muted)">${escapeHTML(c.email || "")}</div>
+        </div>
+      `).join("")}
+    </div>
+  </section>
+  ` : ""}
+
+  <section class="card">
+    <div class="card-title">
+      <span>📋 Interactive Build Steps</span>
+      <span id="step-count" style="font-size:13px;color:var(--muted);font-weight:normal">${doneTasks}/${tasks.length} Completed</span>
+    </div>
+    <div class="progress-box">
+      <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-label">
+        <span id="percent-label">${initialPercent}% Complete</span>
+        <span>Interactive Offline Tracker</span>
+      </div>
+    </div>
+    ${tasks.length ? `
+      <ul class="task-list" id="task-list">
+        ${tasks.map((task, idx) => `
+          <li class="task-item ${task.done ? "is-done" : ""}" data-idx="${idx}">
+            <input type="checkbox" id="task-${idx}" ${task.done ? "checked" : ""} onchange="toggleTask(${idx})">
+            <label for="task-${idx}">${escapeHTML(task.text)}</label>
+            ${task.phase ? `<span class="task-phase-tag">${escapeHTML(task.phase)}</span>` : ""}
+          </li>
+        `).join("")}
+      </ul>
+    ` : `<p style="color:var(--muted);font-style:italic">No steps recorded for this project.</p>`}
+  </section>
+
+  <section class="card">
+    <div class="card-title">
+      <span>🪵 Bill of Materials (BOM)</span>
+      <span style="font-size:13px;color:var(--muted);font-weight:normal">${materials.length} items · Total ${formatMoney(totalCost)}</span>
+    </div>
+    ${materials.length ? `
+      <table>
+        <thead>
+          <tr>
+            <th>Material / Part</th>
+            <th>Group</th>
+            <th>Qty</th>
+            <th>Est. Cost</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${materials.map(m => `
+            <tr>
+              <td><strong>${escapeHTML(m.name)}</strong></td>
+              <td>${escapeHTML(m.group || "Supplies")}</td>
+              <td>${escapeHTML(m.qty || "-")}</td>
+              <td>${Number(m.cost) > 0 ? formatMoney(m.cost) : "-"}</td>
+              <td>${m.status === "have" ? "✓ In Hand" : m.status === "ordered" ? "↗ Ordered" : "○ Need"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    ` : `<p style="color:var(--muted);font-style:italic">No materials tracked.</p>`}
+  </section>
+
+  ${notes.length ? `
+  <section class="card">
+    <div class="card-title"><span>📝 Progress Journal</span></div>
+    ${notes.map(n => `
+      <div class="journal-entry">
+        <div class="journal-date">${new Date(n.at).toLocaleString()}</div>
+        <p>${escapeHTML(n.text)}</p>
+      </div>
+    `).join("")}
+  </section>
+  ` : ""}
+
+  ${project.isGift ? `
+  <section class="card" style="border: 2px dashed #f472b6; background: #fffdfd;">
+    <div class="card-title" style="color: #be185d;"><span>🎁 Printable Maker Certificate & Care Tag</span></div>
+    <div style="padding: 16px; border: 1px solid #fbcfe8; border-radius: 8px; background: #fff;">
+      <h3 style="font-family: serif; font-size: 20px; color: #9d174d; margin-bottom: 8px;">Handcrafted Especially for ${escapeHTML(project.giftRecipient || "Someone Special")}</h3>
+      <p style="font-size: 14px; margin-bottom: 8px;"><strong>Project:</strong> ${escapeHTML(project.title)}</p>
+      ${project.giftOccasion ? `<p style="font-size: 14px; margin-bottom: 8px;"><strong>Occasion:</strong> ${escapeHTML(project.giftOccasion)}</p>` : ""}
+      ${project.giftCareInstructions ? `<p style="font-size: 13px; color: #475569; margin-top: 10px;"><strong>Care Instructions:</strong> ${escapeHTML(project.giftCareInstructions)}</p>` : ""}
+      <div style="margin-top: 14px; font-size: 12px; font-style: italic; color: #94a3b8;">Lovingly made by ${escapeHTML(project.creator?.name || "The Maker")}</div>
+    </div>
+  </section>
+  ` : ""}
+
+  <script>
+    const storageKey = "binder_tasks_" + "${project.id}";
+    let taskStates = [];
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) taskStates = JSON.parse(saved);
+    } catch {}
+
+    function updateProgress() {
+      const items = document.querySelectorAll("#task-list .task-item");
+      if (!items.length) return;
+      let done = 0;
+      items.forEach((item, idx) => {
+        const chk = item.querySelector("input[type='checkbox']");
+        if (chk && chk.checked) {
+          done++;
+          item.classList.add("is-done");
+        } else {
+          item.classList.remove("is-done");
+        }
+      });
+      const pct = Math.round((done / items.length) * 100);
+      const fill = document.getElementById("progress-fill");
+      if (fill) fill.style.width = pct + "%";
+      const lbl = document.getElementById("percent-label");
+      if (lbl) lbl.textContent = pct + "% Complete";
+      const cnt = document.getElementById("step-count");
+      if (cnt) cnt.textContent = done + "/" + items.length + " Completed";
+    }
+
+    function toggleTask(idx) {
+      const chk = document.getElementById("task-" + idx);
+      taskStates[idx] = chk ? chk.checked : false;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(taskStates));
+      } catch {}
+      updateProgress();
+    }
+
+    function resetChecklist() {
+      if (!confirm("Reset checklist to original export state?")) return;
+      localStorage.removeItem(storageKey);
+      location.reload();
+    }
+
+    if (Array.isArray(taskStates) && taskStates.length) {
+      taskStates.forEach((val, idx) => {
+        const chk = document.getElementById("task-" + idx);
+        if (chk && typeof val === "boolean") chk.checked = val;
+      });
+      updateProgress();
+    }
+  </script>
+</body>
+</html>`;
+
+  downloadTextFile(`Build_Binder_${safeTitle}_${project.id.slice(0, 8)}.html`, htmlDoc);
+  showToast(`Exported Digital Build Binder for "${project.title}"! 📦`);
 }
 
 $("#goal-form")?.addEventListener("submit", event => void handleGoalSubmit(event));

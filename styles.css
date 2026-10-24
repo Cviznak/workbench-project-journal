@@ -6156,6 +6156,131 @@ body.theme-dark .version-tag {
   gap: 5px !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
 }
+
+/* 👥 Collaborative Roles & Stock Match Badges */
+.collab-role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.collab-role-pill.role-creator {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+[data-theme="dark"] .collab-role-pill.role-creator {
+  background: #78350f;
+  color: #fde68a;
+  border-color: #b45309;
+}
+.collab-role-pill.role-editor {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #c4b5fd;
+}
+[data-theme="dark"] .collab-role-pill.role-editor {
+  background: #2e1065;
+  color: #c4b5fd;
+  border-color: #5b21b6;
+}
+.collab-role-pill.role-viewer {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+[data-theme="dark"] .collab-role-pill.role-viewer {
+  background: #082f49;
+  color: #7dd3fc;
+  border-color: #0369a1;
+}
+
+.materials-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+.materials-stock-badge.stock-in {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+[data-theme="dark"] .materials-stock-badge.stock-in {
+  background: #052e16;
+  color: #86efac;
+  border-color: #166534;
+}
+.materials-stock-badge.stock-partial {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+[data-theme="dark"] .materials-stock-badge.stock-partial {
+  background: #451a03;
+  color: #fde68a;
+  border-color: #92400e;
+}
+.materials-stock-badge.stock-out {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+[data-theme="dark"] .materials-stock-badge.stock-out {
+  background: #450a0a;
+  color: #fca5a5;
+  border-color: #991b1b;
+}
+
+.team-timeline-box {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-top: 12px;
+}
+.team-timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.team-timeline-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.team-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.team-timeline-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--surface);
+}
+.team-timeline-item:hover {
+  background: var(--surface-hover);
+}
 .masked-key-input {
   -webkit-text-security: disc !important;
   text-security: disc !important;
