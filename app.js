@@ -1557,7 +1557,7 @@ async function saveProfilePassword() {
   const confirmPass = $("#profile-new-password-confirm")?.value || "";
   const alertEl = $("#profile-password-alert");
 
-  function showAlert(msg, type = "error") {
+  function showPasswordAlert(msg, type = "error") {
     if (!alertEl) return;
     alertEl.textContent = msg;
     alertEl.className = `auth-alert ${type}`;
@@ -1565,28 +1565,28 @@ async function saveProfilePassword() {
   }
 
   if (newPass.length < 6) {
-    showAlert("Password must be at least 6 characters long.");
+    showPasswordAlert("Password must be at least 6 characters long.");
     return;
   }
   if (newPass !== confirmPass) {
-    showAlert("Passwords do not match. Please verify both fields.");
+    showPasswordAlert("Passwords do not match. Please verify both fields.");
     return;
   }
 
   try {
-    showAlert("Updating password…", "info");
+    showPasswordAlert("Updating password…", "info");
     await cloudRequest("/auth/v1/user", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: newPass })
     });
-    showAlert("✓ Password successfully updated!", "success");
+    showPasswordAlert("✓ Password successfully updated!", "success");
     showToast("Password updated successfully! 🔒");
     if ($("#profile-new-password")) $("#profile-new-password").value = "";
     if ($("#profile-new-password-confirm")) $("#profile-new-password-confirm").value = "";
   } catch (err) {
     console.error("Password change failed:", err);
-    showAlert(err.message || "Failed to update password. Please sign in again and retry.");
+    showPasswordAlert(err.message || "Failed to update password. Please sign in again and retry.");
   }
 }
 
@@ -1594,7 +1594,7 @@ async function saveProfileEmail() {
   const newEmail = $("#profile-new-email")?.value?.trim() || "";
   const alertEl = $("#profile-email-alert");
 
-  function showAlert(msg, type = "error") {
+  function showEmailAlert(msg, type = "error") {
     if (!alertEl) return;
     alertEl.textContent = msg;
     alertEl.className = `auth-alert ${type}`;
@@ -1602,18 +1602,18 @@ async function saveProfileEmail() {
   }
 
   if (!newEmail || !newEmail.includes("@")) {
-    showAlert("Please enter a valid email address.");
+    showEmailAlert("Please enter a valid email address.");
     return;
   }
 
   const user = getActiveUser();
   if (user && user.email.toLowerCase() === newEmail.toLowerCase()) {
-    showAlert("The new email address must be different from your current email.");
+    showEmailAlert("The new email address must be different from your current email.");
     return;
   }
 
   try {
-    showAlert("Updating email address…", "info");
+    showEmailAlert("Updating email address…", "info");
     await cloudRequest("/auth/v1/user", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1643,12 +1643,12 @@ async function saveProfileEmail() {
     }
 
     updateUserUI();
-    showAlert("✓ Email update requested! If email confirmation is enabled on your Supabase project, check your new inbox to confirm the change.", "success");
+    showEmailAlert("✓ Email update requested! If email confirmation is enabled on your Supabase project, check your new inbox to confirm the change.", "success");
     showToast("Email update requested! 📧");
     if ($("#profile-new-email")) $("#profile-new-email").value = "";
   } catch (err) {
     console.error("Email change failed:", err);
-    showAlert(err.message || "Failed to update email. Please check your connection and retry.");
+    showEmailAlert(err.message || "Failed to update email. Please check your connection and retry.");
   }
 }
 
@@ -3673,7 +3673,8 @@ function formatGiftCountdown(deadline) {
   if (!deadline) return null;
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  const target = new Date(deadline);
+  const cleanDateStr = String(deadline).split("T")[0];
+  const target = new Date(`${cleanDateStr}T12:00:00`);
   target.setHours(0, 0, 0, 0);
   const diffTime = target.getTime() - now.getTime();
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
@@ -5051,7 +5052,14 @@ function renderProjectDetail(projectId) {
     ` : ""}
     <div class="detail-section-heading"><h3>Project photos</h3><div><button class="small-action" data-action="new-folder" data-id="${project.id}">＋ Folder</button> <button class="small-action" data-action="open-compare-photos" data-project="${project.id}">↔️ Compare</button> <button class="small-action" data-action="snap-photo" data-id="${project.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}">＋ Add photos</button></div></div>
     ${folders.map(folder => `<div class="folder-block"><div class="folder-heading"><div class="folder-title-wrap"><span class="folder-name-text">${escapeHTML(folder.name)}</span><button type="button" class="icon-link-btn" data-action="rename-folder" data-project="${project.id}" data-folder="${folder.id}" title="Rename folder" aria-label="Rename folder">✎</button>${folders.length > 1 ? `<button type="button" class="icon-link-btn danger-hover" data-action="delete-folder" data-project="${project.id}" data-folder="${folder.id}" title="Delete folder" aria-label="Delete folder">×</button>` : ""}</div><span>${folder.images.length} ${folder.images.length === 1 ? "photo" : "photos"} <button class="small-action" data-action="snap-photo" data-id="${project.id}" data-folder="${folder.id}">📷 Camera</button> <button class="small-action" data-action="add-photos" data-id="${project.id}" data-folder="${folder.id}">＋ Add</button></span></div>${folder.images.length ? `<div class="detail-photo-grid">${folder.images.map(image => `<div class="detail-photo" data-action="open-lightbox" data-image-id="${image.id}" data-caption="${escapeHTML(image.name)}" tabindex="0" role="button" aria-label="View photo ${escapeHTML(image.name)}"><img src="${imageUrl(image)}" alt="${escapeHTML(image.name)}"><button type="button" class="photo-annotate-badge" data-action="annotate-photo" data-image-id="${image.id}" title="Annotate photo" style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:4px;padding:2px 6px;font-size:10px;cursor:pointer">✏️</button><button class="remove-photo" data-action="remove-photo" data-project="${project.id}" data-folder="${folder.id}" data-image="${image.id}" aria-label="Remove ${escapeHTML(image.name)}">×</button></div>`).join("")}</div>` : `<div class="folder-empty">No photos here yet. Add photos to keep a record of your progress.</div>`}</div>`).join("")}
-    <div class="detail-footer"><button class="danger-button" data-action="delete-project" data-id="${project.id}">Delete project</button><span class="project-card-meta">${projectImageCount(project)} photos · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}</span></div>
+    ${(() => {
+      const curUser = getActiveUser();
+      const isCreator = isProjectCreator(project, curUser);
+      const isAdmin = isCurrentUserAdmin();
+      const isCollab = isCollaborativeProject(project);
+      const isMemberOnly = isCollab && !isCreator && !isAdmin;
+      return `<div class="detail-footer"><button class="${isMemberOnly ? "button button-outline danger-hover" : "danger-button"}" data-action="delete-project" data-id="${project.id}">${isMemberOnly ? "Leave project" : "Delete project"}</button><span class="project-card-meta">${projectImageCount(project)} photos · ${folders.length} ${folders.length === 1 ? "folder" : "folders"}</span></div>`;
+    })()}
   </div>`;
 }
 
@@ -5384,6 +5392,10 @@ async function handleProjectSubmit(event) {
   const form = event.currentTarget;
   const id = form.elements.id.value;
   const existing = state.projects.find(project => project.id === id);
+  if (existing && !canUserEditProject(existing)) {
+    showToast("Viewers have read-only access to this project.");
+    return;
+  }
   const skillIds = $$('input[name="skillIds"]:checked', form).map(input => input.value);
   const templateTasks = form.dataset.templateTasks ? JSON.parse(form.dataset.templateTasks) : [];
   const templateMaterials = form.dataset.templateMaterials ? JSON.parse(form.dataset.templateMaterials) : [];
@@ -5508,6 +5520,10 @@ async function handleFolderSubmit(event) {
   const project = state.projects.find(item => item.id === form.elements.projectId.value);
   const name = form.elements.name.value.trim();
   if (!project || !name) return;
+  if (!canUserEditProject(project)) {
+    showToast("Viewers have read-only access to this project.");
+    return;
+  }
   if (project.folders.some(folder => folder.name.toLowerCase() === name.toLowerCase())) {
     showToast("That project already has a folder with this name.");
     return;
@@ -5532,6 +5548,10 @@ async function handleProjectEntrySubmit(event) {
   event.preventDefault();
   const project = state.projects.find(item => item.id === form.dataset.project);
   if (!project) return;
+  if (!canUserEditProject(project)) {
+    showToast("Viewers have read-only access to this project.");
+    return;
+  }
   if (form.matches(".materials-add-form")) {
     const name = form.elements.materialName.value.trim();
     if (!name) return;
@@ -5595,6 +5615,11 @@ async function handleTaskToggle(input) {
   const project = state.projects.find(item => item.id === input.dataset.project);
   const task = project?.tasks.find(item => item.id === input.dataset.id);
   if (!project || !task) return;
+  if (!canUserEditProject(project)) {
+    input.checked = !input.checked;
+    showToast("Viewers have read-only access to this project.");
+    return;
+  }
   task.done = input.checked;
   const maker = getCurrentMakerIdentity();
   if (input.checked) {
@@ -6693,12 +6718,36 @@ function runCutListOptimizer() {
   resultBox.innerHTML = html;
 }
 
-function copyCutPlan() {
+async function copyCutPlan() {
+  if (typeof lastCutPlanText !== "undefined" && lastCutPlanText) {
+    try {
+      await navigator.clipboard.writeText(lastCutPlanText);
+      showToast("Copied cut plan to clipboard!");
+      return;
+    } catch {
+      window.prompt("Copy your cut list plan:", lastCutPlanText);
+      return;
+    }
+  }
+
   const stockLen = parseFloat($("#tool-cut-stock")?.value) || 96;
   const kerf = parseFloat($("#tool-cut-kerf")?.value) || 0;
   const resultBox = $("#tool-cutlist-result");
   const blocks = resultBox?.querySelectorAll(".cutlist-board-block");
   if (!blocks || blocks.length === 0) {
+    if (typeof runCutOptimizer === "function") {
+      runCutOptimizer();
+      if (typeof lastCutPlanText !== "undefined" && lastCutPlanText) {
+        try {
+          await navigator.clipboard.writeText(lastCutPlanText);
+          showToast("Copied cut plan to clipboard!");
+          return;
+        } catch {
+          window.prompt("Copy your cut list plan:", lastCutPlanText);
+          return;
+        }
+      }
+    }
     showToast("Run the optimizer first to generate a cut plan.");
     return;
   }
@@ -6708,11 +6757,12 @@ function copyCutPlan() {
     const cuts = Array.from(block.querySelectorAll(".cut-piece-box")).map(el => el.textContent.trim()).join(", ");
     plan += `Board #${idx + 1}: Cuts [${cuts}] (${text})\n`;
   });
-  navigator.clipboard.writeText(plan).then(() => {
+  try {
+    await navigator.clipboard.writeText(plan);
     showToast("Cut plan copied to clipboard!");
-  }).catch(() => {
-    showToast("Could not copy cut plan.");
-  });
+  } catch {
+    window.prompt("Copy your cut list plan:", plan);
+  }
 }
 
 /* 📋 Project View Mode & Kanban Board */
@@ -9425,7 +9475,7 @@ function initAnnotationCanvasEvents() {
       } else if (annotateState.tool === "arrow") {
         drawArrow(ctx, annotateState.startX, annotateState.startY, pt.x, pt.y, annotateState.size * 3.5);
       } else if (annotateState.tool === "dimension") {
-        drawDimensionLine(ctx, annotateState.startX, annotateState.startY, pt.x, pt.y);
+        drawAnnotateDimensionLine(ctx, annotateState.startX, annotateState.startY, pt.x, pt.y);
       }
     }
   };
@@ -9470,7 +9520,7 @@ function drawArrow(ctx, fromX, fromY, toX, toY, headLength) {
   ctx.fill();
 }
 
-function drawDimensionLine(ctx, fromX, fromY, toX, toY) {
+function drawAnnotateDimensionLine(ctx, fromX, fromY, toX, toY) {
   ctx.beginPath();
   ctx.moveTo(fromX, fromY);
   ctx.lineTo(toX, toY);
@@ -10477,11 +10527,15 @@ function downloadQuoteInvoiceHTML() {
 
   const blob = new Blob([htmlDoc], { type: "text/html;charset=utf-8" });
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  a.href = url;
   a.download = `${activeQuoteMode.toUpperCase()}_${safeTitle}.html`;
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
   showToast(`Downloaded ${activeQuoteMode.toUpperCase()} document!`);
 }
 
@@ -12559,8 +12613,13 @@ async function handleAction(action, target) {
   }
   if (action === "cycle-material-status") {
     const project = state.projects.find(item => item.id === target.dataset.project);
-    const material = project?.materials?.find(item => item.id === id);
-    if (!project || !material) return;
+    if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    const material = project.materials?.find(item => item.id === id);
+    if (!material) return;
     const nextStatus = { need: "ordered", ordered: "have", have: "need" };
     material.status = nextStatus[material.status] || "need";
     project.updatedAt = new Date().toISOString();
@@ -12583,8 +12642,13 @@ async function handleAction(action, target) {
   }
   if (action === "edit-material-group") {
     const project = state.projects.find(item => item.id === target.dataset.project);
-    const material = project?.materials?.find(item => item.id === id);
-    if (!project || !material) return;
+    if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    const material = project.materials?.find(item => item.id === id);
+    if (!material) return;
     const currentGroup = material.group || inferMaterialGroup(material.name);
     const newGroup = prompt("Enter group for this material (e.g. Yarn & Fibers, Sensors & Modules, Hardware, Lumber):", currentGroup);
     if (newGroup !== null) {
@@ -12604,6 +12668,10 @@ async function handleAction(action, target) {
   if (action === "delete-material") {
     const project = state.projects.find(item => item.id === target.dataset.project);
     if (!project || !project.materials) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    } 
     const index = project.materials.findIndex(item => item.id === id);
     if (index < 0) return;
     const [removed] = project.materials.splice(index, 1);
@@ -13207,7 +13275,13 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "snap-photo") {
-    beginCameraCapture(id || target.dataset.id, target.dataset.folder || null);
+    const projId = id || target.dataset.id;
+    const project = state.projects.find(p => p.id === projId);
+    if (project && !canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    beginCameraCapture(projId, target.dataset.folder || null);
     return;
   }
   if (action === "copy-project-summary") {
@@ -13604,6 +13678,10 @@ async function handleAction(action, target) {
   if (action === "edit-project") {
     const project = state.projects.find(item => item.id === id);
     if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
     $("#detail-dialog").close();
     openProjectForm(project);
   }
@@ -13646,10 +13724,23 @@ async function handleAction(action, target) {
     }
     return;
   }
-  if (action === "new-folder") openFolderForm(id);
+  if (action === "new-folder") {
+    const project = state.projects.find(item => item.id === id);
+    if (project && !canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    openFolderForm(id);
+    return;
+  }
   if (action === "rename-folder") {
     const project = state.projects.find(item => item.id === target.dataset.project);
-    const folder = project?.folders.find(item => item.id === target.dataset.folder);
+    if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    const folder = project.folders.find(item => item.id === target.dataset.folder);
     if (!folder) return;
     const newName = window.prompt("New folder name:", folder.name)?.trim();
     if (!newName || newName === folder.name) return;
@@ -13672,8 +13763,13 @@ async function handleAction(action, target) {
   }
   if (action === "delete-folder") {
     const project = state.projects.find(item => item.id === target.dataset.project);
-    const folderIndex = project?.folders.findIndex(item => item.id === target.dataset.folder);
-    if (!project || folderIndex === undefined || folderIndex < 0) return;
+    if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    const folderIndex = project.folders.findIndex(item => item.id === target.dataset.folder);
+    if (folderIndex === undefined || folderIndex < 0) return;
     const folder = project.folders[folderIndex];
     if (project.folders.length <= 1) {
       showToast("A project must have at least one folder.");
@@ -13697,7 +13793,15 @@ async function handleAction(action, target) {
     }
     return;
   }
-  if (action === "add-photos") beginPhotoUpload(id, target.dataset.folder || null);
+  if (action === "add-photos") {
+    const project = state.projects.find(item => item.id === id);
+    if (project && !canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    beginPhotoUpload(id, target.dataset.folder || null);
+    return;
+  }
   if (action === "edit-task") {
     const project = state.projects.find(item => item.id === target.dataset.project);
     const task = project?.tasks.find(item => item.id === id);
@@ -13720,6 +13824,10 @@ async function handleAction(action, target) {
   if (action === "move-task-up" || action === "move-task-down") {
     const project = state.projects.find(item => item.id === target.dataset.project);
     if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
     const activePhase = project._activePhase || "all";
     const taskList = activePhase === "all" ? project.tasks : project.tasks.filter(t => (t.phase || "") === activePhase);
     const visibleIndex = taskList.findIndex(item => item.id === id);
@@ -13754,6 +13862,10 @@ async function handleAction(action, target) {
   if (action === "add-project-phase") {
     const proj = state.projects.find(p => p.id === (target.dataset.project || id));
     if (proj) {
+      if (!canUserEditProject(proj)) {
+        showToast("Viewers have read-only access to this project.");
+        return;
+      }
       const newPhase = window.prompt("Enter new build phase name (e.g. Rough Cut, Assembly, Sanding, Finish, Wiring):");
       if (newPhase && newPhase.trim()) {
         const trimmed = newPhase.trim();
@@ -13773,6 +13885,10 @@ async function handleAction(action, target) {
     const proj = state.projects.find(p => p.id === (target.dataset.project || id));
     const taskId = target.dataset.id || id;
     if (proj && taskId) {
+      if (!canUserEditProject(proj)) {
+        showToast("Viewers have read-only access to this project.");
+        return;
+      }
       const task = (proj.tasks || []).find(t => t.id === taskId);
       if (task) {
         const current = task.phase || "";
@@ -13810,6 +13926,10 @@ async function handleAction(action, target) {
     const project = state.projects.find(item => item.id === target.dataset.project);
     const note = project?.notes.find(item => item.id === id);
     if (!project || !note) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
     const newText = window.prompt("Edit progress note:", note.text)?.trim();
     if (!newText || newText === note.text) return;
     note.text = newText;
@@ -13832,6 +13952,10 @@ async function handleAction(action, target) {
   if (action === "delete-task" || action === "delete-note") {
     const project = state.projects.find(item => item.id === target.dataset.project);
     if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
     const collection = action === "delete-task" ? project.tasks : project.notes;
     const index = collection.findIndex(item => item.id === id);
     if (index < 0) return;
@@ -13852,7 +13976,47 @@ async function handleAction(action, target) {
   if (action === "delete-project") {
     const projectId = id || target.dataset.id || target.dataset.project || activeProjectId || $("#project-form input[name='id']")?.value;
     const project = state.projects.find(item => item.id === projectId);
-    if (!project || !window.confirm(`Delete “${project.title}” and all its photos? This can’t be undone.`)) return;
+    if (!project) return;
+
+    const curUser = getActiveUser();
+    const isCreator = isProjectCreator(project, curUser);
+    const isAdmin = isCurrentUserAdmin();
+
+    // Collaborative team members who are not the creator or admin can only LEAVE the project
+    if (isCollaborativeProject(project) && !isCreator && !isAdmin) {
+      if (!window.confirm(`Leave collaborative project “${project.title}”? You will be removed from the team, but the creator and other collaborators will keep their project.`)) return;
+
+      const uId = curUser?.id || "local-maker";
+      const uEmail = (curUser?.email || "").toLowerCase().trim();
+      project.coCreators = (project.coCreators || []).filter(c => {
+        if (c.id && c.id === uId) return false;
+        if (c.email && uEmail && c.email.toLowerCase().trim() === uEmail) return false;
+        return true;
+      });
+      project.updatedAt = new Date().toISOString();
+
+      const shared = getSharedCollaborations().filter(p => p.id !== projectId);
+      saveSharedCollaborations(shared);
+
+      state.projects = state.projects.filter(item => item.id !== projectId);
+      if (activeProjectId === projectId) activeProjectId = null;
+
+      $("#detail-dialog")?.close();
+      $("#project-dialog")?.close();
+
+      try {
+        await persistState({ syncCloud: true });
+        await pushProjectToCollaboratorWorkspaces(project);
+        render();
+        showToast(`Left collaborative project “${project.title}”.`);
+      } catch (err) {
+        console.error("Error leaving collaborative project:", err);
+        render();
+      }
+      return;
+    }
+
+    if (!window.confirm(`Delete “${project.title}” and all its photos? This can’t be undone.`)) return;
 
     recordDeletedProjectId(projectId);
     (project.folders || []).forEach(folder => (folder.images || []).forEach(image => releaseImageUrl(image.id)));
@@ -13893,7 +14057,12 @@ async function handleAction(action, target) {
   }
   if (action === "remove-photo") {
     const project = state.projects.find(item => item.id === target.dataset.project);
-    const folder = project?.folders.find(item => item.id === target.dataset.folder);
+    if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    const folder = project.folders.find(item => item.id === target.dataset.folder);
     if (!folder) return;
     releaseImageUrl(target.dataset.image);
     folder.images = folder.images.filter(image => image.id !== target.dataset.image);
@@ -15503,24 +15672,7 @@ function runCutOptimizer() {
   `;
 }
 
-async function copyCutPlan() {
-  if (!lastCutPlanText) {
-    runCutOptimizer();
-  }
-  if (!lastCutPlanText) return;
-  try {
-    await navigator.clipboard.writeText(lastCutPlanText);
-    showToast("Copied cut plan to clipboard!");
-  } catch {
-    const ta = document.createElement("textarea");
-    ta.value = lastCutPlanText;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
-    showToast("Copied cut plan to clipboard!");
-  }
-}
+// (Unified copyCutPlan defined above)
 
 /* ============================================================
    🧪 Workshop Epoxy & Resin Pour Calculator
@@ -17997,7 +18149,7 @@ function playDrumSound(type) {
   }
 }
 
-function playMetronomeClick(isFirstBeat = false) {
+function playDrumClick(isFirstBeat = false) {
   const ctx = getMusicAudioCtx();
   if (!ctx) return;
   const now = ctx.currentTime;
@@ -18428,7 +18580,7 @@ function startMusicGroove(mode = "both") {
       if (drumGridState.clap[drumStep]) playDrumSound("clap");
     }
     if (!musicPlaybackState.metronomeMuted && (drumStep % 4 === 0)) {
-      playMetronomeClick(drumStep === 0);
+      playDrumClick(drumStep === 0);
     }
     document.querySelectorAll(".sequencer-step-btn").forEach(btn => {
       btn.classList.toggle("playhead", parseInt(btn.dataset.step, 10) === drumStep);
@@ -21114,9 +21266,6 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
   const uNorm = normalize(uName);
   const uPrefix = uEmail ? normalize(uEmail.split("@")[0]) : "";
 
-  const tokenize = s => (s || "").toLowerCase().split(/[\s._@-]+/).filter(t => t.length >= 2);
-  const uTokens = tokenize(uName).concat(tokenize(uEmail));
-
   const matchesUser = (member) => {
     if (!member) return false;
     const mId = member.id || member.user_id;
@@ -21128,9 +21277,8 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
     const mName = (member.displayName || member.display_name || member.name || "").toLowerCase().trim();
     const mNorm = normalize(mName);
     const mPrefix = mEmail ? normalize(mEmail.split("@")[0]) : "";
-    const mTokens = tokenize(mName).concat(tokenize(mEmail));
 
-    // 1. Direct name match (e.g. "Editor User" === "Editor User" or "test" === "test")
+    // 1. Direct name match (e.g. "Editor User" === "Editor User" or "David Miller" === "david miller")
     if (!isGenericName(mName) && !isGenericName(uName) && mNorm && mNorm === uNorm) return true;
 
     // 2. Member name matches user's email prefix (e.g. member entered as "editor" and user is "editor@xyz.com")
@@ -21139,22 +21287,8 @@ function isUserCollaborator(project, user = null, includeAdmin = false) {
     // 3. User name matches member's email prefix (e.g. member entered as "editor@xyz.com" and user display name is "Editor")
     if (!isGenericName(uName) && uNorm && mPrefix && uNorm === mPrefix) return true;
 
-    // 4. Both email prefixes match
-    if (mPrefix && uPrefix && mPrefix === uPrefix) return true;
-
-    // 5. Token overlap matching (e.g. "Bob Editor" and "Bob" or "bob@xyz.com")
-    if (mTokens.length > 0 && uTokens.length > 0) {
-      const hasTokenMatch = mTokens.some(mt => !isGenericName(mt) && uTokens.some(ut => !isGenericName(ut) && (mt === ut || (mt.length >= 3 && ut.length >= 3 && (mt.includes(ut) || ut.includes(mt))))));
-      if (hasTokenMatch) return true;
-    }
-
-    // 6. Containment / Substring matching for full/partial names and prefixes
-    if (!isGenericName(mName) && !isGenericName(uName)) {
-      if (mNorm && uNorm && (mNorm.includes(uNorm) || uNorm.includes(mNorm))) return true;
-    }
-    if (!isGenericName(mName) && mNorm && uPrefix && (mNorm.includes(uPrefix) || uPrefix.includes(mNorm))) return true;
-    if (!isGenericName(uName) && uNorm && mPrefix && (uNorm.includes(mPrefix) || mPrefix.includes(uNorm))) return true;
-    if (mPrefix && uPrefix && (mPrefix.includes(uPrefix) || uPrefix.includes(mPrefix))) return true;
+    // 4. Both email prefixes match (non-generic, e.g. "charlie" === "charlie")
+    if (mPrefix && uPrefix && !isGenericName(mPrefix) && !isGenericName(uPrefix) && mPrefix === uPrefix) return true;
 
     return false;
   };
@@ -21213,9 +21347,6 @@ function getProjectUserRole(project, user = null) {
   const uNorm = normalize(uName);
   const uPrefix = uEmail ? normalize(uEmail.split("@")[0]) : "";
 
-  const tokenize = s => (s || "").toLowerCase().split(/[\s._@-]+/).filter(t => t.length >= 2);
-  const uTokens = tokenize(uName).concat(tokenize(uEmail));
-
   if (isProjectCreator(project, curUser)) {
     return { role: "creator", label: "👑 Creator", className: "role-creator" };
   }
@@ -21231,24 +21362,18 @@ function getProjectUserRole(project, user = null) {
     const mName = (member.displayName || member.display_name || member.name || "").toLowerCase().trim();
     const mNorm = normalize(mName);
     const mPrefix = mEmail ? normalize(mEmail.split("@")[0]) : "";
-    const mTokens = tokenize(mName).concat(tokenize(mEmail));
 
+    // 1. Direct name match (e.g. "Editor User" === "Editor User" or "David Miller" === "david miller")
     if (!isGenericName(mName) && !isGenericName(uName) && mNorm && mNorm === uNorm) return true;
+
+    // 2. Member name matches user's email prefix (e.g. member entered as "editor" and user is "editor@xyz.com")
     if (!isGenericName(mName) && mNorm && uPrefix && mNorm === uPrefix) return true;
+
+    // 3. User name matches member's email prefix (e.g. member entered as "editor@xyz.com" and user display name is "Editor")
     if (!isGenericName(uName) && uNorm && mPrefix && uNorm === mPrefix) return true;
-    if (mPrefix && uPrefix && mPrefix === uPrefix) return true;
 
-    if (mTokens.length > 0 && uTokens.length > 0) {
-      const hasTokenMatch = mTokens.some(mt => !isGenericName(mt) && uTokens.some(ut => !isGenericName(ut) && (mt === ut || (mt.length >= 3 && ut.length >= 3 && (mt.includes(ut) || ut.includes(mt))))));
-      if (hasTokenMatch) return true;
-    }
-
-    if (!isGenericName(mName) && !isGenericName(uName)) {
-      if (mNorm && uNorm && (mNorm.includes(uNorm) || uNorm.includes(mNorm))) return true;
-    }
-    if (!isGenericName(mName) && mNorm && uPrefix && (mNorm.includes(uPrefix) || uPrefix.includes(mNorm))) return true;
-    if (!isGenericName(uName) && uNorm && mPrefix && (uNorm.includes(mPrefix) || mPrefix.includes(uNorm))) return true;
-    if (mPrefix && uPrefix && (mPrefix.includes(uPrefix) || uPrefix.includes(mPrefix))) return true;
+    // 4. Both email prefixes match (non-generic, e.g. "charlie" === "charlie")
+    if (mPrefix && uPrefix && !isGenericName(mPrefix) && !isGenericName(uPrefix) && mPrefix === uPrefix) return true;
 
     return false;
   };
@@ -21264,7 +21389,20 @@ function getProjectUserRole(project, user = null) {
     }
   }
 
-  return { role: "editor", label: "✏️ Editor", className: "role-editor" };
+  return null;
+}
+
+function canUserEditProject(project, user = null) {
+  if (!project) return false;
+  const curUser = user || getActiveUser();
+  if (!curUser) return true; // Offline single-maker fallback
+  const isCurUserAdmin = Boolean(curUser && (curUser.isAdmin || curUser.role === "admin" || curUser.isPrimary || isPrimaryOwner(curUser)));
+  if (isCurUserAdmin) return true;
+  if (!isCollaborativeProject(project)) return true;
+  if (isProjectCreator(project, curUser)) return true;
+  const ur = getProjectUserRole(project, curUser);
+  if (!ur) return false;
+  return ur.role !== "viewer";
 }
 
 async function syncCloudCollaborations() {
@@ -21864,9 +22002,12 @@ async function pushProjectToCollaboratorWorkspaces(project) {
       }
     }
     // 2. Known makers from localStorage
-    const knownMakersRaw = localStorage.getItem("workbench_known_makers");
-    const knownList = knownMakersRaw ? JSON.parse(knownMakersRaw) : [];
-    for (const m of knownList) {
+    let knownList = [];
+    try {
+      const knownMakersRaw = localStorage.getItem("workbench_known_makers");
+      if (knownMakersRaw) knownList = JSON.parse(knownMakersRaw);
+    } catch {}
+    for (const m of (Array.isArray(knownList) ? knownList : [])) {
       if (!m?.id || m.id === curUser?.id || m.id === "local-maker") continue;
       if (isUserCollaborator(project, m)) {
         targetUsers.set(m.id, m);
@@ -23881,7 +24022,7 @@ const FASTENER_DATABASE = {
   ]
 };
 
-function populateFastenerSizes() {
+function populateFastenerFinderSizes() {
   const sys = $("#fastener-system")?.value || "metric";
   const sizeSelect = $("#fastener-size");
   if (!sizeSelect) return;
@@ -23896,7 +24037,7 @@ function populateFastenerSizes() {
 }
 
 function updateFastenerFinder() {
-  populateFastenerSizes();
+  populateFastenerFinderSizes();
   const sys = $("#fastener-system")?.value || "metric";
   const sizeKey = $("#fastener-size")?.value;
   const headType = $("#fastener-head-type")?.value || "socket_cap";
@@ -27113,12 +27254,12 @@ function updatePassiveFilterCalc() {
   const cutoffHz = 1 / (2 * Math.PI * rOhms * cFarads);
   const timeConstSec = rOhms * cFarads;
 
-  function fmtFreq(hz) {
+  function fmtFilterFreq(hz) {
     if (hz >= 1000000) return (hz / 1000000).toFixed(3) + " MHz";
     if (hz >= 1000) return (hz / 1000).toFixed(2) + " kHz";
     return hz.toFixed(1) + " Hz";
   }
-  function fmtTime(s) {
+  function fmtFilterTime(s) {
     if (s >= 1) return s.toFixed(3) + " s";
     if (s >= 0.001) return (s * 1000).toFixed(2) + " ms";
     return (s * 1000000).toFixed(1) + " µs";
@@ -27143,12 +27284,12 @@ function updatePassiveFilterCalc() {
   res.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <span style="font-size:11px;font-weight:700;color:var(--muted)">-3dB CUTOFF FREQUENCY (f<sub>c</sub>):</span>
-      <strong style="font-size:18px;color:var(--green)">${fmtFreq(cutoffHz)}</strong>
+      <strong style="font-size:18px;color:var(--green)">${fmtFilterFreq(cutoffHz)}</strong>
     </div>
     <div style="font-size:12px;color:var(--ink);line-height:1.45">
-      • <strong>Time Constant (τ = R·C):</strong> ${fmtTime(timeConstSec)}<br>
-      • <strong>Rise Time (10% to 90%):</strong> ${fmtTime(2.2 * timeConstSec)}<br>
-      • <strong>Filter Action:</strong> ${type === "lowpass" ? "Passes frequencies below " + fmtFreq(cutoffHz) + "; rolls off high frequencies at -20 dB/decade (-6 dB/octave)." : "Blocks DC offset and frequencies below " + fmtFreq(cutoffHz) + "; passes higher frequencies."}<br>
+      • <strong>Time Constant (τ = R·C):</strong> ${fmtFilterTime(timeConstSec)}<br>
+      • <strong>Rise Time (10% to 90%):</strong> ${fmtFilterTime(2.2 * timeConstSec)}<br>
+      • <strong>Filter Action:</strong> ${type === "lowpass" ? "Passes frequencies below " + fmtFilterFreq(cutoffHz) + "; rolls off high frequencies at -20 dB/decade (-6 dB/octave)." : "Blocks DC offset and frequencies below " + fmtFilterFreq(cutoffHz) + "; passes higher frequencies."}<br>
       <div style="margin-top:8px">
         <strong style="font-size:11px;color:var(--muted)">ATTENUATION AT REFERENCE FREQUENCIES:</strong>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
@@ -33771,7 +33912,7 @@ async function addFastenersSupplies() {
   await addMaterialToProjectShopping(`${size} High-Tensile Fasteners & Nuts (Box of 50)`, "1 box", 14.50, "Fasteners & Hardware");
 }
 
-function populateFastenerSizes() {
+function populateFastenerStudioSizes() {
   const std = $("#fastener-standard-select")?.value || "metric-coarse";
   const select = $("#fastener-size-select");
   if (!select) return;
@@ -34094,7 +34235,7 @@ function updateFastenerCounterbore() {
 }
 
 function renderFastenersView() {
-  populateFastenerSizes();
+  populateFastenerStudioSizes();
   updateFastenerTap();
   updateFastenerTorque();
   updateFastenerWood();
@@ -37644,12 +37785,16 @@ function updateWaxSealDesigner() {
   const totalGrams = Math.round(gramsPerSeal * count * 10) / 10;
   const sticksCount = Math.ceil(totalGrams / 11);
 
+  const safeHex = (c, fallback) => /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : fallback;
+  const cleanPrimary = safeHex(primaryColor, "#7f1d1d");
+  const cleanAccent = accentColor === "none" ? "none" : safeHex(accentColor, "#eab308");
+
   // Background gradient for wax seal
-  let sealBg = primaryColor;
-  if (accentColor !== "none") {
-    sealBg = `radial-gradient(circle at 35% 35%, ${accentColor} 0%, ${primaryColor} 65%, #000000 120%)`;
+  let sealBg = cleanPrimary;
+  if (cleanAccent !== "none") {
+    sealBg = `radial-gradient(circle at 35% 35%, ${cleanAccent} 0%, ${cleanPrimary} 65%, #000000 120%)`;
   } else {
-    sealBg = `radial-gradient(circle at 35% 35%, ${primaryColor} 0%, #000000 130%)`;
+    sealBg = `radial-gradient(circle at 35% 35%, ${cleanPrimary} 0%, #000000 130%)`;
   }
 
   const mailableNote = flex === "flexible" ?
@@ -38293,7 +38438,7 @@ function initCraftStudios() {
   // Fastener, Bolt & Tap Drill Precision Finder
   updateFastenerFinder();
   $("#fastener-system")?.addEventListener("change", () => {
-    populateFastenerSizes();
+    populateFastenerFinderSizes();
     updateFastenerFinder();
   });
   ["#fastener-size", "#fastener-head-type", "#fastener-material"].forEach(s => $(s)?.addEventListener("change", updateFastenerFinder));
@@ -38733,7 +38878,7 @@ function initCraftStudios() {
   // Fasteners & Drills Studio Listeners
   renderFastenersView();
   $("#fastener-standard-select")?.addEventListener("change", () => {
-    populateFastenerSizes();
+    populateFastenerStudioSizes();
     updateFastenerTap();
     updateFastenerTorque();
   });
