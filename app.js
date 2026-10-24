@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3910,7 +3910,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     art: "Art & Design Studio",
     resin: "Epoxy & Silicone Studio",
     printing: "3D Printing Studio",
-    origami: "Origami & Papercraft Studio"
+    origami: "Origami & Papercraft Studio",
+    laser: "Laser Cutting & Engraving Studio",
+    leather: "Leathercraft & Stitching Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3942,6 +3944,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "art") renderArtView();
   if (targetView === "printing") renderSpoolRack();
   if (targetView === "origami") renderOrigamiView();
+  if (targetView === "laser") renderLaserView();
+  if (targetView === "leather") renderLeatherView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -6979,6 +6983,33 @@ const WORKSHOP_STARTER_KITS = {
       { type: "material", name: "Japanese Kami Origami Paper Pack (15x15cm, 100 sheets)", category: "Papercraft & Origami", quantity: 100, unit: "sheets", price: 0.12, cost: 12.00, lowStockThreshold: 20, location: "Paper Drawer A", supplier: "Taro's Origami" },
       { type: "material", name: "Tant Dual-Color Paper Assortment (15x15cm, 48 sheets)", category: "Papercraft & Origami", quantity: 48, unit: "sheets", price: 0.28, cost: 13.50, lowStockThreshold: 10, location: "Paper Drawer B", supplier: "Toyo Japan" },
       { type: "material", name: "Methyl Cellulose (MC) Powder (100g)", category: "Finishes & Adhesives", quantity: 100, unit: "g", price: 0.08, cost: 8.00, lowStockThreshold: 25, location: "Sizing Shelf", supplier: "Bookbinding Supplies", notes: "Mix 1 tbsp powder into 1 cup cold water; let hydrate overnight for tissue foil & wet-folding" }
+    ]
+  },
+  laser: {
+    title: "Laser Cutting & Engraving Studio Kit",
+    icon: "🔥",
+    category: "Laser Consumables & Acrylic",
+    description: "Certified multi-wavelength safety goggles, high-flow air assist pump, optical lens cleaner, and premium laser birch & acrylic blanks.",
+    items: [
+      { type: "equipment", name: "Certified Laser Safety Goggles (OD6+ Multi-Wavelength)", category: "Safety Gear & PPE", brand: "Cloudray", model: "OD6+ 190-540nm & 10600nm", cost: 68.00, condition: "operational", location: "Laser Station Rack", specs: "Optical Density > 6; CE EN207 Certified", notes: "Mandatory eye protection for diode and CO2 laser operations" },
+      { type: "equipment", name: "Electromagnetic Air Assist Pump (45L/min)", category: "Dust Collection & Air", brand: "Hailea", model: "ACO-318", cost: 42.00, condition: "operational", location: "Under Laser Table", specs: "45 L/min · 0.025 MPa high flow", notes: "Prevents wood charring flare-ups and cleans acrylic cuts" },
+      { type: "material", name: "Cast Acrylic Sheet Multipack 3mm (12x12\", 5 sheets)", category: "Laser Consumables & Acrylic", quantity: 5, unit: "sheets", price: 6.50, cost: 32.50, lowStockThreshold: 2, location: "Material Rack L1", supplier: "Tap Plastics" },
+      { type: "material", name: "Baltic Birch Laser Plywood Grade B/BB 3mm (12x20\", 10 sheets)", category: "Sheet Goods", quantity: 10, unit: "sheets", price: 4.20, cost: 42.00, lowStockThreshold: 3, location: "Flat Sheet Rack", supplier: "Woodcraft" },
+      { type: "material", name: "Optical Lens Cleaning Tissues & 99% IPA (50 wipes)", category: "Laser Consumables & Acrylic", quantity: 1, unit: "kit", price: 14.00, cost: 14.00, lowStockThreshold: 1, location: "Laser Cleaning Kit", supplier: "Thorlabs", notes: "Clean ZnSe focal lens after every 4 hours of cutting" }
+    ]
+  },
+  leather: {
+    title: "Leathercraft & Saddle Stitching Kit",
+    icon: "🪡",
+    category: "Leather, Hides & Hardware",
+    description: "French diamond pricking irons, John James harness needles, bonded Tiger thread, full-grain veg-tan cowhide, and Tokonole burnishing gum.",
+    items: [
+      { type: "equipment", name: "French Style Pricking Irons 3.85mm (2+8 Tooth Set)", category: "Hand Tools & Measuring", brand: "KS Blade Punch", cost: 65.00, condition: "operational", location: "Leather Drawer 1", specs: "High carbon tool steel · 3.85mm pitch (6.5 SPI)", notes: "Always punch on rubber/poly punching board; never directly on granite" },
+      { type: "equipment", name: "John James Saddler's Harness Needles (Size 004, 25-pack)", category: "Hand Tools & Measuring", brand: "John James", cost: 11.50, condition: "operational", location: "Needle Case", specs: "Round blunt tip 48mm x 1.02mm", notes: "Blunt tips prevent splitting leather grain or threads" },
+      { type: "equipment", name: "Solid Wood Multi-Groove Edge Slicker", category: "Hand Tools & Measuring", brand: "Craft Sha", cost: 8.50, condition: "operational", location: "Burnishing Caddy", specs: "Dense tropical hardwood slicker", notes: "Use with Tokonole or beeswax for glass-smooth edges" },
+      { type: "material", name: "Vegetable-Tanned Cowhide Double Shoulder 4-5oz (14 sq ft)", category: "Leather, Hides & Hardware", quantity: 14, unit: "sq ft", price: 9.50, cost: 133.00, lowStockThreshold: 4, location: "Hide Roll Bin", supplier: "Hermann Oak" },
+      { type: "material", name: "Ritza 25 'Tiger' Waxed Polyester Thread 0.55mm (50m)", category: "Leather, Hides & Hardware", quantity: 50, unit: "meters", price: 0.24, cost: 12.00, lowStockThreshold: 10, location: "Thread Spool Rack", supplier: "Julius Koch" },
+      { type: "material", name: "Seiwa Tokonole Leather Burnishing Gum (120g Clear)", category: "Finishes & Adhesives", quantity: 1, unit: "tub", price: 14.00, cost: 14.00, lowStockThreshold: 1, location: "Adhesives Shelf", supplier: "Rocky Mountain Leather", notes: "Water-based gum for burnishing flesh side and edges to high glass shine" }
     ]
   }
 };
@@ -10543,6 +10574,22 @@ async function handleAction(action, target) {
   }
   if (action === "add-origami-supplies") {
     void addOrigamiSupplies();
+    return;
+  }
+  if (action === "copy-laser-params") {
+    copyLaserParams();
+    return;
+  }
+  if (action === "add-laser-materials") {
+    void addLaserMaterials();
+    return;
+  }
+  if (action === "copy-leather-specs") {
+    copyLeatherSpecs();
+    return;
+  }
+  if (action === "add-leather-supplies") {
+    void addLeatherSupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -28759,6 +28806,769 @@ function renderOrigamiView() {
   updateOrigamiPaperGuide();
 }
 
+// ============================================================
+// 🔥 Laser Cutting & Engraving Studio Calculations & Handlers
+// ============================================================
+const LASER_RECIPES = {
+  diode_10w: {
+    ply_3mm: { cut: [200, 100, 2], engrave: [3000, 35, 1], score: [1200, 30, 1], kerf: 0.14 },
+    ply_6mm: { cut: [100, 100, 4], engrave: [3000, 35, 1], score: [1200, 30, 1], kerf: 0.18 },
+    mdf_3mm: { cut: [160, 100, 3], engrave: [2500, 40, 1], score: [1000, 30, 1], kerf: 0.15 },
+    acrylic_3mm: { cut: [180, 100, 2], engrave: [2200, 30, 1], score: [1200, 25, 1], kerf: 0.14, note: "Opaque dark/black colors only. Blue diode transmits through clear acrylic!" },
+    acrylic_6mm: { cut: [80, 100, 4], engrave: [2200, 30, 1], score: [1200, 25, 1], kerf: 0.20, note: "Opaque dark colors only." },
+    leather_4oz: { cut: [350, 85, 1], engrave: [3200, 25, 1], score: [1500, 20, 1], kerf: 0.15 },
+    hardwood_3mm: { cut: [180, 100, 2], engrave: [3000, 40, 1], score: [1200, 30, 1], kerf: 0.15 },
+    anodized_alum: { cut: [0, 0, 0], engrave: [2500, 70, 1], score: [1200, 40, 1], kerf: 0.08, note: "Surface bleach only. Diode cannot through-cut metals." },
+    slate_stone: { cut: [0, 0, 0], engrave: [2200, 80, 1], score: [1000, 50, 1], kerf: 0.10, note: "Creates bright white mineral micro-fracture contrast." }
+  },
+  diode_20w: {
+    ply_3mm: { cut: [400, 95, 1], engrave: [4500, 30, 1], score: [1800, 25, 1], kerf: 0.16 },
+    ply_6mm: { cut: [180, 100, 2], engrave: [4500, 30, 1], score: [1800, 25, 1], kerf: 0.20 },
+    mdf_3mm: { cut: [300, 100, 1], engrave: [3800, 35, 1], score: [1500, 25, 1], kerf: 0.17 },
+    acrylic_3mm: { cut: [320, 95, 1], engrave: [3500, 25, 1], score: [1600, 20, 1], kerf: 0.16, note: "Dark colors only. Diode lasers transmit through clear acrylic." },
+    acrylic_6mm: { cut: [140, 100, 2], engrave: [3500, 25, 1], score: [1600, 20, 1], kerf: 0.22, note: "Dark colors only." },
+    leather_4oz: { cut: [600, 70, 1], engrave: [4500, 20, 1], score: [2000, 15, 1], kerf: 0.16 },
+    hardwood_3mm: { cut: [320, 90, 1], engrave: [4000, 30, 1], score: [1600, 25, 1], kerf: 0.16 },
+    anodized_alum: { cut: [0, 0, 0], engrave: [3500, 60, 1], score: [1800, 35, 1], kerf: 0.09, note: "Crisp white text ablation on anodized layer." },
+    slate_stone: { cut: [0, 0, 0], engrave: [3000, 75, 1], score: [1400, 45, 1], kerf: 0.12 }
+  },
+  diode_40w: {
+    ply_3mm: { cut: [700, 85, 1], engrave: [6000, 25, 1], score: [2400, 20, 1], kerf: 0.18 },
+    ply_6mm: { cut: [350, 95, 1], engrave: [6000, 25, 1], score: [2400, 20, 1], kerf: 0.22 },
+    mdf_3mm: { cut: [550, 90, 1], engrave: [5000, 28, 1], score: [2000, 20, 1], kerf: 0.18 },
+    acrylic_3mm: { cut: [500, 90, 1], engrave: [4500, 22, 1], score: [2200, 18, 1], kerf: 0.18, note: "Dark/black only. Diode transmits through clear." },
+    acrylic_6mm: { cut: [240, 100, 1], engrave: [4500, 22, 1], score: [2200, 18, 1], kerf: 0.24, note: "Dark colors only." },
+    leather_4oz: { cut: [900, 60, 1], engrave: [6000, 18, 1], score: [2800, 15, 1], kerf: 0.18 },
+    hardwood_3mm: { cut: [550, 85, 1], engrave: [5000, 25, 1], score: [2200, 20, 1], kerf: 0.18 },
+    anodized_alum: { cut: [0, 0, 0], engrave: [4500, 50, 1], score: [2500, 30, 1], kerf: 0.10, note: "Ultra fast engraving speeds." },
+    slate_stone: { cut: [0, 0, 0], engrave: [4000, 65, 1], score: [2000, 40, 1], kerf: 0.14 }
+  },
+  co2_45w: {
+    ply_3mm: { cut: [850, 60, 1], engrave: [8000, 20, 1], score: [3000, 15, 1], kerf: 0.15 },
+    ply_6mm: { cut: [380, 80, 1], engrave: [8000, 20, 1], score: [3000, 15, 1], kerf: 0.19 },
+    mdf_3mm: { cut: [650, 75, 1], engrave: [7000, 22, 1], score: [2500, 18, 1], kerf: 0.16 },
+    acrylic_3mm: { cut: [700, 65, 1], engrave: [7500, 18, 1], score: [2800, 14, 1], kerf: 0.14, note: "10,600nm is 100% absorbed! Cuts CLEAR cast acrylic with crystal flame-polished edges." },
+    acrylic_6mm: { cut: [300, 85, 1], engrave: [7500, 18, 1], score: [2800, 14, 1], kerf: 0.18, note: "Flame-polished crystal edge with air assist." },
+    leather_4oz: { cut: [950, 45, 1], engrave: [8000, 15, 1], score: [3200, 12, 1], kerf: 0.14 },
+    hardwood_3mm: { cut: [650, 65, 1], engrave: [7000, 22, 1], score: [2600, 16, 1], kerf: 0.16 },
+    anodized_alum: { cut: [0, 0, 0], engrave: [6000, 35, 1], score: [3000, 20, 1], kerf: 0.10, note: "Bleaches black oxide layer with high contrast." },
+    slate_stone: { cut: [0, 0, 0], engrave: [5500, 45, 1], score: [2500, 25, 1], kerf: 0.12 }
+  },
+  co2_90w: {
+    ply_3mm: { cut: [1800, 50, 1], engrave: [15000, 15, 1], score: [5000, 10, 1], kerf: 0.16 },
+    ply_6mm: { cut: [850, 65, 1], engrave: [15000, 15, 1], score: [5000, 10, 1], kerf: 0.20 },
+    mdf_3mm: { cut: [1400, 60, 1], engrave: [14000, 18, 1], score: [4500, 12, 1], kerf: 0.17 },
+    acrylic_3mm: { cut: [1500, 55, 1], engrave: [14000, 14, 1], score: [4800, 10, 1], kerf: 0.15, note: "Lightning fast, glass-like edge." },
+    acrylic_6mm: { cut: [700, 75, 1], engrave: [14000, 14, 1], score: [4800, 10, 1], kerf: 0.19, note: "Pristine acrylic edge; flame polished in single pass." },
+    leather_4oz: { cut: [2000, 35, 1], engrave: [15000, 12, 1], score: [5500, 8, 1], kerf: 0.15 },
+    hardwood_3mm: { cut: [1300, 55, 1], engrave: [14000, 16, 1], score: [4500, 12, 1], kerf: 0.16 },
+    anodized_alum: { cut: [0, 0, 0], engrave: [12000, 25, 1], score: [5000, 15, 1], kerf: 0.12 },
+    slate_stone: { cut: [0, 0, 0], engrave: [10000, 35, 1], score: [4500, 20, 1], kerf: 0.14 }
+  },
+  fiber_30w: {
+    ply_3mm: { cut: [0, 0, 0], engrave: [0, 0, 0], score: [0, 0, 0], kerf: 0.05, note: "Fiber lasers (1064nm) are NOT for wood. Fire hazard with zero optical absorption!" },
+    ply_6mm: { cut: [0, 0, 0], engrave: [0, 0, 0], score: [0, 0, 0], kerf: 0.05, note: "Not suitable for organic materials." },
+    mdf_3mm: { cut: [0, 0, 0], engrave: [0, 0, 0], score: [0, 0, 0], kerf: 0.05, note: "Not suitable for organic materials." },
+    acrylic_3mm: { cut: [0, 0, 0], engrave: [0, 0, 0], score: [0, 0, 0], kerf: 0.05, note: "Fiber laser passes through transparent plastics." },
+    acrylic_6mm: { cut: [0, 0, 0], engrave: [0, 0, 0], score: [0, 0, 0], kerf: 0.05, note: "Fiber laser passes through transparent plastics." },
+    leather_4oz: { cut: [0, 0, 0], engrave: [0, 0, 0], score: [0, 0, 0], kerf: 0.05, note: "Organic leather chars poorly under 1064nm fiber." },
+    hardwood_3mm: { cut: [0, 0, 0], engrave: [0, 0, 0], score: [0, 0, 0], kerf: 0.05, note: "Not suitable for organic materials." },
+    anodized_alum: { cut: [0, 0, 0], engrave: [18000, 45, 1], score: [10000, 25, 1], kerf: 0.02, note: "Precision galvanometric spot (0.02mm). Deep metal engraving & annealing." },
+    slate_stone: { cut: [0, 0, 0], engrave: [12000, 60, 1], score: [7000, 35, 1], kerf: 0.03, note: "Ultra crisp micro-engraving." }
+  }
+};
+
+function copyLaserParams() {
+  const type = $("#laser-type option:checked")?.textContent || "Laser";
+  const op = $("#laser-op option:checked")?.textContent || "Operation";
+  const mat = $("#laser-material option:checked")?.textContent || "Material";
+  const calcText = $("#laser-calc-result")?.innerText || "";
+  const kerfText = $("#laser-kerf-result")?.innerText || "";
+  const text = `🔥 LASER SPECIFICATIONS & PRODUCTION SHEET\nMachine: ${type}\nOperation: ${op}\nMaterial: ${mat}\n\n${calcText}\n\n${kerfText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Laser Cutting & Engraving Specs to clipboard!"));
+}
+
+async function addLaserMaterials() {
+  const matName = $("#laser-material option:checked")?.textContent || "Laser Cutting Substrate";
+  const cost = parseFloat($("#laser-mat-cost")?.value) || 6.50;
+  await addMaterialToProjectShopping(matName, "1 sheet", cost, "Laser Consumables & Acrylic");
+}
+
+function updateLaserCalc() {
+  const laserType = $("#laser-type")?.value || "diode_20w";
+  const opType = $("#laser-op")?.value || "cut";
+  const matType = $("#laser-material")?.value || "ply_3mm";
+  const matCost = Math.max(0, parseFloat($("#laser-mat-cost")?.value) || 6.50);
+  const runtimeMins = Math.max(1, parseFloat($("#laser-runtime-mins")?.value) || 12);
+  const hourlyRate = Math.max(0, parseFloat($("#laser-hourly-rate")?.value) || 45.00);
+  const res = $("#laser-calc-result");
+  if (!res) return;
+
+  const recipe = LASER_RECIPES[laserType]?.[matType] || { cut: [300, 90, 1], engrave: [3000, 30, 1], score: [1500, 20, 1], kerf: 0.16 };
+  const targetOp = recipe[opType] || [300, 90, 1];
+  const [speed, power, passes] = targetOp;
+  const isImpossible = speed === 0 && power === 0;
+
+  // Financial job quoting math
+  const machineCost = (runtimeMins / 60) * hourlyRate;
+  const isCO2 = laserType.startsWith("co2");
+  const wearRate = isCO2 ? 4.50 : 2.00; // tube degradation / diode wear $/hr
+  const tubeAmort = (runtimeMins / 60) * wearRate;
+  const shopElectricity = 0.35 * (runtimeMins / 60);
+  const totalCost = matCost + machineCost + tubeAmort + shopElectricity;
+  const suggestedQuote = totalCost / (1 - 0.35); // 35% gross profit margin
+  const estProfit = suggestedQuote - totalCost;
+
+  let paramHTML = "";
+  if (isImpossible) {
+    paramHTML = `
+      <div style="background:rgba(239, 68, 68, 0.1);border:1px solid #ef4444;border-radius:6px;padding:10px 12px;color:#991b1b;margin-bottom:10px">
+        ⚠️ <strong>Operation Incompatible:</strong> This laser class cannot perform a <em>${opType}</em> operation on this substrate.<br>
+        <span style="font-size:11px;color:var(--ink-secondary)">${recipe.note || "Choose a compatible wavelength or substrate."}</span>
+      </div>
+    `;
+  } else {
+    paramHTML = `
+      <div class="laser-stat-grid">
+        <div class="laser-stat-card">
+          <span class="label">Feed Rate</span>
+          <span class="value">${speed} <span style="font-size:11px;font-weight:normal">mm/min</span></span>
+          <div class="hint">${(speed / 60).toFixed(1)} mm/s</div>
+        </div>
+        <div class="laser-stat-card">
+          <span class="label">Laser Power</span>
+          <span class="value">${power}%</span>
+          <div class="hint">${opType === "engrave" ? "Surface scan" : "Focal penetration"}</div>
+        </div>
+        <div class="laser-stat-card">
+          <span class="label">Pass Count</span>
+          <span class="value">${passes} <span style="font-size:11px;font-weight:normal">${passes === 1 ? "pass" : "passes"}</span></span>
+          <div class="hint">${passes > 1 ? "Lower Z by 1mm each pass" : "Single clean cut"}</div>
+        </div>
+        <div class="laser-stat-card">
+          <span class="label">Typical Kerf</span>
+          <span class="value">~${recipe.kerf} <span style="font-size:11px;font-weight:normal">mm</span></span>
+          <div class="hint">Beam waist slot width</div>
+        </div>
+      </div>
+      ${recipe.note ? `<div style="font-size:11px;color:var(--ink-secondary);margin-top:6px;padding:6px 8px;background:var(--surface-sunken);border-radius:4px">💡 <strong>Pro Tip:</strong> ${recipe.note}</div>` : ""}
+    `;
+  }
+
+  res.innerHTML = `
+    ${paramHTML}
+    <div class="laser-quote-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700">COMMERCIAL JOB QUOTE ESTIMATE:</span>
+        <strong style="font-size:18px;color:var(--primary)">$${suggestedQuote.toFixed(2)} <span style="font-size:11px;font-weight:normal;color:var(--muted)">(35% Margin)</span></strong>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:6px;font-size:11px;color:var(--ink-secondary)">
+        <div>Material Stock: <strong>$${matCost.toFixed(2)}</strong></div>
+        <div>Machine Runtime: <strong>$${machineCost.toFixed(2)}</strong> <span style="font-size:10px">(${runtimeMins}m @ $${hourlyRate}/hr)</span></div>
+        <div>Tube/Diode Wear: <strong>$${tubeAmort.toFixed(2)}</strong></div>
+        <div>Total Direct Cost: <strong>$${totalCost.toFixed(2)}</strong></div>
+        <div style="color:var(--primary)">Net Profit Margin: <strong>+$${estProfit.toFixed(2)}</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+function updateLaserKerfCalc() {
+  const thickness = Math.max(0.2, parseFloat($("#laser-kerf-thickness")?.value) || 3.15);
+  const kerf = Math.max(0.01, parseFloat($("#laser-kerf-width")?.value) || 0.16);
+  const tabNominal = Math.max(1, parseFloat($("#laser-kerf-tab")?.value) || 12.0);
+  const fitMode = $("#laser-kerf-fit")?.value || "press_fit";
+  const res = $("#laser-kerf-result");
+  if (!res) return;
+
+  // Clearance deltas
+  let clearance = 0; // mm
+  let fitLabel = "Friction Press-Fit";
+  let fitDesc = "Zero slop. Tabs hold together tightly by mechanical friction without glue.";
+  if (fitMode === "glue_fit") {
+    clearance = 0.05;
+    fitLabel = "Glue Slip-Fit (0.05 mm capillary gap)";
+    fitDesc = "Allows PVA or acrylic cement to wick into the joint via capillary action without squeezing dry.";
+  } else if (fitMode === "slide_fit") {
+    clearance = 0.15;
+    fitLabel = "Sliding Tab (0.15 mm clearance)";
+    fitDesc = "Smooth sliding motion for box lids, sliding doors, or removable panels.";
+  }
+
+  // Male Pin width in CAD = tabNominal + kerf - (clearance / 2)
+  // Female Mortise Slot width in CAD = tabNominal - kerf + (clearance / 2)
+  const maleCad = tabNominal + kerf - (clearance / 2);
+  const femaleCad = tabNominal - kerf + (clearance / 2);
+  const fingerDepth = thickness + 0.1; // +0.1mm sand-off allowance
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${fitLabel}</strong>
+        <span style="font-size:11px;color:var(--primary);font-weight:bold">Offset: ${(kerf / 2).toFixed(3)} mm</span>
+      </div>
+      <p style="font-size:11px;color:var(--ink-secondary);margin:0 0 8px">${fitDesc}</p>
+      
+      <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px;font-size:12px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;display:block">Male Pin CAD Dimension</span>
+          <strong style="font-size:15px;color:var(--ink)">${maleCad.toFixed(2)} mm</strong>
+          <div style="font-size:10px;color:var(--ink-secondary)">+${(kerf - clearance / 2).toFixed(2)} mm compensation</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;display:block">Female Slot CAD Dimension</span>
+          <strong style="font-size:15px;color:var(--ink)">${femaleCad.toFixed(2)} mm</strong>
+          <div style="font-size:10px;color:var(--ink-secondary)">-${(kerf - clearance / 2).toFixed(2)} mm compensation</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      📏 <strong>Joint Depth:</strong> Set finger length to <strong>${fingerDepth.toFixed(2)} mm</strong> (includes +0.1 mm flush-sanding pride allowance).<br>
+      💻 <strong>LightBurn / Illustrator:</strong> Apply a contour kerf offset of <strong>+${(kerf / 2).toFixed(3)} mm</strong> outward on exterior box tabs, or inward on mortise slots.
+    </div>
+  `;
+}
+
+function updateLaserSafetyWatchdog() {
+  const mat = $("#laser-safety-mat")?.value || "cast_acrylic";
+  const res = $("#laser-safety-result");
+  if (!res) return;
+
+  const safetyProfiles = {
+    cast_acrylic: {
+      status: "safe",
+      badge: "🟢 LASER SAFE (PMMA)",
+      badgeClass: "laser-badge-safe",
+      gas: "Methyl methacrylate monomer (sweet, non-corrosive organic odor).",
+      machineRisk: "Zero corrosion risk to optics or rails. Highly flammable if air assist fails.",
+      ppe: "Standard exhaust ventilation (minimum 150 CFM). Keep fire blanket / extinguisher nearby.",
+      notes: "Flame-polishes to a brilliant optical glass edge. Extruded acrylic cuts gummy, but cast cuts cleanly."
+    },
+    pvc_vinyl: {
+      status: "danger",
+      badge: "🔴 FATAL TOXIC HAZARD — NEVER CUT",
+      badgeClass: "laser-badge-danger",
+      gas: "HYDROCHLORIC ACID (HCl) & PURE CHLORINE GAS. Lethal pulmonary toxin.",
+      machineRisk: "DESTROYER OF LASERS. Condenses into liquid muriatic acid in < 48 hrs, permanently rusting linear rails and etching optical mirrors.",
+      ppe: "PROHIBITED IN ALL WORKSHOPS. If accidental ignition occurs, evacuate shop immediately.",
+      notes: "Do the Copper Wire Flame Test (Beilstein test) before cutting any unknown flexible plastics."
+    },
+    polycarbonate: {
+      status: "danger",
+      badge: "🔴 SEVERE FIRE & DENSE SMOKE HAZARD",
+      badgeClass: "laser-badge-danger",
+      gas: "Dense black soot, hydrogen cyanide traces, and benzene carcinogens.",
+      machineRisk: "Rapidly coats laser mirrors with oily tar; intense localized heat easily cracks laser focus lenses.",
+      ppe: "Do not cut > 1mm thickness. Immediate flame flare-up risk.",
+      notes: "Cut Lexan / Polycarbonate with CNC router or mechanical shear instead."
+    },
+    carbon_fiber: {
+      status: "danger",
+      badge: "🔴 CONDUCTIVE AIRBORNE ASBESTOS-LIKE DUST",
+      badgeClass: "laser-badge-danger",
+      gas: "Epoxy pyrolyzes, releasing free conductive microscopic carbon fibers.",
+      machineRisk: "Floating carbon dust shorts out stepper driver PCBs and high-voltage CO2 power supplies.",
+      ppe: "Requires sealed HEPA vacuum CNC milling under water bath.",
+      notes: "Never cut prepreg or solid carbon fiber with a laser."
+    },
+    mdf_plywood: {
+      status: "safe",
+      badge: "🟢 SAFE WITH CONTINUOUS EXHAUST",
+      badgeClass: "laser-badge-safe",
+      gas: "Wood smoke, urea-formaldehyde resin offgas, acetic acid.",
+      machineRisk: "Leaves sticky wood tar on honeycomb bed and lenses; clean optics every 4 operating hours.",
+      ppe: "Continuous 100% CFM inline exhaust fan ducted outside.",
+      notes: "Baltic birch plywood has uniform interior birch plies without glue voids."
+    },
+    veg_tan: {
+      status: "safe",
+      badge: "🟢 100% VEG-TAN LEATHER SAFE",
+      badgeClass: "laser-badge-safe",
+      gas: "Singed natural organic protein (strong campfire / burnt hair smell). Non-corrosive.",
+      machineRisk: "Safe for laser optics and linear guide rails.",
+      ppe: "High CFM exhaust to evacuate organic smoke odor.",
+      notes: "Wipe burnt char from cut edges with damp rag and dish soap before saddle stitching."
+    },
+    chrome_tan: {
+      status: "warning",
+      badge: "🟡 CHEMICAL TOXICITY WARNING",
+      badgeClass: "laser-badge-warning",
+      gas: "Trivalent chromium decomposes under laser heat into airborne Hexavalent Chromium [Cr(VI)].",
+      machineRisk: "Potent respiratory carcinogen. Safe for machine, unsafe for lungs without certified fume scrubber.",
+      ppe: "Industrial activated carbon + HEPA filtration or sealed outdoor exhaust.",
+      notes: "Veg-tan leather is strongly preferred for laser work over chrome-tanned upholstery."
+    },
+    delrin: {
+      status: "safe",
+      badge: "🟢 LASER SAFE (POLYOXYMETHYLENE)",
+      badgeClass: "laser-badge-safe",
+      gas: "Formaldehyde gas traces (sharp, pungent, pickle-like odor).",
+      machineRisk: "Non-corrosive to machine when exhaust runs continually.",
+      ppe: "Leave exhaust fan running for 5 minutes after job finishes to evacuate residual chamber gas.",
+      notes: "Cuts like warm butter with mirror-smooth, friction-free edges. Superb for precision gears."
+    },
+    ptfe_teflon: {
+      status: "danger",
+      badge: "🔴 LETHAL FLUORINE OFFGAS — NEVER CUT",
+      badgeClass: "laser-badge-danger",
+      gas: "Perfluoroisobutylene (PFIB) & carbonyl fluoride. Causes 'Polymer Fume Fever'.",
+      machineRisk: "Lethal to humans and pets (especially birds) even in trace parts-per-billion.",
+      ppe: "PROHIBITED FROM LASER CUTTERS.",
+      notes: "Machine PTFE mechanically on lathe or mill."
+    },
+    anodized: {
+      status: "safe",
+      badge: "🟢 100% SAFE SURFACE ABLATION",
+      badgeClass: "laser-badge-safe",
+      gas: "Minimal organic dye sublimation. Zero toxic fumes.",
+      machineRisk: "Zero machine wear. Beam merely vaporizes colored organic dye in aluminum oxide micropores.",
+      ppe: "Standard light shop exhaust.",
+      notes: "Produces brilliant, crisp white photographic contrast on black anodized aluminum."
+    }
+  };
+
+  const prof = safetyProfiles[mat] || safetyProfiles.cast_acrylic;
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span class="${prof.badgeClass}">${prof.badge}</span>
+      <span style="font-size:11px;color:var(--muted);text-transform:uppercase">Chemical Profile</span>
+    </div>
+
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--ink-secondary);margin-bottom:6px">
+      <div style="margin-bottom:4px">💨 <strong>Emitted Fumes:</strong> ${prof.gas}</div>
+      <div style="margin-bottom:4px">⚙️ <strong>Laser &amp; Rail Impact:</strong> ${prof.machineRisk}</div>
+      <div>🛡️ <strong>Safety Protocol:</strong> ${prof.ppe}</div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary)">💡 <strong>Fab Note:</strong> ${prof.notes}</div>
+  `;
+}
+
+function updateLaserOpticsGuide() {
+  const lens = $("#laser-lens-type")?.value || "2.0";
+  const air = $("#laser-air-mode")?.value || "high";
+  const res = $("#laser-optics-result");
+  if (!res) return;
+
+  const lensData = {
+    "1.5": {
+      name: "1.5\" (38.1 mm) Short Focal Meniscus",
+      spot: "0.075 mm (75 µm)",
+      dof: "1.2 mm",
+      dpi: "400 – 600 DPI",
+      app: "High-resolution micro-engraving, rubber stamps, tiny text down to 4pt, fine photo halftones. Not recommended for cutting > 3mm.",
+      cutRating: "⭐ (Thin only)",
+      engraveRating: "⭐⭐⭐⭐⭐ (Ultra-Fine)"
+    },
+    "2.0": {
+      name: "2.0\" (50.8 mm) Standard Universal Focal Lens",
+      spot: "0.12 mm (120 µm)",
+      dof: "2.8 mm",
+      dpi: "250 – 350 DPI",
+      app: "The shop workhorse. Clean cuts up to 6mm (1/4\") Baltic birch, cast acrylic, and veg-tan leather with crisp engraving.",
+      cutRating: "⭐⭐⭐⭐ (General Shop)",
+      engraveRating: "⭐⭐⭐⭐ (Crisp)"
+    },
+    "2.5": {
+      name: "2.5\" (63.5 mm) Long Waist Meniscus",
+      spot: "0.16 mm (160 µm)",
+      dof: "4.5 mm",
+      dpi: "200 – 250 DPI",
+      app: "Thick stock through-cuts (6mm – 12mm). Elongated beam waist eliminates hourglass edge taper for 90° vertical cut walls.",
+      cutRating: "⭐⭐⭐⭐⭐ (Thick Cuts)",
+      engraveRating: "⭐⭐⭐ (Coarser Dot)"
+    },
+    "4.0": {
+      name: "4.0\" (101.6 mm) Ultra-Deep Depth of Field",
+      spot: "0.25 mm (250 µm)",
+      dof: "10.0 mm",
+      dpi: "150 DPI",
+      app: "Cutting thick 1\" (25mm) polyethylene foam inserts, corrugated boxes, reaching into pre-assembled deep recesses.",
+      cutRating: "⭐⭐⭐⭐ (Deep Foam)",
+      engraveRating: "⭐⭐ (Low Res)"
+    }
+  };
+
+  const airData = {
+    high: {
+      psi: "18 – 25 PSI (High Flow)",
+      effect: "Instantly blows molten plastic and vaporized carbon through kerf. Prevents flare-ups, eliminates wood scorch halos, and cools cut edges.",
+      bestFor: "Vector Through-Cutting"
+    },
+    low: {
+      psi: "3 – 5 PSI (Gentle Blanket)",
+      effect: "Maintains positive pressure inside nozzle cone to protect focal lens coating from smoke without blowing airborne soot across engraving raster.",
+      bestFor: "Photo Raster Engraving"
+    },
+    none: {
+      psi: "0 PSI (Disabled)",
+      effect: "⚠️ DANGER: Rising smoke deposits tar onto lens. Laser energy cooks tar, resulting in thermal fracture and destroyed anti-reflective coating.",
+      bestFor: "PROHIBITED"
+    }
+  };
+
+  const l = lensData[lens] || lensData["2.0"];
+  const a = airData[air] || airData.high;
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${l.name}</strong>
+        <span style="font-size:11px;color:var(--primary);font-weight:bold">${l.spot} Beam Spot</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:6px;font-size:11px;color:var(--ink-secondary)">
+        <div>Rayleigh Depth of Field: <strong>${l.dof}</strong></div>
+        <div>Optimal Resolution: <strong>${l.dpi}</strong></div>
+        <div>Through-Cutting: <strong>${l.cutRating}</strong></div>
+        <div>Engraving Fidelity: <strong>${l.engraveRating}</strong></div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      🎯 <strong>Lens Application:</strong> ${l.app}<br>
+      💨 <strong>Air Assist Pressure [${a.psi}]:</strong> ${a.effect} <em>(Best for: ${a.bestFor})</em>
+    </div>
+  `;
+}
+
+function renderLaserView() {
+  updateLaserCalc();
+  updateLaserKerfCalc();
+  updateLaserSafetyWatchdog();
+  updateLaserOpticsGuide();
+}
+
+// ============================================================
+// 🪡 Leathercraft & Stitching Studio Calculations & Handlers
+// ============================================================
+function copyLeatherSpecs() {
+  const stitchText = $("#leather-stitch-result")?.innerText || "";
+  const gaugeText = $("#leather-gauge-result")?.innerText || "";
+  const beltText = $("#leather-belt-result")?.innerText || "";
+  const text = `🪡 LEATHERCRAFT SADDLE STITCHING & BENCH SPEC SHEET\n\n${stitchText}\n\n${gaugeText}\n\n${beltText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Leather Stitching & Sizing Specs to clipboard!"));
+}
+
+async function addLeatherSupplies() {
+  const hideName = $("#leather-hide-cut option:checked")?.textContent.split("(")[0].trim() || "Leather Hide";
+  const oz = $("#leather-oz-preset")?.value || "4";
+  const sqftPrice = parseFloat($("#leather-sqft-price")?.value) || 9.50;
+  await addMaterialToProjectShopping(`${hideName} (${oz} oz Veg-Tan Leather)`, "1 hide", sqftPrice * 14, "Leather, Hides & Hardware");
+}
+
+function updateLeatherStitchCalc() {
+  const seamLen = Math.max(5, parseFloat($("#leather-seam-len")?.value) || 180);
+  const stackThick = Math.max(0.5, parseFloat($("#leather-stack-thick")?.value) || 3.2);
+  const pitch = Math.max(2, parseFloat($("#leather-iron-pitch")?.value) || 3.85);
+  const threadType = $("#leather-thread-type")?.value || "0.55";
+  const res = $("#leather-stitch-result");
+  if (!res) return;
+
+  // Traditional 2-needle saddle stitch thread multiplier formula:
+  // Multiplier = 3.5 + (0.35 * thickness_in_mm)
+  const multiplier = 3.5 + (0.35 * stackThick);
+  // Add 200mm tail reserve (100mm per needle for threading lock & 2.5 backstitches)
+  const threadMm = Math.round((seamLen * multiplier) + 200);
+  const threadCm = (threadMm / 10).toFixed(1);
+  const threadInches = (threadMm / 25.4).toFixed(1);
+
+  // Hole count = floor(seamLen / pitch) + 1
+  const holeCount = Math.floor(seamLen / pitch) + 1;
+  const spi = (25.4 / pitch).toFixed(1);
+
+  // Recommended needle size & awl
+  let needleSize = "John James Size 004 (48mm × 1.02mm)";
+  if (pitch <= 2.85) needleSize = "John James Size 004 or 002 (Fine)";
+  else if (pitch >= 4.5) needleSize = "John James Size 001 or 1/0 (Heavy)";
+
+  let threadDesc = "0.55 mm Tiger / Vinymo (Universal Wallets & Bags)";
+  if (threadType === "0.45") threadDesc = "0.45 mm Braided Poly (Watch Straps & Fine French Wallets)";
+  else if (threadType === "0.80") threadDesc = "0.80 mm Heavy Cord (Boots, Holsters & Heavy Saddlery)";
+  else if (threadType === "linen") threadDesc = "Lin Câblé Waxed French Linen (Luxury Bespoke)";
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:11px;font-weight:700">REQUIRED THREAD LENGTH:</span>
+      <strong style="font-size:18px;color:var(--primary)">${threadCm} cm <span style="font-size:12px;font-weight:normal;color:var(--muted)">(${threadInches}" / ${multiplier.toFixed(1)}× seam)</span></strong>
+    </div>
+
+    <div class="laser-stat-grid" style="margin-bottom:8px">
+      <div class="laser-stat-card">
+        <span class="label">Pricking Holes</span>
+        <span class="value">${holeCount}</span>
+        <div class="hint">${spi} Stitches / Inch (SPI)</div>
+      </div>
+      <div class="laser-stat-card">
+        <span class="label">Needle Size</span>
+        <span class="value" style="font-size:13px">Size 004</span>
+        <div class="hint">Blunt round harness point</div>
+      </div>
+      <div class="laser-stat-card">
+        <span class="label">Cast Angle</span>
+        <span class="value">45° Slant</span>
+        <div class="hint">Left needle over right loop</div>
+      </div>
+      <div class="laser-stat-card">
+        <span class="label">Backstitches</span>
+        <span class="value">2.5 Stitches</span>
+        <div class="hint">Tuck tails between plies</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      🪡 <strong>Thread:</strong> ${threadDesc}.<br>
+      📌 <strong>Harness Needle:</strong> Use <em>${needleSize}</em>. Blunt tips glide through awl holes without puncturing existing thread loops.
+    </div>
+  `;
+}
+
+function updateLeatherGaugeCalc() {
+  const ozPreset = $("#leather-oz-preset")?.value || "4";
+  const customMmInput = $("#leather-custom-mm");
+  const cutPreset = $("#leather-hide-cut")?.value || "side";
+  const sqftPrice = Math.max(1, parseFloat($("#leather-sqft-price")?.value) || 9.50);
+  const res = $("#leather-gauge-result");
+  if (!res) return;
+
+  const ozMap = {
+    "2": { oz: "2 – 3 oz", mm: 1.0, frac: "3/64\"", beveler: "#0 (0.6mm)", app: "Wallet interiors, card pockets, linings, watch strap lining." },
+    "4": { oz: "4 – 5 oz", mm: 1.8, frac: "1/16\"", beveler: "#1 (0.8mm)", app: "Wallet exteriors, notebook covers, clutch bags, light scabbards." },
+    "6": { oz: "6 – 7 oz", mm: 2.6, frac: "3/32\"", beveler: "#2 (1.0mm)", app: "Tote bags, heavy knife sheaths, light straps, messenger bags." },
+    "8": { oz: "8 – 9 oz", mm: 3.4, frac: "1/8\"", beveler: "#3 (1.2mm)", app: "Standard heavy jeans belts, gun slings, heavy tool roll bodies." },
+    "10": { oz: "10 – 12 oz", mm: 4.4, frac: "5/32\"", beveler: "#4 (1.5mm)", app: "Law enforcement gun holsters, saddle cinches, ultra-stiff rig belts." }
+  };
+
+  if (ozPreset !== "custom" && ozMap[ozPreset] && customMmInput) {
+    customMmInput.value = ozMap[ozPreset].mm;
+  }
+
+  const mm = Math.max(0.4, parseFloat(customMmInput?.value) || 1.8);
+  const equivOz = (mm / 0.4).toFixed(1);
+  const fracInch = (mm / 25.4).toFixed(3);
+
+  const cutData = {
+    side: { name: "Full Side", sqft: 22, yield: 0.78, note: "Contains back, belly, and shoulder. Most versatile economy yield." },
+    double_shoulder: { name: "Double Shoulder", sqft: 14, yield: 0.88, note: "Uniform directional grain. Premier cut for belts, tote straps, and bag panels." },
+    bend: { name: "Single Bend / Butt", sqft: 11, yield: 0.94, note: "Tightest fiber density. Maximum tensile strength and zero stretch." },
+    belly: { name: "Belly", sqft: 5, yield: 0.55, note: "Loose stretchy spongy fibers. Best for gusset liners or practice stitching." }
+  };
+
+  const c = cutData[cutPreset] || cutData.side;
+  const hideTotalCost = c.sqft * sqftPrice;
+  const usableSqft = c.sqft * c.yield;
+  const trueCostPerUsableSqft = hideTotalCost / usableSqft;
+
+  const currentProfile = ozMap[ozPreset] || {
+    oz: `${equivOz} oz`,
+    frac: `~${fracInch}"`,
+    beveler: mm < 1.4 ? "#0" : mm < 2.2 ? "#1" : mm < 3.0 ? "#2" : "#3",
+    app: "Custom fabrication project."
+  };
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${equivOz} oz Leather (${mm.toFixed(1)} mm)</strong>
+        <span style="font-size:11px;color:var(--primary);font-weight:bold">${currentProfile.frac}</span>
+      </div>
+      <div style="font-size:11px;color:var(--ink-secondary);margin-bottom:6px">🎯 <strong>Ideal For:</strong> ${currentProfile.app}</div>
+      <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;font-size:11px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Edge Beveler</span>
+          <strong>${currentProfile.beveler}</strong>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Skive Target</span>
+          <strong>${(mm * 0.5).toFixed(1)} mm (50%)</strong>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Trade Rule</span>
+          <strong>1 oz ≈ 1/64"</strong>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink-secondary);padding-top:4px">
+      <span>${c.name} (~${c.sqft} sq ft @ $${sqftPrice.toFixed(2)}/sq ft = <strong>$${hideTotalCost.toFixed(2)}</strong>)</span>
+      <span style="color:var(--primary);font-weight:bold">True Usable: $${trueCostPerUsableSqft.toFixed(2)} / sq ft (${(c.yield * 100).toFixed(0)}% yield)</span>
+    </div>
+  `;
+}
+
+function updateLeatherBeltCalc() {
+  const waist = Math.max(20, parseFloat($("#leather-belt-waist")?.value) || 34);
+  const strapWidth = parseFloat($("#leather-belt-width")?.value) || 1.5;
+  const spacing = parseFloat($("#leather-belt-spacing")?.value) || 1.0;
+  const leatherOz = Math.max(5, parseFloat($("#leather-belt-oz")?.value) || 9);
+  const res = $("#leather-belt-result");
+  if (!res) return;
+
+  // Belt geometry rules:
+  // Center hole = waist size + 2" (accounts for pant fabric, underwear, and buckle tongue fold)
+  const centerHoleDist = waist + 2.0; // from fold line of buckle
+  const tongueLength = 6.0; // inches past center hole
+  const buckleFoldLength = 3.75; // inches wrapped over buckle prong
+  const totalCutLength = centerHoleDist + tongueLength + buckleFoldLength; // in inches
+  const totalCutCm = (totalCutLength * 2.54).toFixed(1);
+
+  // Hole positions: 5 holes standard
+  const holePositions = [-2, -1, 0, 1, 2].map(i => (centerHoleDist + (i * spacing)).toFixed(1));
+
+  // Keeper loop formula:
+  const thickInches = (leatherOz * 0.4) / 25.4;
+  const keeperStrapLen = (2 * strapWidth + 2 * thickInches + 0.35).toFixed(2);
+  const keeperStrapLenMm = Math.round(keeperStrapLen * 25.4);
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700">TOTAL STRAP BLANK TO CUT:</span>
+        <strong style="font-size:18px;color:var(--primary)">${totalCutLength.toFixed(1)}" <span style="font-size:12px;font-weight:normal;color:var(--muted)">(${totalCutCm} cm)</span></strong>
+      </div>
+
+      <div class="laser-stat-grid" style="margin-bottom:8px">
+        <div class="laser-stat-card">
+          <span class="label">Center Hole</span>
+          <span class="value">${centerHoleDist.toFixed(1)}"</span>
+          <div class="hint">From buckle fold line</div>
+        </div>
+        <div class="laser-stat-card">
+          <span class="label">Tongue Tip</span>
+          <span class="value">6.0"</span>
+          <div class="hint">English point / tapered</div>
+        </div>
+        <div class="laser-stat-card">
+          <span class="label">Buckle Fold End</span>
+          <span class="value">${buckleFoldLength}"</span>
+          <div class="hint">Skive fold to 4.5 oz</div>
+        </div>
+        <div class="laser-stat-card">
+          <span class="label">Keeper Loop</span>
+          <span class="value">${keeperStrapLen}"</span>
+          <div class="hint">${keeperStrapLenMm} mm strip length</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      📌 <strong>5-Hole Span Markings:</strong> Punch holes at <strong>${holePositions.join('", ')}"</strong> from the buckle fold line.<br>
+      ✂️ <strong>Buckle Tongue Slot:</strong> Punch a <strong>1.25" × 0.20" oval slot</strong> centered 1.75" from the fold line to allow the buckle tongue free rotation.
+    </div>
+  `;
+}
+
+function updateLeatherEdgeGuide() {
+  const tannage = $("#leather-tannage-select")?.value || "natural_vegtan";
+  const res = $("#leather-edge-result");
+  if (!res) return;
+
+  const tannageProfiles = {
+    natural_vegtan: {
+      name: "Natural Vegetable-Tanned Cowhide",
+      temper: "Firm to Extra Firm (Can be molded, carved & stamped)",
+      burnish: "⭐⭐⭐⭐⭐ Outstanding (Bonds instantly with Tokonole & friction heat)",
+      patina: "Extreme honey amber patina with sun exposure & handling",
+      water: "High sensitivity (casing with water allows deep floral tooling)",
+      edgeMethod: "Edge beveler #2 -> 400/800 grit sand -> Seiwa Tokonole -> Hardwood slicker friction -> Beeswax"
+    },
+    buttero_pueblo: {
+      name: "Italian Buttero / Pueblo (Badalassi Carlo)",
+      temper: "Firm Temper (Dense tight grain, rich vegetable oils)",
+      burnish: "⭐⭐⭐⭐⭐ Glass-Smooth (Achieves mirror edge effortlessly)",
+      patina: "Deepens in saturation and buffs into natural gloss luster",
+      water: "Moderate resistance (pre-conditioned with natural tallow/neatsfoot)",
+      edgeMethod: "Edge beveler #1 -> 600 grit dry sand -> Tokonole rub -> Canvas slicking -> Columbus edge wax"
+    },
+    english_bridle: {
+      name: "English Bridle Leather (Sedgwick / Wickett & Craig)",
+      temper: "Medium-Firm (Hot stuffed with waxes and tallow)",
+      burnish: "⭐⭐⭐⭐ Smooth Satin Finish",
+      patina: "Wax blooms to the surface; buffs to rich equestrian sheen",
+      water: "High weather & moisture resistance",
+      edgeMethod: "Bevel edge -> Canvas slick with gum tragacanth -> Buff wax out with horsehair brush"
+    },
+    chrome_tanned: {
+      name: "Chrome-Tanned / Upholstery Leather",
+      temper: "Soft to Supple (Flexible, loose fiber matrix)",
+      burnish: "❌ CANNOT BE BURNISHED WITH FRICTION (Fibers will fray into fuzzy fuzz)",
+      patina: "Very low patina (colors remain locked and uniform)",
+      water: "Water repellant and stain resistant",
+      edgeMethod: "Mandatory Edge Painting: Base primer coat -> Sand -> 2x Fenice / Giardini Edge Paint -> Heat crease"
+    },
+    oil_tanned: {
+      name: "Oil-Tanned / Crazy Horse / Kodiak",
+      temper: "Medium-Soft (Saturated with heavy mineral oils)",
+      burnish: "⭐⭐ Difficult (Oils inhibit water-based burnishing gums)",
+      patina: "Classic dramatic pull-up color shift when bent",
+      water: "Superb water repellency",
+      edgeMethod: "Bevel lightly -> Sand dry -> Apply melted beeswax / paraffin cake -> Rapid friction canvas buff"
+    },
+    shell_cordovan: {
+      name: "Shell Cordovan (Equine Membrane)",
+      temper: "Firm Dense Cartilage Layer (Zero grain pores)",
+      burnish: "⭐⭐⭐⭐⭐ Crown Jewel of Leather (Naturally glass-like)",
+      patina: "Lustrous micro-depth shine that never creases or ripples",
+      water: "Avoid heavy soaking (can cause micro-welts)",
+      edgeMethod: "Deer bone burnishing with Saphir Medaille d'Or cordovan cream or Tokonole"
+    }
+  };
+
+  const t = tannageProfiles[tannage] || tannageProfiles.natural_vegtan;
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${t.name}</strong>
+        <span style="font-size:11px;color:var(--primary);font-weight:bold">${t.burnish.split("(")[0]}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:6px;font-size:11px;color:var(--ink-secondary)">
+        <div>Temper: <strong>${t.temper}</strong></div>
+        <div>Patina: <strong>${t.patina}</strong></div>
+        <div>Water Sensitivity: <strong>${t.water}</strong></div>
+      </div>
+    </div>
+
+    <div style="margin-top:8px">
+      <div class="leather-burnish-step">
+        <div class="leather-burnish-num">1</div>
+        <div class="leather-burnish-body">
+          <strong>Bevel &amp; Shape Edge</strong>
+          Use an edge beveler (size #1 or #2) at a steady 45° angle along both face and flesh edges to create a rounded profile.
+        </div>
+      </div>
+      <div class="leather-burnish-step">
+        <div class="leather-burnish-num">2</div>
+        <div class="leather-burnish-body">
+          <strong>Progressive Sanding</strong>
+          Dry-sand in ONE direction only (e.g. away from the tip) using 320 -> 600 -> 1000 grit paper until the seam layers blend into a single homogeneous edge.
+        </div>
+      </div>
+      <div class="leather-burnish-step">
+        <div class="leather-burnish-num">3</div>
+        <div class="leather-burnish-body">
+          <strong>Apply Tokonole Gum &amp; Friction Slick</strong>
+          Smear a thin film of Seiwa Tokonole over the edge. Wait 20 seconds for tack. Briskly rub with dense canvas or a hardwood slicker until the friction heats up and an audible 'squeak' is heard.
+        </div>
+      </div>
+      <div class="leather-burnish-step" style="margin-bottom:0">
+        <div class="leather-burnish-num">4</div>
+        <div class="leather-burnish-body">
+          <strong>Beeswax Seal &amp; Canvas Buff</strong>
+          Lightly rub pure beeswax cake across the burnished edge, then do a quick 5-second buff with clean denim canvas to seal against moisture.
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLeatherView() {
+  updateLeatherStitchCalc();
+  updateLeatherGaugeCalc();
+  updateLeatherBeltCalc();
+  updateLeatherEdgeGuide();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -29382,6 +30192,26 @@ function initCraftStudios() {
   });
 
   ["#origami-guide-paper", "#origami-guide-complexity"].forEach(s => $(s)?.addEventListener("change", updateOrigamiPaperGuide));
+
+  // Laser Cutting & Engraving Studio Listeners
+  renderLaserView();
+  ["#laser-type", "#laser-op", "#laser-material"].forEach(s => $(s)?.addEventListener("change", updateLaserCalc));
+  ["#laser-mat-cost", "#laser-runtime-mins", "#laser-hourly-rate"].forEach(s => $(s)?.addEventListener("input", updateLaserCalc));
+  ["#laser-kerf-thickness", "#laser-kerf-width", "#laser-kerf-tab"].forEach(s => $(s)?.addEventListener("input", updateLaserKerfCalc));
+  $("#laser-kerf-fit")?.addEventListener("change", updateLaserKerfCalc);
+  $("#laser-safety-mat")?.addEventListener("change", updateLaserSafetyWatchdog);
+  ["#laser-lens-type", "#laser-air-mode"].forEach(s => $(s)?.addEventListener("change", updateLaserOpticsGuide));
+
+  // Leathercraft & Stitching Studio Listeners
+  renderLeatherView();
+  ["#leather-seam-len", "#leather-stack-thick"].forEach(s => $(s)?.addEventListener("input", updateLeatherStitchCalc));
+  ["#leather-iron-pitch", "#leather-thread-type"].forEach(s => $(s)?.addEventListener("change", updateLeatherStitchCalc));
+  $("#leather-oz-preset")?.addEventListener("change", updateLeatherGaugeCalc);
+  ["#leather-custom-mm", "#leather-sqft-price"].forEach(s => $(s)?.addEventListener("input", updateLeatherGaugeCalc));
+  $("#leather-hide-cut")?.addEventListener("change", updateLeatherGaugeCalc);
+  ["#leather-belt-waist", "#leather-belt-oz"].forEach(s => $(s)?.addEventListener("input", updateLeatherBeltCalc));
+  ["#leather-belt-width", "#leather-belt-spacing"].forEach(s => $(s)?.addEventListener("change", updateLeatherBeltCalc));
+  $("#leather-tannage-select")?.addEventListener("change", updateLeatherEdgeGuide);
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();

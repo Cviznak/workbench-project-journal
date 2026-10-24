@@ -76,6 +76,8 @@
               <button class="nav-link" data-view="resin"><span class="nav-icon">🧪</span>Epoxy &amp; Silicone</button>
               <button class="nav-link" data-view="printing"><span class="nav-icon">🖨️</span>3D Printing</button>
               <button class="nav-link" data-view="origami"><span class="nav-icon">🦢</span>Origami &amp; Paper</button>
+              <button class="nav-link" data-view="laser"><span class="nav-icon">🔥</span>Laser Cutting</button>
+              <button class="nav-link" data-view="leather"><span class="nav-icon">🪡</span>Leathercraft</button>
             </div>
           </div>
 
@@ -438,6 +440,8 @@
                     <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
                     <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
                     <option value="Papercraft &amp; Origami">🦢 Papercraft &amp; Origami</option>
+                    <option value="Laser Consumables &amp; Acrylic">🔥 Laser Consumables &amp; Acrylic</option>
+                    <option value="Leather, Hides &amp; Hardware">🪡 Leather, Hides &amp; Hardware</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -4127,6 +4131,299 @@
             </div>
           </section>
 
+          <!-- 🔥 Laser Cutting & Engraving Studio View -->
+          <section class="view-section" id="laser-view" aria-labelledby="laser-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> CNC LASER OPTICS &amp; KERF FABRICATION</div>
+                <h1 id="laser-title">Laser Cutting &amp; Engraving Studio<span class="heading-period">.</span></h1>
+                <p>Speed &amp; power parameter estimators, kerf compensation &amp; finger joint press-fit calculators, material toxicity safety watchdog, and focal lens beam waist matcher.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-laser-params">📋 Copy Laser Specs</button>
+                <button type="button" class="button button-primary" data-action="add-laser-materials">🛒 Add Materials to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🔥 Speed, Power & Job Quoting Estimator -->
+              <div class="panel" id="panel-laser-calc" style="grid-column: 1 / -1">
+                <div class="eyebrow">PRODUCTION FEEDS &amp; JOB PRICING</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🔥 Laser Parameter &amp; Job Cost Estimator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-laser-calc" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Compute optimal feed rates, power percentages, pass counts, tube wear amortization, and commercial client pricing for Diode, CO2, and Fiber lasers.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Laser Machine Class
+                    <select id="laser-type">
+                      <option value="diode_10w">10W Diode (455nm Blue)</option>
+                      <option value="diode_20w" selected>20W-24W Diode (High Optical)</option>
+                      <option value="diode_40w">40W-48W Diode (Quad/Octa Beam)</option>
+                      <option value="co2_45w">40W-55W Desktop CO2 (Glowforge / K40)</option>
+                      <option value="co2_90w">80W-100W Production CO2</option>
+                      <option value="fiber_30w">30W-50W MOPA / Fiber (Metals)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Operation Type
+                    <select id="laser-op">
+                      <option value="cut" selected>Vector Through-Cut</option>
+                      <option value="engrave">Raster Engrave (Surface Scan)</option>
+                      <option value="score">Vector Score (Line Marking)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Substrate Material
+                    <select id="laser-material">
+                      <option value="ply_3mm" selected>1/8" (3mm) Baltic Birch Plywood</option>
+                      <option value="ply_6mm">1/4" (6mm) Baltic Birch Plywood</option>
+                      <option value="mdf_3mm">1/8" (3mm) MDF Draftboard</option>
+                      <option value="acrylic_3mm">1/8" (3mm) Cast Acrylic (PMMA)</option>
+                      <option value="acrylic_6mm">1/4" (6mm) Cast Acrylic (PMMA)</option>
+                      <option value="leather_4oz">4–5 oz Vegetable Tanned Leather</option>
+                      <option value="hardwood_3mm">1/8" (3mm) Solid Walnut / Maple</option>
+                      <option value="anodized_alum">Anodized Aluminum Sheet (Engrave)</option>
+                      <option value="slate_stone">Natural Slate Coaster (Engrave)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Material Cost ($)
+                    <input type="number" id="laser-mat-cost" value="6.50" min="0" step="0.5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Run Time (Minutes)
+                    <input type="number" id="laser-runtime-mins" value="12" min="1" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Hourly Machine Rate ($/hr)
+                    <input type="number" id="laser-hourly-rate" value="45.00" min="0" step="5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="laser-calc-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 📏 Kerf Compensation & Finger Joint Press-Fit Calculator -->
+              <div class="panel" id="panel-laser-kerf">
+                <div class="eyebrow">PRECISION JOINERY TOLERANCES</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📏 Kerf Compensation &amp; Box Finger Joint Matcher</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact beam offset width to eliminate slop in laser-cut finger / box joints, mortise tabs, and snap-fit assemblies.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Material Thickness (T, mm)
+                    <input type="number" id="laser-kerf-thickness" value="3.15" min="0.5" step="0.05">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Measured Laser Kerf (K, mm)
+                    <input type="number" id="laser-kerf-width" value="0.16" min="0.02" max="0.6" step="0.01">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Nominal Tab Width (mm)
+                    <input type="number" id="laser-kerf-tab" value="12.0" min="2" step="0.5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Fit Objective
+                    <select id="laser-kerf-fit">
+                      <option value="press_fit" selected>Friction Press-Fit (No glue needed)</option>
+                      <option value="glue_fit">Slip-Fit (0.05mm gap for glue capillary)</option>
+                      <option value="slide_fit">Loose Sliding Tab (0.15mm clearance)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="laser-kerf-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ☠️ Material Safety & Exhaust Toxicity Watchdog -->
+              <div class="panel" id="panel-laser-safety">
+                <div class="eyebrow">HAZARDOUS AIR CONTAMINANTS &amp; FLAME RISKS</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">☠️ Laser Safety &amp; Material Chemical Watchdog</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Verify whether a substrate is laser-safe. Avoid lethal chlorine gas, phosgene, hydrogen cyanide, and laser optics destruction.</p>
+
+                <div style="display:grid;grid-template-columns:1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Select Substrate to Test
+                    <select id="laser-safety-mat">
+                      <option value="cast_acrylic" selected>🟢 Cast Acrylic (PMMA) — Safe / Glassy Edge</option>
+                      <option value="pvc_vinyl">🔴 PVC / Vinyl / Sintra — LETHAL CHLORINE GAS (NEVER CUT)</option>
+                      <option value="polycarbonate">🔴 Polycarbonate / Lexan — DENSE CYANIDE SMOKE / FIRE</option>
+                      <option value="carbon_fiber">🔴 Carbon Fiber Sheet — AIRBORNE TOXIC PARTICLES</option>
+                      <option value="mdf_plywood">🟢 Baltic Birch / MDF — Safe with 100% CFM Extraction</option>
+                      <option value="veg_tan">🟢 100% Veg-Tan Leather — Safe (Organic smell)</option>
+                      <option value="chrome_tan">🟡 Chrome-Tanned Leather — Chromium III/VI gas hazard</option>
+                      <option value="delrin">🟢 Delrin / Acetal (POM) — Safe (Formaldehyde smell)</option>
+                      <option value="ptfe_teflon">🔴 PTFE / Teflon — Fluorine Toxic Offgas (NEVER CUT)</option>
+                      <option value="anodized">🟢 Anodized Aluminum / Slate — 100% Safe Surface Bleach</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="laser-safety-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 💨 Air Assist & Focal Optics Guide -->
+              <div class="panel" id="panel-laser-optics" style="grid-column: 1 / -1">
+                <div class="eyebrow">BEAM OPTICS &amp; SMOKE SUPPRESSION</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">💨 Focal Lens Length &amp; Air Assist Pressure Matcher</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Select the correct focal meniscus lens and compressor PSI for deep through-cuts vs crisp soot-free photo raster engraving.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Focal Length
+                    <select id="laser-lens-type">
+                      <option value="1.5">1.5" (38.1 mm) — Ultra-Fine Spot (0.075mm) • Detail Engrave</option>
+                      <option value="2.0" selected>2.0" (50.8 mm) — Standard Universal Spot (0.12mm) • Cuts &lt; 6mm</option>
+                      <option value="2.5">2.5" (63.5 mm) — Long Waist Spot (0.16mm) • Thick Stock 6-12mm</option>
+                      <option value="4.0">4.0" (101.6 mm) — Deep Depth of Field • Thick Foam &amp; Relief</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Air Assist Pressure
+                    <select id="laser-air-mode">
+                      <option value="high" selected>High Pressure (18–25 PSI) — Cutting / Zero Flame Char</option>
+                      <option value="low">Low Flow (3–5 PSI) — Engraving / Prevents Soot Dust Wash</option>
+                      <option value="none">No Air Assist — Prohibited (Lens smudge &amp; fire risk)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="laser-optics-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🪡 Leathercraft & Stitching Studio View -->
+          <section class="view-section" id="leather-view" aria-labelledby="leather-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> HAND STITCHING &amp; LEATHERWORKING</div>
+                <h1 id="leather-title">Leathercraft &amp; Stitching Studio<span class="heading-period">.</span></h1>
+                <p>Saddle stitch thread length &amp; pricking pitch calculators, leather thickness ounce-to-mm conversions, custom belt &amp; strap geometry, and tannage burnishing matrices.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-leather-specs">📋 Copy Stitching Specs</button>
+                <button type="button" class="button button-primary" data-action="add-leather-supplies">🛒 Add Leather to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🪡 Saddle Stitching & Thread Length Calculator -->
+              <div class="panel" id="panel-leather-stitch">
+                <div class="eyebrow">HAND SADDLE STITCHING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🪡 Saddle Stitch Thread Length &amp; Prick Count</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate required waxed thread length, hole prick count, and matching needle size for two-needle traditional saddle stitching.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Seam Length (mm)
+                    <input type="number" id="leather-seam-len" value="180" min="10" step="5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Total Leather Stack (mm)
+                    <input type="number" id="leather-stack-thick" value="3.2" min="0.5" max="15" step="0.2">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Pricking Iron Pitch
+                    <select id="leather-iron-pitch">
+                      <option value="2.7">2.7 mm (9.5 SPI — Luxury French Fine)</option>
+                      <option value="3.0">3.0 mm (8.5 SPI — Watch Straps / Wallets)</option>
+                      <option value="3.85" selected>3.85 mm (6.5 SPI — Bags &amp; Wallets)</option>
+                      <option value="4.0">4.0 mm (6.3 SPI — Universal Japanese)</option>
+                      <option value="5.0">5.0 mm (5.0 SPI — Heavy Boots / Holsters)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Thread Type &amp; Gauge
+                    <select id="leather-thread-type">
+                      <option value="0.45">0.45 mm Braided Waxed Polyester</option>
+                      <option value="0.55" selected>0.55 mm Tiger / Vinymo Thread</option>
+                      <option value="0.80">0.80 mm Heavy Waxed Cord</option>
+                      <option value="linen">Lin Câblé Waxed French Linen</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="leather-stitch-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ⚖️ Leather Weight & Thickness Gauge Converter -->
+              <div class="panel" id="panel-leather-gauge">
+                <div class="eyebrow">HIDE GAUGING &amp; TEMPER</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚖️ Leather Ounce (oz) to Millimeter Converter</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Convert leather trade weights (oz/sq ft), gauge thickness, and view ideal project applications across hides.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Leather Trade Weight
+                    <select id="leather-oz-preset">
+                      <option value="2">2 – 3 oz (0.8 – 1.2 mm) • Linings &amp; Card Slots</option>
+                      <option value="4" selected>4 – 5 oz (1.6 – 2.0 mm) • Wallets &amp; Bag Shells</option>
+                      <option value="6">6 – 7 oz (2.4 – 2.8 mm) • Totes &amp; Knife Sheaths</option>
+                      <option value="8">8 – 9 oz (3.2 – 3.6 mm) • Standard Belts</option>
+                      <option value="10">10 – 12 oz (4.0 – 4.8 mm) • Gun Holsters &amp; Saddles</option>
+                      <option value="custom">Custom Values (mm / oz)...</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Thickness (mm)
+                    <input type="number" id="leather-custom-mm" value="1.8" min="0.4" max="8.0" step="0.1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Hide Cut Section
+                    <select id="leather-hide-cut">
+                      <option value="side" selected>Side (20–25 sq ft • High Yield)</option>
+                      <option value="double_shoulder">Double Shoulder (12–15 sq ft • Uniform Temper)</option>
+                      <option value="bend">Single Bend / Butt (10–12 sq ft • Prime Dense)</option>
+                      <option value="belly">Belly (4–6 sq ft • Stretchy / Low Cost)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Price per Sq Foot ($)
+                    <input type="number" id="leather-sqft-price" value="9.50" min="1" step="0.5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="leather-gauge-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 👖 Belt & Strap Sizing Geometry Calculator -->
+              <div class="panel" id="panel-leather-belt">
+                <div class="eyebrow">PATTERN PATTERNING &amp; LAYOUT</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">👖 Custom Belt &amp; Strap Layout Calculator</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact center hole position, tongue extension, prong spacing, buckle fold-over skive, and keeper loop dimensions.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Pant / Waist Size (Inches)
+                    <input type="number" id="leather-belt-waist" value="34" min="20" max="65" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Strap Width (Inches)
+                    <select id="leather-belt-width">
+                      <option value="1.25">1-1/4" (32 mm) • Dress Belt</option>
+                      <option value="1.50" selected>1-1/2" (38 mm) • Jeans / Universal</option>
+                      <option value="1.75">1-3/4" (44 mm) • Heavy Work Belt</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Hole Spacing (Inches)
+                    <select id="leather-belt-spacing">
+                      <option value="1.0" selected>1.0" (Standard 5-Hole Span)</option>
+                      <option value="0.75">0.75" (Fine Fit 7-Hole Span)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Belt Leather Thickness (oz)
+                    <input type="number" id="leather-belt-oz" value="9" min="6" max="14" step="0.5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="leather-belt-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ✨ Tannage, Temper & Edge Burnishing Matrix -->
+              <div class="panel" id="panel-leather-edges">
+                <div class="eyebrow">EDGE FINISHING &amp; TANNAGE CHEMISTRY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">✨ Tannage Selection &amp; Edge Glass Burnishing Guide</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Compare Vegetable-Tanned vs Chrome-Tanned leathers, temper stiffness, and follow professional Tokonole glass burnishing steps.</p>
+
+                <div style="display:grid;grid-template-columns:1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Tannage / Article
+                    <select id="leather-tannage-select">
+                      <option value="natural_vegtan" selected>Natural Vegetable-Tanned (Carvable • Patinas to rich honey • Burnishable)</option>
+                      <option value="buttero_pueblo">Italian Buttero / Pueblo (Badalassi Carlo • Firm temper • Luxury wallets)</option>
+                      <option value="english_bridle">English Bridle / Sedgwick (Wax stuffed • Weatherproof • Premier belts)</option>
+                      <option value="chrome_tanned">Chrome-Tanned / Upholstery (Supple • Water-repellant • Edge paint required)</option>
+                      <option value="oil_tanned">Oil-Tanned / Kodiak / Crazy Horse (Pull-up effect • Rugged boots)</option>
+                      <option value="shell_cordovan">Shell Cordovan (Equine membrane • Glass finish • Indestructible)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="leather-edge-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -4534,6 +4831,11 @@
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="electronics">⚡ Electronics Studio</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="programming">💻 Programming Studio</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="art">🎨 Art &amp; Design Studio</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="resin">🧪 Epoxy &amp; Silicone</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="printing">🖨️ 3D Printing Studio</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="origami">🦢 Origami &amp; Paper</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="laser">🔥 Laser Cutting</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="leather">🪡 Leathercraft</button>
         </div>
       </div>
     </dialog>
@@ -4786,6 +5088,8 @@
                 <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
                 <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
                 <option value="Papercraft &amp; Origami">🦢 Papercraft &amp; Origami</option>
+                <option value="Laser Consumables &amp; Acrylic">🔥 Laser Consumables &amp; Acrylic</option>
+                <option value="Leather, Hides &amp; Hardware">🪡 Leather, Hides &amp; Hardware</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -5775,6 +6079,16 @@
           <span class="mobile-studio-icon" aria-hidden="true">🦢</span>
           <strong>Origami &amp; Paper</strong>
           <span class="mobile-studio-desc">Folding viewer, CP theorems, modular units</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="laser" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🔥</span>
+          <strong>Laser Cutting</strong>
+          <span class="mobile-studio-desc">Kerf compensation, diode &amp; CO2 feeds, box joints</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="leather" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🪡</span>
+          <strong>Leathercraft</strong>
+          <span class="mobile-studio-desc">Saddle stitch length, belt sizing, oz to mm</span>
         </button>
       </div>
     </dialog>

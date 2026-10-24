@@ -9984,6 +9984,166 @@ body.theme-dark .origami-theorem-card.theorem-invalid {
   }
 }
 
+/* ============================================================
+   🔥 Laser Cutting & Engraving Studio Styles
+   ============================================================ */
+.laser-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.laser-stat-card {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.laser-stat-card .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.laser-stat-card .value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.laser-stat-card .hint {
+  font-size: 10px;
+  color: var(--ink-secondary);
+  margin-top: 2px;
+}
+
+.laser-badge-safe {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+  border: 1px solid #10b981;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.laser-badge-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #991b1b;
+  border: 1px solid #ef4444;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.laser-badge-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .laser-badge-safe,
+body.theme-dark .laser-badge-safe {
+  color: #34d399;
+}
+
+[data-theme="dark"] .laser-badge-danger,
+body.theme-dark .laser-badge-danger {
+  color: #f87171;
+}
+
+[data-theme="dark"] .laser-badge-warning,
+body.theme-dark .laser-badge-warning {
+  color: #fbbf24;
+}
+
+.laser-quote-box {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 10px;
+}
+
+/* ============================================================
+   🪡 Leathercraft & Stitching Studio Styles
+   ============================================================ */
+.leather-stitch-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.leather-stitch-metric-row:last-child {
+  border-bottom: none;
+}
+
+.leather-diagram-box {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.leather-burnish-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.leather-burnish-num {
+  background: var(--primary);
+  color: white;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.leather-burnish-body {
+  font-size: 11.5px;
+  color: var(--ink-secondary);
+}
+
+.leather-burnish-body strong {
+  color: var(--ink);
+  display: block;
+  margin-bottom: 2px;
+}
+
 
 
 
