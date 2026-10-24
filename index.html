@@ -88,6 +88,8 @@
               <button class="nav-link" data-view="bookbinding"><span class="nav-icon">📖</span>Bookbinding &amp; Print</button>
               <button class="nav-link" data-view="sla"><span class="nav-icon">🧪</span>Resin 3D Print (SLA)</button>
               <button class="nav-link" data-view="luthier"><span class="nav-icon">🎸</span>Luthier &amp; Instruments</button>
+              <button class="nav-link" data-view="composites"><span class="nav-icon">🌀</span>Composites &amp; Carbon</button>
+              <button class="nav-link" data-view="horology"><span class="nav-icon">⏱️</span>Watchmaking &amp; Horology</button>
             </div>
           </div>
 
@@ -461,6 +463,8 @@
                     <option value="Bookbinding, Paper &amp; Inks">📖 Bookbinding, Paper &amp; Inks</option>
                     <option value="SLA Photopolymer Resin &amp; Films">🧪 SLA Photopolymer Resin &amp; Films</option>
                     <option value="Luthier Tonewoods, Frets &amp; Parts">🎸 Luthier Tonewoods, Frets &amp; Parts</option>
+                    <option value="Composites, Carbon Fiber &amp; Resins">🌀 Composites, Carbon Fiber &amp; Resins</option>
+                    <option value="Watchmaking &amp; Horology Tools">⏱️ Watchmaking &amp; Horology Tools</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -5988,6 +5992,326 @@
             </div>
           </section>
 
+          <!-- 🌀 Composites & Carbon Fiber Fabrication Studio View -->
+          <section class="view-section" id="composites-view" aria-labelledby="composites-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> CARBON FIBER, FIBERGLASS, VACUUM INFUSION &amp; SANDWICH CORES</div>
+                <h1 id="composites-title">Composites &amp; Carbon Fiber Studio<span class="heading-period">.</span></h1>
+                <p>Calculate precision resin stoichiometry, target fiber volume fraction (Vf), symmetric quasi-isotropic ply schedules [0/&plusmn;45/90]s, atmospheric vacuum clamping tonnage, and sandwich core flexural stiffness.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-composites-specs">📋 Copy Layup Specs</button>
+                <button type="button" class="button button-primary" data-action="add-composites-supplies">🛒 Add Composites Supplies</button>
+              </div>
+            </div>
+
+            <div class="tool-grid">
+              <!-- Card 1: Resin Stoichiometry & Fiber Volume Fraction (Vf) -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🧪</div>
+                  <div>
+                    <h3>Resin Stoichiometry &amp; Fiber Fraction</h3>
+                    <p class="tool-card-subtitle">Calculate fabric mass, resin Part A/B mix ratio, and target cured laminate weight</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Reinforcement Fabric Type
+                    <select id="comp-fabric-type">
+                      <option value="carbon-3k" selected>3K 200 gsm Carbon Fiber 2x2 Twill (Aerospace grade)</option>
+                      <option value="carbon-6k">6K 300 gsm Carbon Fiber Plain Weave (Structural)</option>
+                      <option value="carbon-biax">12K 400 gsm Biaxial &plusmn;45° Non-Crimp Carbon (Torsion)</option>
+                      <option value="fiberglass-twill">200 gsm E-Glass Fiberglass 2x2 Twill (Surfacing / Clear)</option>
+                      <option value="fiberglass-csm">450 gsm Chopped Strand Mat (CSM Polyester / Vinylester)</option>
+                      <option value="aramid-kevlar">170 gsm Kevlar 49 Aramid Plain Weave (Impact &amp; Ballistic)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Fabrication Method &amp; Target Vf
+                    <select id="comp-process-type">
+                      <option value="wet-layup">Wet Layup Hand Consolidation (~40% Vf • 53% resin by wt)</option>
+                      <option value="vac-bagging">Vacuum Bagged Wet Layup (~52% Vf • Bleeder compaction)</option>
+                      <option value="infusion" selected>Vacuum Resin Infusion VARTM (~60% Vf • Premium strength)</option>
+                      <option value="prepreg">Prepreg / Autoclave Out-of-Autoclave (~66% Vf • Minimum resin)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Laminate Surface Area (m²)
+                    <input type="number" id="comp-part-area" value="0.50" step="0.05" min="0.01" max="50">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Number of Fabric Plies
+                    <input type="number" id="comp-ply-count" value="4" step="1" min="1" max="64">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Resin Hardener Mix Ratio (Weight)
+                    <select id="comp-mix-ratio">
+                      <option value="100:30" selected>100 : 30 (Standard Laminating Epoxy)</option>
+                      <option value="100:25">100 : 25 (Slow Infusion Hardener)</option>
+                      <option value="100:45">100 : 45 (Flexible Toughened Epoxy)</option>
+                      <option value="100:2">100 : 2 (Polyester / Vinylester MEKP Catalyst)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Waste Allowance (Lines &amp; Cups)
+                    <select id="comp-waste-factor">
+                      <option value="1.10">10% Extra (Small parts)</option>
+                      <option value="1.15" selected>15% Extra (Infusion runners)</option>
+                      <option value="1.25">25% Extra (Complex molds &amp; catch pot)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="comp-resin-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 2: Ply Layup Schedule & Sandwich Core Bending Stiffness -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">📐</div>
+                  <div>
+                    <h3>Ply Schedule &amp; Sandwich Core Stiffness</h3>
+                    <p class="tool-card-subtitle">Symmetric quasi-isotropic stacking [0/&plusmn;45/90]s and core multiplier</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Ply Orientation Schedule
+                    <select id="comp-stack-schedule">
+                      <option value="quasi-8" selected>Quasi-Isotropic [0 / +45 / -45 / 90]s (8 plies • Zero thermal warp)</option>
+                      <option value="quasi-6">Quasi-Isotropic [0 / +60 / -60]s (6 plies • Equal planar modulus)</option>
+                      <option value="crossply">Bidirectional Cross-Ply [0 / 90]s (Balanced flat panels)</option>
+                      <option value="unidirectional">Unidirectional [0] All Plies (High axial tensile spar/boom)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Sandwich Core Material
+                    <select id="comp-core-material">
+                      <option value="solid" selected>Solid Monolithic Laminate (No core)</option>
+                      <option value="divinycell-3">3mm Divinycell H60 PVC Foam (60 kg/m³ density)</option>
+                      <option value="divinycell-5">5mm Divinycell H80 PVC Foam (80 kg/m³ structural)</option>
+                      <option value="nomex-6">6mm Nomex Aramid Honeycomb (Aviation ultra-light)</option>
+                      <option value="balsa-6">6mm End-Grain Balsa Wood (High shear strength)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="comp-stack-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 3: Vacuum Bagging Physics & Clamping Force Tonnage -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🌪️</div>
+                  <div>
+                    <h3>Vacuum Bagging &amp; Atmospheric Clamping</h3>
+                    <p class="tool-card-subtitle">Calculate total compaction force, tons of pressure, and vacuum leakdown thresholds</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Atmospheric Vacuum Draw
+                    <select id="comp-vacuum-level">
+                      <option value="25">25 inHg (12.3 psi / 84.6 kPa • 83% Vacuum)</option>
+                      <option value="28" selected>28 inHg (13.75 psi / 94.8 kPa • 93% Vacuum - Standard Infusion)</option>
+                      <option value="29.5">29.5 inHg (14.5 psi / 99.9 kPa • 98% Deep Vacuum)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">15-Minute Drop-Off Leakdown Test
+                    <select id="comp-leakdown-rate">
+                      <option value="pass" selected>&lt; 2.0 mbar/min drop (&lt; 0.06 inHg • Ready for resin infusion)</option>
+                      <option value="marginal">2.0 - 5.0 mbar/min drop (Marginal • Acceptable for wet bag only)</option>
+                      <option value="fail">&gt; 5.0 mbar/min drop (Severe leak • Re-pleat tack tape, check fittings)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="comp-vacuum-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 4: Bagging Consumables Stack & Exotherm Cure Cycle -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🌡️</div>
+                  <div>
+                    <h3>Consumable Stack &amp; Exotherm Cure Schedule</h3>
+                    <p class="tool-card-subtitle">Release film stack order, pot life warnings, and post-cure Tg ramp</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Shop Ambient Temperature
+                    <select id="comp-ambient-temp">
+                      <option value="cool">Cool Shop (16°C – 19°C / 60°F – 66°F • Extended pot life)</option>
+                      <option value="optimal" selected>Optimal Shop (20°C – 23°C / 68°F – 74°F • Standard cure)</option>
+                      <option value="hot">Hot Shop (&ge; 28°C / 82°F • Warning: High Exotherm Risk)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Target Glass Transition (Tg) Post-Cure
+                    <select id="comp-cure-schedule">
+                      <option value="ambient" selected>Standard Ambient Cure (Tg ~60°C • Room temp 24h)</option>
+                      <option value="mild-post">Mild Post-Cure (Tg ~85°C • 50°C for 6h)</option>
+                      <option value="full-post">Full Aerospace Post-Cure (Tg ~120°C • 80°C for 4h ramp)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="comp-cure-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ⏱️ Watchmaking & Horology Studio View -->
+          <section class="view-section" id="horology-view" aria-labelledby="horology-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> TIMEGRAPHER, ESCAPEMENT CALIBRATION, LUBRICATION &amp; PRESSURE RATING</div>
+                <h1 id="horology-title">Watchmaking &amp; Horology Studio<span class="heading-period">.</span></h1>
+                <p>Precision mechanical movement diagnostics, timegrapher escapement beat error &amp; balance amplitude analysis, mainspring power reserve torque decay, Swiss horological lubrication protocol, and case water resistance ratings.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-horology-specs">📋 Copy Horology Specs</button>
+                <button type="button" class="button button-primary" data-action="add-horology-supplies">🛒 Add Watchmaker Supplies</button>
+              </div>
+            </div>
+
+            <div class="tool-grid">
+              <!-- Card 1: Timegrapher & Escapement Calibration -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">⏱️</div>
+                  <div>
+                    <h3>Timegrapher Escapement Diagnostics</h3>
+                    <p class="tool-card-subtitle">Balance amplitude, daily rate error, beat error symmetry, and lift angles</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Movement Caliber Preset
+                    <select id="horo-caliber-select">
+                      <option value="nh35" selected>Seiko NH35 / NH36 / 4R36 (21,600 bph / 3 Hz • Lift: 53°)</option>
+                      <option value="eta2824">ETA 2824-2 / Sellita SW200 (28,800 bph / 4 Hz • Lift: 50°)</option>
+                      <option value="miyota9015">Miyota 9015 / 9039 (28,800 bph / 4 Hz • Lift: 51°)</option>
+                      <option value="valjoux7750">Valjoux 7750 Chronograph (28,800 bph / 4 Hz • Lift: 49°)</option>
+                      <option value="pocket18k">Vintage Pocket Watch 18,000 bph (2.5 Hz • Lift: 52°)</option>
+                      <option value="hibeat36k">Hi-Beat 36,000 bph / Grand Seiko / El Primero (5 Hz • Lift: 52°)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Testing Position
+                    <select id="horo-test-pos">
+                      <option value="ch" selected>Dial Up (CH / Cadran Haut - Horizontal)</option>
+                      <option value="fh">Dial Down (FH / Fond Haut - Horizontal)</option>
+                      <option value="6h">Crown Down (6H - Vertical pendant)</option>
+                      <option value="9h">Crown Left (9H - Vertical wrist hanging)</option>
+                      <option value="12h">Crown Up (12H - Vertical)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Daily Rate Drift (s/day)
+                    <input type="number" id="horo-rate-drift" value="+6" step="1" min="-120" max="120">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Balance Amplitude (Degrees)
+                    <input type="number" id="horo-balance-amp" value="285" step="5" min="150" max="360">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Beat Error (ms)
+                    <input type="number" id="horo-beat-error" value="0.2" step="0.1" min="0" max="9.9">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="horo-timegrapher-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 2: Mainspring Power Reserve & Gear Train Physics -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">⚙️</div>
+                  <div>
+                    <h3>Mainspring Reserve &amp; Gear Train Ratio</h3>
+                    <p class="tool-card-subtitle">Calculate barrel turns, escapement beats per hour, and torque discharge curve</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Winding System &amp; Mainspring Type
+                    <select id="horo-mainspring-type">
+                      <option value="auto-bridle" selected>Automatic with Slipping Bridle (Self-winding barrel)</option>
+                      <option value="manual-hook">Manual Wind with Fixed Arbor Hook (Traditional stop-work)</option>
+                      <option value="pow-80">Extended Reserve (Nivachron / Powermatic 80 - Low friction)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Current Mainspring State
+                    <select id="horo-wind-state">
+                      <option value="full" selected>Full Wind (0 to 12 Hours elapsed • Peak torque)</option>
+                      <option value="mid">Mid Wind (24 Hours elapsed • Nominal isochronous torque)</option>
+                      <option value="low">Low Wind (36+ Hours elapsed • Tail torque decay / amplitude drop)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="horo-reserve-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 3: Swiss Horological Lubrication Protocol -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🛢️</div>
+                  <div>
+                    <h3>Horological Lubrication Protocol</h3>
+                    <p class="tool-card-subtitle">Moebius synthetic oils, viscosity grades, epilame barrier, and anti-spreading points</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Movement Friction &amp; Pivot Point
+                    <select id="horo-lube-point">
+                      <option value="balance-jewel" selected>Balance Staff Cap Jewels (Incabloc / Diashock / Kif)</option>
+                      <option value="pallet-stones">Escapement Pallet Stones (Impulse faces on escape wheel teeth)</option>
+                      <option value="train-pivots">Wheel Train Pivots (Center, third &amp; fourth wheel arbors)</option>
+                      <option value="barrel-arbor">Barrel Arbor &amp; Mainspring Drum Wall</option>
+                      <option value="keyless-works">Keyless Works &amp; Hand Setting (Clutch wheel, winding pinion, setting lever)</option>
+                      <option value="case-gaskets">Caseback O-Ring &amp; Crown Stem Gaskets</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="horo-lube-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 4: Case Water Resistance & Hydrostatic Pressure -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🌊</div>
+                  <div>
+                    <h3>Case Water Resistance &amp; Pressure Rating</h3>
+                    <p class="tool-card-subtitle">Static vs dynamic water pressure, gasket compression, and dive ratings</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Case Depth / ATM Rating
+                    <select id="horo-water-rating">
+                      <option value="3atm">3 ATM / 30m / 3 bar (43.5 psi • Splash / Rain only - No swimming)</option>
+                      <option value="5atm">5 ATM / 50m / 5 bar (72.5 psi • Shower &amp; shallow surface swimming)</option>
+                      <option value="10atm" selected>10 ATM / 100m / 10 bar (145 psi • Snorkeling, water sports &amp; swimming)</option>
+                      <option value="20atm">20 ATM / 200m / 20 bar (290 psi • ISO 6425 Certified Scuba Diver)</option>
+                      <option value="30atm">30 ATM / 300m+ / 30 bar (435 psi • Deep Saturation Diving with HRV)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Gasket Material &amp; Crown Type
+                    <select id="horo-gasket-type">
+                      <option value="push-pull">Push-Pull Crown with NBR Nitrile O-Ring (Light duty)</option>
+                      <option value="screw-down" selected>Triple-Lock Screw-Down Crown with FKM Viton Gaskets</option>
+                      <option value="monobloc">Monobloc Case / Front-Loading Crystal Seal</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="horo-pressure-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -6411,6 +6735,8 @@
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="bookbinding">📖 Bookbinding &amp; Print</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="sla">🧪 Resin 3D Print (SLA)</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="luthier">🎸 Luthier &amp; Instruments</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="composites">🌀 Composites &amp; Carbon</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="horology">⏱️ Watchmaking &amp; Horology</button>
         </div>
       </div>
     </dialog>
@@ -6678,6 +7004,8 @@
                 <option value="Bookbinding, Paper &amp; Inks">📖 Bookbinding, Paper &amp; Inks</option>
                 <option value="SLA Photopolymer Resin &amp; Films">🧪 SLA Photopolymer Resin &amp; Films</option>
                 <option value="Luthier Tonewoods, Frets &amp; Parts">🎸 Luthier Tonewoods, Frets &amp; Parts</option>
+                <option value="Composites, Carbon Fiber &amp; Resins">🌀 Composites, Carbon Fiber &amp; Resins</option>
+                <option value="Watchmaking &amp; Horology Tools">⏱️ Watchmaking &amp; Horology Tools</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -7727,6 +8055,16 @@
           <span class="mobile-studio-icon" aria-hidden="true">🎸</span>
           <strong>Luthier &amp; Instruments</strong>
           <span class="mobile-studio-desc">Fret slotting 17.817 math, compound camber, tension</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="composites" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🌀</span>
+          <strong>Composites &amp; Carbon</strong>
+          <span class="mobile-studio-desc">Resin stoichiometry, fiber volume fraction, vacuum compaction</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="horology" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">⏱️</span>
+          <strong>Watchmaking &amp; Horology</strong>
+          <span class="mobile-studio-desc">Timegrapher beat error, balance amplitude, lubrication, depth rating</span>
         </button>
       </div>
     </dialog>

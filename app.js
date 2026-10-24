@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3922,7 +3922,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     jewelry: "Jewelry Making & Metalsmithing",
     bookbinding: "Bookbinding & Printmaking Studio",
     sla: "Resin 3D Printing (SLA / MSLA) Studio",
-    luthier: "Luthier & Instrument Building Studio"
+    luthier: "Luthier & Instrument Building Studio",
+    composites: "Composites & Carbon Fiber Fabrication Studio",
+    horology: "Watchmaking & Horology Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3966,6 +3968,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "bookbinding") renderBookbindingView();
   if (targetView === "sla") renderSlaView();
   if (targetView === "luthier") renderLuthierView();
+  if (targetView === "composites") renderCompositesView();
+  if (targetView === "horology") renderHorologyView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -7163,6 +7167,32 @@ const WORKSHOP_STARTER_KITS = {
       { type: "equipment", name: "Two-Way Dual-Action Guitar Truss Rod (460mm / 18.1\")", category: "Hand Tools & Measuring", brand: "Gotoh", cost: 18.50, condition: "operational", location: "Neck Parts Drawer", specs: "Dual action push-pull 4mm allen wrench drive", notes: "Wraps in kapton tape before epoxy filler strip install; provides convex and concave neck relief" },
       { type: "material", name: "Hard Nickel-Silver Fretwire Medium/Higher (24 Pre-Radiused Pieces)", category: "Luthier Tonewoods, Frets & Parts", quantity: 24, unit: "pcs", price: 0.80, cost: 19.20, lowStockThreshold: 6, location: "Fret Tube 1", supplier: "Jescar", notes: "18% Nickel-Silver alloy · 0.023\" tang with barbed retention studs" },
       { type: "material", name: "Unbleached Dense Cattle Bone Nut & Saddle Blanks (6 pcs)", category: "Luthier Tonewoods, Frets & Parts", quantity: 6, unit: "blanks", price: 3.50, cost: 21.00, lowStockThreshold: 2, location: "Nut & Saddle Bin", supplier: "Stewart-MacDonald", notes: "Natural unbleached dense bone transfers maximum string acoustic vibrational energy" }
+    ]
+  },
+  composites: {
+    title: "Composites & Carbon Fiber Infusion Kit",
+    icon: "🌀",
+    category: "Composites, Carbon Fiber & Resins",
+    description: "Dual-stage vacuum pump with gauge, yellow butyl sealant tape, aerospace peel ply, resin infusion flow mesh, and 3K 2x2 twill carbon fiber.",
+    items: [
+      { type: "equipment", name: "Rotary Vane Vacuum Pump 3 CFM with Catch Pot & Gauge", category: "Stationary Machinery", brand: "Robinair", cost: 135.00, condition: "operational", location: "Composites Cart", specs: "Dual stage 29.5 inHg deep vacuum · 1/3 HP motor", notes: "Check vacuum oil clarity before every infusion; always use resin catch pot trap" },
+      { type: "equipment", name: "High-Temperature Yellow Butyl Vacuum Sealant Tape (25ft Roll)", category: "Hand Tools & Measuring", brand: "Airtech AT-200Y", cost: 12.50, condition: "operational", location: "Tape Caddy", specs: "Rated to 150°C · high-tack rubber compound", notes: "Leave paper backing on until final bag fit; press pleat ears firmly with roller" },
+      { type: "equipment", name: "Aerospace High-Flow Green Resin Infusion Flow Mesh (5m²)", category: "Hand Tools & Measuring", brand: "Airtech Greenflow 75", cost: 22.00, condition: "operational", location: "Consumables Rack", specs: "High velocity knitted polyethylene resin distribution matrix", notes: "Stop mesh 50mm short of vacuum brake rail to prevent resin rush into catch pot" },
+      { type: "material", name: "3K 200 gsm Carbon Fiber Fabric 2x2 Twill (1m x 1m)", category: "Composites, Carbon Fiber & Resins", quantity: 1, unit: "sq.m", price: 36.00, cost: 36.00, lowStockThreshold: 1, location: "Fabric Roll Bin", supplier: "Toray / Composite Envisions", notes: "Toray T300 fiber · drapeable 2x2 twill weave for compound curves" },
+      { type: "material", name: "Low-Viscosity Epoxy Infusion Resin & Slow Hardener Kit (1.3 kg)", category: "Composites, Carbon Fiber & Resins", quantity: 1, unit: "kit", price: 44.00, cost: 44.00, lowStockThreshold: 1, location: "Chemical Flammables Cabinet", supplier: "Pro-Set", notes: "180 mPa·s low viscosity · 90 min infusion working pot life @ 22°C" }
+    ]
+  },
+  horology: {
+    title: "Watchmaking & Horology Bench Kit",
+    icon: "⏱️",
+    category: "Watchmaking & Horology Tools",
+    description: "Swiss-style tweezers #2 & #5, anti-magnetic screwdrivers, movement holder, Moebius 9010 synthetic oil, and Bergeon rodico.",
+    items: [
+      { type: "equipment", name: "Swiss Anti-Magnetic Stainless Steel Tweezers #2 & #5 (Pair)", category: "Hand Tools & Measuring", brand: "Dumont", cost: 48.00, condition: "operational", location: "Watch Bench Drawer 1", specs: "High precision ground tips · 100% anti-magnetic", notes: "Never touch screw threads or jewels with rough tools; dress tips on Arkansas stone" },
+      { type: "equipment", name: "Bergeon 30081 Ergonomic Watchmaker Screwdrivers (Set of 5)", category: "Hand Tools & Measuring", brand: "Bergeon", cost: 89.00, condition: "operational", location: "Watch Carousel Stand", specs: "Sizes 0.80, 1.00, 1.20, 1.40, 1.60mm · rotating elastomer caps", notes: "Hone screwdriver blades flat to match movement screw slot depth exactly" },
+      { type: "equipment", name: "Universal Reversible Watch Movement Holder (Large & Small)", category: "Hand Tools & Measuring", brand: "Bergeon 4040", cost: 24.50, condition: "operational", location: "Bench Top Caddy", specs: "Synthetic non-marring jaw vises", notes: "Locks calibers securely without bending pallet fork bridge or balance cock" },
+      { type: "material", name: "Bergeon 6033-1 Rodico Cleaning Putty (Pack of 2 Bars)", category: "Watchmaking & Horology Tools", quantity: 2, unit: "bars", price: 8.50, cost: 17.00, lowStockThreshold: 1, location: "Parchment Box", supplier: "Bergeon", notes: "Cleans pivots, removes finger grease, absorbs excess oil droplets from train jewels" },
+      { type: "material", name: "Moebius 9010 Fine Synthetic Horological Watch Oil (2ml Bottle)", category: "Watchmaking & Horology Tools", quantity: 1, unit: "bottle", price: 34.00, cost: 34.00, lowStockThreshold: 1, location: "Lube Safe", supplier: "Moebius Switzerland", notes: "Universal high-speed balance cap jewel & escape wheel pivot synthetic lubricant" }
     ]
   }
 };
@@ -10853,6 +10883,22 @@ async function handleAction(action, target) {
   }
   if (action === "add-luthier-supplies") {
     void addLuthierSupplies();
+    return;
+  }
+  if (action === "copy-composites-specs") {
+    copyCompositesSpecs();
+    return;
+  }
+  if (action === "add-composites-supplies") {
+    void addCompositesSupplies();
+    return;
+  }
+  if (action === "copy-horology-specs") {
+    copyHorologySpecs();
+    return;
+  }
+  if (action === "add-horology-supplies") {
+    void addHorologySupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -32931,6 +32977,638 @@ function renderLuthierView() {
   updateLuthierAction();
 }
 
+// ============================================================
+// 🌀 Composites & Carbon Fiber Fabrication Calculations
+// ============================================================
+function copyCompositesSpecs() {
+  const resinText = $("#comp-resin-result")?.innerText || "";
+  const stackText = $("#comp-stack-result")?.innerText || "";
+  const vacText = $("#comp-vacuum-result")?.innerText || "";
+  const cureText = $("#comp-cure-result")?.innerText || "";
+  const text = `🌀 COMPOSITES & CARBON FIBER FABRICATION SPEC SHEET\n\n${resinText}\n\n${stackText}\n\n${vacText}\n\n${cureText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Composites Specs to clipboard!"));
+}
+
+async function addCompositesSupplies() {
+  const fabric = $("#comp-fabric-type option:checked")?.textContent.split("(")[0].trim() || "3K 200 gsm Carbon Fiber";
+  await addMaterialToProjectShopping(`${fabric} (1m x 1m roll)`, "1 sq.m", 36.00, "Composites, Carbon Fiber & Resins");
+}
+
+function updateCompositesResin() {
+  const fabric = $("#comp-fabric-type")?.value || "carbon-3k";
+  const process = $("#comp-process-type")?.value || "infusion";
+  const area = Math.max(0.01, parseFloat($("#comp-part-area")?.value) || 0.50);
+  const plies = Math.max(1, parseInt($("#comp-ply-count")?.value, 10) || 4);
+  const mixRatioStr = $("#comp-mix-ratio")?.value || "100:30";
+  const wasteFactor = parseFloat($("#comp-waste-factor")?.value) || 1.15;
+  const res = $("#comp-resin-result");
+  if (!res) return;
+
+  const fabricData = {
+    "carbon-3k": { gsm: 200, density: 1.78, name: "3K 2x2 Twill Carbon" },
+    "carbon-6k": { gsm: 300, density: 1.78, name: "6K Plain Weave Carbon" },
+    "carbon-biax": { gsm: 400, density: 1.78, name: "12K Biaxial Carbon" },
+    "fiberglass-twill": { gsm: 200, density: 2.54, name: "E-Glass Fiberglass" },
+    "fiberglass-csm": { gsm: 450, density: 2.54, name: "Chopped Strand Mat" },
+    "aramid-kevlar": { gsm: 170, density: 1.44, name: "Kevlar 49 Aramid" }
+  };
+
+  const processData = {
+    "wet-layup": { targetVf: 40, resinToFiberWt: 1.15, label: "Wet Hand Layup" },
+    "vac-bagging": { targetVf: 52, resinToFiberWt: 0.75, label: "Vacuum Bagged" },
+    infusion: { targetVf: 60, resinToFiberWt: 0.55, label: "VARTM Resin Infusion" },
+    prepreg: { targetVf: 66, resinToFiberWt: 0.45, label: "Prepreg / Autoclave" }
+  };
+
+  const f = fabricData[fabric] || fabricData["carbon-3k"];
+  const p = processData[process] || processData.infusion;
+
+  // Total fabric weight in part (grams)
+  const totalFabricGrams = area * plies * f.gsm;
+
+  // Net resin inside part (grams)
+  const partResinGrams = totalFabricGrams * p.resinToFiberWt;
+
+  // Total mixed resin batch accounting for waste (catch pot, lines, mixing cup)
+  const batchResinGrams = Math.round(partResinGrams * wasteFactor);
+
+  // Stoichiometry Part A / Part B
+  const [partAParts, partBParts] = mixRatioStr.split(":").map(Number);
+  const totalParts = partAParts + partBParts;
+  const hardenerGrams = Math.round(batchResinGrams * (partBParts / totalParts));
+  const baseResinGrams = batchResinGrams - hardenerGrams;
+
+  // Finished cured part mass (grams)
+  const curedPartMassGrams = Math.round(totalFabricGrams + partResinGrams);
+
+  // Cured laminate thickness (mm): t = (gsm * plies) / (density * Vf * 10000)
+  const curedThickMm = (f.gsm * plies) / (f.density * (p.targetVf / 100) * 10000);
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <span class="comp-badge">🧪 Resin Batch to Mix: ${batchResinGrams}g Total</span>
+      <span style="font-size:11px;color:var(--muted)">Target Fiber Volume: <strong>${p.targetVf}% Vf</strong> (${p.label})</span>
+    </div>
+
+    <div class="comp-spec-grid">
+      <div class="comp-stat-card">
+        <span class="label">Epoxy Resin (Part A)</span>
+        <span class="value" style="color:var(--primary)">${baseResinGrams} g</span>
+        <div class="hint">${partAParts} parts by weight</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Hardener (Part B)</span>
+        <span class="value">${hardenerGrams} g</span>
+        <div class="hint">${partBParts} parts by weight (${mixRatioStr})</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Total Dry Fabric</span>
+        <span class="value">${Math.round(totalFabricGrams)} g</span>
+        <div class="hint">${plies} plies · ${f.gsm} gsm (${area} m²)</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Finished Part Weight</span>
+        <span class="value">${curedPartMassGrams} g</span>
+        <div class="hint">Cured thickness: ~${curedThickMm.toFixed(2)} mm</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ⚖️ <strong>Stoichiometry Rule:</strong> Always weigh epoxy on a digital scale to <strong>&plusmn;1 gram</strong> accuracy. Unlike polyester resin where MEKP catalyst percentage alters cure speed, epoxy hardener undergoes a strict 1:1 molecular crosslinking reaction. Adding extra hardener leaves uncured gooey amine blush and permanently weakens the composite!
+    </div>
+  `;
+}
+
+function updateCompositesStack() {
+  const schedule = $("#comp-stack-schedule")?.value || "quasi-8";
+  const core = $("#comp-core-material")?.value || "solid";
+  const res = $("#comp-stack-result");
+  if (!res) return;
+
+  const stackData = {
+    "quasi-8": {
+      name: "Quasi-Isotropic [0 / +45 / -45 / 90]s",
+      plies: 8,
+      symmetry: "Symmetric & Balanced (Bij = 0)",
+      description: "Equal in-plane tensile and flexural modulus in all directions. Cures 100% flat with zero thermal contraction warping.",
+      isotropy: "Quasi-Isotropic (Ex ≈ Ey)"
+    },
+    "quasi-6": {
+      name: "Quasi-Isotropic [0 / +60 / -60]s",
+      plies: 6,
+      symmetry: "Balanced Symmetrical",
+      description: "Hexagonal orientation yielding isotropic planar stiffness with 25% fewer plies than 8-ply schedules.",
+      isotropy: "Quasi-Isotropic (Ex ≈ Ey)"
+    },
+    crossply: {
+      name: "Bidirectional Cross-Ply [0 / 90]s",
+      plies: 4,
+      symmetry: "Orthotropic Symmetrical",
+      description: "High 0° and 90° axial rigidity for flat structural panels, but reduced shear resistance under 45° torsional load.",
+      isotropy: "Orthotropic (Ex = Ey, low Gxy)"
+    },
+    unidirectional: {
+      name: "Unidirectional [0] Longitudinal",
+      plies: 4,
+      symmetry: "Highly Anisotropic",
+      description: "Concentrates 95% of tensile strength strictly along the longitudinal axis. Ideal for spars, wing beams, and drive shafts.",
+      isotropy: "Anisotropic (Ex >> Ey)"
+    }
+  };
+
+  const coreData = {
+    solid: { name: "Solid Monolithic", thickMm: 0, weightGsm: 0, stiffnessFactor: 1.0, shearStr: "N/A" },
+    "divinycell-3": { name: "3mm Divinycell H60 Foam", thickMm: 3.0, weightGsm: 180, stiffnessFactor: 7.2, shearStr: "0.76 MPa" },
+    "divinycell-5": { name: "5mm Divinycell H80 Foam", thickMm: 5.0, weightGsm: 400, stiffnessFactor: 22.5, shearStr: "1.15 MPa" },
+    "nomex-6": { name: "6mm Nomex Aramid Honeycomb", thickMm: 6.0, weightGsm: 290, stiffnessFactor: 35.0, shearStr: "1.40 MPa" },
+    "balsa-6": { name: "6mm End-Grain Balsa Wood", thickMm: 6.0, weightGsm: 900, stiffnessFactor: 40.0, shearStr: "2.80 MPa" }
+  };
+
+  const s = stackData[schedule] || stackData["quasi-8"];
+  const c = coreData[core] || coreData.solid;
+
+  const skinThickMm = s.plies * 0.25;
+  const totalPanelThickMm = (skinThickMm + c.thickMm).toFixed(2);
+
+  res.innerHTML = `
+    <div class="comp-spec-grid">
+      <div class="comp-stat-card">
+        <span class="label">Bending Stiffness</span>
+        <span class="value" style="color:var(--primary)">${c.stiffnessFactor}x</span>
+        <div class="hint">Relative to solid laminate</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Stacking Schedule</span>
+        <span class="value" style="font-size:13px">${s.plies} Plies</span>
+        <div class="hint">${s.isotropy}</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Total Sandwich Depth</span>
+        <span class="value">${totalPanelThickMm} mm</span>
+        <div class="hint">${c.name}</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Symmetry Status</span>
+        <span class="value" style="font-size:12px;color:#10b981">Verified Flat</span>
+        <div class="hint">${s.symmetry}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🥪 <strong>Sandwich Core Physics:</strong> Separating top and bottom carbon skins with a lightweight core exponentially increases the second moment of area (I = b·h³/12). Adding a <strong>${c.name}</strong> increases flexural rigidity by <strong>${c.stiffnessFactor}x</strong> while adding only ${c.weightGsm} g/m² of weight!<br>
+      📐 <strong>Stacking Note:</strong> ${s.description}
+    </div>
+  `;
+}
+
+function updateCompositesVacuum() {
+  const vacInHg = parseFloat($("#comp-vacuum-level")?.value) || 28;
+  const leakRate = $("#comp-leakdown-rate")?.value || "pass";
+  const area = Math.max(0.01, parseFloat($("#comp-part-area")?.value) || 0.50);
+  const res = $("#comp-vacuum-result");
+  if (!res) return;
+
+  // Atmospheric pressure at sea level = 29.92 inHg = 14.696 psi = 101.325 kPa
+  const psiPerInHg = 14.696 / 29.92; // ~0.4912 psi/inHg
+  const clampingPsi = (vacInHg * psiPerInHg).toFixed(2);
+  const clampingKpa = (vacInHg * 3.38639).toFixed(1);
+
+  // Area: 1 m² = 1550.003 in²
+  const areaSqIn = area * 1550.003;
+  const totalClampingLbs = Math.round(parseFloat(clampingPsi) * areaSqIn);
+  const totalClampingTons = (totalClampingLbs / 2204.62).toFixed(2); // Metric tons
+
+  let leakStatusHtml = '<span style="color:#10b981;font-weight:700">✅ PASSED (&lt; 2 mbar/min)</span>';
+  let leakHint = 'Hermetic seal achieved. Resin will infuse cleanly without boiling or drawing vacuum voids.';
+  if (leakRate === "marginal") {
+    leakStatusHtml = '<span style="color:#f59e0b;font-weight:700">⚠️ MARGINAL (2 - 5 mbar/min)</span>';
+    leakHint = 'Acceptable for wet bagging compaction, but locate micro-leaks before attempting VARTM resin infusion.';
+  } else if (leakRate === "fail") {
+    leakStatusHtml = '<span style="color:#ef4444;font-weight:700">❌ FAILED (&gt; 5 mbar/min)</span>';
+    leakHint = 'Critical bag leak! Run ultrasonic detector or check sealant tape pleats. Infusing now will create catastrophic dry spots.';
+  }
+
+  res.innerHTML = `
+    <div class="comp-spec-grid">
+      <div class="comp-stat-card">
+        <span class="label">Total Clamping Force</span>
+        <span class="value" style="color:var(--primary)">${totalClampingTons} Tons</span>
+        <div class="hint">${totalClampingLbs.toLocaleString()} lbs over ${area} m²</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Compaction Pressure</span>
+        <span class="value">${clampingPsi} psi</span>
+        <div class="hint">${clampingKpa} kPa atmospheric squeeze</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Vacuum Level</span>
+        <span class="value">${vacInHg} inHg</span>
+        <div class="hint">${Math.round((vacInHg / 29.92) * 100)}% absolute vacuum</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">15-Min Leakdown Test</span>
+        <span class="value" style="font-size:12px">${leakStatusHtml}</span>
+        <div class="hint">${leakRate === 'pass' ? 'Infusion Ready' : 'Bag Inspection Required'}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🌪️ <strong>Atmospheric Squeeze:</strong> Pulling ${vacInHg} inHg applies <strong>${totalClampingLbs.toLocaleString()} lbs (~${totalClampingTons} metric tons)</strong> of uniform pressure over your part surface. This compresses dry carbon fabrics tight to the mold tooling surface and evacuates micro-air voids!<br>
+      🔍 <strong>Leakdown Protocol:</strong> ${leakHint}
+    </div>
+  `;
+}
+
+function updateCompositesCure() {
+  const temp = $("#comp-ambient-temp")?.value || "optimal";
+  const cureSched = $("#comp-cure-schedule")?.value || "ambient";
+  const res = $("#comp-cure-result");
+  if (!res) return;
+
+  const tempGuide = {
+    cool: { potLife: "75 – 95 Mins", exothermRisk: "Low", note: "Extended working time, ideal for large infusion parts. Demold time extended to 36 hours." },
+    optimal: { potLife: "45 – 60 Mins", exothermRisk: "Normal", note: "Standard laminating window. Safe for resin batches up to 400g in open wide mixing containers." },
+    hot: { potLife: "20 – 30 Mins", exothermRisk: "HIGH RISK 🔥", note: "Warning: High exothermic runaway danger! Spread resin into shallow roller trays immediately after mixing." }
+  };
+
+  const schedGuide = {
+    ambient: { tg: "58°C – 62°C", cycle: "Room Temp 24 Hours", usage: "Cosmetic car parts, drone frames, interior trim." },
+    "mild-post": { tg: "80°C – 85°C", cycle: "50°C for 6 Hours", usage: "Automotive engine bays, outdoor marine deck gear." },
+    "full-post": { tg: "115°C – 125°C", cycle: "Ramp 1°C/min → 60°C (2h) → 80°C (4h)", usage: "Structural aerospace, high-temperature exhaust fairings, track race hoods." }
+  };
+
+  const t = tempGuide[temp] || tempGuide.optimal;
+  const s = schedGuide[cureSched] || schedGuide.ambient;
+
+  res.innerHTML = `
+    <div class="comp-spec-grid">
+      <div class="comp-stat-card">
+        <span class="label">Working Pot Life</span>
+        <span class="value" style="color:var(--primary)">${t.potLife}</span>
+        <div class="hint">At shop ambient temp</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Exotherm Runaway Risk</span>
+        <span class="value" style="font-size:13px;color:${temp === 'hot' ? '#ef4444' : 'inherit'}">${t.exothermRisk}</span>
+        <div class="hint">${t.note}</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Glass Transition (Tg)</span>
+        <span class="value">${s.tg}</span>
+        <div class="hint">Heat deflection temperature</div>
+      </div>
+      <div class="comp-stat-card">
+        <span class="label">Post-Cure Schedule</span>
+        <span class="value" style="font-size:12px">${s.cycle}</span>
+        <div class="hint">${s.usage}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📜 <strong>Consumable Bagging Stack Order (Bottom to Top):</strong><br>
+      <strong>1. Tooling Mold</strong> (Coated with 3 coats carnuba / semi-permanent release wax)<br>
+      <strong>2. Reinforcement Fabric</strong> (Dry carbon plies stacked to specified schedule)<br>
+      <strong>3. Peel Ply Fabric</strong> (Porous nylon 66 with red tracer; leaves rough textured surface for secondary bonding)<br>
+      <strong>4. Perforated Release Film</strong> (P3 pinhole perforated barrier film to control resin bleed)<br>
+      <strong>5. Resin Flow Media / Breather Felt</strong> (High-flow knitted mesh to distribute resin rapidly across surface)<br>
+      <strong>6. Vacuum Bagging Film & Butyl Tack Tape</strong> (Yellow sealant tape with pleats ensuring zero bridge tension)
+    </div>
+  `;
+}
+
+function renderCompositesView() {
+  updateCompositesResin();
+  updateCompositesStack();
+  updateCompositesVacuum();
+  updateCompositesCure();
+}
+
+// ============================================================
+// ⏱️ Watchmaking & Horology Studio Calculations
+// ============================================================
+function copyHorologySpecs() {
+  const timeText = $("#horo-timegrapher-result")?.innerText || "";
+  const resText = $("#horo-reserve-result")?.innerText || "";
+  const lubeText = $("#horo-lube-result")?.innerText || "";
+  const presText = $("#horo-pressure-result")?.innerText || "";
+  const text = `⏱️ WATCHMAKING & HOROLOGY SPEC SHEET\n\n${timeText}\n\n${resText}\n\n${lubeText}\n\n${presText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Horology Specs to clipboard!"));
+}
+
+async function addHorologySupplies() {
+  await addMaterialToProjectShopping("Moebius 9010 Fine Synthetic Watch Oil (2ml Bottle)", "1 bottle", 34.00, "Watchmaking & Horology Tools");
+}
+
+function updateHorologyTimegrapher() {
+  const caliber = $("#horo-caliber-select")?.value || "nh35";
+  const pos = $("#horo-test-pos")?.value || "ch";
+  const rateDrift = parseInt($("#horo-rate-drift")?.value, 10) || 0;
+  const amplitude = parseInt($("#horo-balance-amp")?.value, 10) || 285;
+  const beatError = parseFloat($("#horo-beat-error")?.value) || 0.2;
+  const res = $("#horo-timegrapher-result");
+  if (!res) return;
+
+  const calData = {
+    nh35: { name: "Seiko NH35 / 4R36", bph: 21600, hz: 3.0, liftAngle: 53, rateTol: [-20, 40], ampMin: 250, ampMax: 310 },
+    eta2824: { name: "ETA 2824-2 / SW200", bph: 28800, hz: 4.0, liftAngle: 50, rateTol: [-12, 12], ampMin: 260, ampMax: 315 },
+    miyota9015: { name: "Miyota 9015", bph: 28800, hz: 4.0, liftAngle: 51, rateTol: [-10, 30], ampMin: 260, ampMax: 310 },
+    valjoux7750: { name: "Valjoux 7750 Chrono", bph: 28800, hz: 4.0, liftAngle: 49, rateTol: [-10, 15], ampMin: 250, ampMax: 310 },
+    pocket18k: { name: "Vintage Pocket 18k", bph: 18000, hz: 2.5, liftAngle: 52, rateTol: [-30, 30], ampMin: 240, ampMax: 300 },
+    hibeat36k: { name: "Hi-Beat 36k (5Hz)", bph: 36000, hz: 5.0, liftAngle: 52, rateTol: [-5, 8], ampMin: 260, ampMax: 310 }
+  };
+
+  const c = calData[caliber] || calData.nh35;
+
+  // Rate Health
+  const rateOk = rateDrift >= c.rateTol[0] && rateDrift <= c.rateTol[1];
+
+  // Amplitude Health
+  let ampStatus = "Healthy Amplitude";
+  let ampColor = "#10b981";
+  if (amplitude < 230) {
+    ampStatus = "Low Amplitude (Friction/Service)";
+    ampColor = "#ef4444";
+  } else if (amplitude > 320) {
+    ampStatus = "Over-Banking / Knocking Risk!";
+    ampColor = "#ef4444";
+  } else if (amplitude < c.ampMin) {
+    ampStatus = "Slightly Sluggish";
+    ampColor = "#f59e0b";
+  }
+
+  // Beat Error Health
+  let beatStatus = "Excellent Symmetry";
+  let beatColor = "#10b981";
+  if (beatError > 0.8) {
+    beatStatus = "Adjust Stud Carrier";
+    beatColor = "#ef4444";
+  } else if (beatError > 0.5) {
+    beatStatus = "Moderate Beat Error";
+    beatColor = "#f59e0b";
+  }
+
+  // Diagnostic recommendation
+  let rec = `Movement is running within manufacturer tolerance for ${c.name}.`;
+  if (beatError > 0.5) {
+    rec = `Beat error of ${beatError}ms indicates the balance impulse pin is resting off-center from the pallet fork horns. Gently rotate the <strong>mobile balance stud carrier</strong> to bring beat error under 0.4ms before touching the rate regulator!`;
+  } else if (!rateOk) {
+    const dir = rateDrift > 0 ? "toward minus (-)" : "toward plus (+)";
+    rec = `Rate is drifting outside target window (${rateDrift > 0 ? '+' : ''}${rateDrift} s/d). Move the <strong>regulator index curb pin arm</strong> slightly ${dir} by a fraction of a millimeter.`;
+  } else if (amplitude < 230) {
+    rec = `Low amplitude (${amplitude}°) in position indicates dry/congealed oil on the balance cap jewels or excessive pivot friction in the train. A full ultrasonic movement cleaning and re-lubrication with Moebius 9010 is required!`;
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <span class="horo-badge">⏱️ Rate Drift: ${rateDrift > 0 ? '+' : ''}${rateDrift} s/day</span>
+      <span style="font-size:11px;color:var(--muted)">Beat Rate: <strong>${c.bph.toLocaleString()} bph (${c.hz} Hz)</strong> · Lift Angle: ${c.liftAngle}°</span>
+    </div>
+
+    <div class="horo-spec-grid">
+      <div class="horo-stat-card">
+        <span class="label">Balance Amplitude</span>
+        <span class="value" style="color:${ampColor}">${amplitude}°</span>
+        <div class="hint">${ampStatus}</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Beat Error</span>
+        <span class="value" style="color:${beatColor}">${beatError.toFixed(1)} ms</span>
+        <div class="hint">${beatStatus}</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Lift Angle Setting</span>
+        <span class="value">${c.liftAngle}°</span>
+        <div class="hint">Timegrapher calibration constant</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Positional Delta</span>
+        <span class="value" style="font-size:13px">${pos.toUpperCase()} Position</span>
+        <div class="hint">Tolerance: ${c.rateTol[0]} to +${c.rateTol[1]} s/d</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🛠️ <strong>Horological Diagnostic:</strong> ${rec}<br>
+      ⚖️ <strong>Isochronism Rule:</strong> Always regulate beat error FIRST using the stud carrier. Adjusting the rate index arm changes spring effective length, but if the balance is out of beat, rate will wander wildly across dial-up vs crown-down positions!
+    </div>
+  `;
+}
+
+function updateHorologyReserve() {
+  const type = $("#horo-mainspring-type")?.value || "auto-bridle";
+  const windState = $("#horo-wind-state")?.value || "full";
+  const res = $("#horo-reserve-result");
+  if (!res) return;
+
+  const springData = {
+    "auto-bridle": {
+      name: "Automatic with Slipping Bridle",
+      totalReserve: "41 Hours",
+      barrelTurns: "6.8 Turns",
+      slipTorque: "1.15 N·mm",
+      notes: "Mainspring outer tail slips smoothly along barrel wall lubricated with graphite braking grease to prevent overwinding."
+    },
+    "manual-hook": {
+      name: "Manual Wind with Fixed Arbor Hook",
+      totalReserve: "48 Hours",
+      barrelTurns: "7.5 Turns",
+      slipTorque: "Fixed (Hard stop)",
+      notes: "Traditional riveted hook into barrel wall. Stop winding immediately when firm resistance is felt at full wind."
+    },
+    "pow-80": {
+      name: "Extended Reserve (Powermatic 80 / Nivachron)",
+      totalReserve: "80 Hours",
+      barrelTurns: "8.2 Turns",
+      slipTorque: "1.05 N·mm",
+      notes: "Thinner mainspring inside expanded barrel drum, operating at optimized 21,600 bph frequency with synthetic low-friction escapement."
+    }
+  };
+
+  const stateData = {
+    full: { torqueDesc: "Peak Full Torque (100% – 85%)", ampEst: "280° – 305°", rateDriftEst: "Nominal 0 s/d baseline", advice: "Maximum balance wheel inertia. Optimal timekeeping window." },
+    mid: { torqueDesc: "Stable Mid Torque (85% – 60%)", ampEst: "260° – 275°", rateDriftEst: "+2 to +4 s/d slight advance", advice: "Flat isochronous plateau. Balance spring breaths concentric cycles." },
+    low: { torqueDesc: "Torque Droop (Tail 40% – 0%)", ampEst: "215° – 235°", rateDriftEst: "-10 to -25 s/d sudden lag", advice: "Torque collapse. Escapement loses kinetic energy; amplitude drops below safe threshold." }
+  };
+
+  const s = springData[type] || springData["auto-bridle"];
+  const w = stateData[windState] || stateData.full;
+
+  res.innerHTML = `
+    <div class="horo-spec-grid">
+      <div class="horo-stat-card">
+        <span class="label">Total Power Reserve</span>
+        <span class="value" style="color:var(--primary)">${s.totalReserve}</span>
+        <div class="hint">${s.barrelTurns} full arbor winds</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Instantaneous Torque</span>
+        <span class="value" style="font-size:13px">${w.torqueDesc}</span>
+        <div class="hint">${w.advice}</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Expected Amplitude</span>
+        <span class="value">${w.ampEst}</span>
+        <div class="hint">Discharge amplitude drop</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Isochronism Drift</span>
+        <span class="value" style="font-size:13px">${w.rateDriftEst}</span>
+        <div class="hint">Hooke's spring torque curve</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ⚙️ <strong>Mainspring Barrel Architecture:</strong> ${s.notes}<br>
+      🌀 <strong>Isochronism Principle:</strong> In an ideal balance wheel, oscillation period is independent of amplitude. However, real balance springs have terminal curvature imperfections (Breguet overcoil vs flat hairspring). When mainspring torque drops after 24–36 hours, lower amplitude causes slight rate drift!
+    </div>
+  `;
+}
+
+function updateHorologyLube() {
+  const point = $("#horo-lube-point")?.value || "balance-jewel";
+  const res = $("#horo-lube-result");
+  if (!res) return;
+
+  const lubeMap = {
+    "balance-jewel": {
+      oil: "Moebius 9010",
+      viscosity: "Light Synthetic (150 cSt @ 20°C)",
+      dosage: "1/2 to 2/3 cap jewel diameter dot",
+      tool: "Fine Oiler (Black Bergeon 7013-1)",
+      instructions: "Place micro-dot of 9010 strictly on the flat polished face of the endstone (cap jewel). Never oil the pierced hole stone! Treat jewels with Epilame (Fixodrop) beforehand to prevent oil from creeping off the center contact meniscus."
+    },
+    "pallet-stones": {
+      oil: "Moebius 9415",
+      viscosity: "Thixotropic Escapement Grease (110 cSt)",
+      dosage: "Micro-dot on 3 alternating escape teeth",
+      tool: "Micro Oiler (Yellow Bergeon 7013-2)",
+      instructions: "Never apply oil directly to the pallet fork stones or pallet arbor pivots! Pallet arbor pivots must run 100% bone dry. Place a tiny smear of 9415 on the impulse faces of 3 alternating escape wheel teeth while cycling the wheel slowly."
+    },
+    "train-pivots": {
+      oil: "Moebius HP-1300 (Synt-HP 1300 / 9104)",
+      viscosity: "Heavy Synthetic (1300 cSt @ 20°C)",
+      dosage: "1/3 to 1/2 oil sink capacity",
+      tool: "Medium Oiler (Green Bergeon 7013-3)",
+      instructions: "Lubricate center wheel arbor, third wheel pivots, and fourth wheel pivots. Ensure the oiler enters the oil sink without touching the jewel chamfer bevel. Use Moebius 9010 on high-speed escape wheel pivots."
+    },
+    "barrel-arbor": {
+      oil: "Moebius 8200 / Kluber P125 / Moebius 8217",
+      viscosity: "Heavy Viscous Grease / Braking Paste",
+      dosage: "Thin film along inner barrel wall notches",
+      tool: "Flat Spatula Oiler (Blue Bergeon 7013-4)",
+      instructions: "For automatic movements, apply 3 to 4 tiny dabs of Kluber P125 or Moebius 8217 braking grease to the internal barrel drum wall. This allows the slipping bridle to slip smoothly at 1.15 N·mm without scratching the barrel wall."
+    },
+    "keyless-works": {
+      oil: "Molykote DX / Moebius 9504",
+      viscosity: "Extreme Pressure Lithium Grease",
+      dosage: "Light coating on sliding teeth and detents",
+      tool: "Flat Spatula / Fine Brush",
+      instructions: "Apply to sliding clutch teeth, winding pinion bevel teeth, setting lever pin, yoke spring contact point, and minute wheel post. High-pressure boundary lubrication prevents steel-on-steel wear during manual winding and time setting."
+    },
+    "case-gaskets": {
+      oil: "Fomblin / Silicone Grease (Seiko S-414)",
+      viscosity: "Fluorinated Pure Silicone Paste",
+      dosage: "Thin translucent sheen on O-rings",
+      tool: "Silicon Sponge Applicator Box",
+      instructions: "Place caseback O-ring and crown stem gaskets inside silicone greasing box and twist gently. Silicone maintains elastomeric flexibility, seals microscopic case grooves, and prevents gaskets from binding or tearing when torquing the caseback."
+    }
+  };
+
+  const item = lubeMap[point] || lubeMap["balance-jewel"];
+
+  res.innerHTML = `
+    <div class="horo-spec-grid">
+      <div class="horo-stat-card">
+        <span class="label">Recommended Lubricant</span>
+        <span class="value" style="color:var(--primary)">${item.oil}</span>
+        <div class="hint">${item.viscosity}</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Target Dosage</span>
+        <span class="value" style="font-size:13px">${item.dosage}</span>
+        <div class="hint">Avoid over-lubrication</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Applicator Tool</span>
+        <span class="value" style="font-size:13px">${item.tool}</span>
+        <div class="hint">Clean tip in pithwood before dip</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Anti-Spreading Barrier</span>
+        <span class="value" style="font-size:13px">Fixodrop Epilame</span>
+        <div class="hint">Prevents oil migration</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🛢️ <strong>Application Protocol:</strong> ${item.instructions}<br>
+      ⚠️ <strong>Golden Rule of Horology:</strong> Too much oil is far more destructive than too little oil! Excess oil creeps away by capillary action onto hairspring coils or pinions, attracting dust and causing the watch to stop within months.
+    </div>
+  `;
+}
+
+function updateHorologyPressure() {
+  const rating = $("#horo-water-rating")?.value || "10atm";
+  const crown = $("#horo-gasket-type")?.value || "screw-down";
+  const res = $("#horo-pressure-result");
+  if (!res) return;
+
+  const pressData = {
+    "3atm": { depth: "30 Meters", bars: 3, psi: 43.5, safe: "Splashes, rain, hand washing", forbid: "Showering, surface swimming, diving", safetyFactor: "Static test only" },
+    "5atm": { depth: "50 Meters", bars: 5, psi: 72.5, safe: "Shallow swimming, dishwashing, rainstorms", forbid: "High-board diving, water skiing, scuba diving", safetyFactor: "1.5x dynamic reserve" },
+    "10atm": { depth: "100 Meters", bars: 10, psi: 145.0, safe: "Swimming, snorkeling, sailing, surfing", forbid: "Deep scuba diving on compressed gas", safetyFactor: "2.0x dynamic reserve" },
+    "20atm": { depth: "200 Meters", bars: 20, psi: 290.0, safe: "Scuba diving (ISO 6425 compliant), deep water sports", forbid: "Hyperbaric saturation dive bells without HRV", safetyFactor: "Meets ISO 6425 125% test" },
+    "30atm": { depth: "300+ Meters", bars: 30, psi: 435.0, safe: "Deep saturation commercial diving", forbid: "None (Operating with helium release valve)", safetyFactor: "Heavy engineered case" }
+  };
+
+  const p = pressData[rating] || pressData["10atm"];
+
+  let crownAdvice = "Push-pull crown relies strictly on radial stem O-ring squeeze. Never pull crown out when wet!";
+  if (crown === "screw-down") {
+    crownAdvice = "Screw-down crown compresses an internal face gasket against the case tube rim, creating a dual-stage water barrier. Screw down finger-tight without over-torquing threads.";
+  } else if (crown === "monobloc") {
+    crownAdvice = "Monobloc / front-loading cases have no rear caseback seam, eliminating the largest failure point for water ingress.";
+  }
+
+  res.innerHTML = `
+    <div class="horo-spec-grid">
+      <div class="horo-stat-card">
+        <span class="label">Hydrostatic Pressure</span>
+        <span class="value" style="color:var(--primary)">${p.bars} Bar (${p.psi} psi)</span>
+        <div class="hint">${p.depth} nominal rating</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Permitted Activities</span>
+        <span class="value" style="font-size:12px;color:#10b981">${p.safe}</span>
+        <div class="hint">${p.safetyFactor}</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Strictly Prohibited</span>
+        <span class="value" style="font-size:12px;color:#ef4444">${p.forbid}</span>
+        <div class="hint">Dynamic pressure spike risk</div>
+      </div>
+      <div class="horo-stat-card">
+        <span class="label">Crown Sealing System</span>
+        <span class="value" style="font-size:13px">${crown === 'screw-down' ? 'Screw-Down Crown' : (crown === 'monobloc' ? 'Monobloc Seam' : 'Push-Pull Crown')}</span>
+        <div class="hint">FKM Viton / Nitrile Gaskets</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🌊 <strong>Dynamic Pressure Reality:</strong> Watch depth ratings (e.g. 50m / 5 bar) are measured in static laboratory tanks. A fast swimmer plunging their arm into water creates dynamic velocity pressure spikes that can exceed 3 bar locally, allowing water to bypass tired push-pull seals!<br>
+      👑 <strong>Crown Sealing:</strong> ${crownAdvice}<br>
+      🎈 <strong>Helium Release Valve (HRV) Physics:</strong> In saturation diving bells with Heliox atmosphere, tiny helium atoms (0.28 nm) penetrate rubber gaskets over days. During chamber decompression, internal case pressure will blow the front sapphire crystal off unless vented automatically by an HRV!
+    </div>
+  `;
+}
+
+function renderHorologyView() {
+  updateHorologyTimegrapher();
+  updateHorologyReserve();
+  updateHorologyLube();
+  updateHorologyPressure();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -33695,6 +34373,25 @@ function initCraftStudios() {
   ["#luthier-rad-nut", "#luthier-rad-heel", "#luthier-nut-w", "#luthier-heel-w"].forEach(s => $(s)?.addEventListener("change", updateLuthierRadius));
   ["#luthier-tension-tuning", "#luthier-tension-gauge"].forEach(s => $(s)?.addEventListener("change", updateLuthierTension));
   ["#luthier-setup-type", "#luthier-setup-style"].forEach(s => $(s)?.addEventListener("change", updateLuthierAction));
+
+  // Composites & Carbon Fiber Fabrication Studio Listeners
+  renderCompositesView();
+  ["#comp-fabric-type", "#comp-process-type", "#comp-mix-ratio", "#comp-waste-factor"].forEach(s => $(s)?.addEventListener("change", updateCompositesResin));
+  ["#comp-part-area", "#comp-ply-count"].forEach(s => $(s)?.addEventListener("input", () => {
+    updateCompositesResin();
+    updateCompositesVacuum();
+  }));
+  ["#comp-stack-schedule", "#comp-core-material"].forEach(s => $(s)?.addEventListener("change", updateCompositesStack));
+  ["#comp-vacuum-level", "#comp-leakdown-rate"].forEach(s => $(s)?.addEventListener("change", updateCompositesVacuum));
+  ["#comp-ambient-temp", "#comp-cure-schedule"].forEach(s => $(s)?.addEventListener("change", updateCompositesCure));
+
+  // Watchmaking & Horology Studio Listeners
+  renderHorologyView();
+  ["#horo-caliber-select", "#horo-test-pos"].forEach(s => $(s)?.addEventListener("change", updateHorologyTimegrapher));
+  ["#horo-rate-drift", "#horo-balance-amp", "#horo-beat-error"].forEach(s => $(s)?.addEventListener("input", updateHorologyTimegrapher));
+  ["#horo-mainspring-type", "#horo-wind-state"].forEach(s => $(s)?.addEventListener("change", updateHorologyReserve));
+  $("#horo-lube-point")?.addEventListener("change", updateHorologyLube);
+  ["#horo-water-rating", "#horo-gasket-type"].forEach(s => $(s)?.addEventListener("change", updateHorologyPressure));
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();
