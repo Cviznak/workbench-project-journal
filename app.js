@@ -4711,6 +4711,11 @@ function finishTimer() {
 
 /* Workshop Reference & Tools */
 function openToolsDialog() {
+  const filterInput = $("#studio-quick-filter");
+  if (filterInput) {
+    filterInput.value = "";
+    $$("#studio-quick-btn-grid button").forEach(el => el.classList.remove("hidden-studio"));
+  }
   renderFractionChart();
   updateEpoxyCalc();
   populateUnitDropdowns($("#tool-unit-category")?.value || "length");
@@ -10361,6 +10366,11 @@ async function handleAction(action, target) {
     return;
   }
   if (action === "open-mobile-studios-sheet") {
+    const filterInput = $("#mobile-studio-filter");
+    if (filterInput) {
+      filterInput.value = "";
+      $$("#mobile-studios-grid .mobile-studio-card").forEach(el => el.classList.remove("hidden-studio"));
+    }
     $("#mobile-studios-dialog")?.showModal();
     return;
   }
@@ -13058,6 +13068,19 @@ window.addEventListener("keydown", (e) => {
 $("#tools-dialog")?.addEventListener("close", () => {
   stopChordPlayback();
   if (metronomeIntervalId) toggleMetronome();
+  const filterInput = $("#studio-quick-filter");
+  if (filterInput) {
+    filterInput.value = "";
+    $$("#studio-quick-btn-grid button").forEach(el => el.classList.remove("hidden-studio"));
+  }
+});
+
+$("#mobile-studios-dialog")?.addEventListener("close", () => {
+  const filterInput = $("#mobile-studio-filter");
+  if (filterInput) {
+    filterInput.value = "";
+    $$("#mobile-studios-grid .mobile-studio-card").forEach(el => el.classList.remove("hidden-studio"));
+  }
 });
 
 $("#backup-input").addEventListener("change", async event => {

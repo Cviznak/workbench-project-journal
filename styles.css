@@ -399,17 +399,80 @@ dialog:not([open]) { display: none !important; }
   display: none;
 }
 
+/* Craft Studios Base Grid & Tool Cards */
+.studio-grid,
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.tool-card {
+  padding: 21px 21px 17px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .tool-card,
+body.theme-dark .tool-card {
+  background: var(--white);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.tool-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tool-card-icon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tool-card-header h3 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+}
+
+.tool-card-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 /* Mobile Craft Studios Quick Switcher Modal */
 .mobile-studios-dialog {
-  width: min(500px, 94vw);
+  width: min(560px, 94vw);
   max-width: 94vw;
-  padding: 20px;
+  max-height: 88vh;
+  max-height: 88dvh;
+  padding: 18px 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .mobile-studios-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 12px;
+}
+@media (max-width: 420px) {
+  .mobile-studios-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
 }
 .mobile-studio-card {
   display: flex;
@@ -431,6 +494,19 @@ dialog:not([open]) { display: none !important; }
   border-color: var(--green);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+[data-theme="dark"] .mobile-studio-card,
+body.theme-dark .mobile-studio-card {
+  background: var(--surface-sunken);
+  border-color: var(--border);
+  color: var(--ink);
+}
+[data-theme="dark"] .mobile-studio-card:hover,
+[data-theme="dark"] .mobile-studio-card:active,
+body.theme-dark .mobile-studio-card:hover,
+body.theme-dark .mobile-studio-card:active {
+  background: var(--surface);
+  border-color: var(--green);
 }
 .mobile-studio-icon {
   font-size: 24px;
@@ -457,8 +533,15 @@ dialog:not([open]) { display: none !important; }
   .project-grid, .skill-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .photo-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .studio-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 14px !important; }
-  .app-dialog { max-width: 620px; width: 90vw !important; }
+  .studio-grid, .tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 14px !important; }
+  .app-dialog {
+    max-width: 620px;
+    width: 90vw !important;
+    max-height: 88vh;
+    max-height: 88dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .detail-dialog,
   .workshop-blueprint-dialog,
   .blueprint-dialog,
@@ -719,12 +802,16 @@ dialog:not([open]) { display: none !important; }
 
   /* All Craft Studio Grids & Tools in 1 Column on Mobile */
   .studio-grid,
+  .tool-grid,
   [style*="minmax(320px"],
+  [style*="minmax(280px"],
+  [style*="minmax(300px"],
   [style*="auto 1fr"] {
     grid-template-columns: 1fr !important;
     gap: 12px !important;
   }
-  .panel {
+  .panel,
+  .tool-card {
     padding: 14px 12px !important;
   }
 
@@ -774,7 +861,9 @@ dialog:not([open]) { display: none !important; }
   .app-dialog {
     width: calc(100vw - 20px) !important;
     max-width: 100vw !important;
+    max-height: 88vh !important;
     max-height: 88dvh !important;
+    overflow-y: auto !important;
     margin: 10px auto !important;
     padding: 16px !important;
     border-radius: 12px !important;
@@ -9404,6 +9493,7 @@ body.theme-dark .quote-preview-viewport {
   padding: 12px;
   margin-top: 10px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .serial-wave-svg {
   display: block;
@@ -10855,6 +10945,8 @@ body.theme-dark .luthier-fret-table tr.octave-fret td {
 .luthier-fret-scroll {
   max-height: 280px;
   overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 6px;
   border: 1px solid var(--border);
   margin-top: 8px;
@@ -11099,6 +11191,76 @@ body.theme-dark .bike-badge {
 .mobile-studios-grid button.hidden-studio {
   display: none !important;
 }
+
+/* ============================================================
+   📱 Phone & Tablet Compatibility Enhancements
+   ============================================================ */
+
+/* Responsive adjustments for craft studio spec grids on narrow screens */
+@media (max-width: 480px) {
+  .laser-stat-grid,
+  .glass-solder-summary,
+  .fastener-spec-grid,
+  .jewelry-spec-grid,
+  .book-spec-grid,
+  .sla-spec-grid,
+  .luthier-spec-grid,
+  .comp-spec-grid,
+  .horo-spec-grid,
+  .robo-spec-grid,
+  .bike-spec-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .laser-stat-grid,
+  .glass-solder-summary,
+  .fastener-spec-grid,
+  .jewelry-spec-grid,
+  .book-spec-grid,
+  .sla-spec-grid,
+  .luthier-spec-grid,
+  .comp-spec-grid,
+  .horo-spec-grid,
+  .robo-spec-grid,
+  .bike-spec-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.laser-stat-card,
+.glass-stat-card,
+.fastener-stat-card,
+.jewelry-stat-card,
+.book-stat-card,
+.sla-stat-card,
+.luthier-stat-card,
+.comp-stat-card,
+.horo-stat-card,
+.robo-stat-card,
+.bike-stat-card {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Tablet & Mobile Smooth Data Table Scrolling */
+@media (max-width: 1080px) {
+  .fastener-tap-table,
+  .luthier-fret-table,
+  .smd-spec-table,
+  .music-timing-table,
+  .dossier-table,
+  .bp-table,
+  .quote-items-table {
+    display: block !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
 
 
 
