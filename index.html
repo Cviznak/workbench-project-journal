@@ -49,6 +49,7 @@
             <div class="sidebar-section-content" id="sidebar-content-your-space">
               <button class="nav-link active" data-view="overview"><span class="nav-icon">◫</span>Overview</button>
               <button class="nav-link" data-view="projects"><span class="nav-icon">▤</span>Projects<span class="nav-count" id="nav-project-count">0</span></button>
+              <button class="nav-link" data-view="ideas"><span class="nav-icon">💡</span>Project Ideas<span class="nav-count" id="nav-ideas-count">0</span></button>
               <button class="nav-link" data-view="shopping"><span class="nav-icon">🛒</span>Shopping list<span class="nav-count" id="nav-shopping-count">0</span></button>
               <button class="nav-link" data-view="inventory"><span class="nav-icon">🗄</span>Inventory<span class="nav-count" id="nav-inventory-count">0</span></button>
               <button class="nav-link" data-view="timeline"><span class="nav-icon">◷</span>Activity &amp; Journal</button>
@@ -66,32 +67,40 @@
               <span>CRAFT STUDIOS</span>
               <span class="sidebar-section-toggle-icon" aria-hidden="true">▾</span>
             </button>
+            <div class="sidebar-studio-search-wrap" id="sidebar-studio-search-wrap">
+              <span class="sidebar-studio-search-icon" aria-hidden="true">🔍</span>
+              <input type="search" id="sidebar-studio-search" class="sidebar-studio-search-input" placeholder="Search craft studios..." aria-label="Search craft studios" autocomplete="off" spellcheck="false">
+              <button type="button" id="sidebar-studio-search-clear" class="sidebar-studio-search-clear" aria-label="Clear search" title="Clear search" style="display:none">×</button>
+            </div>
             <div class="sidebar-section-content" id="sidebar-content-craft-studios">
-              <button class="nav-link" data-view="woodworking"><span class="nav-icon">🪵</span>Woodworking</button>
-              <button class="nav-link" data-view="textiles"><span class="nav-icon">🧶</span>Textiles &amp; Yarn</button>
-              <button class="nav-link" data-view="music"><span class="nav-icon">🎵</span>Music &amp; Audio</button>
-              <button class="nav-link" data-view="electronics"><span class="nav-icon">⚡</span>Electronics</button>
-              <button class="nav-link" data-view="programming"><span class="nav-icon">💻</span>Programming</button>
-              <button class="nav-link" data-view="art"><span class="nav-icon">🎨</span>Art &amp; Design</button>
-              <button class="nav-link" data-view="resin"><span class="nav-icon">🧪</span>Epoxy &amp; Silicone</button>
-              <button class="nav-link" data-view="printing"><span class="nav-icon">🖨️</span>3D Printing</button>
-              <button class="nav-link" data-view="origami"><span class="nav-icon">🦢</span>Origami &amp; Paper</button>
-              <button class="nav-link" data-view="laser"><span class="nav-icon">🔥</span>Laser Cutting</button>
-              <button class="nav-link" data-view="leather"><span class="nav-icon">🪡</span>Leathercraft</button>
-              <button class="nav-link" data-view="ceramics"><span class="nav-icon">🏺</span>Ceramics &amp; Pottery</button>
-              <button class="nav-link" data-view="welding"><span class="nav-icon">⚡</span>Welding &amp; Metal</button>
-              <button class="nav-link" data-view="cnc"><span class="nav-icon">⚙️</span>CNC Machining</button>
-              <button class="nav-link" data-view="blacksmith"><span class="nav-icon">⚒️</span>Blacksmithing &amp; Blades</button>
-              <button class="nav-link" data-view="fasteners"><span class="nav-icon">🔩</span>Fasteners &amp; Drills</button>
-              <button class="nav-link" data-view="glass"><span class="nav-icon">🪟</span>Stained Glass</button>
-              <button class="nav-link" data-view="jewelry"><span class="nav-icon">💍</span>Jewelry &amp; Metals</button>
-              <button class="nav-link" data-view="bookbinding"><span class="nav-icon">📖</span>Bookbinding &amp; Print</button>
-              <button class="nav-link" data-view="sla"><span class="nav-icon">🧪</span>Resin 3D Print (SLA)</button>
-              <button class="nav-link" data-view="luthier"><span class="nav-icon">🎸</span>Luthier &amp; Instruments</button>
-              <button class="nav-link" data-view="composites"><span class="nav-icon">🌀</span>Composites &amp; Carbon</button>
-              <button class="nav-link" data-view="horology"><span class="nav-icon">⏱️</span>Watchmaking &amp; Horology</button>
-              <button class="nav-link" data-view="robotics"><span class="nav-icon">🤖</span>Robotics &amp; Motors</button>
-              <button class="nav-link" data-view="bicycle"><span class="nav-icon">🚲</span>Bicycle &amp; Framebuilding</button>
+              <div id="sidebar-studios-no-results" class="sidebar-studios-no-results" style="display:none">
+                <span>No studios match "</span><strong id="sidebar-studios-query"></strong><span>"</span>
+              </div>
+              <button class="nav-link" data-view="woodworking" data-keywords="wood lumber cutlist joinery timber saw planer router table sanding miter dowel pocket screw"><span class="nav-icon">🪵</span>Woodworking</button>
+              <button class="nav-link" data-view="textiles" data-keywords="yarn fabric weave knit crochet stitch thread embroidery pixel sewing loom gauge needle"><span class="nav-icon">🧶</span>Textiles &amp; Yarn</button>
+              <button class="nav-link" data-view="music" data-keywords="audio sound metronome piano chords drum beat bpm synth keys scale sequencer bpm tempo"><span class="nav-icon">🎵</span>Music &amp; Audio</button>
+              <button class="nav-link" data-view="electronics" data-keywords="circuits ohm led resistor capacitor timer 555 voltage arduino breadboard soldering wire smd sensor"><span class="nav-icon">⚡</span>Electronics</button>
+              <button class="nav-link" data-view="programming" data-keywords="code hex binary ascii mcu microcontroller base converter regex snippets python c cpp rust"><span class="nav-icon">💻</span>Programming</button>
+              <button class="nav-link" data-view="art" data-keywords="design color palette contrast framing ratio canvas oil watercolor drawing sketch golden"><span class="nav-icon">🎨</span>Art &amp; Design</button>
+              <button class="nav-link" data-view="resin" data-keywords="epoxy silicone mix ratio casting degassing exotherm watch pot life hardener polyurethane mold"><span class="nav-icon">🧪</span>Epoxy &amp; Silicone</button>
+              <button class="nav-link" data-view="printing" data-keywords="3d print fdm filament flow rate spool nozzle bed adhesion layers infill pla petg abs"><span class="nav-icon">🖨️</span>3D Printing</button>
+              <button class="nav-link" data-view="origami" data-keywords="paper folding crease pattern miura tessellation crane sonobe modular washi"><span class="nav-icon">🦢</span>Origami &amp; Paper</button>
+              <button class="nav-link" data-view="laser" data-keywords="laser cutting kerf engraving co2 diode acrylic vector box joint power speed pulse"><span class="nav-icon">🔥</span>Laser Cutting</button>
+              <button class="nav-link" data-view="leather" data-keywords="leathercraft saddle stitch belt sizing oz mm pricking awl edge bevel burnish dye veg tan"><span class="nav-icon">🪡</span>Leathercraft</button>
+              <button class="nav-link" data-view="ceramics" data-keywords="pottery clay shrinkage glaze umf chemistry kiln pyrometric cone bisque slip wheel stoneware"><span class="nav-icon">🏺</span>Ceramics &amp; Pottery</button>
+              <button class="nav-link" data-view="welding" data-keywords="mig tig arc metal fabrication bend deduction heat input sheet metal steel aluminum weld"><span class="nav-icon">⚡</span>Welding &amp; Metal</button>
+              <button class="nav-link" data-view="cnc" data-keywords="machining gcode feed speed router mill chip load scallop cusp endmill spindle aluminum"><span class="nav-icon">⚙️</span>CNC Machining</button>
+              <button class="nav-link" data-view="blacksmith" data-keywords="forging bladesmithing heat treat anvil quench temper hrc damascus steel hammer tongs blade"><span class="nav-icon">⚒️</span>Blacksmithing &amp; Blades</button>
+              <button class="nav-link" data-view="fasteners" data-keywords="bolts screws taps drills thread pitch clearance hole torque tension preload metric unc unf"><span class="nav-icon">🔩</span>Fasteners &amp; Drills</button>
+              <button class="nav-link" data-view="glass" data-keywords="stained glass copper foil 60/40 solder patina flux came grinder glass cutter lead leaded"><span class="nav-icon">🪟</span>Stained Glass</button>
+              <button class="nav-link" data-view="jewelry" data-keywords="metalsmithing ring blank bezel wire wax casting gold silver soldering torch mandrel pickle"><span class="nav-icon">💍</span>Jewelry &amp; Metals</button>
+              <button class="nav-link" data-view="bookbinding" data-keywords="book printmaking signature spine swell french link coptic folios grain direction endpaper kettle"><span class="nav-icon">📖</span>Bookbinding &amp; Print</button>
+              <button class="nav-link" data-view="sla" data-keywords="sla msla resin uv 405nm cure time tsmc lift speed vat drain hollow wash cure photopolymer"><span class="nav-icon">🧪</span>Resin 3D Print (SLA)</button>
+              <button class="nav-link" data-view="luthier" data-keywords="instruments guitar fret scale length 17.817 compound camber fretboard neck string tension intonation truss"><span class="nav-icon">🎸</span>Luthier &amp; Instruments</button>
+              <button class="nav-link" data-view="composites" data-keywords="carbon fiber fiberglass resin stoichiometry fiber volume fraction vacuum compaction infusion layup core"><span class="nav-icon">🌀</span>Composites &amp; Carbon</button>
+              <button class="nav-link" data-view="horology" data-keywords="watchmaking watch timegrapher beat error balance amplitude lift angle regulation jewel moebius water resist"><span class="nav-icon">⏱️</span>Watchmaking &amp; Horology</button>
+              <button class="nav-link" data-view="robotics" data-keywords="robotics motors stepper microstepping nema kinematics 2-dof reach torque driver steps per mm lipo"><span class="nav-icon">🤖</span>Robotics &amp; Motors</button>
+              <button class="nav-link" data-view="bicycle" data-keywords="framebuilding bicycle bike spoke erdmann wheel dish trail fork rake miter fishmouth lug brazing"><span class="nav-icon">🚲</span>Bicycle &amp; Framebuilding</button>
             </div>
           </div>
 
@@ -209,6 +218,125 @@
             <div class="skill-filter-bar tag-filter-bar" id="project-tag-pills" aria-label="Filter by tags"></div>
             <div class="project-grid" id="project-grid"></div>
             <div class="kanban-board" id="project-kanban" style="display:none"></div>
+          </section>
+
+          <!-- 💡 Project Ideas & Inspiration Studio View -->
+          <section class="view-section" id="ideas-view" aria-labelledby="ideas-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> BRAINSTORM · SPARK · FABRICATE</div>
+                <h1 id="ideas-title">Project Ideas<span class="heading-period">.</span></h1>
+                <p>Capture workshop inspiration, prioritize future builds, and promote your best ideas into active projects.</p>
+              </div>
+              <div class="section-actions-row">
+                <button type="button" class="button button-outline" data-action="spark-random-idea">✨ Spark Inspiration</button>
+                <button type="button" class="button button-primary" data-action="new-idea">＋ New Idea</button>
+              </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="stats-grid" id="ideas-stats-bar">
+              <article class="stat-card">
+                <div class="stat-label">Total Ideas</div>
+                <span class="stat-symbol">💡</span>
+                <div class="stat-number" id="stat-ideas-total">0</div>
+                <div class="stat-foot">In your brainstorming queue</div>
+              </article>
+              <article class="stat-card">
+                <div class="stat-label">Ready to Build</div>
+                <span class="stat-symbol">⚡</span>
+                <div class="stat-number" id="stat-ideas-ready">0</div>
+                <div class="stat-foot">Fleshed out &amp; scoped</div>
+              </article>
+              <article class="stat-card">
+                <div class="stat-label">Promoted to Projects</div>
+                <span class="stat-symbol">🚀</span>
+                <div class="stat-number" id="stat-ideas-promoted">0</div>
+                <div class="stat-foot">Graduated to fabrication</div>
+              </article>
+              <article class="stat-card">
+                <div class="stat-label">High Priority</div>
+                <span class="stat-symbol">★</span>
+                <div class="stat-number" id="stat-ideas-high">0</div>
+                <div class="stat-foot">Top of the build list</div>
+              </article>
+            </div>
+
+            <!-- Toolbar: Search & Filters -->
+            <div class="toolbar">
+              <label class="search-box">
+                <span aria-hidden="true">⌕</span>
+                <input id="idea-search" type="search" placeholder="Search ideas, craft tags, supplies..." aria-label="Search ideas">
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by craft category</span>
+                <select id="idea-category-filter">
+                  <option value="all">All Craft Categories</option>
+                  <option value="woodworking">🪵 Woodworking</option>
+                  <option value="textiles">🧶 Textiles &amp; Fiber</option>
+                  <option value="music">🎵 Music &amp; Audio</option>
+                  <option value="electronics">⚡ Electronics &amp; IoT</option>
+                  <option value="programming">💻 Software &amp; MCU</option>
+                  <option value="art">🎨 Fine Art &amp; Design</option>
+                  <option value="resin">🧪 Epoxy &amp; Casting</option>
+                  <option value="printing">🖨️ 3D Printing (FDM/SLA)</option>
+                  <option value="origami">🦢 Origami &amp; Paper</option>
+                  <option value="laser">🔥 Laser &amp; Engraving</option>
+                  <option value="leather">🪡 Leathercraft</option>
+                  <option value="ceramics">🏺 Ceramics &amp; Pottery</option>
+                  <option value="welding">⚡ Welding &amp; Metal</option>
+                  <option value="cnc">⚙️ CNC Machining</option>
+                  <option value="blacksmith">⚒️ Blacksmithing &amp; Blades</option>
+                  <option value="fasteners">🔩 Fasteners &amp; Drills</option>
+                  <option value="glass">🪟 Stained Glass</option>
+                  <option value="jewelry">💍 Jewelry &amp; Metals</option>
+                  <option value="bookbinding">📖 Bookbinding &amp; Print</option>
+                  <option value="sla">🧪 Resin SLA 3D Printing</option>
+                  <option value="luthier">🎸 Luthier &amp; Instruments</option>
+                  <option value="composites">🌀 Composites &amp; Carbon</option>
+                  <option value="horology">⏱️ Watchmaking &amp; Horology</option>
+                  <option value="robotics">🤖 Robotics &amp; Motors</option>
+                  <option value="bicycle">🚲 Bicycle Framebuilding</option>
+                  <option value="general">✨ General / Multi-Craft</option>
+                </select>
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by status</span>
+                <select id="idea-status-filter">
+                  <option value="all">All Statuses</option>
+                  <option value="brainstorming">💭 Brainstorming</option>
+                  <option value="ready">⚡ Ready to Build</option>
+                  <option value="promoted">🚀 Promoted to Project</option>
+                  <option value="archived">📦 Archived</option>
+                </select>
+              </label>
+              <label class="select-wrap">
+                <span class="sr-only">Filter by priority</span>
+                <select id="idea-priority-filter">
+                  <option value="all">All Priorities</option>
+                  <option value="high">★★★ High Priority</option>
+                  <option value="normal">★★ Medium Priority</option>
+                  <option value="low">★ Low Priority</option>
+                </select>
+              </label>
+              <span class="result-count" id="idea-result-count">0 ideas</span>
+            </div>
+
+            <!-- Idea Cards Grid -->
+            <div class="ideas-grid" id="ideas-grid"></div>
+
+            <!-- Curated Inspiration Drawer / Section -->
+            <div class="panel" style="margin-top:28px">
+              <div class="panel-heading">
+                <div>
+                  <div class="eyebrow">CREATIVE WORKSHOP INSPIRATION</div>
+                  <h2>Curated Project Sparks</h2>
+                </div>
+                <button type="button" class="button button-small button-outline" data-action="refresh-sparks">🔄 Shuffle Sparks</button>
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Need a spark for your next build? Adopt any curated craft project idea into your queue with one tap:</p>
+              <div class="ideas-sparks-grid" id="ideas-sparks-grid"></div>
+            </div>
           </section>
 
           <section class="view-section" id="skills-view" aria-labelledby="skills-title">
@@ -6726,6 +6854,100 @@
         </footer>
       </main>
     </div>
+
+    <!-- 💡 Idea Modal Dialog -->
+    <dialog class="app-dialog compact-dialog" id="idea-dialog" aria-label="Add or Edit Project Idea">
+      <form id="idea-form" method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <div class="eyebrow">CAPTURE THE SPARK</div>
+            <h2 id="idea-dialog-title">New Project Idea</h2>
+          </div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        <input type="hidden" name="id">
+
+        <label class="field-label">Idea title
+          <input name="title" required maxlength="120" placeholder="e.g. Damascus Chef Knife, Walnut Bookcase, Macro Pad">
+        </label>
+
+        <div class="form-row">
+          <label class="field-label">Craft category
+            <select name="category" required>
+              <option value="woodworking">🪵 Woodworking</option>
+              <option value="textiles">🧶 Textiles &amp; Fiber</option>
+              <option value="music">🎵 Music &amp; Audio</option>
+              <option value="electronics">⚡ Electronics &amp; IoT</option>
+              <option value="programming">💻 Software &amp; MCU</option>
+              <option value="art">🎨 Fine Art &amp; Design</option>
+              <option value="resin">🧪 Epoxy &amp; Casting</option>
+              <option value="printing">🖨️ 3D Printing</option>
+              <option value="origami">🦢 Origami &amp; Paper</option>
+              <option value="laser">🔥 Laser &amp; Engraving</option>
+              <option value="leather">🪡 Leathercraft</option>
+              <option value="ceramics">🏺 Ceramics &amp; Pottery</option>
+              <option value="welding">⚡ Welding &amp; Metal</option>
+              <option value="cnc">⚙️ CNC Machining</option>
+              <option value="blacksmith">⚒️ Blacksmithing &amp; Blades</option>
+              <option value="fasteners">🔩 Fasteners &amp; Hardware</option>
+              <option value="glass">🪟 Stained Glass</option>
+              <option value="jewelry">💍 Jewelry &amp; Metals</option>
+              <option value="bookbinding">📖 Bookbinding &amp; Print</option>
+              <option value="sla">🧪 Resin SLA 3D Printing</option>
+              <option value="luthier">🎸 Luthier &amp; Instruments</option>
+              <option value="composites">🌀 Composites &amp; Carbon</option>
+              <option value="horology">⏱️ Watchmaking &amp; Horology</option>
+              <option value="robotics">🤖 Robotics &amp; Mechatronics</option>
+              <option value="bicycle">🚲 Bicycle Framebuilding</option>
+              <option value="general">✨ General Craft</option>
+            </select>
+          </label>
+          <label class="field-label">Priority
+            <select name="priority">
+              <option value="high">★★★ High Priority</option>
+              <option value="normal" selected>★★ Medium Priority</option>
+              <option value="low">★ Low / Someday</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label class="field-label">Estimated effort
+            <select name="effort">
+              <option value="quick">⚡ Quick Afternoon (&lt; 3 hrs)</option>
+              <option value="weekend" selected>🔨 Weekend Build (1–2 days)</option>
+              <option value="multi-week">🏔️ Multi-Week Deep Project</option>
+              <option value="long-term">🌌 Long-Term Masterpiece</option>
+            </select>
+          </label>
+          <label class="field-label">Estimated material budget ($)
+            <input name="cost" type="number" step="0.01" min="0" placeholder="e.g. 35.00">
+          </label>
+        </div>
+
+        <label class="field-label">Key materials / supplies needed
+          <input name="supplies" maxlength="200" placeholder="e.g. 8/4 Walnut, 24-fret fretwire, NEMA 17 stepper, 3K twill">
+        </label>
+
+        <label class="field-label">Notes, inspiration &amp; reference links
+          <textarea name="notes" rows="3" maxlength="2000" placeholder="What sparked this? Dimensions, aesthetic references, design requirements..."></textarea>
+        </label>
+
+        <label class="field-label">Status
+          <select name="status">
+            <option value="brainstorming" selected>💭 Brainstorming</option>
+            <option value="ready">⚡ Ready to Build</option>
+            <option value="archived">📦 Archived</option>
+          </select>
+        </label>
+
+        <div class="dialog-actions">
+          <button type="button" class="danger-button hidden" id="delete-idea-btn" data-action="delete-idea" style="margin-right:auto">Delete idea</button>
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button class="button button-primary" type="submit">Save idea <span>→</span></button>
+        </div>
+      </form>
+    </dialog>
 
     <dialog class="app-dialog" id="project-dialog">
       <form id="project-form" method="dialog">

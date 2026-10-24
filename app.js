@@ -203,6 +203,7 @@ const PROJECT_TEMPLATES = {
 
 const state = {
   projects: [],
+  ideas: [],
   skills: [],
   activity: [],
   practiceLog: [],
@@ -329,6 +330,7 @@ function getActiveStateKey() {
 
 function resetWorkspaceStateToDefault() {
   state.projects = [];
+  state.ideas = [];
   state.skills = [];
   state.activity = [];
   state.practiceLog = [];
@@ -2172,6 +2174,7 @@ async function loadUserScopedState() {
   const saved = await readSavedState();
   if (saved) {
     state.projects = Array.isArray(saved.projects) ? saved.projects : [];
+    state.ideas = Array.isArray(saved.ideas) ? saved.ideas : (saved.ideas === undefined ? [...STARTER_IDEAS] : []);
     state.skills = Array.isArray(saved.skills) ? saved.skills : [];
     state.activity = Array.isArray(saved.activity) ? saved.activity : [];
     state.practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
@@ -2195,6 +2198,7 @@ async function loadUserScopedState() {
     updateTopbarUnitsPill();
   } else {
     resetWorkspaceStateToDefault();
+    state.ideas = [...STARTER_IDEAS];
     loadSharedCollaborationsIntoState();
     updateTopbarUnitsPill();
     await persistState({ syncCloud: false });
@@ -2807,6 +2811,7 @@ async function importBackup(file) {
   }
   if (!window.confirm("Importing replaces all projects and skills in this browser. Continue?")) return;
   state.projects = restored.projects;
+  state.ideas = Array.isArray(restored.ideas) ? restored.ideas : [];
   state.skills = restored.skills;
   state.activity = Array.isArray(restored.activity) ? restored.activity : [];
   state.practiceLog = restored.practiceLog;
@@ -2840,6 +2845,7 @@ function render() {
   renderCloudConnection();
   renderOverview();
   renderProjects();
+  renderIdeasView();
   renderPlanner();
   renderSkills();
   renderGallery();
@@ -2856,6 +2862,10 @@ function render() {
 function renderNavigation() {
   const projCount = $("#nav-project-count");
   if (projCount) projCount.textContent = state.projects.length;
+  const ideasCount = $("#nav-ideas-count");
+  if (ideasCount) {
+    ideasCount.textContent = (state.ideas || []).filter(i => i.status !== "archived").length;
+  }
   const shoppingCount = $("#nav-shopping-count");
   if (shoppingCount) {
     const unpurchased = state.projects.flatMap(p => (p.materials || []).filter(m => m.status !== "have"));
@@ -3004,6 +3014,510 @@ function renderProjects() {
       }).join("") : emptyState(query || filter !== "all" || priorityFilter !== "all" || selectedSkillFilters.size > 0 || selectedTagFilters.size > 0 ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" || priorityFilter !== "all" || selectedSkillFilters.size > 0 || selectedTagFilters.size > 0 ? "Try another search or status/priority/tag filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
     }
   }
+}
+
+/* ============================================================
+   💡 Project Ideas & Maker Sparks System
+   ============================================================ */
+
+const IDEA_CATEGORIES = {
+  woodworking: { name: "Woodworking", icon: "🪵" },
+  textiles: { name: "Textiles & Fiber", icon: "🧶" },
+  music: { name: "Music & Audio", icon: "🎵" },
+  electronics: { name: "Electronics & IoT", icon: "⚡" },
+  programming: { name: "Software & MCU", icon: "💻" },
+  art: { name: "Fine Art & Design", icon: "🎨" },
+  resin: { name: "Epoxy & Casting", icon: "🧪" },
+  printing: { name: "3D Printing", icon: "🖨️" },
+  origami: { name: "Origami & Paper", icon: "🦢" },
+  laser: { name: "Laser Cutting", icon: "🔥" },
+  leather: { name: "Leathercraft", icon: "🪡" },
+  ceramics: { name: "Ceramics & Pottery", icon: "🏺" },
+  welding: { name: "Welding & Metal", icon: "⚡" },
+  cnc: { name: "CNC Machining", icon: "⚙️" },
+  blacksmith: { name: "Blacksmithing", icon: "⚒️" },
+  fasteners: { name: "Fasteners & Hardware", icon: "🔩" },
+  glass: { name: "Stained Glass", icon: "🪟" },
+  jewelry: { name: "Jewelry Making", icon: "💍" },
+  bookbinding: { name: "Bookbinding & Print", icon: "📖" },
+  sla: { name: "Resin SLA Print", icon: "🧪" },
+  luthier: { name: "Luthier & Guitar", icon: "🎸" },
+  composites: { name: "Carbon Fiber", icon: "🌀" },
+  horology: { name: "Watchmaking", icon: "⏱️" },
+  robotics: { name: "Robotics & Motors", icon: "🤖" },
+  bicycle: { name: "Bicycle Framebuilding", icon: "🚲" },
+  general: { name: "General Craft", icon: "✨" }
+};
+
+const STARTER_IDEAS = [
+  {
+    id: "idea-starter-1",
+    title: "Live Edge Black Walnut Charcuterie Board",
+    category: "woodworking",
+    priority: "high",
+    effort: "weekend",
+    cost: "45",
+    supplies: "Kiln-dried walnut slab, food-safe mineral oil, brass cabinet handles, beeswax",
+    notes: "Flatten with router sled, chamfer underside 45 degrees for finger grip, carve juice groove with ball-nose bit.",
+    status: "ready",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "idea-starter-2",
+    title: "Ortholinear Split Macro Pad with OLED & Rotary",
+    category: "electronics",
+    priority: "high",
+    effort: "weekend",
+    cost: "38",
+    supplies: "Raspberry Pi Pico RP2040, Kailh Choc v2 switches, custom PCB, EC11 encoder, 0.91in I2C OLED",
+    notes: "Program with QMK / Vial firmware for layered hotkeys in Fusion 360, KiCAD, and VS Code.",
+    status: "ready",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "idea-starter-3",
+    title: "Hand-Stitched Shell Cordovan 5-Pocket Card Wallet",
+    category: "leather",
+    priority: "normal",
+    effort: "quick",
+    cost: "30",
+    supplies: "3oz Horween shell cordovan, 0.6mm Vinymo poly thread, Tokonole burnishing gum",
+    notes: "3.85mm French pricking irons, saddle stitch with 2 harness needles, polished glass burnished edge.",
+    status: "brainstorming",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "idea-starter-4",
+    title: "Vacuum-Compacted Carbon Fiber Drone Top Plate",
+    category: "composites",
+    priority: "normal",
+    effort: "weekend",
+    cost: "40",
+    supplies: "3K 200gsm 2x2 twill carbon cloth, laminating epoxy, peel ply, vacuum bag film, breather mesh",
+    notes: "Quasi-isotropic [0/45/90/-45]s layup, 28 inHg vacuum clamp, CNC profile routing under water bath.",
+    status: "brainstorming",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "idea-starter-5",
+    title: "Lost-Wax Cast 14K Gold Signet Ring",
+    category: "jewelry",
+    priority: "normal",
+    effort: "multi-week",
+    cost: "120",
+    supplies: "Blue carving wax, investment powder, 14K casting grain, sprue base, pickle acid",
+    notes: "Carve monogram with micro graver, vacuum debubble investment, burnout kiln ramp to 1350F.",
+    status: "brainstorming",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "idea-starter-6",
+    title: "Hardcover French-Link Coptic Stitch Sketchbook",
+    category: "bookbinding",
+    priority: "low",
+    effort: "weekend",
+    cost: "22",
+    supplies: "140gsm cotton watercolor paper, Davey book board, bookcloth, waxed Irish linen thread, bone folder",
+    notes: "8 signatures of 4 folios each (64 pages), exposed French-link stitch spine allowing flat 180° opening.",
+    status: "brainstorming",
+    createdAt: new Date().toISOString()
+  }
+];
+
+const CURATED_SPARKS = [
+  {
+    id: "spark-1",
+    title: "Kumiko Lantern with Hinoki Cypress",
+    category: "woodworking",
+    effort: "weekend",
+    cost: "35",
+    supplies: "Basswood/Cypress strips, shoji paper, LED warm puck light, guide block",
+    notes: "Asa-no-ha (hemp leaf) pattern lattice frame with mitered half-lap corner joints."
+  },
+  {
+    id: "spark-2",
+    title: "Smart Workshop Dust Collector Gate",
+    category: "electronics",
+    effort: "weekend",
+    cost: "28",
+    supplies: "ESP32 MCU, current sensor CT clamp, MG996R servo motor, 4in blast gate",
+    notes: "Detects current draw when table saw runs, automatically swings blast gate open."
+  },
+  {
+    id: "spark-3",
+    title: "Hexagonal Wall Pegboard Modular Tool Grid",
+    category: "printing",
+    effort: "quick",
+    cost: "18",
+    supplies: "PLA+ filament spools, drywall anchors, M3 hex standoffs",
+    notes: "Interlocking honeycomb tiles with custom snap clips for calipers, pliers, and cutters."
+  },
+  {
+    id: "spark-4",
+    title: "Waxed Canvas & Horween Leather Shop Apron",
+    category: "leather",
+    effort: "weekend",
+    cost: "45",
+    supplies: "12oz waxed canvas, 5oz vegetable tanned leather straps, solid copper rivets",
+    notes: "Cross-back harness design to relieve neck strain; reinforced pockets for pencil, square, and phone."
+  },
+  {
+    id: "spark-5",
+    title: "Hand-Forged Damascus Steel EDC Bottle Opener",
+    category: "blacksmith",
+    effort: "quick",
+    cost: "15",
+    supplies: "1095 & 15N20 billet scrap, borax flux, ferric chloride etchant",
+    notes: "Folded 60-layer billet, full twist handle pattern, quenched in canola oil and acid etched."
+  },
+  {
+    id: "spark-6",
+    title: "Hand-Wound Single-Coil Guitar Pickup",
+    category: "luthier",
+    effort: "weekend",
+    cost: "30",
+    supplies: "Alnico 5 rod magnets, vulcanized fiber flatwork, 42 AWG plain enamel wire, paraffin wax",
+    notes: "Scatter-wound to ~6.4k ohms, potted in beeswax/paraffin 80/20 mix for vintage Strat chime."
+  },
+  {
+    id: "spark-7",
+    title: "Vacuum-Compacted Carbon Fiber Watch Travel Case",
+    category: "composites",
+    effort: "weekend",
+    cost: "50",
+    supplies: "3K 2x2 twill carbon, epoxy resin, high-density EVA foam, brass zipper",
+    notes: "Two-piece clamshell molded on 3D printed negative tool, polished with automotive clear coat."
+  },
+  {
+    id: "spark-8",
+    title: "Mechanical Watch Acoustic Pickup & Timegrapher Sensor",
+    category: "horology",
+    effort: "quick",
+    cost: "20",
+    supplies: "Piezo microphone pickup, op-amp preamp circuit, 3.5mm jack, watchmaker loupe",
+    notes: "Acoustic sensor feeding tick sounds into open-source software for daily rate balance regulation."
+  },
+  {
+    id: "spark-9",
+    title: "Articulated 2-DOF Scara Robotic Pen Plotter",
+    category: "robotics",
+    effort: "multi-week",
+    cost: "55",
+    supplies: "2x NEMA 17 steppers, GT2 timing belts, TMC2209 silent drivers, Arduino CNC shield",
+    notes: "Draws generative SVG vector artwork and schematics using technical fineliner pens."
+  },
+  {
+    id: "spark-10",
+    title: "Hand-Laced 32-Hole Tubeless Gravel Wheelset",
+    category: "bicycle",
+    effort: "weekend",
+    cost: "140",
+    supplies: "Alloy 25mm internal gravel rims, DT Swiss 350 hubs, Sapim double-butted spokes, brass nipples",
+    notes: "3-cross lacing, tensioned to 115 kgf drive side, dished to 0.2mm tolerance with spoke tensiometer."
+  },
+  {
+    id: "spark-11",
+    title: "Tiffany-Style Honeycomb Stained Glass Suncatcher",
+    category: "glass",
+    effort: "quick",
+    cost: "25",
+    supplies: "Amber & textured clear glass, 7/32in copper foil, 60/40 solder, black patina",
+    notes: "Hexagonal honeycomb cluster with wire-wrapped copper reinforcement and hanging rings."
+  },
+  {
+    id: "spark-12",
+    title: "Lost-Wax Cast Sterling Silver Branch Ring with Flush Gem",
+    category: "jewelry",
+    effort: "weekend",
+    cost: "35",
+    supplies: "Sculpting wax wire, 925 casting grain, 3mm synthetic sapphire, investment plaster",
+    notes: "Organic tree bark texture formed by flame manipulation, burnished bezel gem setting."
+  }
+];
+
+function renderIdeasView() {
+  const container = $("#ideas-grid");
+  if (!container) return;
+
+  const ideas = state.ideas || [];
+
+  // Update Stats
+  const totalCount = ideas.length;
+  const readyCount = ideas.filter(i => i.status === "ready").length;
+  const promotedCount = ideas.filter(i => i.status === "promoted").length;
+  const highCount = ideas.filter(i => i.priority === "high").length;
+
+  const statTotal = $("#stat-ideas-total");
+  if (statTotal) statTotal.textContent = totalCount;
+  const statReady = $("#stat-ideas-ready");
+  if (statReady) statReady.textContent = readyCount;
+  const statPromoted = $("#stat-ideas-promoted");
+  if (statPromoted) statPromoted.textContent = promotedCount;
+  const statHigh = $("#stat-ideas-high");
+  if (statHigh) statHigh.textContent = highCount;
+
+  // Filter values
+  const q = ($("#idea-search")?.value || "").toLowerCase().trim();
+  const cat = $("#idea-category-filter")?.value || "all";
+  const status = $("#idea-status-filter")?.value || "all";
+  const priority = $("#idea-priority-filter")?.value || "all";
+
+  const filtered = ideas.filter(item => {
+    if (cat !== "all" && item.category !== cat) return false;
+    if (status !== "all" && item.status !== status) return false;
+    if (priority !== "all" && item.priority !== priority) return false;
+    if (q) {
+      const title = (item.title || "").toLowerCase();
+      const notes = (item.notes || "").toLowerCase();
+      const supplies = (item.supplies || "").toLowerCase();
+      const category = (item.category || "").toLowerCase();
+      if (!title.includes(q) && !notes.includes(q) && !supplies.includes(q) && !category.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const countBadge = $("#idea-result-count");
+  if (countBadge) countBadge.textContent = `${filtered.length} idea${filtered.length === 1 ? "" : "s"}`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1; padding: 48px 16px">
+        <div class="empty-state-mark">💡</div>
+        <h3>No project ideas match your filter</h3>
+        <p>Brainstorm a fresh project build or adopt an idea from the curated sparks below!</p>
+        <button type="button" class="button button-primary" data-action="new-idea">＋ Create New Idea</button>
+      </div>
+    `;
+  } else {
+    container.innerHTML = filtered.map(idea => {
+      const catMeta = IDEA_CATEGORIES[idea.category] || { name: idea.category || "General", icon: "✨" };
+      const priorityLabel = idea.priority === "high" ? "★★★ High" : idea.priority === "low" ? "★ Low" : "★★ Normal";
+      const statusClass = idea.status === "promoted" ? "status-promoted" : idea.status === "ready" ? "status-ready" : "";
+      const statusText = idea.status === "promoted" ? "🚀 Promoted to Project" : idea.status === "ready" ? "⚡ Ready to Build" : "💭 Brainstorming";
+      const effortText = idea.effort === "quick" ? "⚡ Quick Build" : idea.effort === "multi-week" ? "🏔️ Multi-Week" : idea.effort === "long-term" ? "🌌 Long-Term" : "🔨 Weekend Build";
+      const costText = idea.cost ? formatMoney(idea.cost) : "";
+
+      const promoteBtn = idea.status === "promoted"
+        ? `<button type="button" class="button button-small button-outline" data-action="open-promoted-project" data-project-id="${escapeHtml(idea.promotedProjectId || "")}">↗ View Project</button>`
+        : `<button type="button" class="button button-small button-primary" data-action="promote-idea" data-idea-id="${escapeHtml(idea.id)}">🚀 Promote to Project</button>`;
+
+      return `
+        <article class="idea-card" data-id="${escapeHtml(idea.id)}">
+          <div class="idea-card-header">
+            <div class="idea-card-tags">
+              <span class="idea-category-tag">${catMeta.icon} ${escapeHtml(catMeta.name)}</span>
+              <span class="idea-priority-tag priority-${escapeHtml(idea.priority || "normal")}">${priorityLabel}</span>
+            </div>
+            <span class="idea-status-tag ${statusClass}">${statusText}</span>
+          </div>
+          <h3>${escapeHtml(idea.title)}</h3>
+          <p class="idea-card-desc">${escapeHtml(idea.notes || "No notes added yet.")}</p>
+          <div class="idea-card-meta">
+            <span class="idea-meta-item" title="Effort">${effortText}</span>
+            ${costText ? `<span class="idea-meta-item" title="Budget">💰 ~${costText}</span>` : ""}
+            ${idea.supplies ? `<span class="idea-meta-item" title="Key Supplies">📦 ${escapeHtml(idea.supplies)}</span>` : ""}
+          </div>
+          <div class="idea-card-actions">
+            ${promoteBtn}
+            <div style="display:flex;gap:6px">
+              <button type="button" class="icon-button" data-action="edit-idea" data-idea-id="${escapeHtml(idea.id)}" title="Edit Idea">✏️</button>
+              <button type="button" class="icon-button" data-action="delete-idea" data-idea-id="${escapeHtml(idea.id)}" title="Delete Idea">🗑️</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  renderCuratedSparks();
+}
+
+function renderCuratedSparks() {
+  const container = $("#ideas-sparks-grid");
+  if (!container) return;
+
+  const sparks = [...CURATED_SPARKS].sort(() => 0.5 - Math.random()).slice(0, 4);
+
+  container.innerHTML = sparks.map(spark => {
+    const cat = IDEA_CATEGORIES[spark.category] || { name: spark.category, icon: "✨" };
+    return `
+      <div class="spark-card">
+        <div class="spark-card-header">
+          <span>${cat.icon} ${cat.name}</span>
+          <span style="margin-left:auto;color:var(--muted)">~${formatMoney(spark.cost)}</span>
+        </div>
+        <h4>${escapeHtml(spark.title)}</h4>
+        <p>${escapeHtml(spark.notes)}</p>
+        <button type="button" class="button button-small button-outline" data-action="adopt-spark" data-spark-id="${escapeHtml(spark.id)}" style="margin-top:auto">＋ Adopt This Idea</button>
+      </div>
+    `;
+  }).join("");
+}
+
+function openIdeaDialog(ideaId = null) {
+  const dialog = $("#idea-dialog");
+  const form = $("#idea-form");
+  if (!dialog || !form) return;
+
+  form.reset();
+  const deleteBtn = $("#delete-idea-btn");
+
+  if (ideaId) {
+    const idea = (state.ideas || []).find(i => i.id === ideaId);
+    if (!idea) return;
+    $("#idea-dialog-title").textContent = "Edit Project Idea";
+    form.id.value = idea.id;
+    form.title.value = idea.title || "";
+    form.category.value = idea.category || "woodworking";
+    form.priority.value = idea.priority || "normal";
+    form.effort.value = idea.effort || "weekend";
+    form.cost.value = idea.cost || "";
+    form.supplies.value = idea.supplies || "";
+    form.notes.value = idea.notes || "";
+    form.status.value = idea.status || "brainstorming";
+    if (deleteBtn) {
+      deleteBtn.classList.remove("hidden");
+      deleteBtn.dataset.ideaId = idea.id;
+    }
+  } else {
+    $("#idea-dialog-title").textContent = "New Project Idea";
+    form.id.value = "";
+    form.category.value = "woodworking";
+    form.priority.value = "normal";
+    form.effort.value = "weekend";
+    form.status.value = "brainstorming";
+    if (deleteBtn) deleteBtn.classList.add("hidden");
+  }
+
+  dialog.showModal();
+}
+
+async function saveIdeaFromForm(form) {
+  const id = form.id.value || uid();
+  const title = (form.title.value || "").trim();
+  if (!title) {
+    showToast("Please enter an idea title.");
+    return;
+  }
+
+  state.ideas = state.ideas || [];
+  const existingIndex = state.ideas.findIndex(i => i.id === id);
+
+  const ideaData = {
+    id,
+    title,
+    category: form.category.value || "general",
+    priority: form.priority.value || "normal",
+    effort: form.effort.value || "weekend",
+    cost: form.cost.value ? String(form.cost.value) : "",
+    supplies: (form.supplies.value || "").trim(),
+    notes: (form.notes.value || "").trim(),
+    status: form.status.value || "brainstorming",
+    updatedAt: new Date().toISOString()
+  };
+
+  if (existingIndex >= 0) {
+    state.ideas[existingIndex] = { ...state.ideas[existingIndex], ...ideaData };
+    showToast(`Updated idea "${title}"`);
+  } else {
+    ideaData.createdAt = new Date().toISOString();
+    state.ideas.unshift(ideaData);
+    makeActivity("idea", `Added project idea: ${title}`);
+    showToast(`Saved idea "${title}" to your queue!`);
+  }
+
+  await persistState();
+  renderNavigation();
+  renderIdeasView();
+  $("#idea-dialog")?.close();
+}
+
+async function deleteIdea(ideaId) {
+  const idea = (state.ideas || []).find(i => i.id === ideaId);
+  if (!idea) return;
+  if (!confirm(`Delete project idea "${idea.title}"?`)) return;
+
+  state.ideas = (state.ideas || []).filter(i => i.id !== ideaId);
+  await persistState();
+  renderNavigation();
+  renderIdeasView();
+  $("#idea-dialog")?.close();
+  showToast(`Deleted idea "${idea.title}".`);
+}
+
+async function promoteIdeaToProject(ideaId) {
+  const idea = (state.ideas || []).find(i => i.id === ideaId);
+  if (!idea) return;
+
+  const project = {
+    id: uid(),
+    title: idea.title,
+    description: idea.notes || `Fabrication idea for ${idea.title}.`,
+    status: "in-progress",
+    priority: idea.priority || "normal",
+    budget: idea.cost ? Number(idea.cost) : undefined,
+    tags: [idea.category, "promoted-idea"].filter(Boolean),
+    folders: [{ id: uid(), name: "General", images: [] }],
+    tasks: [
+      { id: uid(), text: "Refine design specifications and CAD drawing", done: false },
+      { id: uid(), text: "Acquire materials and prepare workshop workspace", done: false },
+      { id: uid(), text: "Fabricate prototype and assemble build", done: false }
+    ],
+    materials: (idea.supplies || "").split(",").map(s => s.trim()).filter(Boolean).map(name => ({
+      id: uid(),
+      name,
+      status: "needed",
+      cost: 0
+    })),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  idea.status = "promoted";
+  idea.promotedProjectId = project.id;
+  state.projects.unshift(project);
+  makeActivity("project", `Promoted idea "${idea.title}" into an active workshop project!`);
+  await persistState();
+  renderNavigation();
+  renderIdeasView();
+  renderProjects();
+  showToast(`🚀 "${idea.title}" is now an active project!`);
+  switchView("projects");
+}
+
+async function adoptSparkIdea(sparkId) {
+  const spark = CURATED_SPARKS.find(s => s.id === sparkId);
+  if (!spark) return;
+
+  state.ideas = state.ideas || [];
+  const newIdea = {
+    id: uid(),
+    title: spark.title,
+    category: spark.category,
+    priority: "normal",
+    effort: spark.effort,
+    cost: spark.cost,
+    supplies: spark.supplies,
+    notes: spark.notes,
+    status: "ready",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  state.ideas.unshift(newIdea);
+  makeActivity("idea", `Adopted spark idea: ${spark.title}`);
+  await persistState();
+  renderNavigation();
+  renderIdeasView();
+  showToast(`Adopted spark "${spark.title}" into your ideas!`);
+}
+
+function sparkRandomIdea() {
+  const randomSpark = CURATED_SPARKS[Math.floor(Math.random() * CURATED_SPARKS.length)];
+  if (!randomSpark) return;
+  adoptSparkIdea(randomSpark.id);
 }
 
 function renderPlanner() {
@@ -3857,7 +4371,7 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "ideas", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
@@ -3894,6 +4408,7 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const title = {
     overview: "Overview",
     projects: "Projects",
+    ideas: "Project Ideas & Inspiration",
     skills: "Skills",
     gallery: "Gallery",
     planner: "Planner",
@@ -3945,6 +4460,7 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     }
   }
 
+  if (targetView === "ideas") renderIdeasView();
   if (targetView === "sync") renderCloudConnection();
   if (targetView === "timeline") renderTimeline();
   if (targetView === "shopping") renderShoppingList();
@@ -10363,6 +10879,43 @@ async function handleAction(action, target) {
   if (action === "close-mobile-sidebar") {
     $(".sidebar")?.classList.remove("open");
     $("#sidebar-backdrop")?.classList.remove("visible");
+    return;
+  }
+  if (action === "new-idea") {
+    openIdeaDialog();
+    return;
+  }
+  if (action === "edit-idea") {
+    openIdeaDialog(target.dataset.ideaId || id);
+    return;
+  }
+  if (action === "delete-idea") {
+    deleteIdea(target.dataset.ideaId || id);
+    return;
+  }
+  if (action === "promote-idea") {
+    promoteIdeaToProject(target.dataset.ideaId || id);
+    return;
+  }
+  if (action === "spark-random-idea") {
+    sparkRandomIdea();
+    return;
+  }
+  if (action === "refresh-sparks") {
+    renderCuratedSparks();
+    return;
+  }
+  if (action === "adopt-spark") {
+    adoptSparkIdea(target.dataset.sparkId);
+    return;
+  }
+  if (action === "open-promoted-project") {
+    const projId = target.dataset.projectId;
+    if (projId) {
+      switchView("projects");
+      renderProjectDetail(projId);
+      $("#detail-dialog")?.showModal();
+    }
     return;
   }
   if (action === "open-mobile-studios-sheet") {
@@ -35053,6 +35606,78 @@ function initCraftStudios() {
 
   $("#mobile-studio-filter")?.addEventListener("input", (e) => {
     filterStudioElements(e.target.value, "#mobile-studios-grid", ".mobile-studio-card");
+  });
+
+  // 🔍 Craft Studio Tab Search in Sidebar
+  const sidebarStudioInput = $("#sidebar-studio-search");
+  const sidebarStudioClear = $("#sidebar-studio-search-clear");
+  const sidebarStudioNoResults = $("#sidebar-studios-no-results");
+  const sidebarStudioQuerySpan = $("#sidebar-studios-query");
+
+  function filterSidebarStudios(query) {
+    const q = (query || "").toLowerCase().trim();
+    const studioLinks = $$("#sidebar-content-craft-studios .nav-link");
+    let matchCount = 0;
+
+    if (sidebarStudioClear) {
+      sidebarStudioClear.style.display = q ? "inline-block" : "none";
+    }
+
+    if (q) {
+      const craftSec = $("#sidebar-section-craft-studios");
+      if (craftSec?.classList.contains("collapsed")) {
+        craftSec.classList.remove("collapsed");
+        $("[data-action='toggle-sidebar-section'][data-section='craft-studios']")?.setAttribute("aria-expanded", "true");
+      }
+    }
+
+    studioLinks.forEach(link => {
+      const name = link.textContent.toLowerCase();
+      const keywords = (link.dataset.keywords || "").toLowerCase();
+      const view = (link.dataset.view || "").toLowerCase();
+      const matches = !q || name.includes(q) || keywords.includes(q) || view.includes(q);
+      link.style.display = matches ? "" : "none";
+      if (matches) matchCount++;
+    });
+
+    if (sidebarStudioNoResults) {
+      sidebarStudioNoResults.style.display = (q && matchCount === 0) ? "block" : "none";
+      if (sidebarStudioQuerySpan) sidebarStudioQuerySpan.textContent = q;
+    }
+  }
+
+  sidebarStudioInput?.addEventListener("input", (e) => {
+    filterSidebarStudios(e.target.value);
+  });
+
+  sidebarStudioClear?.addEventListener("click", () => {
+    if (sidebarStudioInput) {
+      sidebarStudioInput.value = "";
+      filterSidebarStudios("");
+      sidebarStudioInput.focus();
+    }
+  });
+
+  sidebarStudioInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      sidebarStudioInput.value = "";
+      filterSidebarStudios("");
+    } else if (e.key === "Enter") {
+      const firstMatch = $("#sidebar-content-craft-studios .nav-link:not([style*='display: none'])");
+      if (firstMatch?.dataset.view) {
+        switchView(firstMatch.dataset.view);
+      }
+    }
+  });
+
+  // 💡 Project Ideas Listeners
+  $("#idea-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveIdeaFromForm(e.target);
+  });
+  ["#idea-search", "#idea-category-filter", "#idea-status-filter", "#idea-priority-filter"].forEach(sel => {
+    $(sel)?.addEventListener("input", renderIdeasView);
+    $(sel)?.addEventListener("change", renderIdeasView);
   });
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
