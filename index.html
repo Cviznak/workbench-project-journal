@@ -84,6 +84,8 @@
               <button class="nav-link" data-view="blacksmith"><span class="nav-icon">⚒️</span>Blacksmithing &amp; Blades</button>
               <button class="nav-link" data-view="fasteners"><span class="nav-icon">🔩</span>Fasteners &amp; Drills</button>
               <button class="nav-link" data-view="glass"><span class="nav-icon">🪟</span>Stained Glass</button>
+              <button class="nav-link" data-view="jewelry"><span class="nav-icon">💍</span>Jewelry &amp; Metals</button>
+              <button class="nav-link" data-view="bookbinding"><span class="nav-icon">📖</span>Bookbinding &amp; Print</button>
             </div>
           </div>
 
@@ -453,6 +455,8 @@
                     <option value="CNC Bits &amp; Tooling">⚙️ CNC Bits &amp; Tooling</option>
                     <option value="Blacksmithing, Steels &amp; Gas">⚒️ Blacksmithing, Steels &amp; Gas</option>
                     <option value="Stained Glass, Foil &amp; Came">🪟 Stained Glass, Foil &amp; Came</option>
+                    <option value="Precious Metals &amp; Gemstones">💍 Precious Metals &amp; Gemstones</option>
+                    <option value="Bookbinding, Paper &amp; Inks">📖 Bookbinding, Paper &amp; Inks</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -5382,6 +5386,299 @@
             </div>
           </section>
 
+          <!-- 💍 Jewelry Making & Metalsmithing Studio View -->
+          <section class="view-section" id="jewelry-view" aria-labelledby="jewelry-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> PRECIOUS METALS, CABOCHONS &amp; SOLDERING</div>
+                <h1 id="jewelry-title">Jewelry Making &amp; Metalsmithing<span class="heading-period">.</span></h1>
+                <p>Calculate flat ring blank lengths with metal thickness stretch formulas, Ramanujan oval bezel wire perimeters, lost wax casting metal weights, hard/medium/easy solder melting steps, and pickle pot chemistry.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-jewelry-specs">📋 Copy Jewelry Specs</button>
+                <button type="button" class="button button-primary" data-action="add-jewelry-supplies">🛒 Add Metals to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 💍 Ring Size & Blank Cut Length Calculator -->
+              <div class="panel" id="panel-jewelry-ring" style="grid-column: 1 / -1">
+                <div class="eyebrow">RING MANDREL SIZING &amp; NEUTRAL AXIS STRETCH</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">💍 Ring Blank Cut Length &amp; Sizing Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-jewelry-ring" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact flat sheet or wire strip length (L = π · [Dinner + Tmetal] + kerf) accounting for neutral bend axis compression and saw kerf loss.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Target Ring Size (US / Canada)
+                    <select id="jewelry-ring-size">
+                      <option value="4">US 4 (14.9 mm dia • 46.8 mm circ)</option>
+                      <option value="5">US 5 (15.7 mm dia • 49.3 mm circ)</option>
+                      <option value="6">US 6 (16.5 mm dia • 51.9 mm circ)</option>
+                      <option value="7" selected>US 7 (17.3 mm dia • 54.4 mm circ • Average Women)</option>
+                      <option value="8">US 8 (18.1 mm dia • 57.0 mm circ)</option>
+                      <option value="9">US 9 (19.0 mm dia • 59.5 mm circ)</option>
+                      <option value="10">US 10 (19.8 mm dia • 62.2 mm circ • Average Men)</option>
+                      <option value="11">US 11 (20.6 mm dia • 64.7 mm circ)</option>
+                      <option value="12">US 12 (21.4 mm dia • 67.2 mm circ)</option>
+                      <option value="13">US 13 (22.2 mm dia • 69.7 mm circ)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Metal Stock Thickness (B&amp;S / mm)
+                    <select id="jewelry-metal-thick">
+                      <option value="0.8">20 AWG / Gauge (0.81 mm • Delicate stacking band)</option>
+                      <option value="1.0">18 AWG / Gauge (1.02 mm • Standard comfort band)</option>
+                      <option value="1.3" selected>16 AWG / Gauge (1.29 mm • Classic heavy band)</option>
+                      <option value="1.6">14 AWG / Gauge (1.63 mm • Heavy signet / forged)</option>
+                      <option value="2.0">12 AWG / Gauge (2.05 mm • Chunky statement ring)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Band Width (mm)
+                    <select id="jewelry-band-width">
+                      <option value="2">2 mm Narrow / Stacker</option>
+                      <option value="4" selected>4 mm Standard Width</option>
+                      <option value="6">6 mm Wide Band (+0.25 size step up)</option>
+                      <option value="8">8 mm Extra Wide Band (+0.5 size step up)</option>
+                      <option value="10">10 mm Cigar Band (+0.75 size step up)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="jewelry-ring-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 💎 Bezel Wire & Cabochon Setting Matcher -->
+              <div class="panel" id="panel-jewelry-bezel">
+                <div class="eyebrow">CABOCHON SETTING &amp; WIRE PERIMETER</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">💎 Bezel Wire Length &amp; Height Matcher</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact perimeter strip length for oval or round cabochons, ideal bezel wall height, and stone fragility handling rules.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Stone Shape
+                    <select id="jewelry-stone-shape">
+                      <option value="oval" selected>Oval Cabochon</option>
+                      <option value="round">Round Cabochon</option>
+                      <option value="rectangle">Cushion / Rectangular</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Stone Length / Dia (mm)
+                    <input type="number" id="jewelry-stone-len" value="18" min="3" max="60" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Stone Width (mm)
+                    <input type="number" id="jewelry-stone-width" value="13" min="3" max="60" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Stone Dome Height (mm)
+                    <input type="number" id="jewelry-stone-height" value="5" min="1" max="25" step="0.5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="jewelry-bezel-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ⚖️ Lost Wax Casting & Karat Density Converter -->
+              <div class="panel" id="panel-jewelry-casting">
+                <div class="eyebrow">WAX FACTOR &amp; METAL DENSITY MULTIPLIER</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚖️ Lost Wax Pattern to Cast Metal Weight</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Convert blue carving wax or castable resin grams into required precious metal weight including button sprue allowances.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Wax Pattern Weight (g)
+                    <input type="number" id="jewelry-wax-weight" value="1.2" min="0.05" max="50" step="0.1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Target Alloy / Karat
+                    <select id="jewelry-cast-metal">
+                      <option value="14k" selected>14K Yellow Gold (13.0× wax • 58.5% Au)</option>
+                      <option value="18k">18K Yellow Gold (15.5× wax • 75.0% Au)</option>
+                      <option value="sterling">Sterling Silver 925 (10.4× wax • 92.5% Ag)</option>
+                      <option value="fine-silver">Fine Silver 999 (10.5× wax • 99.9% Ag)</option>
+                      <option value="platinum">Platinum 950 (21.5× wax • High density)</option>
+                      <option value="bronze">Jeweler's Bronze / Brass (8.5× wax)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="jewelry-casting-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🔥 Soldering Steps, Torch & Pickle Matrix -->
+              <div class="panel" id="panel-jewelry-soldering" style="grid-column: 1 / -1">
+                <div class="eyebrow">MULTI-STAGE SOLDERING &amp; PICKLE NEUTRALIZATION</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🔥 Soldering Steps, Torch Flow &amp; Pickle Chemistry</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-jewelry-soldering" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Hard, Medium, Easy, and Extra-Easy step-soldering hierarchy to prevent previous joints from melting, alongside firescale prevention dips.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Metal Base
+                    <select id="jewelry-solder-base">
+                      <option value="silver" selected>Sterling / Fine Silver</option>
+                      <option value="gold-14k">14K Yellow Gold</option>
+                      <option value="brass">Jewelry Brass / Copper</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Soldering Stage / Joint Order
+                    <select id="jewelry-solder-stage">
+                      <option value="hard" selected>Stage 1: Hard Solder (Initial bezel seam / ring join)</option>
+                      <option value="medium">Stage 2: Medium Solder (Backplate &amp; findings)</option>
+                      <option value="easy">Stage 3: Easy Solder (Delicate accents / posts)</option>
+                      <option value="extra-easy">Stage 4: Extra-Easy Solder (Final repair / jump rings)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="jewelry-soldering-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 📖 Bookbinding & Printmaking Studio View -->
+          <section class="view-section" id="bookbinding-view" aria-labelledby="bookbinding-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> SIGNATURES, COVERS &amp; RELIEF PRINTING</div>
+                <h1 id="bookbinding-title">Bookbinding &amp; Printmaking Studio<span class="heading-period">.</span></h1>
+                <p>Calculate signature page imposition, paper caliper text block spine thickness, Davey board cover cutting dimensions with hinge gaps, waxed linen thread stitching lengths, and block printing ink matrices.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-bookbinding-specs">📋 Copy Bookbinding Specs</button>
+                <button type="button" class="button button-primary" data-action="add-bookbinding-supplies">🛒 Add Book Supplies to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 📖 Signature Imposition & Page Math -->
+              <div class="panel" id="panel-book-signatures" style="grid-column: 1 / -1">
+                <div class="eyebrow">FOLIO, QUARTO, OCTAVO &amp; TEXT BLOCK SHEETS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">📖 Signature Page Imposition &amp; Sheet Count</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-book-signatures" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Organize blank journals or printed editions into balanced folded signatures, preventing loose flyleaves and oversized signatures that cause center creep.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Desired Book Pages (Front &amp; Back)
+                    <input type="number" id="book-total-pages" value="160" min="16" max="1200" step="16">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Folding Imposition Format
+                    <select id="book-imposition-format">
+                      <option value="octavo" selected>Octavo 8vo (16 pages / 8 leaves per signature • Standard)</option>
+                      <option value="quarto">Quarto 4to (8 pages / 4 leaves per signature • Heavier paper)</option>
+                      <option value="folio">Folio (4 pages / 2 leaves per signature • Heavy art paper)</option>
+                      <option value="sexto">16mo (32 pages / 16 leaves • Thin Bible / dictionary paper)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Endpaper Style
+                    <select id="book-endpaper-style">
+                      <option value="separate" selected>Separate Folio Endpapers (2 sheets front + 2 back)</option>
+                      <option value="integral">Integral (First/last signature leaves serve as paste-down)</option>
+                      <option value="tipped">Tipped-on Single Leaf</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="book-signatures-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 📐 Spine Thickness & Board Cover Dimensions -->
+              <div class="panel" id="panel-book-spine">
+                <div class="eyebrow">CALIPER, THREAD SWELL &amp; HINGE JOINT GAP</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📐 Spine Thickness &amp; Board Cover Cut Sizes</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate spine text block depth including sewing swell, Davey binder's board dimensions, and book cloth cutting size with 3/4" turn-in margins.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Paper Stock Weight / Caliper
+                    <select id="book-paper-caliper">
+                      <option value="0.10">70 lb Text / 100 gsm (0.10 mm • Standard journal)</option>
+                      <option value="0.13" selected>80 lb Text / 120 gsm (0.13 mm • Fountain pen safe)</option>
+                      <option value="0.16">100 lb Text / 150 gsm (0.16 mm • Heavy drawing / sketch)</option>
+                      <option value="0.22">140 lb / 300 gsm (0.22 mm • Watercolor cold press)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Binder's Board Grade
+                    <select id="book-board-grade">
+                      <option value="2.1" selected>Davey Red Label #20 (0.082" / 2.1 mm • Standard hardback)</option>
+                      <option value="1.7">Davey Board #30 (0.065" / 1.7 mm • Medium book)</option>
+                      <option value="2.8">Heavy Board #15 (0.110" / 2.8 mm • Oversized ledger / album)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Text Block Width (in)
+                    <input type="number" id="book-page-w" value="5.5" min="3" max="18" step="0.25">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Text Block Height (in)
+                    <input type="number" id="book-page-h" value="8.5" min="4" max="24" step="0.25">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="book-spine-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🪡 Linen Thread Stitching & French Link Calculator -->
+              <div class="panel" id="panel-book-stitching">
+                <div class="eyebrow">SEWING STATIONS, KETTLE STITCH &amp; BEESWAX</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🪡 Linen Thread Length &amp; Stitching Guide</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Determine unjoined linen thread lengths for French Link, Coptic, and tape binding, alongside waxing and needle gauge recommendations.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Binding Structure Style
+                    <select id="book-stitch-style">
+                      <option value="french-link" selected>French Link Stitch (On tapes or cords • Case binding)</option>
+                      <option value="coptic">Coptic Stitch (Exposed chain stitch spine • Lays 180° flat)</option>
+                      <option value="kettle">Standard Unsupported All-Along Sewing</option>
+                      <option value="long-stitch">Long Stitch through Leather Spine</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Linen Thread Weight
+                    <select id="book-thread-weight">
+                      <option value="25/3" selected>25/3 Unbleached Linen (Universal standard)</option>
+                      <option value="18/3">18/3 Heavy Linen (Large ledgers &amp; albums)</option>
+                      <option value="35/3">35/3 Fine Linen (Miniature books / thin signatures)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="book-stitching-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🎨 Relief Block Printing & Linocut Ink Guide -->
+              <div class="panel" id="panel-book-print" style="grid-column: 1 / -1">
+                <div class="eyebrow">BRAYER SLAB TEXTURE, INK VISCOSITY &amp; BAREN PRESSURE</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🎨 Relief Block Printing &amp; Linocut Ink Guide</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-book-print" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Dial in brayer ink slab rolling ("sizzling bacon" audio acoustic), paper absorption, and baren pressure techniques for clean woodcuts and linocuts.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Ink Type
+                    <select id="book-ink-type">
+                      <option value="oil-safe" selected>Oil-Based Water-Washable (Caligo Safe Wash • Deep blacks)</option>
+                      <option value="oil-traditional">Traditional Oil-Based (Charbonnel / Gamblin • Requires solvent)</option>
+                      <option value="water-based">Water-Soluble Block Ink (Speedball • Quick drying)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Printmaking Paper
+                    <select id="book-print-paper">
+                      <option value="kitakata" selected>Japanese Kitakata / Mulberry (36–45 gsm • Hand burnishing)</option>
+                      <option value="hosho">Hosho / Washi (85 gsm • Traditional woodcut paper)</option>
+                      <option value="rives">Rives BFK / Heavy Cotton (250–280 gsm • High pressure)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Printing Block Medium
+                    <select id="book-block-medium">
+                      <option value="battleship" selected>Traditional Battleship Gray Linoleum (Hessian backed)</option>
+                      <option value="soft-carve">Soft Rubber / Vinyl (Speedy-Carve • Low pressure)</option>
+                      <option value="woodcut">Cherry / Shina Plywood Block (Fine woodgrain relief)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="book-print-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -5801,6 +6098,8 @@
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="blacksmith">⚒️ Blacksmithing &amp; Blades</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="fasteners">🔩 Fasteners &amp; Drills</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="glass">🪟 Stained Glass</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="jewelry">💍 Jewelry &amp; Metals</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="bookbinding">📖 Bookbinding &amp; Print</button>
         </div>
       </div>
     </dialog>
@@ -6064,6 +6363,8 @@
                 <option value="CNC Bits &amp; Tooling">⚙️ CNC Bits &amp; Tooling</option>
                 <option value="Blacksmithing, Steels &amp; Gas">⚒️ Blacksmithing, Steels &amp; Gas</option>
                 <option value="Stained Glass, Foil &amp; Came">🪟 Stained Glass, Foil &amp; Came</option>
+                <option value="Precious Metals &amp; Gemstones">💍 Precious Metals &amp; Gemstones</option>
+                <option value="Bookbinding, Paper &amp; Inks">📖 Bookbinding, Paper &amp; Inks</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -7093,6 +7394,16 @@
           <span class="mobile-studio-icon" aria-hidden="true">🪟</span>
           <strong>Stained Glass</strong>
           <span class="mobile-studio-desc">60/40 solder weight, foil width, chemical patina</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="jewelry" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">💍</span>
+          <strong>Jewelry &amp; Metals</strong>
+          <span class="mobile-studio-desc">Ring blank stretch, bezel wire, casting wax factor</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="bookbinding" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">📖</span>
+          <strong>Bookbinding &amp; Print</strong>
+          <span class="mobile-studio-desc">Signatures, spine swell caliper, French link stitch</span>
         </button>
       </div>
     </dialog>

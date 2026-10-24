@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3918,7 +3918,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     cnc: "CNC Machining & Milling Studio",
     blacksmith: "Blacksmithing & Bladesmithing Studio",
     fasteners: "Fasteners & Machining Drills",
-    glass: "Stained Glass & Copper Foil Studio"
+    glass: "Stained Glass & Copper Foil Studio",
+    jewelry: "Jewelry Making & Metalsmithing",
+    bookbinding: "Bookbinding & Printmaking Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3958,6 +3960,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "blacksmith") renderBlacksmithView();
   if (targetView === "fasteners") renderFastenersView();
   if (targetView === "glass") renderGlassView();
+  if (targetView === "jewelry") renderJewelryView();
+  if (targetView === "bookbinding") renderBookbindingView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -7101,6 +7105,34 @@ const WORKSHOP_STARTER_KITS = {
       { type: "material", name: "60/40 Tin/Lead Solid Wire Solder 1/8\" (1 lb Spool)", category: "Stained Glass, Foil & Came", quantity: 2, unit: "lbs", price: 18.50, cost: 37.00, lowStockThreshold: 1, location: "Solder Caddy", supplier: "Canfield", notes: "Melting range 361°F-374°F; delivers high rounded decorative Tiffany beads" },
       { type: "material", name: "Venture Black-Backed Copper Foil Tape 7/32\" (36 yd roll)", category: "Stained Glass, Foil & Came", quantity: 2, unit: "rolls", price: 11.50, cost: 23.00, lowStockThreshold: 1, location: "Foil Dispenser", supplier: "Venture Tape", notes: "Standard width for 3mm glass; black adhesive backing matches dark patina" },
       { type: "material", name: "Novacan Black Patina for Solder & Lead (8 oz Bottle)", category: "Finishes & Adhesives", quantity: 1, unit: "bottle", price: 9.50, cost: 9.50, lowStockThreshold: 1, location: "Chemical Finish Shelf", supplier: "Novacan", notes: "Neutralize flux with baking soda wash before applying patina" }
+    ]
+  },
+  jewelry: {
+    title: "Artisan Jewelry & Metalsmithing Kit",
+    icon: "💍",
+    category: "Precious Metals & Gemstones",
+    description: "German jeweler's saw frame, Swiss saw blades, steel ring mandrel, rawhide mallet, sterling silver sheet, and Battern's flux.",
+    items: [
+      { type: "equipment", name: "German Adjustable Jeweler's Saw Frame 3\" Depth", category: "Hand Tools & Measuring", brand: "Grobet USA", cost: 24.50, condition: "operational", location: "Jewelry Bench Drawer", specs: "Thumbscrew tensioning · hardened steel clamp plates", notes: "Ping blade for high C note pitch; teeth must face forward and down toward handle" },
+      { type: "equipment", name: "Swiss Made Piercing Saw Blades #2/0 (Pack of 12)", category: "Hand Tools & Measuring", brand: "Pike / Vallorbe", cost: 8.50, condition: "operational", location: "Blade Tube Caddy", specs: "56 TPI · 0.26mm thickness", notes: "Lubricate blade frequently with beeswax or BurLife to prevent breakage" },
+      { type: "equipment", name: "Hardened Steel Graduated Ring Mandrel (Sizes 1-15)", category: "Hand Tools & Measuring", brand: "EuroTool", cost: 32.00, condition: "operational", location: "Anvil Block", specs: "Smooth mirror polish · quarter size markings", notes: "Never strike steel mandrel with steel hammer; use rawhide or wood mallet" },
+      { type: "equipment", name: "Weighted Rawhide Mallet (Size 1)", category: "Hand Tools & Measuring", brand: "Garland", cost: 22.00, condition: "operational", location: "Hammer Rack", specs: "Water buffalo rawhide roll", notes: "Shapes ring bands and wire without marring precious metal surfaces" },
+      { type: "material", name: "Sterling Silver 925 Sheet 18-Gauge (6\" x 2\" Dead Soft)", category: "Precious Metals & Gemstones", quantity: 1, unit: "sheet", price: 42.00, cost: 42.00, lowStockThreshold: 1, location: "Precious Metal Safe", supplier: "Rio Grande", notes: "Dead soft state ready for piercing, texturing, and doming" },
+      { type: "material", name: "Battern's Liquid Soldering Flux (7 oz Bottle)", category: "Finishes & Adhesives", quantity: 1, unit: "bottle", price: 8.50, cost: 8.50, lowStockThreshold: 1, location: "Soldering Station", supplier: "Rio Grande", notes: "Self-pickling liquid flux for gold and silver hard soldering" }
+    ]
+  },
+  bookbinding: {
+    title: "Hand Bookbinding & Relief Print Kit",
+    icon: "📖",
+    category: "Bookbinding, Paper & Inks",
+    description: "Natural cattle bone folder, Irish waxed linen thread, Davey binder's board, acid-free PVA glue, and Caligo Safe Wash relief ink.",
+    items: [
+      { type: "equipment", name: "Genuine Cattle Bone Folder 6\" Pointed", category: "Hand Tools & Measuring", brand: "Lineco", cost: 14.50, condition: "operational", location: "Bookbinding Caddy", specs: "Hand polished natural ox bone", notes: "Smooth rounded edge for creasing signatures; pointed tip for scoring hinges" },
+      { type: "equipment", name: "Bookbinder's Heavy Piercing Awl with Wood Handle", category: "Hand Tools & Measuring", brand: "Talas", cost: 12.00, condition: "operational", location: "Awl Holder", specs: "Hardened needle point · tapered brass ferrule", notes: "Pierce sewing station holes inside cradle guide for true alignment" },
+      { type: "equipment", name: "Speedball 4\" Soft Rubber Brayer (40 Durometer)", category: "Hand Tools & Measuring", brand: "Speedball", cost: 18.00, condition: "operational", location: "Print Bench", specs: "Natural rubber roller · steel frame", notes: "Store hung or resting on built-in stand; never rest rubber flat on bench" },
+      { type: "material", name: "Unbleached Irish Waxed Linen Thread 25/3 (50m Spool)", category: "Bookbinding, Paper & Inks", quantity: 1, unit: "spool", price: 16.00, cost: 16.00, lowStockThreshold: 1, location: "Thread Box", supplier: "Crawford", notes: "Pure 3-ply linen lightly pre-waxed for smooth gliding without paper tear" },
+      { type: "material", name: "Davey Red Label Binder's Board #20 (0.082\" / 2.1mm - 3 sheets)", category: "Bookbinding, Paper & Inks", quantity: 3, unit: "sheets", price: 6.50, cost: 19.50, lowStockThreshold: 1, location: "Flat Board Drawer", supplier: "Davey Co", notes: "High-density acid-free board; grain direction must run parallel to spine" },
+      { type: "material", name: "Lineco Neutral pH Archival PVA Book Adhesive (16 oz)", category: "Finishes & Adhesives", quantity: 1, unit: "bottle", price: 13.50, cost: 13.50, lowStockThreshold: 1, location: "Glue Caddy", supplier: "Lineco", notes: "Flexible lay-flat dry film; mixes 1:1 with methyl cellulose for extended working open time" }
     ]
   }
 };
@@ -10759,6 +10791,22 @@ async function handleAction(action, target) {
   }
   if (action === "add-glass-supplies") {
     void addGlassSupplies();
+    return;
+  }
+  if (action === "copy-jewelry-specs") {
+    copyJewelrySpecs();
+    return;
+  }
+  if (action === "add-jewelry-supplies") {
+    void addJewelrySupplies();
+    return;
+  }
+  if (action === "copy-bookbinding-specs") {
+    copyBookbindingSpecs();
+    return;
+  }
+  if (action === "add-bookbinding-supplies") {
+    void addBookbindingSupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -31790,6 +31838,527 @@ function renderGlassView() {
   updateGlassScore();
 }
 
+// ============================================================
+// 💍 Jewelry Making & Metalsmithing Studio Calculations
+// ============================================================
+const JEWELRY_RING_DATA = {
+  "4": { us: 4, dia: 14.9, circ: 46.8, uk: "H", eu: 47, jp: 7 },
+  "5": { us: 5, dia: 15.7, circ: 49.3, uk: "J 1/2", eu: 49, jp: 9 },
+  "6": { us: 6, dia: 16.5, circ: 51.9, uk: "M", eu: 52, jp: 11 },
+  "7": { us: 7, dia: 17.3, circ: 54.4, uk: "O", eu: 54, jp: 14 },
+  "8": { us: 8, dia: 18.1, circ: 57.0, uk: "Q", eu: 57, jp: 16 },
+  "9": { us: 9, dia: 19.0, circ: 59.5, uk: "S", eu: 60, jp: 18 },
+  "10": { us: 10, dia: 19.8, circ: 62.2, uk: "T 1/2", eu: 62, jp: 20 },
+  "11": { us: 11, dia: 20.6, circ: 64.7, uk: "V 1/2", eu: 65, jp: 23 },
+  "12": { us: 12, dia: 21.4, circ: 67.2, uk: "Y", eu: 67, jp: 25 },
+  "13": { us: 13, dia: 22.2, circ: 69.7, uk: "Z+1", eu: 70, jp: 27 }
+};
+
+function copyJewelrySpecs() {
+  const ringText = $("#jewelry-ring-result")?.innerText || "";
+  const bezelText = $("#jewelry-bezel-result")?.innerText || "";
+  const castText = $("#jewelry-casting-result")?.innerText || "";
+  const solderText = $("#jewelry-soldering-result")?.innerText || "";
+  const text = `💍 JEWELRY MAKING & METALSMITHING SPEC SHEET\n\n${ringText}\n\n${bezelText}\n\n${castText}\n\n${solderText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Jewelry Specs to clipboard!"));
+}
+
+async function addJewelrySupplies() {
+  const alloy = $("#jewelry-cast-metal option:checked")?.textContent.split("(")[0].trim() || "Sterling Silver 925";
+  await addMaterialToProjectShopping(`${alloy} Wire & Sheet Stock Assortment`, "1 pack", 38.00, "Precious Metals & Gemstones");
+}
+
+function updateJewelryRing() {
+  const sizeKey = $("#jewelry-ring-size")?.value || "7";
+  const metalThick = parseFloat($("#jewelry-metal-thick")?.value) || 1.3;
+  const bandWidth = parseFloat($("#jewelry-band-width")?.value) || 4;
+  const res = $("#jewelry-ring-result");
+  if (!res) return;
+
+  const ringInfo = JEWELRY_RING_DATA[sizeKey] || JEWELRY_RING_DATA["7"];
+
+  // Band width size adjustment: wide bands compress tissue, requiring stepped up size
+  let adjustedDia = ringInfo.dia;
+  let widthNote = "Standard fit";
+  if (bandWidth >= 6 && bandWidth < 8) {
+    adjustedDia += 0.2; // approx 1/4 size
+    widthNote = "Wide band (+0.25 US size compensation)";
+  } else if (bandWidth >= 8 && bandWidth < 10) {
+    adjustedDia += 0.4; // approx 1/2 size
+    widthNote = "Extra wide band (+0.50 US size compensation)";
+  } else if (bandWidth >= 10) {
+    adjustedDia += 0.6; // approx 3/4 size
+    widthNote = "Cigar band (+0.75 US size compensation)";
+  }
+
+  // Neutral bend axis formula: Length = PI * (Inner Diameter + Metal Thickness) + 0.25mm saw kerf
+  const blankLengthMm = Math.PI * (adjustedDia + metalThick) + 0.25;
+  const blankLengthIn = (blankLengthMm / 25.4).toFixed(3);
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Cut Blank Strip Length</span>
+        <span class="value" style="color:var(--primary)">${blankLengthMm.toFixed(1)} mm</span>
+        <div class="hint">${blankLengthIn}" flat strip (incl. saw kerf)</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Mandrel Inner Diameter</span>
+        <span class="value">${adjustedDia.toFixed(1)} mm</span>
+        <div class="hint">Circumference: ${(Math.PI * adjustedDia).toFixed(1)} mm</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">International Sizes</span>
+        <span class="value" style="font-size:13px">UK ${ringInfo.uk} • EU ${ringInfo.eu}</span>
+        <div class="hint">Japan/Asia Size: ${ringInfo.jp}</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Band Comfort Fit</span>
+        <span class="value" style="font-size:13px">${bandWidth} mm Width</span>
+        <div class="hint">${widthNote}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📏 <strong>Neutral Bend Axis:</strong> When bending metal into a ring, the inside face compresses while the outside face stretches. The neutral axis lies in the middle (Inner Dia + Thickness).<br>
+      🔨 <strong>Joint Prep:</strong> File both ends dead square before bending. When ends meet on the mandrel, snap-pass a jeweler's saw blade through the joint seam for light-tight, flush solder alignment!
+    </div>
+  `;
+}
+
+function updateJewelryBezel() {
+  const shape = $("#jewelry-stone-shape")?.value || "oval";
+  const len = Math.max(2, parseFloat($("#jewelry-stone-len")?.value) || 18);
+  const width = Math.max(2, parseFloat($("#jewelry-stone-width")?.value) || 13);
+  const height = Math.max(1, parseFloat($("#jewelry-stone-height")?.value) || 5);
+  const res = $("#jewelry-bezel-result");
+  if (!res) return;
+
+  // Perimeter calculation
+  let perimeter = 0;
+  if (shape === "round") {
+    perimeter = Math.PI * len;
+  } else if (shape === "oval") {
+    // Ramanujan approximation for ellipse perimeter
+    const a = len / 2;
+    const b = width / 2;
+    const hR = Math.pow(a - b, 2) / Math.pow(a + b, 2);
+    perimeter = Math.PI * (a + b) * (1 + (3 * hR) / (10 + Math.sqrt(4 - 3 * hR)));
+  } else {
+    // Rectangle / Cushion
+    perimeter = (len * 2) + (width * 2) - 1.0; // corner radius deduction
+  }
+
+  // Bezel cut length: perimeter + 0.5mm overlap joint
+  const bezelCutMm = perimeter + 0.5;
+
+  // Recommended bezel wall height: 65% of stone dome height
+  const recBezelHeightMm = (height * 0.65).toFixed(1);
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Bezel Wire Cut Length</span>
+        <span class="value" style="color:var(--primary)">${bezelCutMm.toFixed(1)} mm</span>
+        <div class="hint">Includes +0.5 mm overlap joint</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Recommended Bezel Height</span>
+        <span class="value">${recBezelHeightMm} mm</span>
+        <div class="hint">65% of ${height} mm dome height</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Stone Perimeter</span>
+        <span class="value">${perimeter.toFixed(1)} mm</span>
+        <div class="hint">Exact circumference / border</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Recommended Bezel Wire</span>
+        <span class="value" style="font-size:13px">26 – 28 Gauge</span>
+        <div class="hint">0.4 mm Fine Silver (999) dead-soft</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      💎 <strong>Setting Best Practice:</strong> Use Fine Silver (.999) rather than Sterling (.925) for bezel tape. Fine silver does not work-harden rapidly and pushes smoothly over cabochon edges without spring-back.<br>
+      ⚠️ <strong>Fragile Stones:</strong> Opals (Mohs 5.5) and Turquoise (Mohs 5–6) are heat and shock sensitive. Never solder near set stones; burnish bezel gently with polished agate or brass pusher.
+    </div>
+  `;
+}
+
+function updateJewelryCasting() {
+  const waxGrams = Math.max(0.01, parseFloat($("#jewelry-wax-weight")?.value) || 1.2);
+  const alloyKey = $("#jewelry-cast-metal")?.value || "14k";
+  const res = $("#jewelry-casting-result");
+  if (!res) return;
+
+  const alloyData = {
+    "14k": { mult: 13.0, name: "14K Yellow Gold", density: "13.07 g/cm³", melt: "1550°F (843°C)", comp: "58.5% Au · 25% Ag · 16.5% Cu" },
+    "18k": { mult: 15.5, name: "18K Yellow Gold", density: "15.58 g/cm³", melt: "1680°F (915°C)", comp: "75.0% Au · 15% Ag · 10% Cu" },
+    "sterling": { mult: 10.4, name: "Sterling Silver 925", density: "10.36 g/cm³", melt: "1640°F (893°C)", comp: "92.5% Ag · 7.5% Cu" },
+    "fine-silver": { mult: 10.5, name: "Fine Silver 999", density: "10.49 g/cm³", melt: "1763°F (961°C)", comp: "99.9% Pure Ag" },
+    "platinum": { mult: 21.5, name: "Platinum 950", density: "21.45 g/cm³", melt: "3215°F (1768°C)", comp: "95% Pt · 5% Ru/Ir" },
+    "bronze": { mult: 8.5, name: "Jeweler's Bronze / Brass", density: "8.50 g/cm³", melt: "1800°F (982°C)", comp: "90% Cu · 10% Zn" }
+  };
+
+  const item = alloyData[alloyKey] || alloyData["14k"];
+  const castGrams = waxGrams * item.mult;
+  const sprueGrams = castGrams * 0.25; // 25% button sprue reserve
+  const totalMeltGrams = castGrams + sprueGrams;
+  const totalOz = totalMeltGrams / 31.1035; // Troy ounces
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Cast Part Metal Weight</span>
+        <span class="value" style="color:var(--primary)">${castGrams.toFixed(2)} g</span>
+        <div class="hint">${item.mult}× wax multiplier</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Total Melt Charge (+Sprue)</span>
+        <span class="value">${totalMeltGrams.toFixed(2)} g</span>
+        <div class="hint">${totalOz.toFixed(2)} Troy Oz (incl. 25% button)</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Liquidus Melt Temp</span>
+        <span class="value">${item.melt}</span>
+        <div class="hint">Centrifugal / vacuum cast</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Alloy Purity</span>
+        <span class="value" style="font-size:12px">${item.comp.split('·')[0]}</span>
+        <div class="hint">${item.density}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ⚖️ <strong>Casting Rule:</strong> Always melt at least <strong>25% extra metal</strong> for the crucible button and sprue reservoir. The molten button supplies liquid metal to feed shrinking casting cavities during solidification.
+    </div>
+  `;
+}
+
+function updateJewelrySoldering() {
+  const metal = $("#jewelry-solder-base")?.value || "silver";
+  const stage = $("#jewelry-solder-stage")?.value || "hard";
+  const res = $("#jewelry-soldering-result");
+  if (!res) return;
+
+  const solderData = {
+    silver: {
+      hard: { flowF: "1450°F (788°C)", meltF: "1365°F (740°C)", desc: "Stage 1: Primary structural join. Use for ring band butt seams, bezel joins, and master frames." },
+      medium: { flowF: "1360°F (738°C)", meltF: "1275°F (691°C)", desc: "Stage 2: Secondary joins. Use for soldering bezel cup to baseplate or adding ring shanks." },
+      easy: { flowF: "1325°F (718°C)", meltF: "1240°F (671°C)", desc: "Stage 3: Detail work. Use for earring posts, decorative granules, and bail loops." },
+      "extra-easy": { flowF: "1205°F (651°C)", meltF: "1145°F (618°C)", desc: "Stage 4: Final repair and closing jump rings. Low heat avoids disturbing previous joints." }
+    },
+    "gold-14k": {
+      hard: { flowF: "1530°F (832°C)", meltF: "1480°F (804°C)", desc: "Stage 1: Ring resizing and main head structural assemblies." },
+      medium: { flowF: "1460°F (793°C)", meltF: "1410°F (766°C)", desc: "Stage 2: Setting mountings, shoulder accents, and gallery wire." },
+      easy: { flowF: "1390°F (754°C)", meltF: "1340°F (727°C)", desc: "Stage 3: Post findings, safety chains, and final prong assembly." },
+      "extra-easy": { flowF: "1310°F (710°C)", meltF: "1260°F (682°C)", desc: "Stage 4: Sizing rings with heat-sensitive diamonds or sapphires nearby." }
+    },
+    brass: {
+      hard: { flowF: "1450°F (788°C)", meltF: "1365°F (740°C)", desc: "Silver hard solder provides high shear strength for brass/copper art metalwork." },
+      medium: { flowF: "1360°F (738°C)", meltF: "1275°F (691°C)", desc: "Silver medium solder for secondary vessel or hollowware components." },
+      easy: { flowF: "1325°F (718°C)", meltF: "1240°F (671°C)", desc: "Silver easy solder for hinges and surface appliqués." },
+      "extra-easy": { flowF: "1205°F (651°C)", meltF: "1145°F (618°C)", desc: "Quick repair solder to prevent melting thin copper wire filigree." }
+    }
+  };
+
+  const item = solderData[metal]?.[stage] || solderData.silver.hard;
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Solder Flow Temperature</span>
+        <span class="value" style="color:var(--primary)">${item.flowF}</span>
+        <div class="hint">Melts @ ${item.meltF}</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Soldering Stage</span>
+        <span class="value" style="font-size:13px">${stage.toUpperCase()} SOLDER</span>
+        <div class="hint">Step hierarchy protection</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Torch Flame Setting</span>
+        <span class="value" style="font-size:13px">Soft Bushy Flame</span>
+        <div class="hint">Heat entire piece; don't torch seam alone</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Flux Recommendation</span>
+        <span class="value" style="font-size:13px">Battern's / Handy Paste</span>
+        <div class="hint">Prevents oxide barrier on metal</div>
+      </div>
+    </div>
+
+    <div class="jewelry-stage-step">
+      <div class="jewelry-stage-num">✓</div>
+      <div>
+        <strong>Application Guide:</strong> ${item.desc}<br>
+        🧪 <strong>Pickle Safety Rule:</strong> Use copper, brass, or wooden tongs ONLY in the pickle bath (Sparex or citric acid). Dipping steel or iron tweezers into the pickle causes an electrochemical reaction that flash-plates copper onto every piece of silver in the bath!
+      </div>
+    </div>
+  `;
+}
+
+function renderJewelryView() {
+  updateJewelryRing();
+  updateJewelryBezel();
+  updateJewelryCasting();
+  updateJewelrySoldering();
+}
+
+// ============================================================
+// 📖 Bookbinding & Printmaking Studio Calculations
+// ============================================================
+function copyBookbindingSpecs() {
+  const sigText = $("#book-signatures-result")?.innerText || "";
+  const spineText = $("#book-spine-result")?.innerText || "";
+  const stitchText = $("#book-stitching-result")?.innerText || "";
+  const printText = $("#book-print-result")?.innerText || "";
+  const text = `📖 BOOKBINDING & PRINTMAKING SPEC SHEET\n\n${sigText}\n\n${spineText}\n\n${stitchText}\n\n${printText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Bookbinding Specs to clipboard!"));
+}
+
+async function addBookbindingSupplies() {
+  await addMaterialToProjectShopping("Irish Waxed Linen Thread & Davey Board Pack", "1 set", 28.50, "Bookbinding, Paper & Inks");
+}
+
+function updateBookSignatures() {
+  const totalPages = Math.max(8, parseInt($("#book-total-pages")?.value, 10) || 160);
+  const format = $("#book-imposition-format")?.value || "octavo";
+  const endpaper = $("#book-endpaper-style")?.value || "separate";
+  const res = $("#book-signatures-result");
+  if (!res) return;
+
+  const formatData = {
+    octavo: { ppPerSig: 16, leaves: 8, sheets: 4, name: "Octavo 8vo", folds: "3 right-angle folds" },
+    quarto: { ppPerSig: 8, leaves: 4, sheets: 2, name: "Quarto 4to", folds: "2 folds" },
+    folio: { ppPerSig: 4, leaves: 2, sheets: 1, name: "Folio", folds: "1 single center fold" },
+    sexto: { ppPerSig: 32, leaves: 16, sheets: 8, name: "16mo", folds: "4 folds" }
+  };
+
+  const fmt = formatData[format] || formatData.octavo;
+  const numSignatures = Math.ceil(totalPages / fmt.ppPerSig);
+  const adjustedTotalPages = numSignatures * fmt.ppPerSig;
+  const blankRemainderPages = adjustedTotalPages - totalPages;
+  const totalLeaves = adjustedTotalPages / 2;
+  const parentSheets = numSignatures * fmt.sheets;
+
+  let endpaperNote = "Separate Folio: Cut 2 double-leaf folded folios (1 front + 1 back) out of heavy 120 gsm decorative or archival paper.";
+  if (endpaper === "integral") {
+    endpaperNote = "Integral Endpapers: Use first leaf of Sig 1 and last leaf of final Sig as paste-downs. (Saves 4 book pages).";
+  } else if (endpaper === "tipped") {
+    endpaperNote = "Tipped-on Endpaper: Glue a 1/8\" strip along the spine edge of the outer signatures.";
+  }
+
+  res.innerHTML = `
+    <div class="book-spec-grid">
+      <div class="book-stat-card">
+        <span class="label">Number of Signatures</span>
+        <span class="value" style="color:var(--primary)">${numSignatures} Signatures</span>
+        <div class="hint">${fmt.ppPerSig} pages (${fmt.leaves} leaves) each</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Total Text Block Sheets</span>
+        <span class="value">${parentSheets} Sheets</span>
+        <div class="hint">${fmt.sheets} folded sheets per signature</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Imposition Math</span>
+        <span class="value">${adjustedTotalPages} Pages</span>
+        <div class="hint">${blankRemainderPages > 0 ? `${blankRemainderPages} blank end notes pages` : 'Zero remainder waste'}</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Text Leaves / Folios</span>
+        <span class="value">${totalLeaves} Leaves</span>
+        <div class="hint">Total thickness base</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📖 <strong>Endpaper Protocol:</strong> ${endpaperNote}<br>
+      🌾 <strong>Paper Grain Direction:</strong> The paper grain of every sheet MUST run <strong>parallel to the spine</strong> (head-to-tail). Grain running across the spine creates wavy, buckling pages and stiff opening resistance!
+    </div>
+  `;
+}
+
+function updateBookSpine() {
+  const totalPages = Math.max(8, parseInt($("#book-total-pages")?.value, 10) || 160);
+  const caliperMm = parseFloat($("#book-paper-caliper")?.value) || 0.13;
+  const boardMm = parseFloat($("#book-board-grade")?.value) || 2.1;
+  const pageW = Math.max(2, parseFloat($("#book-page-w")?.value) || 5.5);
+  const pageH = Math.max(3, parseFloat($("#book-page-h")?.value) || 8.5);
+  const res = $("#book-spine-result");
+  if (!res) return;
+
+  const totalLeaves = totalPages / 2;
+  const rawSpineMm = totalLeaves * caliperMm;
+  const swellAllowanceMm = rawSpineMm * 0.18; // 18% sewing thread swell
+  const totalSpineMm = rawSpineMm + swellAllowanceMm;
+  const totalSpineIn = (totalSpineMm / 25.4).toFixed(3);
+
+  // Board dimensions (in inches):
+  // Board height: Page height + 2 * square margin (3.5 mm = 0.138 in)
+  const squareMarginIn = 0.138;
+  const boardHIn = (pageH + (2 * squareMarginIn)).toFixed(2);
+
+  // Board width: Page width - joint gap (3.0 mm = 0.118 in) + square margin (0.138 in)
+  const jointGapIn = 0.118;
+  const boardWIn = (pageW - jointGapIn + squareMarginIn).toFixed(2);
+
+  // Spine stiffener inlay strip:
+  const spineInlayWIn = ((totalSpineMm + 1.0) / 25.4).toFixed(2);
+
+  // Book cloth wrap cutting size (includes 3/4" = 0.75" turn-in margin on all 4 edges):
+  const clothWIn = ((parseFloat(boardWIn) * 2) + parseFloat(spineInlayWIn) + (jointGapIn * 2) + (0.75 * 2)).toFixed(2);
+  const clothHIn = (parseFloat(boardHIn) + (0.75 * 2)).toFixed(2);
+
+  res.innerHTML = `
+    <div class="book-spec-grid">
+      <div class="book-stat-card">
+        <span class="label">Total Spine Thickness</span>
+        <span class="value" style="color:var(--primary)">${totalSpineMm.toFixed(1)} mm</span>
+        <div class="hint">${totalSpineIn}" (incl. 18% sewing swell)</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Davey Board Cut Size (2×)</span>
+        <span class="value">${boardWIn}" × ${boardHIn}"</span>
+        <div class="hint">Includes 1/8" (3.5 mm) squares</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Spine Stiffener Inlay</span>
+        <span class="value">${spineInlayWIn}" × ${boardHIn}"</span>
+        <div class="hint">Spine width + 1 mm clearance</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Book Cloth Cut Size</span>
+        <span class="value">${clothWIn}" × ${clothHIn}"</span>
+        <div class="hint">Includes 3/4" turn-in margins</div>
+      </div>
+    </div>
+
+    <div class="book-cut-summary">
+      📐 <strong>Case Construction Layout:</strong><br>
+      • <strong>Hinge Joint Gap:</strong> Leave a <strong>${(jointGapIn * 25.4).toFixed(1)} mm (~1/8") gap</strong> between the spine inlay and the cover boards on each side. This allows the boards to swing open freely without binding against the spine.<br>
+      • <strong>Corner Turn-in Trim:</strong> Cut book cloth corners at 45° leaving <strong>1.5× the board thickness (~3.0 mm)</strong> from the board corner to prevent exposed gray board tips when folded!
+    </div>
+  `;
+}
+
+function updateBookStitching() {
+  const pageH = Math.max(3, parseFloat($("#book-page-h")?.value) || 8.5);
+  const totalPages = Math.max(8, parseInt($("#book-total-pages")?.value, 10) || 160);
+  const format = $("#book-imposition-format")?.value || "octavo";
+  const style = $("#book-stitch-style")?.value || "french-link";
+  const threadWeight = $("#book-thread-weight")?.value || "25/3";
+  const res = $("#book-stitching-result");
+  if (!res) return;
+
+  const ppPerSig = format === "octavo" ? 16 : (format === "quarto" ? 8 : (format === "folio" ? 4 : 32));
+  const numSignatures = Math.ceil(totalPages / ppPerSig);
+
+  // Thread length formula: (height * signatures) + reserve
+  const heightIn = pageH;
+  let multiplier = 1.0;
+  if (style === "french-link" || style === "coptic") multiplier = 1.35; // link loop consumes extra thread
+  if (style === "long-stitch") multiplier = 1.6;
+
+  const threadInches = (heightIn * numSignatures * multiplier) + (heightIn * 2);
+  const threadFeet = (threadInches / 12).toFixed(1);
+  const threadMeters = (parseFloat(threadFeet) * 0.3048).toFixed(1);
+
+  // Number of sewing stations recommended for book height
+  let stations = 4;
+  if (heightIn >= 7 && heightIn < 10) stations = 5;
+  if (heightIn >= 10) stations = 6;
+
+  res.innerHTML = `
+    <div class="book-spec-grid">
+      <div class="book-stat-card">
+        <span class="label">Linen Thread Length</span>
+        <span class="value" style="color:var(--primary)">${threadFeet} ft</span>
+        <div class="hint">${threadMeters} meters continuous uncut</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Sewing Stations</span>
+        <span class="value">${stations} Stations</span>
+        <div class="hint">Incl. 2 kettle stitch stations</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Linen Thread Weight</span>
+        <span class="value">${threadWeight}</span>
+        <div class="hint">Unbleached Irish bookbinding linen</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Needle Size</span>
+        <span class="value" style="font-size:13px">Size 18 / 20 Blunt</span>
+        <div class="hint">John James tapestry needle</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🕯️ <strong>Thread Waxing:</strong> Pull the linen thread twice through a block of natural beeswax, then draw it through your thumb and forefinger with an old cloth to press wax into the fibers. This prevents knotting, tangling, and slicing paper during tension pulls!
+    </div>
+  `;
+}
+
+function updateBookPrint() {
+  const ink = $("#book-ink-type")?.value || "oil-safe";
+  const paper = $("#book-print-paper")?.value || "kitakata";
+  const medium = $("#book-block-medium")?.value || "battleship";
+  const res = $("#book-print-result");
+  if (!res) return;
+
+  const inkData = {
+    "oil-safe": { dryTime: "24 – 48 Hours", clean: "Warm water + dish soap (Zero mineral spirits)", body: "Dense luminous viscosity; professional artist grade" },
+    "oil-traditional": { dryTime: "3 – 5 Days", clean: "Vegetable oil followed by odorless mineral spirits", body: "Slowest drying; maximum open working time for multi-color reduction prints" },
+    "water-based": { dryTime: "20 – 40 Minutes", clean: "Cold tap water instantly", body: "Dries rapidly; prone to drying on brayer slab if not printed promptly" }
+  }[ink];
+
+  const paperData = {
+    "kitakata": { gsm: "36 gsm", pressure: "Light to moderate hand baren pressure", note: "Long kozo fibers absorb oil evenly without fiber bleed" },
+    "hosho": { gsm: "85 gsm", pressure: "Firm bamboo baren pressure", note: "Traditional Japanese woodblock paper; silky absorbent face" },
+    "rives": { gsm: "280 gsm", pressure: "Heavy lever / cylinder etching press pressure", note: "100% cotton rag; dampening recommended before printing heavy solids" }
+  }[paper];
+
+  res.innerHTML = `
+    <div class="book-spec-grid">
+      <div class="book-stat-card">
+        <span class="label">Estimated Ink Dry Time</span>
+        <span class="value" style="color:var(--primary)">${inkData.dryTime}</span>
+        <div class="hint">${ink.toUpperCase()} cure rate</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Paper Weight &amp; Impression</span>
+        <span class="value">${paperData.gsm}</span>
+        <div class="hint">${paperData.pressure}</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Cleanup Solvent</span>
+        <span class="value" style="font-size:12px">${inkData.clean.split('(')[0]}</span>
+        <div class="hint">Studio cleanup protocol</div>
+      </div>
+      <div class="book-stat-card">
+        <span class="label">Audio Texture Cue</span>
+        <span class="value" style="font-size:13px">"Sizzling Bacon"</span>
+        <div class="hint">Optimal velvet orange peel on slab</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🎨 <strong>The Golden Audio Cue:</strong> When rolling ink on the glass slab, listen for a soft, velvety hiss (often compared to gentle sizzling bacon). If the brayer sounds loud and suction-heavy, you have too much ink and will fill in fine linocut details. If silent, there is insufficient ink film for solid coverage!<br>
+      📜 <strong>Paper Face:</strong> ${paperData.note}
+    </div>
+  `;
+}
+
+function renderBookbindingView() {
+  updateBookSignatures();
+  updateBookSpine();
+  updateBookStitching();
+  updateBookPrint();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -32508,6 +33077,34 @@ function initCraftStudios() {
   ["#glass-thickness", "#glass-foil-width", "#glass-foil-backing", "#glass-foil-mil"].forEach(s => $(s)?.addEventListener("change", updateGlassFoil));
   ["#glass-patina-target", "#glass-flux-type"].forEach(s => $(s)?.addEventListener("change", updateGlassPatina));
   ["#glass-score-sheet", "#glass-score-shape", "#glass-score-oil"].forEach(s => $(s)?.addEventListener("change", updateGlassScore));
+
+  // Jewelry Making & Metalsmithing Studio Listeners
+  renderJewelryView();
+  ["#jewelry-ring-size", "#jewelry-metal-thick", "#jewelry-band-width"].forEach(s => $(s)?.addEventListener("change", updateJewelryRing));
+  ["#jewelry-stone-len", "#jewelry-stone-width", "#jewelry-stone-height"].forEach(s => $(s)?.addEventListener("input", updateJewelryBezel));
+  $("#jewelry-stone-shape")?.addEventListener("change", updateJewelryBezel);
+  $("#jewelry-wax-weight")?.addEventListener("input", updateJewelryCasting);
+  $("#jewelry-cast-metal")?.addEventListener("change", updateJewelryCasting);
+  ["#jewelry-solder-base", "#jewelry-solder-stage"].forEach(s => $(s)?.addEventListener("change", updateJewelrySoldering));
+
+  // Bookbinding & Printmaking Studio Listeners
+  renderBookbindingView();
+  $("#book-total-pages")?.addEventListener("input", () => {
+    updateBookSignatures();
+    updateBookSpine();
+    updateBookStitching();
+  });
+  ["#book-imposition-format", "#book-endpaper-style"].forEach(s => $(s)?.addEventListener("change", () => {
+    updateBookSignatures();
+    updateBookStitching();
+  }));
+  ["#book-paper-caliper", "#book-board-grade"].forEach(s => $(s)?.addEventListener("change", updateBookSpine));
+  ["#book-page-w", "#book-page-h"].forEach(s => $(s)?.addEventListener("input", () => {
+    updateBookSpine();
+    updateBookStitching();
+  }));
+  ["#book-stitch-style", "#book-thread-weight"].forEach(s => $(s)?.addEventListener("change", updateBookStitching));
+  ["#book-ink-type", "#book-print-paper", "#book-block-medium"].forEach(s => $(s)?.addEventListener("change", updateBookPrint));
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();
