@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3920,7 +3920,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     fasteners: "Fasteners & Machining Drills",
     glass: "Stained Glass & Copper Foil Studio",
     jewelry: "Jewelry Making & Metalsmithing",
-    bookbinding: "Bookbinding & Printmaking Studio"
+    bookbinding: "Bookbinding & Printmaking Studio",
+    sla: "Resin 3D Printing (SLA / MSLA) Studio",
+    luthier: "Luthier & Instrument Building Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3962,6 +3964,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "glass") renderGlassView();
   if (targetView === "jewelry") renderJewelryView();
   if (targetView === "bookbinding") renderBookbindingView();
+  if (targetView === "sla") renderSlaView();
+  if (targetView === "luthier") renderLuthierView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -7133,6 +7137,32 @@ const WORKSHOP_STARTER_KITS = {
       { type: "material", name: "Unbleached Irish Waxed Linen Thread 25/3 (50m Spool)", category: "Bookbinding, Paper & Inks", quantity: 1, unit: "spool", price: 16.00, cost: 16.00, lowStockThreshold: 1, location: "Thread Box", supplier: "Crawford", notes: "Pure 3-ply linen lightly pre-waxed for smooth gliding without paper tear" },
       { type: "material", name: "Davey Red Label Binder's Board #20 (0.082\" / 2.1mm - 3 sheets)", category: "Bookbinding, Paper & Inks", quantity: 3, unit: "sheets", price: 6.50, cost: 19.50, lowStockThreshold: 1, location: "Flat Board Drawer", supplier: "Davey Co", notes: "High-density acid-free board; grain direction must run parallel to spine" },
       { type: "material", name: "Lineco Neutral pH Archival PVA Book Adhesive (16 oz)", category: "Finishes & Adhesives", quantity: 1, unit: "bottle", price: 13.50, cost: 13.50, lowStockThreshold: 1, location: "Glue Caddy", supplier: "Lineco", notes: "Flexible lay-flat dry film; mixes 1:1 with methyl cellulose for extended working open time" }
+    ]
+  },
+  sla: {
+    title: "SLA / MSLA Resin 3D Printing Studio Kit",
+    icon: "🧪",
+    category: "SLA Photopolymer Resin & Films",
+    description: "405nm Wash & Cure Station, chemical nitrile gloves, FEP release film, rapid grey photopolymer resin, and 190µm paint strainers.",
+    items: [
+      { type: "equipment", name: "Anycubic Wash & Cure 2.0 UV Machine (405nm)", category: "3D Printers & CNC", brand: "Anycubic", cost: 129.00, condition: "operational", location: "Resin Wash Station", specs: "Rotating 360° turntable · 405nm UV array", notes: "Always use sealed bucket with 99% IPA; wear eye protection" },
+      { type: "equipment", name: "Heavy Duty Chemical Nitrile Gloves 8-mil (Pack of 50)", category: "Safety Gear & PPE", brand: "Venom Steel", cost: 24.50, condition: "operational", location: "Safety Cabinet", specs: "8-mil dual layer chemical barrier", notes: "Mandatory for handling uncured resin and contaminated IPA wash baths" },
+      { type: "equipment", name: "Stainless Steel Resin Funnel & 190µm Mesh Strainer", category: "Hand Tools & Measuring", brand: "Elegoo", cost: 14.00, condition: "operational", location: "Resin Caddy", specs: "Washable stainless steel mesh", notes: "Filter cured chunks after every print failure before pouring back into bottle" },
+      { type: "material", name: "SLA Standard Rapid Photopolymer Resin 405nm Grey (1000g)", category: "SLA Photopolymer Resin & Films", quantity: 1, unit: "bottle", price: 28.00, cost: 28.00, lowStockThreshold: 1, location: "Dark Chemistry Cabinet", supplier: "Elegoo", notes: "Shake bottle 2 minutes before pouring; optimal print temperature 23°C-28°C" },
+      { type: "material", name: "FEP 2.0 (PFA / nFEP) Release Film Sheets 0.15mm (5-pack)", category: "SLA Photopolymer Resin & Films", quantity: 5, unit: "sheets", price: 4.80, cost: 24.00, lowStockThreshold: 2, location: "SLA Spares Drawer", supplier: "Phrozen", notes: "Tension like a drumhead (~300-350 Hz bottle cap spacer tap) when tightening vat ring" }
+    ]
+  },
+  luthier: {
+    title: "Luthier & Guitar Building Studio Kit",
+    icon: "🎸",
+    category: "Luthier Tonewoods, Frets & Parts",
+    description: "Japanese fret slotting saw with depth stop, StewMac fret rocker, dual-action truss rod, pre-radiused 18% nickel-silver fretwire, and bone blanks.",
+    items: [
+      { type: "equipment", name: "Japanese Fret Slotting Pull Saw 0.023\" Kerf", category: "Hand Tools & Measuring", brand: "StewMac", cost: 42.50, condition: "operational", location: "Luthier Tool Wall", specs: "0.023\" / 0.58mm slot width with clear acrylic depth stop", notes: "Cuts on pull stroke; stop depth at 2.5mm for standard fret tang" },
+      { type: "equipment", name: "Precision Stainless Steel Fret Rocker (4 Edge Lengths)", category: "Hand Tools & Measuring", brand: "StewMac", cost: 28.00, condition: "operational", location: "Bench Drawer 1", specs: "Ground flat to ±0.00015\" tolerance", notes: "Spans 3 frets at once to instantly pinpoint high frets causing string buzz" },
+      { type: "equipment", name: "Two-Way Dual-Action Guitar Truss Rod (460mm / 18.1\")", category: "Hand Tools & Measuring", brand: "Gotoh", cost: 18.50, condition: "operational", location: "Neck Parts Drawer", specs: "Dual action push-pull 4mm allen wrench drive", notes: "Wraps in kapton tape before epoxy filler strip install; provides convex and concave neck relief" },
+      { type: "material", name: "Hard Nickel-Silver Fretwire Medium/Higher (24 Pre-Radiused Pieces)", category: "Luthier Tonewoods, Frets & Parts", quantity: 24, unit: "pcs", price: 0.80, cost: 19.20, lowStockThreshold: 6, location: "Fret Tube 1", supplier: "Jescar", notes: "18% Nickel-Silver alloy · 0.023\" tang with barbed retention studs" },
+      { type: "material", name: "Unbleached Dense Cattle Bone Nut & Saddle Blanks (6 pcs)", category: "Luthier Tonewoods, Frets & Parts", quantity: 6, unit: "blanks", price: 3.50, cost: 21.00, lowStockThreshold: 2, location: "Nut & Saddle Bin", supplier: "Stewart-MacDonald", notes: "Natural unbleached dense bone transfers maximum string acoustic vibrational energy" }
     ]
   }
 };
@@ -10807,6 +10837,22 @@ async function handleAction(action, target) {
   }
   if (action === "add-bookbinding-supplies") {
     void addBookbindingSupplies();
+    return;
+  }
+  if (action === "copy-sla-specs") {
+    copySlaSpecs();
+    return;
+  }
+  if (action === "add-sla-supplies") {
+    void addSlaSupplies();
+    return;
+  }
+  if (action === "copy-luthier-specs") {
+    copyLuthierSpecs();
+    return;
+  }
+  if (action === "add-luthier-supplies") {
+    void addLuthierSupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -32359,6 +32405,532 @@ function renderBookbindingView() {
   updateBookPrint();
 }
 
+// ============================================================
+// 🧪 Resin 3D Printing (SLA / MSLA) Studio Calculations
+// ============================================================
+function copySlaSpecs() {
+  const expText = $("#sla-exposure-result")?.innerText || "";
+  const vatText = $("#sla-vat-result")?.innerText || "";
+  const peelText = $("#sla-peel-result")?.innerText || "";
+  const hollowText = $("#sla-hollow-result")?.innerText || "";
+  const text = `🧪 SLA / MSLA RESIN 3D PRINTING SPEC SHEET\n\n${expText}\n\n${vatText}\n\n${peelText}\n\n${hollowText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied SLA Print Specs to clipboard!"));
+}
+
+async function addSlaSupplies() {
+  const resin = $("#sla-resin-type option:checked")?.textContent.split("(")[0].trim() || "Standard Photopolymer";
+  await addMaterialToProjectShopping(`${resin} 405nm Resin (1000g Bottle)`, "1 bottle", 28.00, "SLA Photopolymer Resin & Films");
+}
+
+function updateSlaExposure() {
+  const lcd = $("#sla-lcd-type")?.value || "mono";
+  const resin = $("#sla-resin-type")?.value || "standard";
+  const layerMicrons = parseInt($("#sla-layer-height")?.value, 10) || 50;
+  const powerPct = parseInt($("#sla-light-intensity")?.value, 10) || 100;
+  const res = $("#sla-exposure-result");
+  if (!res) return;
+
+  // Base 50µm normal layer exposure (seconds)
+  const baseExposureMap = {
+    standard: { mono: 2.5, color: 8.0, bottomMono: 30, bottomColor: 65 },
+    "abs-like": { mono: 2.8, color: 8.5, bottomMono: 35, bottomColor: 70 },
+    "water-wash": { mono: 2.2, color: 7.5, bottomMono: 28, bottomColor: 60 },
+    clear: { mono: 3.2, color: 9.0, bottomMono: 40, bottomColor: 75 },
+    castable: { mono: 4.0, color: 11.0, bottomMono: 45, bottomColor: 85 },
+    "high-temp": { mono: 3.5, color: 10.0, bottomMono: 45, bottomColor: 80 }
+  };
+
+  const item = baseExposureMap[resin] || baseExposureMap.standard;
+  let baseNormal = lcd === "mono" ? item.mono : item.color;
+  let baseBottom = lcd === "mono" ? item.bottomMono : item.bottomColor;
+
+  // Layer thickness scaling factor
+  const layerScale = layerMicrons === 25 ? 0.75 : (layerMicrons === 35 ? 0.88 : (layerMicrons === 50 ? 1.0 : 1.55));
+
+  // Light power scaling factor (100% = 1.0, 90% = 1.11, 80% = 1.25)
+  const powerScale = 100 / powerPct;
+
+  const normalExposure = (baseNormal * layerScale * powerScale).toFixed(1);
+  const bottomExposure = Math.round(baseBottom * powerScale);
+  const bottomLayers = layerMicrons <= 35 ? 6 : (layerMicrons === 50 ? 5 : 4);
+  const transitionLayers = 4;
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <span class="sla-badge">⚡ Normal Exposure: ${normalExposure}s per layer</span>
+      <span style="font-size:11px;color:var(--muted)">Bottom Burn-In: <strong>${bottomExposure}s (${bottomLayers} layers)</strong></span>
+    </div>
+
+    <div class="sla-spec-grid">
+      <div class="sla-stat-card">
+        <span class="label">Normal Layer Dwell</span>
+        <span class="value" style="color:var(--primary)">${normalExposure}s</span>
+        <div class="hint">At ${layerMicrons} µm layer depth</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Bottom / Base Exposure</span>
+        <span class="value">${bottomExposure}s</span>
+        <div class="hint">${bottomLayers} foundation burn layers</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Transition Layers</span>
+        <span class="value">${transitionLayers} Layers</span>
+        <div class="hint">Prevents delamination step</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">LCD Technology</span>
+        <span class="value" style="font-size:13px">${lcd === 'mono' ? 'Monochrome' : 'Color RGB'}</span>
+        <div class="hint">${powerPct}% UV light power</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🧪 <strong>Calibration Note:</strong> Before printing large multi-hour plates, print a <strong>Cones of Calibration</strong> or XP2 Validation Matrix test card. If cones fail to bridge on the success side, add +0.2s; if failure side cones bridge, reduce exposure by -0.2s!
+    </div>
+  `;
+}
+
+function updateSlaVat() {
+  const vatW = Math.max(20, parseFloat($("#sla-vat-w")?.value) || 145);
+  const vatL = Math.max(20, parseFloat($("#sla-vat-l")?.value) || 225);
+  const vatDepth = Math.max(5, parseFloat($("#sla-vat-depth")?.value) || 12);
+  const jobMl = Math.max(1, parseFloat($("#sla-job-ml")?.value) || 65);
+  const res = $("#sla-vat-result");
+  if (!res) return;
+
+  const resinDensity = 1.12; // average g/ml
+  const vatAreaMm2 = vatW * vatL;
+  const vatVolumeMl = (vatAreaMm2 * vatDepth) / 1000;
+  const vatGrams = Math.round(vatVolumeMl * resinDensity);
+
+  const jobGrams = Math.round(jobMl * resinDensity);
+  const bottleCostKg = 28.00; // $28 / 1000g standard resin
+  const jobCost = ((jobGrams / 1000) * bottleCostKg).toFixed(2);
+  const printsPerBottle = Math.floor(1000 / jobGrams);
+
+  // Minimum safe vat head level (3 mm above FEP)
+  const minSafeHeadMl = Math.round((vatAreaMm2 * 3) / 1000);
+
+  res.innerHTML = `
+    <div class="sla-spec-grid">
+      <div class="sla-stat-card">
+        <span class="label">Vat Fill Capacity</span>
+        <span class="value" style="color:var(--primary)">${Math.round(vatVolumeMl)} ml</span>
+        <div class="hint">${vatGrams}g at ${vatDepth}mm depth</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Print Job Weight</span>
+        <span class="value">${jobGrams} g</span>
+        <div class="hint">${jobMl} ml sliced liquid volume</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Est. Resin Cost</span>
+        <span class="value">$${jobCost}</span>
+        <div class="hint">Based on $28/kg bottle</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">1kg Bottle Yield</span>
+        <span class="value">~${printsPerBottle} Prints</span>
+        <div class="hint">Safe head reserve: ${minSafeHeadMl} ml</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🛢️ <strong>Resin Level Warning:</strong> Never let the vat liquid drop below <strong>${minSafeHeadMl} ml (3mm)</strong> during a print job. When the build plate retracts, shallow resin creates cavitation bubbles that produce hollow voids and support failures!
+    </div>
+  `;
+}
+
+function updateSlaPeel() {
+  const film = $("#sla-film-type")?.value || "fep";
+  const area = $("#sla-model-area")?.value || "small";
+  const res = $("#sla-peel-result");
+  if (!res) return;
+
+  const motionData = {
+    fep: {
+      small: { lift1Speed: "60 mm/min", lift1Dist: "3.0 mm", lift2Speed: "180 mm/min", lift2Dist: "4.0 mm", retractSpeed: "180 mm/min", delay: "0.5s" },
+      medium: { lift1Speed: "50 mm/min", lift1Dist: "4.0 mm", lift2Speed: "160 mm/min", lift2Dist: "4.0 mm", retractSpeed: "160 mm/min", delay: "1.0s" },
+      large: { lift1Speed: "40 mm/min", lift1Dist: "5.0 mm", lift2Speed: "140 mm/min", lift2Dist: "4.0 mm", retractSpeed: "140 mm/min", delay: "1.5s" }
+    },
+    nfep: {
+      small: { lift1Speed: "80 mm/min", lift1Dist: "2.5 mm", lift2Speed: "220 mm/min", lift2Dist: "3.5 mm", retractSpeed: "220 mm/min", delay: "0.5s" },
+      medium: { lift1Speed: "65 mm/min", lift1Dist: "3.5 mm", lift2Speed: "180 mm/min", lift2Dist: "3.5 mm", retractSpeed: "180 mm/min", delay: "0.8s" },
+      large: { lift1Speed: "55 mm/min", lift1Dist: "4.5 mm", lift2Speed: "160 mm/min", lift2Dist: "4.0 mm", retractSpeed: "160 mm/min", delay: "1.2s" }
+    },
+    acf: {
+      small: { lift1Speed: "120 mm/min", lift1Dist: "2.0 mm", lift2Speed: "300 mm/min", lift2Dist: "3.0 mm", retractSpeed: "300 mm/min", delay: "0.2s" },
+      medium: { lift1Speed: "100 mm/min", lift1Dist: "2.5 mm", lift2Speed: "260 mm/min", lift2Dist: "3.5 mm", retractSpeed: "260 mm/min", delay: "0.5s" },
+      large: { lift1Speed: "80 mm/min", lift1Dist: "3.5 mm", lift2Speed: "220 mm/min", lift2Dist: "3.5 mm", retractSpeed: "220 mm/min", delay: "0.8s" }
+    }
+  };
+
+  const m = motionData[film]?.[area] || motionData.fep.small;
+
+  res.innerHTML = `
+    <div class="sla-spec-grid">
+      <div class="sla-stat-card">
+        <span class="label">Stage 1 Slow Peel Lift</span>
+        <span class="value" style="color:var(--primary)">${m.lift1Speed}</span>
+        <div class="hint">For first ${m.lift1Dist} peel distance</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Stage 2 Travel Lift</span>
+        <span class="value">${m.lift2Speed}</span>
+        <div class="hint">Remaining ${m.lift2Dist} height</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Retract Approach Speed</span>
+        <span class="value">${m.retractSpeed}</span>
+        <div class="hint">Controlled plunge back to vat</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Rest / Light-Off Delay</span>
+        <span class="value">${m.delay}</span>
+        <div class="hint">Allows resin film to settle</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ⚡ <strong>TSMC Advantage:</strong> Slowing the first 3 mm peel prevents micro-tearing on fine contact tips. Once the vacuum snaps free from the FEP film, accelerating to Stage 2 cuts print time by up to 35%!
+    </div>
+  `;
+}
+
+function updateSlaHollow() {
+  const height = Math.max(10, parseFloat($("#sla-hollow-height")?.value) || 120);
+  const wallThick = parseFloat($("#sla-wall-thick")?.value) || 2.0;
+  const temp = $("#sla-ambient-temp")?.value || "warm";
+  const res = $("#sla-hollow-result");
+  if (!res) return;
+
+  const minHoleDia = (wallThick * 1.8).toFixed(1);
+  const minHoles = height > 150 ? 3 : 2;
+  const resinSavingsPct = Math.min(80, Math.round(55 + (height / 8)));
+
+  let washGuide = "Submerge in 99% IPA wash bath for 4 minutes with magnetic stirrer agitation. Use plastic syringe to flush clean IPA into bottom drain hole until it runs crystal clear.";
+  if (temp === "cold") {
+    washGuide = "Cold resin is thick and clings inside shells. Pre-warm print in warm water bath (35°C) before IPA rinse to thin internal resin residue!";
+  }
+
+  res.innerHTML = `
+    <div class="sla-spec-grid">
+      <div class="sla-stat-card">
+        <span class="label">Min Drain Hole Diameter</span>
+        <span class="value" style="color:var(--primary)">Ø ${minHoleDia} mm</span>
+        <div class="hint">Minimum 2 holes required</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Recommended Wall Shell</span>
+        <span class="value">${wallThick.toFixed(1)} mm</span>
+        <div class="hint">Resist hydrostatic suction pull</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Est. Resin Savings</span>
+        <span class="value">~${resinSavingsPct}%</span>
+        <div class="hint">Vs printing completely solid</div>
+      </div>
+      <div class="sla-stat-card">
+        <span class="label">Post-Cure Soak Time</span>
+        <span class="value">3 – 5 Mins</span>
+        <div class="hint">405nm UV turntable cure</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🕳️ <strong>The 2-Hole Rule:</strong> Never place just ONE drain hole. You need <strong>1 hole at the base</strong> (closest to the build plate to drain resin during peeling) and <strong>1 hole near the top</strong> (to allow air inside and break the vacuum). A single hole acts like a straw with your finger on the end, creating immense suction force that tears prints off supports!<br>
+      🧼 <strong>Internal Washing:</strong> ${washGuide}
+    </div>
+  `;
+}
+
+function renderSlaView() {
+  updateSlaExposure();
+  updateSlaVat();
+  updateSlaPeel();
+  updateSlaHollow();
+}
+
+// ============================================================
+// 🎸 Luthier & Stringed Instrument Building Calculations
+// ============================================================
+function copyLuthierSpecs() {
+  const fretText = $("#luthier-fret-result")?.innerText || "";
+  const radText = $("#luthier-radius-result")?.innerText || "";
+  const tenText = $("#luthier-tension-result")?.innerText || "";
+  const actText = $("#luthier-action-result")?.innerText || "";
+  const text = `🎸 LUTHIER & STRINGED INSTRUMENT BUILDING SPEC SHEET\n\n${fretText}\n\n${radText}\n\n${tenText}\n\n${actText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Luthier Specs to clipboard!"));
+}
+
+async function addLuthierSupplies() {
+  await addMaterialToProjectShopping("18% Nickel-Silver Fretwire & Bone Nut Blanks Pack", "1 pack", 24.50, "Luthier Tonewoods, Frets & Parts");
+}
+
+function updateLuthierFret() {
+  const scaleIn = parseFloat($("#luthier-scale-select")?.value) || 25.5;
+  const numFrets = parseInt($("#luthier-fret-count")?.value, 10) || 22;
+  const unit = $("#luthier-unit-display")?.value || "mm";
+  const res = $("#luthier-fret-result");
+  if (!res) return;
+
+  const scaleMm = scaleIn * 25.4;
+  const scaleLen = unit === "mm" ? scaleMm : scaleIn;
+
+  // Rule of 17.817 / 12th root of 2 calculation
+  const twelfthRoot2 = Math.pow(2, 1 / 12); // ~1.059463094
+  let rows = [];
+  let prevDist = 0;
+
+  for (let n = 1; n <= numFrets; n++) {
+    // Formula: dn = Scale * (1 - (1 / (twelfthRoot2 ^ n)))
+    const distFromNut = scaleLen * (1 - (1 / Math.pow(twelfthRoot2, n)));
+    const fretToFret = distFromNut - prevDist;
+    const remaining = scaleLen - distFromNut;
+    prevDist = distFromNut;
+
+    const isOctave = n === 12;
+    const unitSymbol = unit === "mm" ? "mm" : '"';
+    const dec = unit === "mm" ? 2 : 3;
+
+    rows.push(`
+      <tr class="${isOctave ? 'octave-fret' : ''}">
+        <td><strong>Fret ${n}</strong> ${isOctave ? '★ Octave' : ''}</td>
+        <td><strong>${distFromNut.toFixed(dec)} ${unitSymbol}</strong></td>
+        <td>${fretToFret.toFixed(dec)} ${unitSymbol}</td>
+        <td>${remaining.toFixed(dec)} ${unitSymbol}</td>
+      </tr>
+    `);
+  }
+
+  const octaveNutDist = (scaleLen * 0.5).toFixed(unit === 'mm' ? 2 : 3);
+  const unitText = unit === "mm" ? "mm" : "inches";
+
+  res.innerHTML = `
+    <div class="luthier-spec-grid">
+      <div class="luthier-stat-card">
+        <span class="label">Scale Length</span>
+        <span class="value" style="color:var(--primary)">${scaleIn.toFixed(3)}"</span>
+        <div class="hint">${scaleMm.toFixed(2)} mm nominal scale</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">12th Fret Octave Point</span>
+        <span class="value">${octaveNutDist} ${unit === 'mm' ? 'mm' : '"'}</span>
+        <div class="hint">Exact 1:2 string midpoint</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Fret Slot Saw Kerf</span>
+        <span class="value" style="font-size:13px">0.023" (0.58 mm)</span>
+        <div class="hint">Standard fret tang width</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Slot Cut Depth</span>
+        <span class="value" style="font-size:13px">2.5 – 2.8 mm</span>
+        <div class="hint">Clears fret tang + bead glue</div>
+      </div>
+    </div>
+
+    <div class="luthier-fret-scroll">
+      <table class="luthier-fret-table">
+        <thead>
+          <tr>
+            <th>Fret #</th>
+            <th>Distance from Nut</th>
+            <th>Fret-to-Fret Step</th>
+            <th>Remaining to Bridge</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📐 <strong>Lutherie Rule:</strong> Always measure fret slot cuts from the <strong>Nut face zero-line</strong>, never from fret-to-fret. Measuring fret-to-fret accumulates saw indexing errors across 22 frets, causing severe intonation drift!
+    </div>
+  `;
+}
+
+function updateLuthierRadius() {
+  const radNutIn = parseFloat($("#luthier-rad-nut")?.value) || 9.5;
+  const radHeelIn = parseFloat($("#luthier-rad-heel")?.value) || 14.0;
+  const nutW = parseFloat($("#luthier-nut-w")?.value) || 42.8;
+  const heelW = parseFloat($("#luthier-heel-w")?.value) || 55.6;
+  const res = $("#luthier-radius-result");
+  if (!res) return;
+
+  const radNutMm = radNutIn * 25.4;
+  const radHeelMm = radHeelIn * 25.4;
+
+  // Crown camber height drop: h = R - sqrt(R^2 - (W/2)^2)
+  const camberNutMm = radNutMm - Math.sqrt(Math.pow(radNutMm, 2) - Math.pow(nutW / 2, 2));
+  const camberHeelMm = radHeelMm - Math.sqrt(Math.pow(radHeelMm, 2) - Math.pow(heelW / 2, 2));
+
+  const isCompound = Math.abs(radNutIn - radHeelIn) > 0.1;
+  const compoundDesc = isCompound
+    ? `Conical compound radius transitioning from ${radNutIn}" at nut (ergonomic chord grip) to ${radHeelIn}" at heel (prevents string choke out during high register bends).`
+    : `Straight cylindrical radius of ${radNutIn}" throughout the entire fretboard.`;
+
+  res.innerHTML = `
+    <div class="luthier-spec-grid">
+      <div class="luthier-stat-card">
+        <span class="label">Nut Center Crown Camber</span>
+        <span class="value" style="color:var(--primary)">${camberNutMm.toFixed(2)} mm</span>
+        <div class="hint">Radius: ${radNutIn}" on ${nutW}mm width</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Heel Center Crown Camber</span>
+        <span class="value">${camberHeelMm.toFixed(2)} mm</span>
+        <div class="hint">Radius: ${radHeelIn}" on ${heelW}mm width</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Fretboard Taper</span>
+        <span class="value">${(heelW - nutW).toFixed(1)} mm</span>
+        <div class="hint">${nutW}mm nut to ${heelW}mm heel</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Edge Thickness Delta</span>
+        <span class="value">${Math.abs(camberHeelMm - camberNutMm).toFixed(2)} mm</span>
+        <div class="hint">Edge wood depth compensation</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🎸 <strong>Camber Profile:</strong> ${compoundDesc}<br>
+      🪵 <strong>Sanding Technique:</strong> When using wooden radius sanding blocks on compound boards, stroke along string lines rather than parallel to the center seam to preserve the true conical conic section!
+    </div>
+  `;
+}
+
+function updateLuthierTension() {
+  const tuning = $("#luthier-tension-tuning")?.value || "standard";
+  const gaugeSet = $("#luthier-tension-gauge")?.value || "10-46";
+  const res = $("#luthier-tension-result");
+  if (!res) return;
+
+  const scaleIn = parseFloat($("#luthier-scale-select")?.value) || 25.5;
+
+  // Approximate string tensions (lbs) for 25.5" scale in standard EADGBE
+  const tensionSets = {
+    "9-42": { strings: [13.1, 11.0, 14.7, 15.8, 15.8, 14.8], total: 85.2 },
+    "10-46": { strings: [16.2, 15.4, 16.6, 18.4, 19.5, 17.5], total: 103.6 },
+    "11-49": { strings: [19.6, 17.8, 18.6, 21.3, 21.6, 19.7], total: 118.6 },
+    "12-54": { strings: [23.3, 23.3, 22.8, 28.1, 26.2, 24.3], total: 148.0 }
+  };
+
+  const item = tensionSets[gaugeSet] || tensionSets["10-46"];
+
+  // Scale multiplier factor: Tension is proportional to scale^2
+  const scaleFactor = Math.pow(scaleIn / 25.5, 2);
+
+  // Tuning adjustment: Half-step down drops tension ~12%, D standard ~23%
+  let tuningFactor = 1.0;
+  if (tuning === "drop-d") tuningFactor = 0.96;
+  if (tuning === "eb") tuningFactor = 0.89;
+  if (tuning === "d-std") tuningFactor = 0.79;
+
+  const adjTotalLbs = (item.total * scaleFactor * tuningFactor).toFixed(1);
+  const adjTotalKg = (parseFloat(adjTotalLbs) * 0.453592).toFixed(1);
+
+  res.innerHTML = `
+    <div class="luthier-spec-grid">
+      <div class="luthier-stat-card">
+        <span class="label">Total Neck Tension</span>
+        <span class="value" style="color:var(--primary)">${adjTotalLbs} lbs</span>
+        <div class="hint">${adjTotalKg} kg combined pull force</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Scale Length Ref</span>
+        <span class="value">${scaleIn}"</span>
+        <div class="hint">${(scaleFactor * 100).toFixed(0)}% tension scale factor</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Gauge Profile</span>
+        <span class="value" style="font-size:13px">${gaugeSet}</span>
+        <div class="hint">Nickel-plated steel roundwound</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Truss Rod Counter-Load</span>
+        <span class="value" style="font-size:13px">Dual-Action</span>
+        <div class="hint">Counteracts ${adjTotalLbs} lbs forward pull</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🎼 <strong>Tension Physics:</strong> Switching from 9-42 to 10-46 adds <strong>~18.4 lbs (~8.3 kg)</strong> of forward pull load onto the neck shaft. Tighten the truss rod clockwise 1/8 to 1/4 turn to prevent excess up-bow!
+    </div>
+  `;
+}
+
+function updateLuthierAction() {
+  const type = $("#luthier-setup-type")?.value || "electric";
+  const style = $("#luthier-setup-style")?.value || "medium";
+  const res = $("#luthier-action-result");
+  if (!res) return;
+
+  const setupData = {
+    electric: {
+      low: { relief: '0.008" (0.20 mm)', actTreble: '3/64" (1.2 mm)', actBass: '4/64" (1.6 mm)', nutTreble: '0.010" (0.25 mm)', nutBass: '0.018" (0.45 mm)' },
+      medium: { relief: '0.010" (0.25 mm)', actTreble: '4/64" (1.6 mm)', actBass: '5/64" (2.0 mm)', nutTreble: '0.012" (0.30 mm)', nutBass: '0.020" (0.50 mm)' },
+      high: { relief: '0.012" (0.30 mm)', actTreble: '5/64" (2.0 mm)', actBass: '6/64" (2.4 mm)', nutTreble: '0.014" (0.35 mm)', nutBass: '0.022" (0.55 mm)' }
+    },
+    acoustic: {
+      low: { relief: '0.008" (0.20 mm)', actTreble: '4/64" (1.6 mm)', actBass: '5/64" (2.0 mm)', nutTreble: '0.012" (0.30 mm)', nutBass: '0.020" (0.50 mm)' },
+      medium: { relief: '0.010" (0.25 mm)', actTreble: '5/64" (2.0 mm)', actBass: '6/64" (2.4 mm)', nutTreble: '0.014" (0.35 mm)', nutBass: '0.022" (0.55 mm)' },
+      high: { relief: '0.012" (0.30 mm)', actTreble: '6/64" (2.4 mm)', actBass: '7/64" (2.8 mm)', nutTreble: '0.016" (0.40 mm)', nutBass: '0.024" (0.60 mm)' }
+    },
+    classical: {
+      low: { relief: '0.006" (0.15 mm)', actTreble: '6/64" (2.4 mm)', actBass: '7/64" (2.8 mm)', nutTreble: '0.018" (0.45 mm)', nutBass: '0.024" (0.60 mm)' },
+      medium: { relief: '0.008" (0.20 mm)', actTreble: '7/64" (2.8 mm)', actBass: '8/64" (3.2 mm)', nutTreble: '0.020" (0.50 mm)', nutBass: '0.026" (0.65 mm)' },
+      high: { relief: '0.010" (0.25 mm)', actTreble: '8/64" (3.2 mm)', actBass: '9/64" (3.6 mm)', nutTreble: '0.022" (0.55 mm)', nutBass: '0.028" (0.70 mm)' }
+    },
+    bass: {
+      low: { relief: '0.012" (0.30 mm)', actTreble: '5/64" (2.0 mm)', actBass: '6/64" (2.4 mm)', nutTreble: '0.020" (0.50 mm)', nutBass: '0.024" (0.60 mm)' },
+      medium: { relief: '0.014" (0.35 mm)', actTreble: '6/64" (2.4 mm)', actBass: '7/64" (2.8 mm)', nutTreble: '0.022" (0.55 mm)', nutBass: '0.026" (0.65 mm)' },
+      high: { relief: '0.016" (0.40 mm)', actTreble: '7/64" (2.8 mm)', actBass: '8/64" (3.2 mm)', nutTreble: '0.024" (0.60 mm)', nutBass: '0.028" (0.70 mm)' }
+    }
+  };
+
+  const item = setupData[type]?.[style] || setupData.electric.medium;
+
+  res.innerHTML = `
+    <div class="luthier-spec-grid">
+      <div class="luthier-stat-card">
+        <span class="label">12th Fret Action (Treble)</span>
+        <span class="value" style="color:var(--primary)">${item.actTreble}</span>
+        <div class="hint">High E string clearance</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">12th Fret Action (Bass)</span>
+        <span class="value">${item.actBass}</span>
+        <div class="hint">Low E string clearance</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Neck Relief (7th/8th Fret)</span>
+        <span class="value">${item.relief}</span>
+        <div class="hint">Capo on 1st fret, hold last fret</div>
+      </div>
+      <div class="luthier-stat-card">
+        <span class="label">Nut Slot 1st Fret Gap</span>
+        <span class="value" style="font-size:12px">${item.nutTreble} / ${item.nutBass}</span>
+        <div class="hint">Feeler gauge clearance</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🎸 <strong>Saddle Intonation Compensation:</strong> When strings are fretted down to the fretwire, they stretch slightly sharp. To compensate, slant the bridge saddle back: <strong>+1.5 mm back on the high E string</strong>, and <strong>+3.0 mm to +3.5 mm back on the low E string</strong>!
+    </div>
+  `;
+}
+
+function renderLuthierView() {
+  updateLuthierFret();
+  updateLuthierRadius();
+  updateLuthierTension();
+  updateLuthierAction();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -33105,6 +33677,24 @@ function initCraftStudios() {
   }));
   ["#book-stitch-style", "#book-thread-weight"].forEach(s => $(s)?.addEventListener("change", updateBookStitching));
   ["#book-ink-type", "#book-print-paper", "#book-block-medium"].forEach(s => $(s)?.addEventListener("change", updateBookPrint));
+
+  // SLA / MSLA Resin 3D Printing Studio Listeners
+  renderSlaView();
+  ["#sla-lcd-type", "#sla-resin-type", "#sla-layer-height", "#sla-light-intensity"].forEach(s => $(s)?.addEventListener("change", updateSlaExposure));
+  ["#sla-vat-w", "#sla-vat-l", "#sla-vat-depth", "#sla-job-ml"].forEach(s => $(s)?.addEventListener("input", updateSlaVat));
+  ["#sla-film-type", "#sla-model-area"].forEach(s => $(s)?.addEventListener("change", updateSlaPeel));
+  $("#sla-hollow-height")?.addEventListener("input", updateSlaHollow);
+  ["#sla-wall-thick", "#sla-ambient-temp"].forEach(s => $(s)?.addEventListener("change", updateSlaHollow));
+
+  // Luthier & Stringed Instrument Building Studio Listeners
+  renderLuthierView();
+  ["#luthier-scale-select", "#luthier-fret-count", "#luthier-unit-display"].forEach(s => $(s)?.addEventListener("change", () => {
+    updateLuthierFret();
+    updateLuthierTension();
+  }));
+  ["#luthier-rad-nut", "#luthier-rad-heel", "#luthier-nut-w", "#luthier-heel-w"].forEach(s => $(s)?.addEventListener("change", updateLuthierRadius));
+  ["#luthier-tension-tuning", "#luthier-tension-gauge"].forEach(s => $(s)?.addEventListener("change", updateLuthierTension));
+  ["#luthier-setup-type", "#luthier-setup-style"].forEach(s => $(s)?.addEventListener("change", updateLuthierAction));
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();

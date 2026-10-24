@@ -10718,6 +10718,149 @@ body.theme-dark .fastener-torque-badge {
   line-height: 1.5;
 }
 
+/* ============================================================
+   🧪 SLA / MSLA Resin 3D Printing Studio Styles
+   ============================================================ */
+.sla-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sla-stat-card {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.sla-stat-card .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.sla-stat-card .value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  font-family: var(--font-mono, monospace);
+}
+
+.sla-stat-card .hint {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.sla-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(147, 51, 234, 0.12);
+  color: #7e22ce;
+  border: 1px solid #9333ea;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .sla-badge,
+body.theme-dark .sla-badge {
+  color: #c084fc;
+}
+
+/* ============================================================
+   🎸 Luthier & Instrument Building Studio Styles
+   ============================================================ */
+.luthier-spec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.luthier-stat-card {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.luthier-stat-card .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.luthier-stat-card .value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  font-family: var(--font-mono, monospace);
+}
+
+.luthier-stat-card .hint {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.luthier-fret-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 8px;
+  background: var(--surface);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.luthier-fret-table th,
+.luthier-fret-table td {
+  padding: 5px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.luthier-fret-table th {
+  background: var(--surface-sunken);
+  font-weight: 600;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.luthier-fret-table tr.octave-fret td {
+  background: rgba(245, 158, 11, 0.12);
+  font-weight: 700;
+  color: #b45309;
+}
+
+[data-theme="dark"] .luthier-fret-table tr.octave-fret td,
+body.theme-dark .luthier-fret-table tr.octave-fret td {
+  color: #fbbf24;
+}
+
+.luthier-fret-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin-top: 8px;
+}
+
+
 
 
 

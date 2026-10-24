@@ -86,6 +86,8 @@
               <button class="nav-link" data-view="glass"><span class="nav-icon">🪟</span>Stained Glass</button>
               <button class="nav-link" data-view="jewelry"><span class="nav-icon">💍</span>Jewelry &amp; Metals</button>
               <button class="nav-link" data-view="bookbinding"><span class="nav-icon">📖</span>Bookbinding &amp; Print</button>
+              <button class="nav-link" data-view="sla"><span class="nav-icon">🧪</span>Resin 3D Print (SLA)</button>
+              <button class="nav-link" data-view="luthier"><span class="nav-icon">🎸</span>Luthier &amp; Instruments</button>
             </div>
           </div>
 
@@ -457,6 +459,8 @@
                     <option value="Stained Glass, Foil &amp; Came">🪟 Stained Glass, Foil &amp; Came</option>
                     <option value="Precious Metals &amp; Gemstones">💍 Precious Metals &amp; Gemstones</option>
                     <option value="Bookbinding, Paper &amp; Inks">📖 Bookbinding, Paper &amp; Inks</option>
+                    <option value="SLA Photopolymer Resin &amp; Films">🧪 SLA Photopolymer Resin &amp; Films</option>
+                    <option value="Luthier Tonewoods, Frets &amp; Parts">🎸 Luthier Tonewoods, Frets &amp; Parts</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -5679,6 +5683,311 @@
             </div>
           </section>
 
+          <!-- 🧪 Resin 3D Printing (SLA / MSLA) Studio View -->
+          <section class="view-section" id="sla-view" aria-labelledby="sla-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> PHOTOPOLYMER VAT, UV EXPOSURE &amp; TWO-STAGE MOTION</div>
+                <h1 id="sla-title">Resin 3D Printing (SLA / MSLA) Studio<span class="heading-period">.</span></h1>
+                <p>Calculate 405nm UV layer cure exposure times, Two-Stage Motion Control (TSMC) peel lift speeds, hollow model drain hole sizing, vat capacity &amp; bottle levels, and post-cure wash timing.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-sla-specs">📋 Copy SLA Profile</button>
+                <button type="button" class="button button-primary" data-action="add-sla-supplies">🛒 Add Resin to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🧪 UV 405nm Layer Exposure & Base Cure Calculator -->
+              <div class="panel" id="panel-sla-exposure" style="grid-column: 1 / -1">
+                <div class="eyebrow">PHOTOPOLYMER KINETICS &amp; LAYER DWELL</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🧪 Layer Exposure &amp; Base Layer Cure Matrix</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-sla-exposure" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Dial in normal and bottom burn-in exposures across Mono vs Color LCD engines, layer micron depths (25µm–100µm), and specialized resin formulations.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">LCD Screen Technology
+                    <select id="sla-lcd-type">
+                      <option value="mono" selected>Monochrome LCD (Modern 4K/8K/12K • High UV transmittance)</option>
+                      <option value="color">Legacy Color RGB LCD (Lower UV transmittance • ~3x exposure)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Resin Formulation / Chemistry
+                    <select id="sla-resin-type">
+                      <option value="standard" selected>Standard Photopolymer Resin (405nm Grey/White/Beige)</option>
+                      <option value="abs-like">ABS-Like Tough / Nylon-Like (Impact &amp; flex resistance)</option>
+                      <option value="water-wash">Water-Washable Resin (Rinses in water • Brittle cure)</option>
+                      <option value="clear">High-Clear Transparent (Requires post-polish &amp; UV clearcoat)</option>
+                      <option value="castable">Castable Wax Jewelry (Direct lost wax investment burnout)</option>
+                      <option value="high-temp">Engineering High-Temp / Dental (Heat deflection &gt; 180°C)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Layer Height (Resolution)
+                    <select id="sla-layer-height">
+                      <option value="25">25 µm (0.025 mm • Ultra-high fidelity miniatures)</option>
+                      <option value="35">35 µm (0.035 mm • Fine balance)</option>
+                      <option value="50" selected>50 µm (0.050 mm • Industry standard speed/quality)</option>
+                      <option value="100">100 µm (0.100 mm • Rapid structural roughing)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">UV Light Intensity (%)
+                    <select id="sla-light-intensity">
+                      <option value="100" selected>100% UV Power (Default factory calibration)</option>
+                      <option value="90">90% UV Power (Extends LCD panel lifespan)</option>
+                      <option value="80">80% UV Power (Soft details / reduces light bleed)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="sla-exposure-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🛢️ Vat Volume, Weight & Bottle Tracking -->
+              <div class="panel" id="panel-sla-vat">
+                <div class="eyebrow">RESIN MASS &amp; BOTTLE CAPACITY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🛢️ Vat Volume, Print Grams &amp; Bottle Tracker</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate required liquid resin volume and weight, accounting for photopolymer density (1.12 g/ml) and minimum safe vat head level.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Vat Inner Width (mm)
+                    <input type="number" id="sla-vat-w" value="145" min="50" max="400" step="5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Vat Inner Length (mm)
+                    <input type="number" id="sla-vat-l" value="225" min="50" max="500" step="5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Target Vat Fill Depth (mm)
+                    <input type="number" id="sla-vat-depth" value="12" min="5" max="30" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Print Job Sliced Volume (ml)
+                    <input type="number" id="sla-job-ml" value="65" min="1" max="1000" step="5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="sla-vat-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ⚡ Two-Stage Motion Control (TSMC) & Peel Physics -->
+              <div class="panel" id="panel-sla-peel">
+                <div class="eyebrow">FEP RELEASE FILM &amp; Z-AXIS LIFT MOTION</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚡ TSMC Lift Speeds &amp; FEP Peel Physics</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Optimize two-stage lift and retract motions to prevent FEP film suction tearing, support snapping, and layer-line delamination.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Release Film Technology
+                    <select id="sla-film-type">
+                      <option value="fep" selected>Standard FEP (0.15 mm • High peel suction)</option>
+                      <option value="nfep">nFEP / PFA (Lower surface tension • Smoother release)</option>
+                      <option value="acf">ACF High-Speed Film (Matte release • Ultra-fast prints)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Model Cross-Sectional Area
+                    <select id="sla-model-area">
+                      <option value="small" selected>Small / Slender (&lt; 25 cm² • Low suction pull)</option>
+                      <option value="medium">Medium Cross-Section (25 – 70 cm² • Moderate pull)</option>
+                      <option value="large">Large Flat Solid / Bases (&gt; 70 cm² • Heavy suction force)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="sla-peel-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🕳️ Hollow Model Drain Hole & Wall Thickness -->
+              <div class="panel" id="panel-sla-hollow" style="grid-column: 1 / -1">
+                <div class="eyebrow">SUCTION CUP PREVENTION &amp; INTERNAL RESIN FLUSH</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🕳️ Hollow Model Wall Thickness &amp; Drain Vent Holes</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-sla-hollow" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Prevent explosive internal pressure cracks, trapped uncured resin toxicity, and hydraulic peel suction with correct shell wall offset and dual-hole venting.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Model Height / Scale (mm)
+                    <input type="number" id="sla-hollow-height" value="120" min="20" max="400" step="10">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Shell Wall Thickness
+                    <select id="sla-wall-thick">
+                      <option value="1.5">1.5 mm (Lightweight • Small tabletop miniatures)</option>
+                      <option value="2.0" selected>2.0 mm (Recommended balance • Collectible statues)</option>
+                      <option value="2.5">2.5 mm (Heavy duty / Structural parts)</option>
+                      <option value="3.0">3.0 mm (Large thick shells)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Ambient Studio Temp
+                    <select id="sla-ambient-temp">
+                      <option value="warm" selected>Warm Studio (23°C – 28°C / 73°F – 82°F • Low viscosity)</option>
+                      <option value="cold">Cold Workshop (&lt; 20°C / 68°F • Sluggish thick resin)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="sla-hollow-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🎸 Luthier & Stringed Instrument Building Studio View -->
+          <section class="view-section" id="luthier-view" aria-labelledby="luthier-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> FRET SCALES, COMPOUND CAMBER, STRING TENSION &amp; SETUP</div>
+                <h1 id="luthier-title">Luthier &amp; Instrument Building Studio<span class="heading-period">.</span></h1>
+                <p>Calculate exact fret slot positions down to 0.01mm using the 17.817 twelfth root of 2 formula, compound radius fretboard camber geometry, string tension physics, and intonation compensation offsets.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-luthier-specs">📋 Copy Luthier Specs</button>
+                <button type="button" class="button button-primary" data-action="add-luthier-supplies">🛒 Add Luthier Supplies to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🎸 Precision Fret Slot Spacing Calculator -->
+              <div class="panel" id="panel-luthier-fret" style="grid-column: 1 / -1">
+                <div class="eyebrow">MATHEMATICAL FRET SLOT LAYOUT &amp; MITER BOX CUTS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🎸 Fret Slot Spacing &amp; Scale Length Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-luthier-fret" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact slot positions from nut, fret-to-fret saw index distances, and remaining string length across classic electric, acoustic, and bass scales.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Scale Length Preset
+                    <select id="luthier-scale-select">
+                      <option value="25.5" selected>Fender Standard: 25.500" (647.70 mm)</option>
+                      <option value="24.75">Gibson Standard: 24.750" (628.65 mm)</option>
+                      <option value="25.0">PRS Scale: 25.000" (635.00 mm)</option>
+                      <option value="24.0">Fender Short (Jaguar/Mustang): 24.000" (609.60 mm)</option>
+                      <option value="34.0">Long Scale Bass (P/J Bass): 34.000" (863.60 mm)</option>
+                      <option value="30.0">Short Scale Bass: 30.000" (762.00 mm)</option>
+                      <option value="25.59">Classical Guitar: 650.00 mm (25.590")</option>
+                      <option value="15.0">Concert Ukulele: 15.000" (381.00 mm)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Total Fret Count
+                    <select id="luthier-fret-count">
+                      <option value="21">21 Frets (Vintage Strat / Tele)</option>
+                      <option value="22" selected>22 Frets (Modern Fender / Gibson)</option>
+                      <option value="24">24 Frets (Full 2-Octave Shred / PRS Custom)</option>
+                      <option value="19">19 Frets (Classical / Parlor)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Display Units
+                    <select id="luthier-unit-display">
+                      <option value="mm" selected>Metric (Millimeters • 0.01 mm precision)</option>
+                      <option value="in">Imperial (Inches • 0.001" precision)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="luthier-fret-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 📐 Compound Radius Fretboard Camber & Taper -->
+              <div class="panel" id="panel-luthier-radius">
+                <div class="eyebrow">CONICAL FRETBOARD SURFACE GEOMETRY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📐 Compound Radius Fretboard Camber</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Transition smoothly from round comfortable chording at the nut to flat clean string bending without fretting out at the upper dusty frets.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Nut Radius (Chording)
+                    <select id="luthier-rad-nut">
+                      <option value="7.25">7.25" (Vintage Fender)</option>
+                      <option value="9.5" selected>9.5" (Modern Fender C-shape)</option>
+                      <option value="10">10" (Gibson / PRS modern)</option>
+                      <option value="12">12" (Gibson traditional / acoustic)</option>
+                      <option value="14">14" (Modern flat)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Heel Radius (Bending)
+                    <select id="luthier-rad-heel">
+                      <option value="9.5">9.5" (Straight cylinder - non-compound)</option>
+                      <option value="12">12" (Vintage compound)</option>
+                      <option value="14" selected>14" (Standard modern compound 9.5"–14")</option>
+                      <option value="16">16" (Flatter shredder compound 10"–16")</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Nut Width (mm)
+                    <select id="luthier-nut-w">
+                      <option value="42">42.0 mm (1.650" Vintage A-neck)</option>
+                      <option value="42.8" selected>42.8 mm (1.6875" / 1-11/16" Modern Standard)</option>
+                      <option value="44.5">44.5 mm (1.750" / 1-3/4" Fingerstyle acoustic)</option>
+                      <option value="48.0">48.0 mm (Classical / 7-String)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Heel Width (mm)
+                    <select id="luthier-heel-w">
+                      <option value="55.6" selected>55.6 mm (2.1875" / 2-3/16" Standard Strat heel)</option>
+                      <option value="57.0">57.0 mm (2.244" Gibson / PRS heel)</option>
+                      <option value="60.0">60.0 mm (Wide heel / 7-string)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="luthier-radius-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🎼 String Tension Physics & Gauge Matcher -->
+              <div class="panel" id="panel-luthier-tension">
+                <div class="eyebrow">ACOUSTIC PULL FORCE &amp; TRUSS ROD BALANCE</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🎼 String Tension Physics &amp; Neck Pull Load</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate individual string and total neck tension (T = [U · (2 · L · f)²] / 386.4) to adjust dual-action truss rod compensation.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Instrument Tuning
+                    <select id="luthier-tension-tuning">
+                      <option value="standard" selected>Standard EADGBE (A=440 Hz)</option>
+                      <option value="drop-d">Drop D (DADGBE)</option>
+                      <option value="eb">Eb Half-Step Down (Eb Ab Db Gb Bb Eb)</option>
+                      <option value="d-std">D Standard (DGCFAD • Low tension)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">String Gauge Set
+                    <select id="luthier-tension-gauge">
+                      <option value="9-42">Super Light (09 – 42: 09, 11, 16, 24, 32, 42)</option>
+                      <option value="10-46" selected>Regular Light (10 – 46: 10, 13, 17, 26, 36, 46)</option>
+                      <option value="11-49">Medium (11 – 49: 11, 14, 18, 28, 38, 49)</option>
+                      <option value="12-54">Heavy / Jazz (12 – 54: 12, 16, 20, 32, 42, 54)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="luthier-tension-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🛠️ Action Height, Neck Relief & Saddle Intonation -->
+              <div class="panel" id="panel-luthier-action" style="grid-column: 1 / -1">
+                <div class="eyebrow">SETUP SPECIFICATIONS &amp; FRETTING COMPENSATION</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🛠️ Action Setup, Neck Relief &amp; Saddle Intonation</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-luthier-action" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Feeler gauge clearances for nut slots, 7th fret truss rod neck relief bow, 12th fret action height, and bridge intonation compensation setbacks.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Instrument Category
+                    <select id="luthier-setup-type">
+                      <option value="electric" selected>Electric Solidbody (Fender / Gibson / PRS)</option>
+                      <option value="acoustic">Steel-String Acoustic (Dreadnought / OM / 000)</option>
+                      <option value="classical">Classical Nylon String (Fan braced)</option>
+                      <option value="bass">Electric Bass (4-String / 34" scale)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Player Touch &amp; Playing Style
+                    <select id="luthier-setup-style">
+                      <option value="low">Low Action / Fast Touch (Light picking • 0.008" relief)</option>
+                      <option value="medium" selected>Standard Factory Spec (Balanced dynamic range • 0.010" relief)</option>
+                      <option value="high">High Action / Heavy Attack (Bluegrass strumming • 0.012" relief)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="luthier-action-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -6100,6 +6409,8 @@
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="glass">🪟 Stained Glass</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="jewelry">💍 Jewelry &amp; Metals</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="bookbinding">📖 Bookbinding &amp; Print</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="sla">🧪 Resin 3D Print (SLA)</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="luthier">🎸 Luthier &amp; Instruments</button>
         </div>
       </div>
     </dialog>
@@ -6365,6 +6676,8 @@
                 <option value="Stained Glass, Foil &amp; Came">🪟 Stained Glass, Foil &amp; Came</option>
                 <option value="Precious Metals &amp; Gemstones">💍 Precious Metals &amp; Gemstones</option>
                 <option value="Bookbinding, Paper &amp; Inks">📖 Bookbinding, Paper &amp; Inks</option>
+                <option value="SLA Photopolymer Resin &amp; Films">🧪 SLA Photopolymer Resin &amp; Films</option>
+                <option value="Luthier Tonewoods, Frets &amp; Parts">🎸 Luthier Tonewoods, Frets &amp; Parts</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -7404,6 +7717,16 @@
           <span class="mobile-studio-icon" aria-hidden="true">📖</span>
           <strong>Bookbinding &amp; Print</strong>
           <span class="mobile-studio-desc">Signatures, spine swell caliper, French link stitch</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="sla" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🧪</span>
+          <strong>Resin 3D Print (SLA)</strong>
+          <span class="mobile-studio-desc">Layer UV cure times, TSMC peel speed, drain holes</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="luthier" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🎸</span>
+          <strong>Luthier &amp; Instruments</strong>
+          <span class="mobile-studio-desc">Fret slotting 17.817 math, compound camber, tension</span>
         </button>
       </div>
     </dialog>
