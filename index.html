@@ -82,6 +82,8 @@
               <button class="nav-link" data-view="welding"><span class="nav-icon">⚡</span>Welding &amp; Metal</button>
               <button class="nav-link" data-view="cnc"><span class="nav-icon">⚙️</span>CNC Machining</button>
               <button class="nav-link" data-view="blacksmith"><span class="nav-icon">⚒️</span>Blacksmithing &amp; Blades</button>
+              <button class="nav-link" data-view="fasteners"><span class="nav-icon">🔩</span>Fasteners &amp; Drills</button>
+              <button class="nav-link" data-view="glass"><span class="nav-icon">🪟</span>Stained Glass</button>
             </div>
           </div>
 
@@ -450,6 +452,7 @@
                     <option value="Welding, Gas &amp; Wire">⚡ Welding, Gas &amp; Wire</option>
                     <option value="CNC Bits &amp; Tooling">⚙️ CNC Bits &amp; Tooling</option>
                     <option value="Blacksmithing, Steels &amp; Gas">⚒️ Blacksmithing, Steels &amp; Gas</option>
+                    <option value="Stained Glass, Foil &amp; Came">🪟 Stained Glass, Foil &amp; Came</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -5045,6 +5048,340 @@
             </div>
           </section>
 
+          <!-- 🔩 Fasteners, Bolts & Machining Drills Studio View -->
+          <section class="view-section" id="fasteners-view" aria-labelledby="fasteners-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> THREAD TAPPING, CLEARANCE &amp; PRELOAD TORQUE</div>
+                <h1 id="fasteners-title">Fasteners, Bolts &amp; Machining Drills<span class="heading-period">.</span></h1>
+                <p>ISO metric coarse/fine and unified UNC/UNF tap drill charts, 3-tier clearance holes (close, normal, loose), bolt tightening torque and clamping preload formulas, wood screw pilots, and socket head cap screw counterbores.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-fasteners-specs">📋 Copy Fastener Specs</button>
+                <button type="button" class="button button-primary" data-action="add-fasteners-supplies">🛒 Add Fasteners to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🔩 Tap & Clearance Drill Bit Matcher -->
+              <div class="panel" id="panel-fasteners-tap" style="grid-column: 1 / -1">
+                <div class="eyebrow">INTERNAL THREAD CUTTING &amp; THROUGH HOLES</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🔩 Interactive Tap Drill &amp; Clearance Hole Matcher</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-fasteners-tap" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Find the optimal pilot drill diameter for 75% thread engagement across Metric (M1.6–M24) and Imperial (#0–80 to 1"-8) fasteners, alongside standard engineering clearance fits.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Thread Family / Standard
+                    <select id="fastener-standard-select">
+                      <option value="metric-coarse" selected>ISO Metric Coarse (M1.6 to M24)</option>
+                      <option value="metric-fine">ISO Metric Fine (M3×0.35 to M20×1.5)</option>
+                      <option value="unc">Imperial UNC Coarse (#2-56 to 1"-8)</option>
+                      <option value="unf">Imperial UNF Fine (#0-80 to 3/4"-16)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Nominal Thread Size
+                    <select id="fastener-size-select"></select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Workpiece Material (Thread Depth)
+                    <select id="fastener-material-select">
+                      <option value="steel" selected>Steel / Cast Iron (~70-75% engagement • Standard)</option>
+                      <option value="aluminum">Aluminum / Brass (~65% • Reduced tap binding)</option>
+                      <option value="plastic">Plastics / Nylon (~80% • High shear support)</option>
+                      <option value="stainless">Stainless Steel (~65% • Avoid work hardening)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="fastener-tap-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- ⚡ Bolt Tightening Torque & Tensile Preload -->
+              <div class="panel" id="panel-fasteners-torque">
+                <div class="eyebrow">CLAMP LOAD &amp; TIGHTENING TORQUE</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⚡ Bolt Torque &amp; Tensile Clamp Force</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate required tightening torque (T = K · D · F) and bolt stretch preload across steel proof grades and lubrication states.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Bolt Grade / Strength Class
+                    <select id="fastener-grade-select">
+                      <option value="8.8" selected>ISO Class 8.8 / SAE Grade 5 (Medium Carbon • Standard)</option>
+                      <option value="10.9">ISO Class 10.9 / SAE Grade 8 (Alloy Steel • High Stress)</option>
+                      <option value="12.9">ISO Class 12.9 (Socket Cap Screws • Maximum Tensile)</option>
+                      <option value="a2">A2-70 / 304 Stainless Steel (Corrosion Resistant)</option>
+                      <option value="4.8">Class 4.8 / Grade 2 (Commercial Mild Hardware)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Thread Lubricant / Condition (K)
+                    <select id="fastener-lube-select">
+                      <option value="dry" selected>Dry / Zinc-Plated as received (K = 0.20)</option>
+                      <option value="oil">Light Machine Oil (K = 0.15)</option>
+                      <option value="antiseize">Anti-Seize / Moly Paste (K = 0.10)</option>
+                      <option value="threadlocker">Medium Threadlocker / Loctite (K = 0.18)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Preload Target (% Proof Load)
+                    <select id="fastener-preload-target">
+                      <option value="0.75" selected>75% of Proof Load (Standard Static Best Practice)</option>
+                      <option value="0.65">65% (Gaskets / Flanges / Cyclic Fatigue)</option>
+                      <option value="0.85">85% (High-Vibration / Critical Rigging)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Diameter Reference
+                    <span id="fastener-torque-diameter-ref" style="display:block;padding:6px 8px;font-size:12px;font-weight:600;color:var(--text-main);background:var(--bg-card);border:1px solid var(--border-color);border-radius:4px">Synced with Tap Matcher</span>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="fastener-torque-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🪚 Wood Screw Pilot & Shank Clearance Guide -->
+              <div class="panel" id="panel-fasteners-wood">
+                <div class="eyebrow">JOINERY &amp; SPLIT PREVENTION</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🪚 Wood Screw Pilot &amp; Clearance Drills</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Prevent end-grain splitting, stripped threads, and sheared screw heads with correct stepped pilot, smooth shank clearance, and countersink depths.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Wood Screw Gauge
+                    <select id="fastener-wood-gauge">
+                      <option value="4">#4 Screw (0.112" / 2.84 mm)</option>
+                      <option value="6">#6 Screw (0.138" / 3.51 mm • Standard Cabinet)</option>
+                      <option value="8" selected>#8 Screw (0.164" / 4.17 mm • Universal Woodworking)</option>
+                      <option value="10">#10 Screw (0.190" / 4.83 mm • Heavy Construction)</option>
+                      <option value="12">#12 Screw (0.216" / 5.49 mm • Structural Framing)</option>
+                      <option value="14">#14 Screw (0.242" / 6.15 mm • Timber Lag)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Wood Hardness
+                    <select id="fastener-wood-type">
+                      <option value="hardwood" selected>Hardwood (Oak, Maple, Walnut, Cherry)</option>
+                      <option value="softwood">Softwood (Pine, Cedar, Fir, Spruce)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Hole Preparation Style
+                    <select id="fastener-wood-style">
+                      <option value="countersink" selected>Flush Flathead Countersink (82°)</option>
+                      <option value="counterbore">Plugged Counterbore (3/8" or 1/2" Wood Plug)</option>
+                      <option value="roundhead">Pan / Round Head (No countersink)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Screw Length (in)
+                    <input type="number" id="fastener-wood-length" value="1.5" min="0.5" max="6" step="0.25">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="fastener-wood-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📐 Socket Head Cap Screw (SHCS) Counterbore Geometries -->
+              <div class="panel" id="panel-fasteners-counterbore" style="grid-column: 1 / -1">
+                <div class="eyebrow">MACHINING RECESS SPECIFICATIONS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">📐 Socket Head Cap Screw (SHCS) Counterbore &amp; Recess</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-fasteners-counterbore" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Exact counterbore pocket diameters (Dk), head depth allowances, clearance holes, and hex drive key clearances for flush mechanical assemblies.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Bolt Style
+                    <select id="fastener-cb-style">
+                      <option value="shcs" selected>DIN 912 / ISO 4762 Standard Socket Head (Cylindrical)</option>
+                      <option value="button">ISO 7380 Low-Profile Button Head</option>
+                      <option value="flat">DIN 7991 Flat Countersunk Head (90° Metric / 82° Imperial)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Fastener Metric Size
+                    <select id="fastener-cb-size">
+                      <option value="M3">M3 × 0.5 mm</option>
+                      <option value="M4">M4 × 0.7 mm</option>
+                      <option value="M5" selected>M5 × 0.8 mm</option>
+                      <option value="M6">M6 × 1.0 mm</option>
+                      <option value="M8">M8 × 1.25 mm</option>
+                      <option value="M10">M10 × 1.5 mm</option>
+                      <option value="M12">M12 × 1.75 mm</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Pocket Clearance Fit
+                    <select id="fastener-cb-fit">
+                      <option value="normal" selected>Normal Commercial Fit (+0.5 mm to +1.0 mm dia)</option>
+                      <option value="tight">Precision CNC Pocket (+0.2 mm dia)</option>
+                      <option value="generous">Generous / Powder Coated (+1.5 mm dia)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="fastener-cb-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🪟 Stained Glass & Copper Foil Studio View -->
+          <section class="view-section" id="glass-view" aria-labelledby="glass-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> TIFFANY FOIL, LEAD CAME &amp; SOLDER BEADING</div>
+                <h1 id="glass-title">Stained Glass &amp; Copper Foil Studio<span class="heading-period">.</span></h1>
+                <p>Calculate 60/40 vs 50/50 solder weight and spool consumption, match copper foil widths to glass thickness, execute chemical patina neutralization matrices, and optimize inside curve scoring paths.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-glass-specs">📋 Copy Glass Specs</button>
+                <button type="button" class="button button-primary" data-action="add-glass-supplies">🛒 Add Solder &amp; Foil to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🪟 Solder Rod Consumption & Iron Temperature -->
+              <div class="panel" id="panel-glass-solder" style="grid-column: 1 / -1">
+                <div class="eyebrow">SEAM BEADING &amp; THERMAL CONTROL</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🪟 Solder Weight, Spool Usage &amp; Iron Temperature</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-glass-solder" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate required solder weight for rounded decorative beads on foil or flat came joints, preventing project run-outs and tip heat stalls.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Total Perimeter / Seam Length (inches)
+                    <input type="number" id="glass-seam-length" value="120" min="6" max="2400" step="6">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Construction Technique
+                    <select id="glass-assembly-type">
+                      <option value="foil-dome" selected>Tiffany Foil (High rounded decorative bead - both sides)</option>
+                      <option value="foil-flat">Tiffany Foil (Light flat structural seam / suncatcher)</option>
+                      <option value="lead-came">Traditional Lead Came (Joint solder puddles only)</option>
+                      <option value="zinc-border">Rigid Zinc U-Channel Frame Perimeter</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Solder Alloy
+                    <select id="glass-solder-alloy">
+                      <option value="6040" selected>60/40 Tin/Lead (Melting: 361°F–374°F • High crown bead)</option>
+                      <option value="5050">50/50 Tin/Lead (Melting: 361°F–421°F • Wider pasty range for came)</option>
+                      <option value="6337">63/37 Eutectic (Instant solidify at 361°F • No slumping)</option>
+                      <option value="leadfree">Lead-Free 99.3 Sn / 0.7 Cu (440°F • Jewelry &amp; handling safe)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Soldering Iron Tip Size
+                    <select id="glass-iron-tip">
+                      <option value="chisel-14" selected>1/4" Chisel Tip (Universal standard 80W–100W iron)</option>
+                      <option value="chisel-38">3/8" Heavy Chisel (Lampshades &amp; thick lead came)</option>
+                      <option value="chisel-18">1/8" Fine Tip (Small jewelry &amp; tight filigree)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="glass-solder-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 📏 Copper Foil Width & Glass Thickness Matcher -->
+              <div class="panel" id="panel-glass-foil">
+                <div class="eyebrow">FOIL OVERHANG &amp; STRUCTURAL BOND</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📏 Copper Foil Width &amp; Core Backing Matcher</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Balance edge wrap overhang (ideal: 1.0 mm to 1.5 mm per face) to guarantee structural solder tension without encroaching on artwork glass visibility.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Art Glass Thickness
+                    <select id="glass-thickness">
+                      <option value="3" selected>Standard Art Glass (3.0 mm / ~1/8")</option>
+                      <option value="3.5">Textured / Cathedral (3.5 mm / ~9/64")</option>
+                      <option value="4">Heavy Ripple / Gluechip (4.0 mm / ~5/32")</option>
+                      <option value="5">Beveled Glass Border (5.0 mm / ~3/16")</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Copper Foil Tape Width
+                    <select id="glass-foil-width">
+                      <option value="5/32">5/32" (3.97 mm • Very thin glass / delicate jewelry)</option>
+                      <option value="3/16">3/16" (4.76 mm • Sleek minimal lines on 3mm glass)</option>
+                      <option value="7/32" selected>7/32" (5.56 mm • Universal standard for 3mm glass)</option>
+                      <option value="1/4">1/4" (6.35 mm • Textured glass &amp; structural panels)</option>
+                      <option value="5/16">5/16" (7.94 mm • Heavy perimeter &amp; bevel wraps)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Foil Backing Adhesive Type
+                    <select id="glass-foil-backing">
+                      <option value="black" selected>Black Backed (For clear / water glass + black patina)</option>
+                      <option value="copper">Copper Backed (For clear glass + copper patina)</option>
+                      <option value="silver">Silver Backed (For mirror &amp; raw silver pewter seams)</option>
+                      <option value="standard">Standard Raw Copper (For opaque / opalescent glass)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Foil Thickness (Mils)
+                    <select id="glass-foil-mil">
+                      <option value="1.0" selected>1.0 Mil (Standard pliable conforming foil)</option>
+                      <option value="1.25">1.25 Mil (Heavy duty • Stronger tensile bond for lamps)</option>
+                      <option value="1.5">1.5 Mil (Rigid extra heavy foil)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="glass-foil-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🧪 Chemical Patina & Flux Neutralization Guide -->
+              <div class="panel" id="panel-glass-patina">
+                <div class="eyebrow">METALLIC FINISH &amp; WHITE MOLD PREVENTION</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧪 Patina Reaction, Flux Neutralizing &amp; Polish</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Complete chemical wash procedure to prevent zinc chloride acid bleed, white mold oxidation (lead carbonate), and lock in a rich black or copper patina.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Desired Seam Patina Finish
+                    <select id="glass-patina-target">
+                      <option value="black" selected>Jet Black Patina (Copper Selenide chemical conversion)</option>
+                      <option value="copper">Bright Copper Patina (Electro-chemical displacement)</option>
+                      <option value="silver">Pewter / Polished Silver (Raw 60/40 solder waxed)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Soldering Flux Used
+                    <select id="glass-flux-type">
+                      <option value="liquid-zinc" selected>Liquid Zinc Chloride (Rapid wetting • Highly acidic)</option>
+                      <option value="gel-paste">Gel / Paste Flux (Low splatter • Moderate acid)</option>
+                      <option value="organic">Organic / Water Soluble Flux (Easier wash-off)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="glass-patina-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🔪 Glass Score Pressure & Inside Curve Relief Guide -->
+              <div class="panel" id="panel-glass-score" style="grid-column: 1 / -1">
+                <div class="eyebrow">SCORE FRACTURE &amp; RUNNING PLIERS MECHANICS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🔪 Glass Score Pressure &amp; Deep Curve Break Guide</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-glass-score" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Carbide scoring wheel angles, pressure acoustics ("cracking zipper" sound), relief scoring paths for deep inside concave sweeps, and grozing nibbles.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Glass Sheet Category
+                    <select id="glass-score-sheet">
+                      <option value="cathedral" selected>Transparent Cathedral / Float (Consistent ~5-7 lbs pressure)</option>
+                      <option value="opalescent">Dense Opalescent / Streaky (~7-9 lbs pressure • Watch grain)</option>
+                      <option value="textured">Heavily Textured / Ripple (Score on smoothest back side)</option>
+                      <option value="hard">Hard Fused / Borosilicate Glass (~10-12 lbs pressure • Steep wheel)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Cut Geometry / Shape
+                    <select id="glass-score-shape">
+                      <option value="straight" selected>Straight Line (Running pliers or table break)</option>
+                      <option value="convex">Convex Outer Curve (Single fluid score)</option>
+                      <option value="shallow-concave">Shallow Inside Curve (Moderate arch relief)</option>
+                      <option value="deep-concave">Deep Inside Curve / Horseshoe (Requires stepped tangent relief scores)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Scoring Fluid / Oil
+                    <select id="glass-score-oil">
+                      <option value="mineral" selected>Light Mineral Cutting Oil (Lubricates wheel &amp; keeps fissure open)</option>
+                      <option value="water-soluble">Water-Soluble Cutting Fluid (Easy wash before foiling)</option>
+                      <option value="dry">Dry / Kerosene Dip</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="glass-score-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -5077,6 +5414,7 @@
                   <li><button type="button" class="footer-link-btn" data-action="open-tools">📐 Calculators &amp; Converters</button></li>
                   <li><button type="button" class="footer-link-btn" data-action="open-timer">⏱ Practice Timer</button></li>
                   <li><button type="button" class="footer-link-btn" data-view="sync">💾 Backup &amp; JSON Export</button></li>
+                  <li><button type="button" class="footer-link-btn" data-action="open-workshop-blueprint">📐 Workshop Blueprint &amp; Cut-Sheet</button></li>
                 </ul>
               </div>
 
@@ -5461,6 +5799,8 @@
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="welding">⚡ Welding &amp; Metal</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="cnc">⚙️ CNC Machining</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="blacksmith">⚒️ Blacksmithing &amp; Blades</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="fasteners">🔩 Fasteners &amp; Drills</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="glass">🪟 Stained Glass</button>
         </div>
       </div>
     </dialog>
@@ -5559,6 +5899,10 @@
             <button type="button" class="button button-small blueprint-theme-btn active" data-theme="paper" data-action="set-blueprint-sheet-theme">📄 Ink-Saver Paper</button>
             <button type="button" class="button button-small button-outline blueprint-theme-btn" data-theme="blueprint" data-action="set-blueprint-sheet-theme">📐 Engineering Blue</button>
           </div>
+          <label class="blueprint-opt-label" style="display:flex;align-items:center;gap:4px">
+            <span style="font-weight:600">Project:</span>
+            <select id="blueprint-project-select" style="padding:2px 6px;font-size:12px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-main);max-width:160px"></select>
+          </label>
           <label class="blueprint-opt-label">
             <input type="checkbox" id="blueprint-opt-diagram" checked>
             <span>Cut Diagram</span>
@@ -5719,6 +6063,7 @@
                 <option value="Welding, Gas &amp; Wire">⚡ Welding, Gas &amp; Wire</option>
                 <option value="CNC Bits &amp; Tooling">⚙️ CNC Bits &amp; Tooling</option>
                 <option value="Blacksmithing, Steels &amp; Gas">⚒️ Blacksmithing, Steels &amp; Gas</option>
+                <option value="Stained Glass, Foil &amp; Came">🪟 Stained Glass, Foil &amp; Came</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -6738,6 +7083,16 @@
           <span class="mobile-studio-icon" aria-hidden="true">⚒️</span>
           <strong>Blacksmithing</strong>
           <span class="mobile-studio-desc">Heat treat steels, temper HRC, Damascus layers</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="fasteners" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🔩</span>
+          <strong>Fasteners &amp; Drills</strong>
+          <span class="mobile-studio-desc">Tap drill charts, clearance holes, torque tension</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="glass" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🪟</span>
+          <strong>Stained Glass</strong>
+          <span class="mobile-studio-desc">60/40 solder weight, foil width, chemical patina</span>
         </button>
       </div>
     </dialog>

@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3916,7 +3916,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     ceramics: "Ceramics & Pottery Studio",
     welding: "Welding & Metal Fabrication Studio",
     cnc: "CNC Machining & Milling Studio",
-    blacksmith: "Blacksmithing & Bladesmithing Studio"
+    blacksmith: "Blacksmithing & Bladesmithing Studio",
+    fasteners: "Fasteners & Machining Drills",
+    glass: "Stained Glass & Copper Foil Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3954,6 +3956,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "welding") renderWeldingView();
   if (targetView === "cnc") renderCncView();
   if (targetView === "blacksmith") renderBlacksmithView();
+  if (targetView === "fasteners") renderFastenersView();
+  if (targetView === "glass") renderGlassView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -7071,6 +7075,33 @@ const WORKSHOP_STARTER_KITS = {
       { type: "material", name: "Parks 50 Fast Knife Quench Oil (1 Gallon)", category: "Other Supplies", quantity: 1, unit: "gal", price: 38.00, cost: 38.00, lowStockThreshold: 1, location: "Steel Quench Tank", supplier: "Maxim Oil", notes: "Engineered specifically for 1095 and W2 to beat the 9-second nose curve" },
       { type: "material", name: "AISI 1095 & 15N20 Precision Ground Blade Bar Assortment", category: "Raw Metals & Acrylic", quantity: 4, unit: "bars", price: 14.50, cost: 58.00, lowStockThreshold: 2, location: "Steel Rack B2", supplier: "New Jersey Steel Baron", notes: "1.5\" x 0.156\" x 12\" annealed high-carbon flat bars for Damascus forge welding" }
     ]
+  },
+  fasteners: {
+    title: "Precision Fasteners & Machining Drills Kit",
+    icon: "🔩",
+    category: "Fasteners & Hardware",
+    description: "HSS-E Cobalt drill bit index, M3-M10 precision tap & die set, automatic center punch, and DIN 912 Class 12.9 hardware organizer.",
+    items: [
+      { type: "equipment", name: "HSS-E M35 Cobalt Drill Bit Index (1mm - 13mm by 0.5mm)", category: "Hand Tools & Measuring", brand: "Bosch", cost: 58.00, condition: "operational", location: "Drill Bit Cabinet", specs: "5% Cobalt alloy · 135° split point", notes: "Use cutting oil on alloy steels; 135° split point eliminates walking without center punch" },
+      { type: "equipment", name: "Metric HSS Machine Tap & Die Set (M3 - M12 with T-handles)", category: "Hand Tools & Measuring", brand: "Irwin Hanson", cost: 74.00, condition: "operational", location: "Machining Drawer 2", specs: "Plug chamfer 3-5 threads · HSS ground thread", notes: "Reverse tap 1/2 turn every full turn to snap chips; always use tapping fluid" },
+      { type: "equipment", name: "Heavy Duty Spring-Loaded Automatic Center Punch", category: "Hand Tools & Measuring", brand: "Starrett", model: "18A", cost: 42.00, condition: "operational", location: "Layout Caddy", specs: "Hardened steel replaceable point", notes: "Adjustable knurled cap controls strike force for aluminum vs steel" },
+      { type: "material", name: "DIN 912 Class 12.9 Socket Head Cap Screws & Nuts (M3-M6 Assortment 600 pcs)", category: "Fasteners & Hardware", quantity: 1, unit: "kit", price: 28.50, cost: 28.50, lowStockThreshold: 1, location: "Hardware Bin 1A", supplier: "Bolt Depot", notes: "1200 MPa tensile strength black oxide socket screws" },
+      { type: "material", name: "Tap Magic EP-Xtra Industrial Cutting & Tapping Fluid (16 oz)", category: "Finishes & Adhesives", quantity: 1, unit: "bottle", price: 12.00, cost: 12.00, lowStockThreshold: 1, location: "Mill Fluid Shelf", supplier: "Steco", notes: "Extends drill and tap cutting life by 4x; ozone safe" }
+    ]
+  },
+  glass: {
+    title: "Stained Glass & Tiffany Copper Foil Studio Kit",
+    icon: "🪟",
+    category: "Stained Glass, Foil & Came",
+    description: "Hakko 601 temperature-controlled iron, Toyo pistol grip glass cutter, running & grozing pliers, 60/40 solder, and Venture black-backed foil.",
+    items: [
+      { type: "equipment", name: "Hakko FX-601 Temperature Controlled Ceramic Soldering Iron", category: "Power Hand Tools", brand: "Hakko", model: "FX-601", cost: 79.00, condition: "operational", location: "Glass Soldering Station", specs: "67W ceramic element · 464°F to 1004°F dial", notes: "Maintain tip tinned; clean on damp cellulose sponge or brass wool" },
+      { type: "equipment", name: "Toyo Custom-Grip Supercutter Carbide Glass Cutter", category: "Hand Tools & Measuring", brand: "Toyo", model: "TC-21", cost: 36.00, condition: "operational", location: "Glass Cutting Board", specs: "Tap-wheel carbide technology · pistol ergonomic grip", notes: "Fill reservoir with light mineral cutting oil; maintain steady 7 lb pressure" },
+      { type: "equipment", name: "Stained Glass 8\" Metal Running Pliers & Grozing Plier Set", category: "Hand Tools & Measuring", brand: "Studio Pro", cost: 26.50, condition: "operational", location: "Glass Tool Tray", specs: "Rubber jaw pads · set-screw pressure stop", notes: "Align red center mark directly over score line before squeezing" },
+      { type: "material", name: "60/40 Tin/Lead Solid Wire Solder 1/8\" (1 lb Spool)", category: "Stained Glass, Foil & Came", quantity: 2, unit: "lbs", price: 18.50, cost: 37.00, lowStockThreshold: 1, location: "Solder Caddy", supplier: "Canfield", notes: "Melting range 361°F-374°F; delivers high rounded decorative Tiffany beads" },
+      { type: "material", name: "Venture Black-Backed Copper Foil Tape 7/32\" (36 yd roll)", category: "Stained Glass, Foil & Came", quantity: 2, unit: "rolls", price: 11.50, cost: 23.00, lowStockThreshold: 1, location: "Foil Dispenser", supplier: "Venture Tape", notes: "Standard width for 3mm glass; black adhesive backing matches dark patina" },
+      { type: "material", name: "Novacan Black Patina for Solder & Lead (8 oz Bottle)", category: "Finishes & Adhesives", quantity: 1, unit: "bottle", price: 9.50, cost: 9.50, lowStockThreshold: 1, location: "Chemical Finish Shelf", supplier: "Novacan", notes: "Neutralize flux with baking soda wash before applying patina" }
+    ]
   }
 };
 
@@ -8334,9 +8365,22 @@ function generateBlueprintRulerSvg() {
 }
 
 function openWorkshopBlueprint(projectId) {
-  const project = state.projects.find(p => p.id === projectId);
-  if (!project) return;
+  let project = state.projects.find(p => p.id === projectId);
+  if (!project) {
+    project = state.projects.find(p => p.id === state.activeProjectId) || state.projects[0];
+  }
+  if (!project) {
+    showToast("Create a project first to view the Workshop Blueprint.", "error");
+    return;
+  }
   activeWorkshopBlueprintProjectId = project.id;
+
+  const select = $("#blueprint-project-select");
+  if (select) {
+    select.innerHTML = state.projects.map(p =>
+      `<option value="${p.id}" ${p.id === activeWorkshopBlueprintProjectId ? "selected" : ""}>${escapeHTML(p.title || "Untitled Project")}</option>`
+    ).join("");
+  }
 
   renderWorkshopBlueprint();
 
@@ -8370,6 +8414,7 @@ function initWorkshopBlueprintOptions() {
   const optDiagram = $("#blueprint-opt-diagram");
   const optRuler = $("#blueprint-opt-ruler");
   const optGrid = $("#blueprint-opt-grid");
+  const projectSelect = $("#blueprint-project-select");
 
   optDiagram?.addEventListener("change", (e) => {
     const el = $("#bp-diagram-section");
@@ -8382,6 +8427,14 @@ function initWorkshopBlueprintOptions() {
   optGrid?.addEventListener("change", (e) => {
     const el = $("#bp-notes-grid");
     if (el) el.style.display = e.target.checked ? "block" : "none";
+  });
+
+  projectSelect?.addEventListener("change", (e) => {
+    const newId = e.target.value;
+    if (newId && state.projects.some(p => p.id === newId)) {
+      activeWorkshopBlueprintProjectId = newId;
+      renderWorkshopBlueprint();
+    }
   });
 }
 
@@ -10690,6 +10743,22 @@ async function handleAction(action, target) {
   }
   if (action === "add-forge-supplies") {
     void addForgeSupplies();
+    return;
+  }
+  if (action === "copy-fasteners-specs") {
+    copyFastenersSpecs();
+    return;
+  }
+  if (action === "add-fasteners-supplies") {
+    void addFastenersSupplies();
+    return;
+  }
+  if (action === "copy-glass-specs") {
+    copyGlassSpecs();
+    return;
+  }
+  if (action === "add-glass-supplies") {
+    void addGlassSupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -31039,6 +31108,688 @@ function renderBlacksmithView() {
   updateForgeGas();
 }
 
+// ============================================================
+// 🔩 Fasteners, Bolts & Drills Studio Calculations & Handlers
+// ============================================================
+const FASTENER_DATA = {
+  "metric-coarse": {
+    "M1.6x0.35": { major: 1.6, pitch: 0.35, tapDia: 1.25, tapName: "1.25 mm (#55)", close: 1.7, closeName: "1.7 mm (#51)", norm: 1.8, normName: "1.8 mm (#50)", loose: 2.0, looseName: "2.0 mm (#47)", area: 1.27 },
+    "M2x0.4": { major: 2.0, pitch: 0.4, tapDia: 1.60, tapName: "1.60 mm (#52)", close: 2.1, closeName: "2.1 mm (#45)", norm: 2.2, normName: "2.2 mm (#44)", loose: 2.4, looseName: "2.4 mm (#41)", area: 2.07 },
+    "M2.5x0.45": { major: 2.5, pitch: 0.45, tapDia: 2.05, tapName: "2.05 mm (#46)", close: 2.6, closeName: "2.6 mm (#37)", norm: 2.7, normName: "2.7 mm (#36)", loose: 3.0, looseName: "3.0 mm (#31)", area: 3.39 },
+    "M3x0.5": { major: 3.0, pitch: 0.5, tapDia: 2.50, tapName: "2.50 mm (#39 / 3/32\")", close: 3.2, closeName: "3.2 mm (#30 / 1/8\")", norm: 3.4, normName: "3.4 mm (#29)", loose: 3.6, looseName: "3.6 mm (#27)", area: 5.03 },
+    "M4x0.7": { major: 4.0, pitch: 0.7, tapDia: 3.30, tapName: "3.30 mm (#29 / 1/8\")", close: 4.3, closeName: "4.3 mm (#18 / 11/64\")", norm: 4.5, normName: "4.5 mm (#16)", loose: 4.8, looseName: "4.8 mm (#12 / 3/16\")", area: 8.78 },
+    "M5x0.8": { major: 5.0, pitch: 0.8, tapDia: 4.20, tapName: "4.20 mm (#19 / 11/64\")", close: 5.3, closeName: "5.3 mm (#4 / 13/64\")", norm: 5.5, normName: "5.5 mm (7/32\")", loose: 5.8, looseName: "5.8 mm (#1)", area: 14.2 },
+    "M6x1.0": { major: 6.0, pitch: 1.0, tapDia: 5.00, tapName: "5.00 mm (#8 / 13/64\")", close: 6.4, closeName: "6.4 mm (1/4\")", norm: 6.6, normName: "6.6 mm (Letter G / 17/64\")", loose: 7.0, looseName: "7.0 mm (Letter J / 9/32\")", area: 20.1 },
+    "M8x1.25": { major: 8.0, pitch: 1.25, tapDia: 6.80, tapName: "6.80 mm (Letter H / 17/64\")", close: 8.4, closeName: "8.4 mm (21/64\")", norm: 9.0, normName: "9.0 mm (Letter T / 23/64\")", loose: 9.5, looseName: "9.5 mm (3/8\")", area: 36.6 },
+    "M10x1.5": { major: 10.0, pitch: 1.5, tapDia: 8.50, tapName: "8.50 mm (Letter R / 21/64\")", close: 10.5, closeName: "10.5 mm (27/64\")", norm: 11.0, normName: "11.0 mm (7/16\")", loose: 11.5, looseName: "11.5 mm (29/64\")", area: 58.0 },
+    "M12x1.75": { major: 12.0, pitch: 1.75, tapDia: 10.20, tapName: "10.20 mm (13/32\")", close: 12.5, closeName: "12.5 mm (1/2\")", norm: 13.0, normName: "13.0 mm (33/64\")", loose: 13.5, looseName: "13.5 mm (17/32\")", area: 84.3 },
+    "M14x2.0": { major: 14.0, pitch: 2.0, tapDia: 12.00, tapName: "12.00 mm (15/32\")", close: 14.5, closeName: "14.5 mm (37/64\")", norm: 15.0, normName: "15.0 mm (19/32\")", loose: 15.5, looseName: "15.5 mm (39/64\")", area: 115 },
+    "M16x2.0": { major: 16.0, pitch: 2.0, tapDia: 14.00, tapName: "14.00 mm (35/64\")", close: 16.5, closeName: "16.5 mm (21/32\")", norm: 17.5, normName: "17.5 mm (11/16\")", loose: 18.0, looseName: "18.0 mm (23/32\")", area: 157 },
+    "M20x2.5": { major: 20.0, pitch: 2.5, tapDia: 17.50, tapName: "17.50 mm (11/16\")", close: 20.5, closeName: "20.5 mm (13/16\")", norm: 21.5, normName: "21.5 mm (27/32\")", loose: 22.0, looseName: "22.0 mm (7/8\")", area: 245 }
+  },
+  "metric-fine": {
+    "M4x0.5": { major: 4.0, pitch: 0.5, tapDia: 3.50, tapName: "3.50 mm (#28)", close: 4.3, closeName: "4.3 mm (#18)", norm: 4.5, normName: "4.5 mm (#16)", loose: 4.8, looseName: "4.8 mm (#12)", area: 9.79 },
+    "M6x0.75": { major: 6.0, pitch: 0.75, tapDia: 5.25, tapName: "5.25 mm (#4)", close: 6.4, closeName: "6.4 mm (1/4\")", norm: 6.6, normName: "6.6 mm (Letter G)", loose: 7.0, looseName: "7.0 mm (Letter J)", area: 21.8 },
+    "M8x1.0": { major: 8.0, pitch: 1.0, tapDia: 7.00, tapName: "7.00 mm (Letter J / 9/32\")", close: 8.4, closeName: "8.4 mm (21/64\")", norm: 9.0, normName: "9.0 mm (Letter T)", loose: 9.5, looseName: "9.5 mm (3/8\")", area: 39.2 },
+    "M10x1.25": { major: 10.0, pitch: 1.25, tapDia: 8.75, tapName: "8.75 mm (11/32\")", close: 10.5, closeName: "10.5 mm (27/64\")", norm: 11.0, normName: "11.0 mm (7/16\")", loose: 11.5, looseName: "11.5 mm (29/64\")", area: 61.2 },
+    "M12x1.25": { major: 12.0, pitch: 1.25, tapDia: 10.75, tapName: "10.75 mm (27/64\")", close: 12.5, closeName: "12.5 mm (1/2\")", norm: 13.0, normName: "13.0 mm (33/64\")", loose: 13.5, looseName: "13.5 mm (17/32\")", area: 92.1 },
+    "M14x1.5": { major: 14.0, pitch: 1.5, tapDia: 12.50, tapName: "12.50 mm (1/2\")", close: 14.5, closeName: "14.5 mm (37/64\")", norm: 15.0, normName: "15.0 mm (19/32\")", loose: 15.5, looseName: "15.5 mm (39/64\")", area: 125 },
+    "M16x1.5": { major: 16.0, pitch: 1.5, tapDia: 14.50, tapName: "14.50 mm (37/64\")", close: 16.5, closeName: "16.5 mm (21/32\")", norm: 17.5, normName: "17.5 mm (11/16\")", loose: 18.0, looseName: "18.0 mm (23/32\")", area: 167 }
+  },
+  "unc": {
+    "#2-56 UNC": { major: 2.18, pitch: 0.45, tpi: 56, tapDia: 1.78, tapName: "#50 (0.0700\")", close: 2.26, closeName: "#43 (0.0890\")", norm: 2.44, normName: "#41 (0.0960\")", loose: 2.64, looseName: "#37 (0.1040\")", area: 2.39 },
+    "#4-40 UNC": { major: 2.84, pitch: 0.635, tpi: 40, tapDia: 2.26, tapName: "#43 (0.0890\")", close: 2.95, closeName: "#32 (0.1160\")", norm: 3.26, normName: "#30 (0.1285\")", loose: 3.57, looseName: "9/64\" (0.1406\")", area: 3.90 },
+    "#6-32 UNC": { major: 3.51, pitch: 0.794, tpi: 32, tapDia: 2.71, tapName: "#36 (0.1065\")", close: 3.66, closeName: "#27 (0.1440\")", norm: 3.80, normName: "#25 (0.1495\")", loose: 4.31, looseName: "#18 (0.1695\")", area: 5.86 },
+    "#8-32 UNC": { major: 4.17, pitch: 0.794, tpi: 32, tapDia: 3.45, tapName: "#29 (0.1360\")", close: 4.31, closeName: "#18 (0.1695\")", norm: 4.50, normName: "#16 (0.1770\")", loose: 4.92, looseName: "#10 (0.1935\")", area: 9.03 },
+    "#10-24 UNC": { major: 4.83, pitch: 1.058, tpi: 24, tapDia: 3.80, tapName: "#25 (0.1495\")", close: 4.98, closeName: "#9 (0.1960\")", norm: 5.11, normName: "#7 (0.2010\")", loose: 5.61, looseName: "#2 (0.2210\")", area: 11.29 },
+    "1/4\"-20 UNC": { major: 6.35, pitch: 1.27, tpi: 20, tapDia: 5.11, tapName: "#7 (0.2010\" / 5.1 mm)", close: 6.53, closeName: "Letter F (0.2570\")", norm: 6.76, normName: "Letter H (0.2660\")", loose: 7.14, looseName: "9/32\" (0.2812\")", area: 20.5 },
+    "5/16\"-18 UNC": { major: 7.94, pitch: 1.41, tpi: 18, tapDia: 6.53, tapName: "Letter F (0.2570\")", close: 8.33, closeName: "21/64\" (0.3281\")", norm: 8.43, normName: "Letter Q (0.3320\")", loose: 8.73, looseName: "11/32\" (0.3438\")", area: 33.8 },
+    "3/8\"-16 UNC": { major: 9.53, pitch: 1.587, tpi: 16, tapDia: 7.94, tapName: "5/16\" (0.3125\" / 7.9 mm)", close: 9.80, closeName: "Letter W (0.3860\")", norm: 9.92, normName: "25/64\" (0.3906\")", loose: 10.32, looseName: "13/32\" (0.4062\")", area: 50.0 },
+    "1/2\"-13 UNC": { major: 12.70, pitch: 1.954, tpi: 13, tapDia: 10.72, tapName: "27/64\" (0.4219\")", close: 13.10, closeName: "33/64\" (0.5156\")", norm: 13.49, normName: "17/32\" (0.5312\")", loose: 14.29, looseName: "9/16\" (0.5625\")", area: 91.5 },
+    "5/8\"-11 UNC": { major: 15.88, pitch: 2.309, tpi: 11, tapDia: 13.49, tapName: "17/32\" (0.5312\")", close: 16.27, closeName: "41/64\" (0.6406\")", norm: 16.67, normName: "21/32\" (0.6562\")", loose: 17.46, looseName: "11/16\" (0.6875\")", area: 145.8 },
+    "3/4\"-10 UNC": { major: 19.05, pitch: 2.54, tpi: 10, tapDia: 16.67, tapName: "21/32\" (0.6562\")", close: 19.45, closeName: "49/64\" (0.7656\")", norm: 19.84, normName: "25/32\" (0.7812\")", loose: 20.64, looseName: "13/16\" (0.8125\")", area: 215.8 }
+  },
+  "unf": {
+    "#0-80 UNF": { major: 1.52, pitch: 0.317, tpi: 80, tapDia: 1.19, tapName: "3/64\" (#56 / 0.0469\")", close: 1.61, closeName: "#52 (0.0635\")", norm: 1.70, normName: "#51 (0.0670\")", loose: 1.93, looseName: "#48 (0.0760\")", area: 1.16 },
+    "#2-64 UNF": { major: 2.18, pitch: 0.397, tpi: 64, tapDia: 1.78, tapName: "#49 (0.0700\")", close: 2.26, closeName: "#43 (0.0890\")", norm: 2.44, normName: "#41 (0.0960\")", loose: 2.64, looseName: "#37 (0.1040\")", area: 2.54 },
+    "#4-48 UNF": { major: 2.84, pitch: 0.529, tpi: 48, tapDia: 2.37, tapName: "#42 (0.0935\")", close: 2.95, closeName: "#32 (0.1160\")", norm: 3.26, normName: "#30 (0.1285\")", loose: 3.57, looseName: "9/64\" (0.1406\")", area: 4.26 },
+    "#6-40 UNF": { major: 3.51, pitch: 0.635, tpi: 40, tapDia: 2.95, tapName: "#33 (0.1130\")", close: 3.66, closeName: "#27 (0.1440\")", norm: 3.80, normName: "#25 (0.1495\")", loose: 4.31, looseName: "#18 (0.1695\")", area: 6.55 },
+    "#8-36 UNF": { major: 4.17, pitch: 0.706, tpi: 36, tapDia: 3.51, tapName: "#29 (0.1360\")", close: 4.31, closeName: "#18 (0.1695\")", norm: 4.50, normName: "#16 (0.1770\")", loose: 4.92, looseName: "#10 (0.1935\")", area: 9.51 },
+    "#10-32 UNF": { major: 4.83, pitch: 0.794, tpi: 32, tapDia: 4.04, tapName: "#21 (0.1590\")", close: 4.98, closeName: "#9 (0.1960\")", norm: 5.11, normName: "#7 (0.2010\")", loose: 5.61, looseName: "#2 (0.2210\")", area: 12.90 },
+    "1/4\"-28 UNF": { major: 6.35, pitch: 0.907, tpi: 28, tapDia: 5.41, tapName: "#3 (0.2130\")", close: 6.53, closeName: "Letter F (0.2570\")", norm: 6.76, normName: "Letter H (0.2660\")", loose: 7.14, looseName: "9/32\" (0.2812\")", area: 23.5 },
+    "5/16\"-24 UNF": { major: 7.94, pitch: 1.058, tpi: 24, tapDia: 6.91, tapName: "Letter I (0.2720\")", close: 8.33, closeName: "21/64\" (0.3281\")", norm: 8.43, normName: "Letter Q (0.3320\")", loose: 8.73, looseName: "11/32\" (0.3438\")", area: 37.4 },
+    "3/8\"-24 UNF": { major: 9.53, pitch: 1.058, tpi: 24, tapDia: 8.43, tapName: "Letter Q (0.3320\")", close: 9.80, closeName: "Letter W (0.3860\")", norm: 9.92, normName: "25/64\" (0.3906\")", loose: 10.32, looseName: "13/32\" (0.4062\")", area: 56.6 },
+    "1/2\"-20 UNF": { major: 12.70, pitch: 1.27, tpi: 20, tapDia: 11.51, tapName: "29/64\" (0.4531\")", close: 13.10, closeName: "33/64\" (0.5156\")", norm: 13.49, normName: "17/32\" (0.5312\")", loose: 14.29, looseName: "9/16\" (0.5625\")", area: 103.2 },
+    "3/4\"-16 UNF": { major: 19.05, pitch: 1.587, tpi: 16, tapDia: 17.46, tapName: "11/16\" (0.6875\")", close: 19.45, closeName: "49/64\" (0.7656\")", norm: 19.84, normName: "25/32\" (0.7812\")", loose: 20.64, looseName: "13/16\" (0.8125\")", area: 240.6 }
+  }
+};
+
+function copyFastenersSpecs() {
+  const tapText = $("#fastener-tap-result")?.innerText || "";
+  const torqueText = $("#fastener-torque-result")?.innerText || "";
+  const woodText = $("#fastener-wood-result")?.innerText || "";
+  const cbText = $("#fastener-cb-result")?.innerText || "";
+  const text = `🔩 FASTENERS, TAPPING & DRILL CLEARANCE SPEC SHEET\n\n${tapText}\n\n${torqueText}\n\n${woodText}\n\n${cbText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Fastener Specs to clipboard!"));
+}
+
+async function addFastenersSupplies() {
+  const std = $("#fastener-standard-select")?.value || "metric-coarse";
+  const size = $("#fastener-size-select")?.value || (std.startsWith("metric") ? "M5x0.8" : "1/4\"-20 UNC");
+  await addMaterialToProjectShopping(`${size} High-Tensile Fasteners & Nuts (Box of 50)`, "1 box", 14.50, "Fasteners & Hardware");
+}
+
+function populateFastenerSizes() {
+  const std = $("#fastener-standard-select")?.value || "metric-coarse";
+  const select = $("#fastener-size-select");
+  if (!select) return;
+
+  const currentVal = select.value;
+  const sizes = Object.keys(FASTENER_DATA[std] || {});
+  select.innerHTML = sizes.map(s => `<option value="${s}">${s}</option>`).join("");
+
+  if (sizes.includes(currentVal)) {
+    select.value = currentVal;
+  } else if (sizes.includes("M5x0.8")) {
+    select.value = "M5x0.8";
+  } else if (sizes.includes("1/4\"-20 UNC")) {
+    select.value = "1/4\"-20 UNC";
+  } else if (sizes.length > 0) {
+    select.selectedIndex = 0;
+  }
+}
+
+function updateFastenerTap() {
+  const std = $("#fastener-standard-select")?.value || "metric-coarse";
+  const sizeKey = $("#fastener-size-select")?.value;
+  const material = $("#fastener-material-select")?.value || "steel";
+  const res = $("#fastener-tap-result");
+  if (!res) return;
+
+  const dataSet = FASTENER_DATA[std] || {};
+  const item = dataSet[sizeKey] || Object.values(dataSet)[0];
+  if (!item) return;
+
+  const diaRef = $("#fastener-torque-diameter-ref");
+  if (diaRef) diaRef.textContent = `${sizeKey} (Major: ${item.major} mm)`;
+
+  let materialEngagement = "70% – 75% thread engagement (industry standard for ductile steel/iron)";
+  if (material === "aluminum") {
+    materialEngagement = "60% – 65% engagement (prevents aluminum galling & tap breakage)";
+  } else if (material === "plastic") {
+    materialEngagement = "75% – 80% engagement (maximizes shear strength in soft plastics/nylon)";
+  } else if (material === "stainless") {
+    materialEngagement = "65% engagement (critical to avoid work-hardening stainless threads)";
+  }
+
+  res.innerHTML = `
+    <div class="fastener-spec-grid">
+      <div class="fastener-stat-card">
+        <span class="label">Recommended Tap Drill</span>
+        <span class="value" style="color:var(--primary)">${item.tapName}</span>
+        <div class="hint">Optimal for ~75% engagement</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Close Clearance (H12)</span>
+        <span class="value">${item.closeName}</span>
+        <div class="hint">Precision located alignment</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Normal Clearance (H13)</span>
+        <span class="value">${item.normName}</span>
+        <div class="hint">Standard mechanical through-hole</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Loose Clearance (H14)</span>
+        <span class="value">${item.looseName}</span>
+        <div class="hint">Slotted / sheet metal clearance</div>
+      </div>
+    </div>
+
+    <table class="fastener-tap-table">
+      <thead>
+        <tr>
+          <th>Nominal Size</th>
+          <th>Major Dia</th>
+          <th>Pitch / TPI</th>
+          <th>Tensile Stress Area (As)</th>
+          <th>Material Guideline</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>${sizeKey}</strong></td>
+          <td>${item.major} mm (${(item.major / 25.4).toFixed(3)}")</td>
+          <td>${item.pitch} mm ${item.tpi ? `(${item.tpi} TPI)` : ''}</td>
+          <td>${item.area} mm² (${(item.area / 645.16).toFixed(4)} in²)</td>
+          <td>${materialEngagement}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      💡 <strong>Machinist Rule:</strong> Minimum internal thread engagement depth should be <strong>1.0× nominal bolt diameter</strong> in steel, <strong>1.5×</strong> in cast iron, and <strong>2.0×</strong> in aluminum or soft plastics.
+    </div>
+  `;
+}
+
+function updateFastenerTorque() {
+  const std = $("#fastener-standard-select")?.value || "metric-coarse";
+  const sizeKey = $("#fastener-size-select")?.value;
+  const grade = $("#fastener-grade-select")?.value || "8.8";
+  const lube = $("#fastener-lube-select")?.value || "dry";
+  const preloadPct = parseFloat($("#fastener-preload-target")?.value) || 0.75;
+  const res = $("#fastener-torque-result");
+  if (!res) return;
+
+  const dataSet = FASTENER_DATA[std] || {};
+  const item = dataSet[sizeKey] || Object.values(dataSet)[0];
+  if (!item) return;
+
+  // Proof strength Sp (MPa)
+  const proofStrengthMap = {
+    "8.8": 600,
+    "10.9": 830,
+    "12.9": 970,
+    "a2": 450,
+    "4.8": 310
+  };
+  const sp = proofStrengthMap[grade] || 600;
+
+  // Friction nut factor K
+  const kMap = {
+    "dry": 0.20,
+    "oil": 0.15,
+    "antiseize": 0.10,
+    "threadlocker": 0.18
+  };
+  const kFactor = kMap[lube] || 0.20;
+
+  // Clamping Preload Force F (N) = preloadPct * Sp (N/mm^2) * As (mm^2)
+  const clampForceN = preloadPct * sp * item.area;
+  const clampForceKn = (clampForceN / 1000).toFixed(2);
+  const clampForceLbf = Math.round(clampForceN * 0.224809);
+
+  // Torque T (N*m) = K * D (meters) * F (N)
+  const dMeters = item.major / 1000;
+  const torqueNm = (kFactor * dMeters * clampForceN).toFixed(1);
+  const torqueFtLb = (parseFloat(torqueNm) * 0.737562).toFixed(1);
+  const torqueInLb = Math.round(parseFloat(torqueNm) * 8.85075);
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <span class="fastener-torque-badge">⚡ Recommended Torque: ${torqueNm} N·m (${torqueFtLb} ft·lb / ${torqueInLb} in·lb)</span>
+      <span style="font-size:11px;color:var(--muted)">Preload Tension: <strong>${clampForceKn} kN</strong> (${clampForceLbf.toLocaleString()} lbf)</span>
+    </div>
+
+    <div class="fastener-spec-grid">
+      <div class="fastener-stat-card">
+        <span class="label">Tightening Torque</span>
+        <span class="value">${torqueNm} N·m</span>
+        <div class="hint">${torqueFtLb} ft-lbs (${torqueInLb} in-lbs)</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Tensile Clamp Force</span>
+        <span class="value">${clampForceKn} kN</span>
+        <div class="hint">${clampForceLbf.toLocaleString()} lbs clamping load</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Nut Factor (K)</span>
+        <span class="value">${kFactor.toFixed(2)}</span>
+        <div class="hint">${lube.toUpperCase()} friction coefficient</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Proof Strength</span>
+        <span class="value">${sp} MPa</span>
+        <div class="hint">${Math.round(sp * 145.038).toLocaleString()} psi proof rating</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ⚠️ <strong>Anti-Seize Warning:</strong> Moly or copper anti-seize drops K to 0.10, reducing friction by 50%. Always reduce tightening torque accordingly to avoid stretching or snapping bolts!
+    </div>
+  `;
+}
+
+function updateFastenerWood() {
+  const gauge = $("#fastener-wood-gauge")?.value || "8";
+  const woodType = $("#fastener-wood-type")?.value || "hardwood";
+  const style = $("#fastener-wood-style")?.value || "countersink";
+  const lengthIn = parseFloat($("#fastener-wood-length")?.value) || 1.5;
+  const res = $("#fastener-wood-result");
+  if (!res) return;
+
+  const woodData = {
+    "4": { major: '0.112" (2.84 mm)', hardPilot: '5/64" (2.0 mm)', softPilot: '1/16" (1.6 mm)', shank: '7/64" (2.8 mm)', csink: '1/4" (6.4 mm)', plug: '3/8"' },
+    "6": { major: '0.138" (3.51 mm)', hardPilot: '3/32" (2.4 mm)', softPilot: '5/64" (2.0 mm)', shank: '9/64" (3.5 mm)', csink: '5/16" (7.9 mm)', plug: '3/8"' },
+    "8": { major: '0.164" (4.17 mm)', hardPilot: '7/64" (2.8 mm)', softPilot: '3/32" (2.4 mm)', shank: '11/64" (4.3 mm)', csink: '3/8" (9.5 mm)', plug: '3/8"' },
+    "10": { major: '0.190" (4.83 mm)', hardPilot: '1/8" (3.2 mm)', softPilot: '7/64" (2.8 mm)', shank: '3/16" (4.8 mm)', csink: '7/16" (11.1 mm)', plug: '1/2"' },
+    "12": { major: '0.216" (5.49 mm)', hardPilot: '9/64" (3.6 mm)', softPilot: '1/8" (3.2 mm)', shank: '7/32" (5.5 mm)', csink: '1/2" (12.7 mm)', plug: '1/2"' },
+    "14": { major: '0.242" (6.15 mm)', hardPilot: '5/32" (4.0 mm)', softPilot: '9/64" (3.6 mm)', shank: '1/4" (6.3 mm)', csink: '9/16" (14.3 mm)', plug: '5/8"' }
+  };
+
+  const item = woodData[gauge] || woodData["8"];
+  const pilot = woodType === "hardwood" ? item.hardPilot : item.softPilot;
+
+  let headPrepDesc = "";
+  if (style === "countersink") {
+    headPrepDesc = `Flush 82° Countersink: Chamfer surface hole to <strong>${item.csink}</strong> outer diameter until screw head sits flush or 0.5 mm below wood plane.`;
+  } else if (style === "counterbore") {
+    headPrepDesc = `Plugged Counterbore: Drill <strong>${item.plug}</strong> diameter flat-bottom counterbore pocket 3/8" deep. Cut face-grain wood plugs with a matching ${item.plug} plug cutter for invisible joinery.`;
+  } else {
+    headPrepDesc = `Round / Pan Head: No countersink required. Use flat washer on softwood to prevent head crushing wood fibers.`;
+  }
+
+  res.innerHTML = `
+    <div class="fastener-spec-grid">
+      <div class="fastener-stat-card">
+        <span class="label">Pilot Hole (Threads)</span>
+        <span class="value" style="color:var(--primary)">${pilot}</span>
+        <div class="hint">Depth: full ${(lengthIn * 0.9).toFixed(2)}" length</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Shank Clearance</span>
+        <span class="value">${item.shank}</span>
+        <div class="hint">Through top face board only</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Head Diameter</span>
+        <span class="value">${item.csink}</span>
+        <div class="hint">82° standard wood screw bevel</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Wood Plug Cutter</span>
+        <span class="value">${item.plug}</span>
+        <div class="hint">For counterbore plugs</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🪵 <strong>Wood Preparation:</strong> ${headPrepDesc}<br>
+      ⚠️ <strong>Split Prevention:</strong> Drilling the shank clearance hole through the top board allows the screw threads to freely pull the two boards tightly together without binding (preventing joint gaps).
+    </div>
+  `;
+}
+
+function updateFastenerCounterbore() {
+  const style = $("#fastener-cb-style")?.value || "shcs";
+  const size = $("#fastener-cb-size")?.value || "M5";
+  const fit = $("#fastener-cb-fit")?.value || "normal";
+  const res = $("#fastener-cb-result");
+  if (!res) return;
+
+  const cbData = {
+    shcs: {
+      M3: { headDia: 5.5, headHt: 3.0, hex: 2.5, through: 3.4 },
+      M4: { headDia: 7.0, headHt: 4.0, hex: 3.0, through: 4.5 },
+      M5: { headDia: 8.5, headHt: 5.0, hex: 4.0, through: 5.5 },
+      M6: { headDia: 10.0, headHt: 6.0, hex: 5.0, through: 6.6 },
+      M8: { headDia: 13.0, headHt: 8.0, hex: 6.0, through: 9.0 },
+      M10: { headDia: 16.0, headHt: 10.0, hex: 8.0, through: 11.0 },
+      M12: { headDia: 18.0, headHt: 12.0, hex: 10.0, through: 13.5 }
+    },
+    button: {
+      M3: { headDia: 5.7, headHt: 1.65, hex: 2.0, through: 3.4 },
+      M4: { headDia: 7.6, headHt: 2.20, hex: 2.5, through: 4.5 },
+      M5: { headDia: 9.5, headHt: 2.75, hex: 3.0, through: 5.5 },
+      M6: { headDia: 10.5, headHt: 3.30, hex: 4.0, through: 6.6 },
+      M8: { headDia: 14.0, headHt: 4.40, hex: 5.0, through: 9.0 },
+      M10: { headDia: 17.5, headHt: 5.50, hex: 6.0, through: 11.0 },
+      M12: { headDia: 21.0, headHt: 6.60, hex: 8.0, through: 13.5 }
+    },
+    flat: {
+      M3: { headDia: 6.0, headHt: 1.7, hex: 2.0, through: 3.4 },
+      M4: { headDia: 8.0, headHt: 2.3, hex: 2.5, through: 4.5 },
+      M5: { headDia: 10.0, headHt: 2.8, hex: 3.0, through: 5.5 },
+      M6: { headDia: 12.0, headHt: 3.3, hex: 4.0, through: 6.6 },
+      M8: { headDia: 16.0, headHt: 4.4, hex: 5.0, through: 9.0 },
+      M10: { headDia: 20.0, headHt: 5.5, hex: 6.0, through: 11.0 },
+      M12: { headDia: 24.0, headHt: 6.5, hex: 8.0, through: 13.5 }
+    }
+  };
+
+  const item = cbData[style]?.[size] || cbData.shcs.M5;
+
+  let pocketDiaAllowance = 0.8;
+  if (fit === "tight") pocketDiaAllowance = 0.3;
+  if (fit === "generous") pocketDiaAllowance = 1.5;
+
+  const cbPocketDia = (item.headDia + pocketDiaAllowance).toFixed(1);
+  const cbDepth = (item.headHt + 0.4).toFixed(1);
+
+  res.innerHTML = `
+    <div class="fastener-spec-grid">
+      <div class="fastener-stat-card">
+        <span class="label">Counterbore Pocket Dia</span>
+        <span class="value" style="color:var(--primary)">${cbPocketDia} mm</span>
+        <div class="hint">Head OD: ${item.headDia} mm + ${pocketDiaAllowance} mm</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Minimum Pocket Depth</span>
+        <span class="value">${cbDepth} mm</span>
+        <div class="hint">Head Ht: ${item.headHt} mm + 0.4 mm sub-flush</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Clearance Through-Hole</span>
+        <span class="value">${item.through} mm</span>
+        <div class="hint">Standard through-hole drill</div>
+      </div>
+      <div class="fastener-stat-card">
+        <span class="label">Hex Key / Drive</span>
+        <span class="value">${item.hex} mm</span>
+        <div class="hint">Allen wrench size required</div>
+      </div>
+    </div>
+
+    <div class="fastener-cb-diagram">
+      <svg width="180" height="90" viewBox="0 0 180 90" style="background:var(--surface);border-radius:6px;border:1px solid var(--border)">
+        <!-- Material block -->
+        <rect x="20" y="20" width="140" height="60" fill="rgba(100,116,139,0.2)" stroke="var(--border)" stroke-width="1"/>
+        <!-- Counterbore pocket -->
+        <rect x="60" y="20" width="60" height="28" fill="var(--surface-sunken)" stroke="var(--primary)" stroke-width="1.5"/>
+        <!-- Through hole -->
+        <rect x="75" y="48" width="30" height="32" fill="var(--surface-sunken)" stroke="var(--primary)" stroke-width="1.5"/>
+        <!-- Callout text -->
+        <text x="90" y="38" font-size="9" text-anchor="middle" fill="var(--primary)" font-weight="bold">Ø ${cbPocketDia}</text>
+        <text x="90" y="66" font-size="8" text-anchor="middle" fill="var(--muted)">Ø ${item.through}</text>
+        <text x="145" y="38" font-size="8" fill="var(--ink-secondary)">Depth: ${cbDepth}mm</text>
+      </svg>
+      <div style="font-size:12px;color:var(--ink-secondary);line-height:1.4;flex:1">
+        📐 <strong>Machining Tooling:</strong> Use a flat-bottom <strong>${cbPocketDia} mm endmill</strong> or counterbore cutter with ${item.through} mm pilot pin. Ensure the bottom face of the pocket is completely flat so the bolt head seats uniformly without canting or bending under tensile load.
+      </div>
+    </div>
+  `;
+}
+
+function renderFastenersView() {
+  populateFastenerSizes();
+  updateFastenerTap();
+  updateFastenerTorque();
+  updateFastenerWood();
+  updateFastenerCounterbore();
+}
+
+// ============================================================
+// 🪟 Stained Glass & Copper Foil Studio Calculations & Handlers
+// ============================================================
+function copyGlassSpecs() {
+  const solderText = $("#glass-solder-result")?.innerText || "";
+  const foilText = $("#glass-foil-result")?.innerText || "";
+  const patinaText = $("#glass-patina-result")?.innerText || "";
+  const scoreText = $("#glass-score-result")?.innerText || "";
+  const text = `🪟 STAINED GLASS & COPPER FOIL STUDIO SPEC SHEET\n\n${solderText}\n\n${foilText}\n\n${patinaText}\n\n${scoreText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Stained Glass Specs to clipboard!"));
+}
+
+async function addGlassSupplies() {
+  const alloy = $("#glass-solder-alloy option:checked")?.textContent.split("(")[0].trim() || "60/40 Tin/Lead";
+  const foil = $("#glass-foil-width option:checked")?.textContent.split("(")[0].trim() || "7/32\" Foil";
+  await addMaterialToProjectShopping(`${alloy} Solder & ${foil} Tape Bundle`, "1 bundle", 29.50, "Stained Glass, Foil & Came");
+}
+
+function updateGlassSolder() {
+  const lengthIn = Math.max(1, parseFloat($("#glass-seam-length")?.value) || 120);
+  const assembly = $("#glass-assembly-type")?.value || "foil-dome";
+  const alloy = $("#glass-solder-alloy")?.value || "6040";
+  const res = $("#glass-solder-result");
+  if (!res) return;
+
+  // Rate in oz per linear foot (1 ft = 12 in)
+  const ratePerFootMap = {
+    "foil-dome": 0.52,
+    "foil-flat": 0.30,
+    "lead-came": 0.16,
+    "zinc-border": 0.40
+  };
+  const rateOzPerFt = ratePerFootMap[assembly] || 0.52;
+  const feet = lengthIn / 12;
+  const totalOz = feet * rateOzPerFt;
+  const totalGrams = Math.round(totalOz * 28.3495);
+  const spools1lb = (totalOz / 16 * 1.1).toFixed(1); // 10% safety allowance
+
+  // Alloy thermal properties
+  const thermalData = {
+    "6040": { meltRange: "361°F – 374°F (183°C – 190°C)", recIronF: "410°F – 420°F", recIronC: "210°C – 215°C", rheostat: "3.5 / 5", crown: "High decorative rounded dome (Tiffany standard)" },
+    "5050": { meltRange: "361°F – 421°F (183°C – 216°C)", recIronF: "430°F – 450°F", recIronC: "221°C – 232°C", rheostat: "4.0 / 5", crown: "Flatter bead; wider slushy range prevents melting lead came" },
+    "6337": { meltRange: "361°F Eutectic (183°C instant solid)", recIronF: "390°F – 405°F", recIronC: "199°C – 207°C", rheostat: "3.2 / 5", crown: "Instant freezing; zero slumping on 3D sculptural solder" },
+    "leadfree": { meltRange: "440°F Liquidus (227°C)", recIronF: "480°F – 500°F", recIronC: "249°C – 260°C", rheostat: "4.5 / 5", crown: "Food/skin safe jewelry; requires higher wattage & frequent tip tinning" }
+  };
+  const alloyInfo = thermalData[alloy] || thermalData["6040"];
+
+  res.innerHTML = `
+    <div class="glass-solder-summary">
+      <div class="glass-stat-card">
+        <span class="label">Total Solder Needed</span>
+        <span class="value" style="color:var(--primary)">${totalOz.toFixed(1)} oz</span>
+        <div class="hint">${totalGrams} grams (+10% margin: ${spools1lb} lb)</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Iron Setpoint Temp</span>
+        <span class="value">${alloyInfo.recIronF}</span>
+        <div class="hint">${alloyInfo.recIronC} · Dial ${alloyInfo.rheostat}</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Alloy Melting Range</span>
+        <span class="value" style="font-size:13px">${alloyInfo.meltRange.split('(')[0]}</span>
+        <div class="hint">Melting to liquidus</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Seam Footage</span>
+        <span class="value">${feet.toFixed(1)} ft</span>
+        <div class="hint">${Math.round(lengthIn * 2.54)} cm linear joint</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ✨ <strong>Bead Profile:</strong> ${alloyInfo.crown}<br>
+      🌡️ <strong>Thermal Tip Control:</strong> Maintain iron tip flat on seam with steady 3–5 seconds per inch sweep speed. Tin tip frequently with damp cellulose sponge and sal ammoniac block to prevent solder drag ridges.
+    </div>
+  `;
+}
+
+function updateGlassFoil() {
+  const glassMm = parseFloat($("#glass-thickness")?.value) || 3.0;
+  const foilWidthFrac = $("#glass-foil-width")?.value || "7/32";
+  const backing = $("#glass-foil-backing")?.value || "black";
+  const mil = $("#glass-foil-mil")?.value || "1.0";
+  const res = $("#glass-foil-result");
+  if (!res) return;
+
+  const widthMmMap = {
+    "5/32": 3.97,
+    "3/16": 4.76,
+    "7/32": 5.56,
+    "1/4": 6.35,
+    "5/16": 7.94
+  };
+  const foilWidthMm = widthMmMap[foilWidthFrac] || 5.56;
+  const overhangMm = (foilWidthMm - glassMm) / 2;
+  const overhangIn = (overhangMm / 25.4).toFixed(3);
+
+  let evalBadge = "";
+  let evalNote = "";
+  if (overhangMm < 0.6) {
+    evalBadge = '<span style="color:#ef4444;font-weight:bold">⚠️ Fragile / Insufficient Overhang</span>';
+    evalNote = "Overhang is under 0.6 mm. High risk of foil tape lifting off under solder iron heat. Step up one foil width.";
+  } else if (overhangMm >= 0.9 && overhangMm <= 1.5) {
+    evalBadge = '<span style="color:#10b981;font-weight:bold">✅ Golden Tiffany Ratio (Ideal)</span>';
+    evalNote = "Balanced 1.0–1.5 mm overhang creates a robust mechanical wrap without masking artwork glass.";
+  } else {
+    evalBadge = '<span style="color:#f59e0b;font-weight:bold">ℹ️ Heavy Structural / Wide Bead</span>';
+    evalNote = "Wide overhang creates a bold, structural solder bead. Recommended for outer perimeter borders and heavy lampshades.";
+  }
+
+  const backingGuide = {
+    "black": "Black Backed: Essential for clear, translucent, or water glass when using black chemical patina, so no bright copper shows through the glass edge.",
+    "copper": "Copper Backed: Matches clear glass when using copper patina.",
+    "silver": "Silver Backed: Matches mirror backing and polished silver seams.",
+    "standard": "Standard Core: Cost-effective for opaque and opalescent art glass where the back of the tape is completely invisible."
+  }[backing];
+
+  res.innerHTML = `
+    <div class="glass-solder-summary">
+      <div class="glass-stat-card">
+        <span class="label">Overhang Per Face</span>
+        <span class="value" style="color:var(--primary)">${overhangMm.toFixed(2)} mm</span>
+        <div class="hint">${overhangIn}" wrap per side</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Foil Width</span>
+        <span class="value">${foilWidthFrac}"</span>
+        <div class="hint">${foilWidthMm.toFixed(2)} mm tape width</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Glass Thickness</span>
+        <span class="value">${glassMm.toFixed(1)} mm</span>
+        <div class="hint">~${(glassMm / 25.4).toFixed(3)}" plate</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Evaluation</span>
+        <div style="font-size:12px;margin-top:2px">${evalBadge}</div>
+        <div class="hint">${mil} mil pliable foil</div>
+      </div>
+    </div>
+
+    <div class="glass-foil-cross-section">
+      <div style="font-size:12px;font-weight:600;margin-bottom:4px">📐 Cross-Section Geometry &amp; Burnishing</div>
+      <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+        • ${evalNote}<br>
+        • <strong>Backing Matching:</strong> ${backingGuide}<br>
+        • <strong>Burnishing Rule:</strong> Press foil firmly with a plastic fid or wood dowel on the top face, edge, and bottom face to eliminate air pockets before applying flux.
+      </div>
+    </div>
+  `;
+}
+
+function updateGlassPatina() {
+  const target = $("#glass-patina-target")?.value || "black";
+  const flux = $("#glass-flux-type")?.value || "liquid-zinc";
+  const res = $("#glass-patina-result");
+  if (!res) return;
+
+  const chemicalGuide = {
+    "black": {
+      name: "Novacan Black Patina (Copper Selenide)",
+      prep: "Submerge finished panel in baking soda neutralizing bath (1 cup baking soda per gallon of warm water) or spray CJ's Flux Remover. Scrub with dish soap and rinse thoroughly.",
+      chem: "Pour 2 oz patina into plastic cup (never dip brush directly into bottle). Apply with dedicated foam brush or cotton pad. Reaction turns seam jet black within 3 seconds. Rinse immediately with cold water.",
+      seal: "Dry thoroughly with microfiber towel. Apply generous coat of microcrystalline carnauba wax / stained glass finishing polish. Let haze for 10 minutes, then buff with soft cloth to lock out oxygen and prevent white mold."
+    },
+    "copper": {
+      name: "Novacan Copper Patina (Electro-Chemical Displacement)",
+      prep: "Thoroughly neutralize all zinc chloride flux. Buff solder seams with #0000 fine bronze wool until beads are bright and shiny silver.",
+      chem: "Apply copper patina smoothly with foam brush. The chemical deposits a micro-layer of pure copper. Do not over-scrub during reaction or the thin copper coat will wipe off.",
+      seal: "Rinse cold, dry completely, and wax immediately. Copper oxidizes rapidly in air; polish seals the brilliant penny shine."
+    },
+    "silver": {
+      name: "Polished Silver Pewter (Natural 60/40 Seam)",
+      prep: "Neutralize flux in warm soapy water with a soft bristle brush.",
+      chem: "Skip chemical patina. Polish clean bare solder directly with fine 0000 steel wool or nylon abrasive pad for a bright metallic silver pewter luster.",
+      seal: "Apply stained glass wax immediately to prevent atmospheric lead dulling and white bloom oxidation."
+    }
+  }[target];
+
+  res.innerHTML = `
+    <div style="font-weight:600;font-size:12px;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+      <span>🧪 Protocol:</span> <span>${chemicalGuide.name}</span>
+    </div>
+
+    <div class="glass-patina-step-list">
+      <div class="glass-patina-step">
+        <div class="glass-patina-step-num">1</div>
+        <div>
+          <strong>Flux Neutralization (${flux === 'liquid-zinc' ? 'Zinc Chloride Acid' : 'Gel Flux'}):</strong><br>
+          ${chemicalGuide.prep}
+        </div>
+      </div>
+      <div class="glass-patina-step">
+        <div class="glass-patina-step-num">2</div>
+        <div>
+          <strong>Mechanical Deoxidation:</strong><br>
+          Scrub all solder seams with 0000 steel wool to remove dull gray oxide film down to brilliant lustrous tin/lead.
+        </div>
+      </div>
+      <div class="glass-patina-step">
+        <div class="glass-patina-step-num">3</div>
+        <div>
+          <strong>Chemical Application:</strong><br>
+          ${chemicalGuide.chem}
+        </div>
+      </div>
+      <div class="glass-patina-step">
+        <div class="glass-patina-step-num">4</div>
+        <div>
+          <strong>White Mold (Lead Carbonate) Prevention:</strong><br>
+          ${chemicalGuide.seal}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updateGlassScore() {
+  const sheet = $("#glass-score-sheet")?.value || "cathedral";
+  const shape = $("#glass-score-shape")?.value || "straight";
+  const oil = $("#glass-score-oil")?.value || "mineral";
+  const res = $("#glass-score-result");
+  if (!res) return;
+
+  const sheetData = {
+    "cathedral": { pressure: "5 – 7 lbs", sound: "Crisp light zipper tearing sound", angle: "134° Carbide Wheel", notes: "Consistent texture; smooth fluid score without hesitation." },
+    "opalescent": { pressure: "7 – 9 lbs", sound: "Firm steady sizzle sound", angle: "134° – 140° Carbide Wheel", notes: "Denser rolled glass with internal grain; score with firm posture." },
+    "textured": { pressure: "6 – 8 lbs", sound: "Variable sound across ridges", angle: "140° Steep Carbide Wheel", notes: "Always flip sheet and score on the smoothest back face to avoid wheel jumping." },
+    "hard": { pressure: "10 – 12 lbs", sound: "Sharp distinct snap line", angle: "140° – 145° Heavy Wheel", notes: "Borosilicate or fused art glass; requires steep carbide bevel and heavy downward hand force." }
+  }[sheet];
+
+  let shapeGuide = "";
+  if (shape === "straight") {
+    shapeGuide = "Straight Break: Place running pliers alignment mark directly over score line at sheet edge. Squeeze gently; the mechanical curve pops the fissure along the entire length.";
+  } else if (shape === "convex") {
+    shapeGuide = "Convex Outer Curve: Score smoothly around the contour. Apply running pliers at one edge or tap lightly underneath the score line with brass ball cutter handle until fissure runs.";
+  } else if (shape === "shallow-concave") {
+    shapeGuide = "Shallow Inside Curve: Make score in one continuous sweep. Use running pliers positioned with curved jaw facing upward to flex the center outwards.";
+  } else {
+    shapeGuide = "Deep Inside Curve / Horseshoe: DO NOT attempt to snap in one cut. Draw series of stepped tangent relief lines from the waste margin towards the inner curve boundary. Score relief lines first, snap off waste strips sequentially with grozing pliers, then make final inner curve finish score!";
+  }
+
+  res.innerHTML = `
+    <div class="glass-solder-summary">
+      <div class="glass-stat-card">
+        <span class="label">Target Hand Pressure</span>
+        <span class="value" style="color:var(--primary)">${sheetData.pressure}</span>
+        <div class="hint">Steady downward thrust</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Wheel Bevel Angle</span>
+        <span class="value">${sheetData.angle}</span>
+        <div class="hint">Industrial tungsten carbide</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Acoustic Feedback</span>
+        <span class="value" style="font-size:13px">${sheetData.sound}</span>
+        <div class="hint">No crunching / no skipping</div>
+      </div>
+      <div class="glass-stat-card">
+        <span class="label">Cutting Fluid</span>
+        <span class="value" style="font-size:13px">${oil === 'mineral' ? 'Light Mineral Oil' : (oil === 'water-soluble' ? 'Water-Soluble Fluid' : 'Dry Wheel')}</span>
+        <div class="hint">Keeps micro-fissure open</div>
+      </div>
+    </div>
+
+    <div class="glass-score-guide">
+      🔪 <strong>Break Mechanics (${shape.replace('-', ' ').toUpperCase()}):</strong><br>
+      ${shapeGuide}<br><br>
+      💡 <strong>Pro Tip:</strong> Never score twice over the same line! A second score ruins the carbide wheel blade and creates jagged, micro-chipped edges that crack during soldering.
+    </div>
+  `;
+}
+
+function renderGlassView() {
+  updateGlassSolder();
+  updateGlassFoil();
+  updateGlassPatina();
+  updateGlassScore();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -31732,6 +32483,31 @@ function initCraftStudios() {
   $("#forge-damascus-folds")?.addEventListener("input", updateForgeDamascus);
   ["#forge-gas-burners", "#forge-gas-tip", "#forge-target-temp"].forEach(s => $(s)?.addEventListener("change", updateForgeGas));
   $("#forge-gas-psi")?.addEventListener("input", updateForgeGas);
+
+  // Fasteners & Drills Studio Listeners
+  renderFastenersView();
+  $("#fastener-standard-select")?.addEventListener("change", () => {
+    populateFastenerSizes();
+    updateFastenerTap();
+    updateFastenerTorque();
+  });
+  $("#fastener-size-select")?.addEventListener("change", () => {
+    updateFastenerTap();
+    updateFastenerTorque();
+  });
+  $("#fastener-material-select")?.addEventListener("change", updateFastenerTap);
+  ["#fastener-grade-select", "#fastener-lube-select", "#fastener-preload-target"].forEach(s => $(s)?.addEventListener("change", updateFastenerTorque));
+  ["#fastener-wood-gauge", "#fastener-wood-type", "#fastener-wood-style"].forEach(s => $(s)?.addEventListener("change", updateFastenerWood));
+  $("#fastener-wood-length")?.addEventListener("input", updateFastenerWood);
+  ["#fastener-cb-style", "#fastener-cb-size", "#fastener-cb-fit"].forEach(s => $(s)?.addEventListener("change", updateFastenerCounterbore));
+
+  // Stained Glass & Copper Foil Studio Listeners
+  renderGlassView();
+  $("#glass-seam-length")?.addEventListener("input", updateGlassSolder);
+  ["#glass-assembly-type", "#glass-solder-alloy", "#glass-iron-tip"].forEach(s => $(s)?.addEventListener("change", updateGlassSolder));
+  ["#glass-thickness", "#glass-foil-width", "#glass-foil-backing", "#glass-foil-mil"].forEach(s => $(s)?.addEventListener("change", updateGlassFoil));
+  ["#glass-patina-target", "#glass-flux-type"].forEach(s => $(s)?.addEventListener("change", updateGlassPatina));
+  ["#glass-score-sheet", "#glass-score-shape", "#glass-score-oil"].forEach(s => $(s)?.addEventListener("change", updateGlassScore));
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();
