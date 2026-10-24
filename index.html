@@ -78,6 +78,8 @@
               <button class="nav-link" data-view="origami"><span class="nav-icon">🦢</span>Origami &amp; Paper</button>
               <button class="nav-link" data-view="laser"><span class="nav-icon">🔥</span>Laser Cutting</button>
               <button class="nav-link" data-view="leather"><span class="nav-icon">🪡</span>Leathercraft</button>
+              <button class="nav-link" data-view="ceramics"><span class="nav-icon">🏺</span>Ceramics &amp; Pottery</button>
+              <button class="nav-link" data-view="welding"><span class="nav-icon">⚡</span>Welding &amp; Metal</button>
             </div>
           </div>
 
@@ -442,6 +444,8 @@
                     <option value="Papercraft &amp; Origami">🦢 Papercraft &amp; Origami</option>
                     <option value="Laser Consumables &amp; Acrylic">🔥 Laser Consumables &amp; Acrylic</option>
                     <option value="Leather, Hides &amp; Hardware">🪡 Leather, Hides &amp; Hardware</option>
+                    <option value="Ceramics, Clay &amp; Glaze">🏺 Ceramics, Clay &amp; Glaze</option>
+                    <option value="Welding, Gas &amp; Wire">⚡ Welding, Gas &amp; Wire</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -4424,6 +4428,317 @@
             </div>
           </section>
 
+          <!-- 🏺 Ceramics & Pottery Studio View -->
+          <section class="view-section" id="ceramics-view" aria-labelledby="ceramics-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> POTTERY, GLAZES &amp; PYROMETRY</div>
+                <h1 id="ceramics-title">Ceramics &amp; Pottery Studio<span class="heading-period">.</span></h1>
+                <p>Wet-to-fired clay shrinkage calculators, Unity Molecular Formula (UMF) glaze chemistry estimators, Orton pyrometric cone firing schedules, and plaster mold volume batching.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-ceramics-specs">📋 Copy Ceramics Specs</button>
+                <button type="button" class="button button-primary" data-action="add-ceramics-supplies">🛒 Add Pottery Supplies to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🏺 Clay Shrinkage & Wet Wheel Throwing Calculator -->
+              <div class="panel" id="panel-clay-shrink">
+                <div class="eyebrow">CLAY SHRINKAGE &amp; WHEEL DIMENSIONS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🏺 Wet-to-Fired Clay Shrinkage Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-clay-shrink" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact wet throwing calipers and clay ball weight so your fired mug, bowl, or lidded jar shrinks to perfect finished dimensions.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Clay Body
+                    <select id="clay-body-preset">
+                      <option value="bmix_cone6" selected>Laguna B-Mix 5/6 (12.5% shrink • 2.5% abs)</option>
+                      <option value="porcelain_cone6">Frost Porcelain (14.2% shrink • 0.2% abs)</option>
+                      <option value="stoneware_cone6">Standard 112 Speckled (11.8% shrink • 1.8% abs)</option>
+                      <option value="terracotta_low">Red Terracotta Cone 04 (9.2% shrink • 8.5% abs)</option>
+                      <option value="sculpture_raku">Raku / 30% Grog Body (8.0% shrink • 9.0% abs)</option>
+                      <option value="custom">Custom Shrinkage %...</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Total Shrinkage (%)
+                    <input type="number" id="clay-shrinkage-pct" value="12.5" min="1" max="25" step="0.1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Target Fired Height (cm)
+                    <input type="number" id="clay-fired-height" value="10.0" min="1" max="100" step="0.5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Target Fired Rim Diam (cm)
+                    <input type="number" id="clay-fired-diam" value="8.5" min="1" max="100" step="0.5">
+                  </label>
+                  <label class="field-label" style="font-size:11px;grid-column:1 / -1">Target Fired Liquid Volume (ml)
+                    <input type="number" id="clay-fired-vol" value="350" min="50" max="5000" step="25">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="clay-shrink-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🧪 Glaze Chemistry & Unity Molecular Formula (UMF) Stull Estimator -->
+              <div class="panel" id="panel-glaze-umf">
+                <div class="eyebrow">GLAZE STABILITY &amp; FOOD SAFETY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧪 UMF Glaze Chemistry &amp; Stull Matrix</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Evaluate Unity Molecular Formula (UMF) silica-to-alumina ratios, food-safety glass durability, and surface finishes (glossy vs matte).</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px;grid-column:1 / -1">Glaze Recipe Preset
+                    <select id="glaze-recipe-preset">
+                      <option value="leach_4321" selected>Leach 4321 Cone 6 (High Gloss Clear • 0.35 Al₂O₃ / 3.4 SiO₂)</option>
+                      <option value="floating_blue">Floating Blue Cone 6 (Variegated Satin • 0.42 Al₂O₃ / 3.2 SiO₂)</option>
+                      <option value="satin_strontium">Silky Strontium Cone 6 (Food-Safe Matte • 0.38 Al₂O₃ / 2.6 SiO₂)</option>
+                      <option value="celadon_cone10">Traditional Iron Celadon Cone 10 (Glossy Glass • 0.55 Al₂O₃ / 4.8 SiO₂)</option>
+                      <option value="shino_carbon">Carbon Trap Shino Cone 10 (Waxy Satin • 0.40 Al₂O₃ / 2.4 SiO₂)</option>
+                      <option value="custom">Custom Molar Values...</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Alumina (Al₂O₃ moles)
+                    <input type="number" id="glaze-alumina" value="0.35" min="0.05" max="1.5" step="0.01">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Silica (SiO₂ moles)
+                    <input type="number" id="glaze-silica" value="3.40" min="0.5" max="8.0" step="0.05">
+                  </label>
+                  <label class="field-label" style="font-size:11px">R₂O Flux (Na₂O, K₂O, Li₂O)
+                    <input type="number" id="glaze-r2o" value="0.28" min="0.05" max="0.6" step="0.02">
+                  </label>
+                  <label class="field-label" style="font-size:11px">RO Flux (CaO, MgO, BaO, SrO)
+                    <input type="number" id="glaze-ro" value="0.72" min="0.4" max="0.95" step="0.02">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="glaze-umf-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🔥 Orton Pyrometric Cone Firing Ramp & Quartz Inversion -->
+              <div class="panel" id="panel-kiln-firing" style="grid-column: 1 / -1">
+                <div class="eyebrow">KILN PYROMETRY &amp; HEAT WORK</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🔥 Orton Pyrometric Cone Ramp &amp; Quartz Inversion Guide</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Program safe multi-stage electric or gas kiln ramps. Avoid explosive moisture dunting, manage 1063°F alpha-beta quartz shock, and pin down peak vitrification.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Target Firing Profile
+                    <select id="kiln-cone-preset">
+                      <option value="cone_04_bisque" selected>Cone 04 Bisque (1945°F / 1063°C • Standard Porous Body)</option>
+                      <option value="cone_06_bisque">Cone 06 Low Bisque (1828°F / 998°C • Soft School Body)</option>
+                      <option value="cone_6_glaze">Cone 6 Stoneware Glaze (2232°F / 1222°C • Mid-Fire Electric)</option>
+                      <option value="cone_10_glaze">Cone 10 Reduction Glaze (2345°F / 1285°C • Gas Kiln Porcelain)</option>
+                      <option value="cone_018_luster">Cone 018 Gold Luster / Decal (1319°F / 715°C • Overglaze)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Pre-Fire Candling
+                    <select id="kiln-candling-mode">
+                      <option value="2">2 Hours @ 180°F (Normal Greenware)</option>
+                      <option value="4">4 Hours @ 180°F (Thick / Damp Sculptures)</option>
+                      <option value="0">0 Hours (Bone Dry / Thin Ware Only)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Peak Soak Duration
+                    <select id="kiln-soak-time">
+                      <option value="15" selected>15 Minutes (Smooth glaze surface pinholes)</option>
+                      <option value="30">30 Minutes (Deep crystalline growth)</option>
+                      <option value="0">0 Minutes (Rapid drop cool)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="kiln-ramp-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🪣 Pottery Plaster Mold Water-to-Plaster Batcher -->
+              <div class="panel" id="panel-pottery-plaster" style="grid-column: 1 / -1">
+                <div class="eyebrow">SLIP CASTING &amp; PLASTER FORMING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🪣 Pottery Plaster Mold Water &amp; Powder Batcher</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Compute exact water and dry plaster weights for USG No. 1 or Hydrocal slip casting drop molds to achieve optimal water absorption porosity.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Plaster Compound
+                    <select id="plaster-type">
+                      <option value="usg_no1" selected>USG No. 1 Pottery Plaster (70 water : 100 plaster)</option>
+                      <option value="hydrocal">USG Hydrocal White (45 water : 100 plaster • High Strength)</option>
+                      <option value="ultracal30">Ultracal 30 (38 water : 100 plaster • Tooling &amp; Cases)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Mold Shape
+                    <select id="plaster-mold-shape">
+                      <option value="box" selected>Rectangular Box (L × W × H)</option>
+                      <option value="cylinder">Cylindrical Drop Mold (π × r² × H)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Length / Diam (cm)
+                    <input type="number" id="plaster-dim-1" value="20" min="5" max="200" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Width / Height (cm)
+                    <input type="number" id="plaster-dim-2" value="15" min="5" max="200" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Depth / Height (cm)
+                    <input type="number" id="plaster-dim-3" value="10" min="2" max="200" step="0.5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="plaster-calc-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ⚡ Welding & Metal Fabrication Studio View -->
+          <section class="view-section" id="welding-view" aria-labelledby="welding-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> ARC WELDING &amp; METAL FORMING</div>
+                <h1 id="welding-title">Welding &amp; Metal Fabrication Studio<span class="heading-period">.</span></h1>
+                <p>MIG/TIG/Stick parameter estimators, shielding gas mixtures, sheet metal bend deduction &amp; K-factor unfolds, and thermal distortion sequencing.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-welding-specs">📋 Copy Welding Specs</button>
+                <button type="button" class="button button-primary" data-action="add-welding-supplies">🛒 Add Welding Supplies to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- ⚡ Arc Welding Parameter Matrix -->
+              <div class="panel" id="panel-welding-params" style="grid-column: 1 / -1">
+                <div class="eyebrow">ARC PARAMETERS &amp; MACHINE DIAL-IN</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">⚡ Welding Feeds, Voltage &amp; Amperage Estimator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-welding-params" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Dial in precise wire feed speed (IPM), arc voltage, amperage, polarity, and filler wire gauge for solid welds with deep root penetration and zero undercut.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Welding Process
+                    <select id="weld-process">
+                      <option value="mig_gmaw" selected>GMAW / MIG (Solid Wire + Shielding Gas)</option>
+                      <option value="flux_core">FCAW / Gasless Flux-Cored (Outdoor Structural)</option>
+                      <option value="tig_gtaw">GTAW / TIG (Tungsten Arc • Precision Clean)</option>
+                      <option value="stick_smaw">SMAW / Stick (Shielded Metal Arc)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Metal Alloy
+                    <select id="weld-metal">
+                      <option value="mild_steel" selected>ASTM A36 Mild Carbon Steel</option>
+                      <option value="stainless_304">304 / 316 Austenitic Stainless Steel</option>
+                      <option value="aluminum_6061">6061-T6 Aluminum Alloy</option>
+                      <option value="chromoly_4130">4130 Chromoly Aircraft Tubing</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Material Thickness
+                    <select id="weld-thickness">
+                      <option value="ga_20">20 Gauge (0.88 mm / 0.035") • Sheet Metal</option>
+                      <option value="ga_16">16 Gauge (1.52 mm / 0.060") • Tubing / Chassis</option>
+                      <option value="in_0125" selected>1/8" (3.18 mm) • Standard Brackets &amp; Plate</option>
+                      <option value="in_0250">1/4" (6.35 mm) • Structural Beam / Trailer</option>
+                      <option value="in_0375">3/8" (9.52 mm) • Heavy Equipment / Flanges</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Joint Configuration
+                    <select id="weld-joint">
+                      <option value="butt" selected>Square Groove Butt Joint</option>
+                      <option value="t_joint">T-Joint Fillet Weld</option>
+                      <option value="lap">Lap Joint</option>
+                      <option value="corner">Outside Corner Joint</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="weld-params-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 💨 Shielding Gas Mixture & Regulator CFH Matcher -->
+              <div class="panel" id="panel-welding-gas">
+                <div class="eyebrow">ATMOSPHERIC SHIELDING &amp; FLOW</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">💨 Shielding Gas Blend &amp; Flow Rate Matcher</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Match cylinder shielding gases, flow meter CFH, and cup sizes to prevent porosity worms, tungsten contamination, and nitrogen embrittlement.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Gas Optimization
+                    <select id="weld-gas-opt">
+                      <option value="standard" selected>Standard Balanced (75/25 C25 or 100% Ar)</option>
+                      <option value="deep_penetration">Maximum Penetration (100% CO₂ for thick steel)</option>
+                      <option value="low_spatter">Ultra-Clean Low Spatter (90/10 or Tri-Mix)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Shop Draft Environment
+                    <select id="weld-draft-env">
+                      <option value="still" selected>Indoor Shop (Still dead air)</option>
+                      <option value="drafty">Garage Bay with open door / light breeze</option>
+                      <option value="outdoor">Outdoor Jobsite (Requires windscreen / flux-core)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="weld-gas-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📐 Sheet Metal Bend Deduction & K-Factor Unfolder -->
+              <div class="panel" id="panel-welding-bend">
+                <div class="eyebrow">PRESS BRAKE SHEET METAL FORMING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📐 Bend Deduction &amp; Flat Blank Pattern Unfold</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact Bend Allowance (BA), Outside Setback (OSB), Bend Deduction (BD), and flat blank laser/shear cut dimensions.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Sheet Thickness (T, mm)
+                    <input type="number" id="weld-bend-thick" value="2.0" min="0.5" max="12.0" step="0.1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Inside Radius (R, mm)
+                    <input type="number" id="weld-bend-radius" value="2.0" min="0.2" max="25.0" step="0.1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Flange Leg A (mm)
+                    <input type="number" id="weld-bend-leg-a" value="50.0" min="5" max="1000" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Flange Leg B (mm)
+                    <input type="number" id="weld-bend-leg-b" value="75.0" min="5" max="1000" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Bend Angle (Degrees)
+                    <input type="number" id="weld-bend-angle" value="90" min="15" max="175" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">K-Factor
+                    <select id="weld-bend-kfactor">
+                      <option value="0.44" selected>0.44 (Air Bending Standard Sheet)</option>
+                      <option value="0.50">0.50 (Bottoming / Coining / Thick Plate)</option>
+                      <option value="0.33">0.33 (Soft Aluminum / Copper)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="weld-bend-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🌡️ Thermal Heat Input & Distortion Control Watchdog -->
+              <div class="panel" id="panel-welding-heat" style="grid-column: 1 / -1">
+                <div class="eyebrow">HEAT AFFECTED ZONE (HAZ) &amp; WARPAGE CONTROL</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🌡️ Heat Input Energy &amp; Distortion Sequencing Watchdog</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate arc heat input energy (kJ/inch or kJ/mm) to prevent angular plate distortion, martensitic embrittlement, and stainless carbide precipitation.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Arc Voltage (V)
+                    <input type="number" id="weld-heat-volts" value="19.5" min="10" max="40" step="0.5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Welding Current (Amps)
+                    <input type="number" id="weld-heat-amps" value="140" min="20" max="450" step="5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Travel Speed (IPM)
+                    <input type="number" id="weld-heat-speed" value="14.0" min="2" max="60" step="0.5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Arc Thermal Efficiency (η)
+                    <select id="weld-heat-eff">
+                      <option value="0.80" selected>0.80 — GMAW / MIG</option>
+                      <option value="0.85">0.85 — FCAW Flux-Cored</option>
+                      <option value="0.60">0.60 — GTAW / TIG</option>
+                      <option value="0.75">0.75 — SMAW / Stick</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="weld-heat-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -4836,6 +5151,8 @@
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="origami">🦢 Origami &amp; Paper</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="laser">🔥 Laser Cutting</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="leather">🪡 Leathercraft</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="ceramics">🏺 Ceramics &amp; Pottery</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="welding">⚡ Welding &amp; Metal</button>
         </div>
       </div>
     </dialog>
@@ -5090,6 +5407,8 @@
                 <option value="Papercraft &amp; Origami">🦢 Papercraft &amp; Origami</option>
                 <option value="Laser Consumables &amp; Acrylic">🔥 Laser Consumables &amp; Acrylic</option>
                 <option value="Leather, Hides &amp; Hardware">🪡 Leather, Hides &amp; Hardware</option>
+                <option value="Ceramics, Clay &amp; Glaze">🏺 Ceramics, Clay &amp; Glaze</option>
+                <option value="Welding, Gas &amp; Wire">⚡ Welding, Gas &amp; Wire</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -6089,6 +6408,16 @@
           <span class="mobile-studio-icon" aria-hidden="true">🪡</span>
           <strong>Leathercraft</strong>
           <span class="mobile-studio-desc">Saddle stitch length, belt sizing, oz to mm</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="ceramics" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🏺</span>
+          <strong>Ceramics &amp; Pottery</strong>
+          <span class="mobile-studio-desc">Clay shrinkage, UMF chemistry, cone ramps</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="welding" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">⚡</span>
+          <strong>Welding &amp; Metal</strong>
+          <span class="mobile-studio-desc">MIG/TIG feeds, bend deduction, heat input</span>
         </button>
       </div>
     </dialog>

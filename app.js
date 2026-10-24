@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3912,7 +3912,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     printing: "3D Printing Studio",
     origami: "Origami & Papercraft Studio",
     laser: "Laser Cutting & Engraving Studio",
-    leather: "Leathercraft & Stitching Studio"
+    leather: "Leathercraft & Stitching Studio",
+    ceramics: "Ceramics & Pottery Studio",
+    welding: "Welding & Metal Fabrication Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3946,6 +3948,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "origami") renderOrigamiView();
   if (targetView === "laser") renderLaserView();
   if (targetView === "leather") renderLeatherView();
+  if (targetView === "ceramics") renderCeramicsView();
+  if (targetView === "welding") renderWeldingView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -7010,6 +7014,32 @@ const WORKSHOP_STARTER_KITS = {
       { type: "material", name: "Vegetable-Tanned Cowhide Double Shoulder 4-5oz (14 sq ft)", category: "Leather, Hides & Hardware", quantity: 14, unit: "sq ft", price: 9.50, cost: 133.00, lowStockThreshold: 4, location: "Hide Roll Bin", supplier: "Hermann Oak" },
       { type: "material", name: "Ritza 25 'Tiger' Waxed Polyester Thread 0.55mm (50m)", category: "Leather, Hides & Hardware", quantity: 50, unit: "meters", price: 0.24, cost: 12.00, lowStockThreshold: 10, location: "Thread Spool Rack", supplier: "Julius Koch" },
       { type: "material", name: "Seiwa Tokonole Leather Burnishing Gum (120g Clear)", category: "Finishes & Adhesives", quantity: 1, unit: "tub", price: 14.00, cost: 14.00, lowStockThreshold: 1, location: "Adhesives Shelf", supplier: "Rocky Mountain Leather", notes: "Water-based gum for burnishing flesh side and edges to high glass shine" }
+    ]
+  },
+  ceramics: {
+    title: "Ceramics & Wheel Throwing Studio Kit",
+    icon: "🏺",
+    category: "Ceramics, Clay & Glaze",
+    description: "Essential pottery tool pack, stainless steel trimming ribbons, wire cut-off, Orton pyrometric cones, and Laguna B-Mix clay.",
+    items: [
+      { type: "equipment", name: "Pottery Tool 8-Piece Wood & Ribbon Set", category: "Hand Tools & Measuring", brand: "Kemper", cost: 18.50, condition: "operational", location: "Pottery Tool Bucket", specs: "Rib, sponge, wire cutter, needle tool, loop ribbon", notes: "Wash and dry tools after every throwing session to prevent rust" },
+      { type: "equipment", name: "Orton Pyrometric Standard Self-Supporting Cones (Cone 04 & 6)", category: "Hand Tools & Measuring", brand: "Orton", cost: 24.00, condition: "operational", location: "Kiln Shelf", specs: "Cone 04 (1063°C) and Cone 6 (1222°C)", notes: "Place in witness cone pack on middle kiln shelf at peephole line" },
+      { type: "material", name: "Laguna B-Mix Clay with Grog Cone 5-6 (25 lb Bag)", category: "Ceramics, Clay & Glaze", quantity: 25, unit: "lbs", price: 0.90, cost: 22.50, lowStockThreshold: 10, location: "Clay Bin 1", supplier: "Laguna Clay Co", notes: "Store in double-bagged bucket with damp sponge on top" },
+      { type: "material", name: "Amaco Potter's Choice Cone 5-6 Glaze (Pint - Oatmeal/Blue)", category: "Ceramics, Clay & Glaze", quantity: 2, unit: "pints", price: 16.50, cost: 33.00, lowStockThreshold: 1, location: "Glaze Shelf A", supplier: "Amaco" },
+      { type: "material", name: "USG No. 1 Pottery Plaster (50 lb Bag)", category: "Ceramics, Clay & Glaze", quantity: 50, unit: "lbs", price: 0.65, cost: 32.50, lowStockThreshold: 15, location: "Dry Powder Cabinet", supplier: "USG", notes: "Keep tightly sealed in airtight container away from shop moisture" }
+    ]
+  },
+  welding: {
+    title: "MIG & TIG Metal Fabrication Studio Kit",
+    icon: "⚡",
+    category: "Welding, Gas & Wire",
+    description: "Auto-darkening true color welding helmet, MIG pliers, ER70S-6 wire, C25 shielding gas regulator, and magnetic fabrication squares.",
+    items: [
+      { type: "equipment", name: "Auto-Darkening True-Color Welding Helmet (Optical 1/1/1/1)", category: "Safety Gear & PPE", brand: "Lincoln Electric", model: "VIKING 3350", cost: 285.00, condition: "operational", location: "Welding Helmet Hook", specs: "Shade 5-13 · 3.74x3.34\" view", notes: "Replace outer clear sacrificial lens cover when spatter clouds vision" },
+      { type: "equipment", name: "Welper 8-Way MIG Pliers", category: "Hand Tools & Measuring", brand: "Welper", model: "YS-50", cost: 24.00, condition: "operational", location: "MIG Cart Drawer", specs: "Nozzle cleaner, tip wrench, wire cutter", notes: "Keep near wire feeder for nozzle reaming and wire snips" },
+      { type: "equipment", name: "Magnetic Multi-Angle Ground Clamp & Clamping Square (4-pack)", category: "Hand Tools & Measuring", brand: "Strong Hand Tools", cost: 48.00, condition: "operational", location: "Steel Fab Table", specs: "50 lb pull strength · 45°/90°/135°", notes: "Wipe metal shavings off magnets before precision layout" },
+      { type: "material", name: "ER70S-6 Mild Steel MIG Wire 0.030\" (11 lb Spool)", category: "Welding, Gas & Wire", quantity: 1, unit: "spool", price: 29.50, cost: 29.50, lowStockThreshold: 1, location: "MIG Machine Spool Hub", supplier: "Hobart", notes: "Deoxidized with silicon and manganese for clean arc with C25 gas" },
+      { type: "material", name: "Heavy Duty Premium Goat-Grain TIG/MIG Gloves (Pair)", category: "Safety Gear & PPE", quantity: 2, unit: "pairs", price: 18.00, cost: 36.00, lowStockThreshold: 1, location: "Safety Cabinet", supplier: "Tillman", notes: "Kevlar stitched heat-resistant goatskin" }
     ]
   }
 };
@@ -10590,6 +10620,22 @@ async function handleAction(action, target) {
   }
   if (action === "add-leather-supplies") {
     void addLeatherSupplies();
+    return;
+  }
+  if (action === "copy-ceramics-specs") {
+    copyCeramicsSpecs();
+    return;
+  }
+  if (action === "add-ceramics-supplies") {
+    void addCeramicsSupplies();
+    return;
+  }
+  if (action === "copy-welding-specs") {
+    copyWeldingSpecs();
+    return;
+  }
+  if (action === "add-welding-supplies") {
+    void addWeldingSupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -29569,6 +29615,691 @@ function renderLeatherView() {
   updateLeatherEdgeGuide();
 }
 
+// ============================================================
+// 🏺 Ceramics & Pottery Studio Calculations & Handlers
+// ============================================================
+function copyCeramicsSpecs() {
+  const shrinkText = $("#clay-shrink-result")?.innerText || "";
+  const glazeText = $("#glaze-umf-result")?.innerText || "";
+  const kilnText = $("#kiln-ramp-result")?.innerText || "";
+  const text = `🏺 CERAMICS & POTTERY BENCH & FIRING SPEC SHEET\n\n${shrinkText}\n\n${glazeText}\n\n${kilnText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Ceramics & Pottery Specs to clipboard!"));
+}
+
+async function addCeramicsSupplies() {
+  const clayName = $("#clay-body-preset option:checked")?.textContent.split("(")[0].trim() || "Pottery Clay";
+  await addMaterialToProjectShopping(`${clayName} (25 lb Bag)`, "1 bag", 22.50, "Ceramics, Clay & Glaze");
+}
+
+function updateClayShrinkCalc() {
+  const preset = $("#clay-body-preset")?.value || "bmix_cone6";
+  const shrinkInput = $("#clay-shrinkage-pct");
+  const firedHeight = Math.max(1, parseFloat($("#clay-fired-height")?.value) || 10.0);
+  const firedDiam = Math.max(1, parseFloat($("#clay-fired-diam")?.value) || 8.5);
+  const firedVol = Math.max(10, parseFloat($("#clay-fired-vol")?.value) || 350);
+  const res = $("#clay-shrink-result");
+  if (!res) return;
+
+  const presets = {
+    bmix_cone6: 12.5,
+    porcelain_cone6: 14.2,
+    stoneware_cone6: 11.8,
+    terracotta_low: 9.2,
+    sculpture_raku: 8.0
+  };
+
+  if (preset !== "custom" && presets[preset] && shrinkInput) {
+    shrinkInput.value = presets[preset];
+  }
+
+  const shrinkPct = Math.max(1, Math.min(25, parseFloat(shrinkInput?.value) || 12.5));
+  const factor = 1 - (shrinkPct / 100);
+  const mult = 1 / factor;
+
+  const wetHeight = (firedHeight * mult).toFixed(1);
+  const wetDiam = (firedDiam * mult).toFixed(1);
+  const wetVol = Math.round(firedVol * Math.pow(mult, 3));
+  // Ball weight rule: ~1.25g per ml of wet volume + 75g for bottom trimming foot
+  const clayBallGrams = Math.round((firedVol * 1.25) + 80);
+  const clayBallLbs = (clayBallGrams / 453.592).toFixed(2);
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700">WET THROWING CALIPERS:</span>
+        <strong style="font-size:18px;color:var(--primary)">${wetHeight} cm H × ${wetDiam} cm ⌀</strong>
+      </div>
+      <div class="welding-stat-grid" style="margin-bottom:6px">
+        <div class="welding-param-card">
+          <span class="label">Wet Height</span>
+          <span class="value">${wetHeight} <span style="font-size:11px;font-weight:normal">cm</span></span>
+          <div class="hint">+${(wetHeight - firedHeight).toFixed(1)} cm shrink allowance</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Wet Rim Diam</span>
+          <span class="value">${wetDiam} <span style="font-size:11px;font-weight:normal">cm</span></span>
+          <div class="hint">+${(wetDiam - firedDiam).toFixed(1)} cm shrink allowance</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Clay Ball Weight</span>
+          <span class="value">${clayBallGrams} <span style="font-size:11px;font-weight:normal">g</span></span>
+          <div class="hint">~${clayBallLbs} lbs on wheel</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Wet Cavity Vol</span>
+          <span class="value">${wetVol} <span style="font-size:11px;font-weight:normal">ml</span></span>
+          <div class="hint">Shrinks to ${firedVol} ml</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      📏 <strong>Lid &amp; Gallery Fit:</strong> If throwing a lidded jar, measure gallery with calipers while wet. Multiply flange by <strong>${mult.toFixed(3)}×</strong>.<br>
+      ⚖️ <strong>Shrinkage Ratio:</strong> At ${shrinkPct}% total shrinkage, the clay shrinks <strong>${(shrinkPct * 0.45).toFixed(1)}% in drying</strong> and <strong>${(shrinkPct * 0.55).toFixed(1)}% in the firing</strong>.
+    </div>
+  `;
+}
+
+function updateGlazeUmfCalc() {
+  const preset = $("#glaze-recipe-preset")?.value || "leach_4321";
+  const alInput = $("#glaze-alumina");
+  const siInput = $("#glaze-silica");
+  const r2oInput = $("#glaze-r2o");
+  const roInput = $("#glaze-ro");
+  const res = $("#glaze-umf-result");
+  if (!res) return;
+
+  const recipes = {
+    leach_4321: { al: 0.35, si: 3.40, r2o: 0.28, ro: 0.72 },
+    floating_blue: { al: 0.42, si: 3.20, r2o: 0.25, ro: 0.75 },
+    satin_strontium: { al: 0.38, si: 2.60, r2o: 0.22, ro: 0.78 },
+    celadon_cone10: { al: 0.55, si: 4.80, r2o: 0.30, ro: 0.70 },
+    shino_carbon: { al: 0.40, si: 2.40, r2o: 0.45, ro: 0.55 }
+  };
+
+  if (preset !== "custom" && recipes[preset] && alInput && siInput && r2oInput && roInput) {
+    alInput.value = recipes[preset].al;
+    siInput.value = recipes[preset].si;
+    r2oInput.value = recipes[preset].r2o;
+    roInput.value = recipes[preset].ro;
+  }
+
+  const al = Math.max(0.05, parseFloat(alInput?.value) || 0.35);
+  const si = Math.max(0.5, parseFloat(siInput?.value) || 3.40);
+  const r2o = Math.max(0.05, parseFloat(r2oInput?.value) || 0.28);
+  const ro = Math.max(0.2, parseFloat(roInput?.value) || 0.72);
+
+  const ratio = si / al;
+  let stullClass = "stull-gloss";
+  let stullBadge = "BRIGHT GLOSSY GLASS";
+  let surfaceDesc = "High reflectivity, transparent depth, fluid melt. Excellent for functional food-ware.";
+
+  if (ratio >= 9.0) {
+    stullClass = "stull-gloss";
+    stullBadge = "ULTRA-GLOSS / RUNNY";
+    surfaceDesc = "High silica melt. Prone to running off vertical foot rings if over-fired. Catchers recommended.";
+  } else if (ratio >= 7.0) {
+    stullClass = "stull-satin";
+    stullBadge = "SILKY SATIN SEMI-MATTE";
+    surfaceDesc = "Pleasing buttery sheen. Smooth tactile surface with excellent knife cut-mark resistance.";
+  } else if (ratio >= 5.2) {
+    stullClass = "stull-matte";
+    stullBadge = "MATTE / MICRO-CRYSTALLINE";
+    surfaceDesc = "Alumina-dominated micro-crystals precipitate upon slow cooling, creating velvet opaque matte.";
+  } else {
+    stullClass = "stull-unmelted";
+    stullBadge = "UNDER-FIRED / IMMATURE DRY";
+    surfaceDesc = "Insufficient silica glass-former lattice. Rough, dry surface that absorbs liquids and harbors bacteria.";
+  }
+
+  // Food-safety durability test:
+  // Silica should be >= 2.50 moles and Alumina >= 0.25 moles in a stable Cone 6 glaze
+  const isFoodSafeGlaze = si >= 2.50 && al >= 0.25 && r2o <= 0.35;
+  const foodSafeBadge = isFoodSafeGlaze 
+    ? `<span style="color:#10b981;font-weight:bold">🟢 Stable Glass Former Matrix (Food Safe Base)</span>` 
+    : `<span style="color:#ef4444;font-weight:bold">🔴 High Leaching Risk (Not Recommended for Food Surfaces)</span>`;
+
+  res.innerHTML = `
+    <div class="ceramics-stull-card ${stullClass}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${stullBadge} (SiO₂ : Al₂O₃ = ${ratio.toFixed(1)})</strong>
+        <span style="font-size:11px;font-weight:bold">Unity Sum: ${(r2o + ro).toFixed(2)} Flux</span>
+      </div>
+      <p style="font-size:11px;margin:0 0 6px">${surfaceDesc}</p>
+      <div style="font-size:11px">${foodSafeBadge}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;font-size:11px;margin-bottom:6px">
+      <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:4px;padding:6px">
+        <span style="font-size:10px;color:var(--muted);display:block">SiO₂ Silica</span>
+        <strong>${si.toFixed(2)} mol</strong>
+      </div>
+      <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:4px;padding:6px">
+        <span style="font-size:10px;color:var(--muted);display:block">Al₂O₃ Alumina</span>
+        <strong>${al.toFixed(2)} mol</strong>
+      </div>
+      <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:4px;padding:6px">
+        <span style="font-size:10px;color:var(--muted);display:block">R₂O : RO Flux Ratio</span>
+        <strong>${(r2o / (r2o + ro)).toFixed(2)} : ${(ro / (r2o + ro)).toFixed(2)}</strong>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      🧪 <strong>Stull Phase Diagram:</strong> Silica acts as the glass former; Alumina is the stabilizer / refractor. Balance fluxes (${(r2o + ro).toFixed(2)} total) to keep COE below 6.5×10⁻⁶ to prevent crazing cracks.
+    </div>
+  `;
+}
+
+function updateKilnRampCalc() {
+  const cone = $("#kiln-cone-preset")?.value || "cone_04_bisque";
+  const candlingHrs = parseFloat($("#kiln-candling-mode")?.value) || 2;
+  const soakMins = parseFloat($("#kiln-soak-time")?.value) || 15;
+  const res = $("#kiln-ramp-result");
+  if (!res) return;
+
+  const coneData = {
+    cone_04_bisque: {
+      name: "Cone 04 Bisque Firing",
+      targetF: "1945°F",
+      targetC: "1063°C",
+      totalHrs: (8.5 + candlingHrs).toFixed(1),
+      purpose: "Burn out organic carbon, dehydrate clay chemically, and leave porous for glaze dipping."
+    },
+    cone_06_bisque: {
+      name: "Cone 06 Low Bisque Firing",
+      targetF: "1828°F",
+      targetC: "998°C",
+      totalHrs: (7.5 + candlingHrs).toFixed(1),
+      purpose: "Softer bisque for school studios and delicate low-fire earthenware."
+    },
+    cone_6_glaze: {
+      name: "Cone 6 Mid-Fire Stoneware Glaze",
+      targetF: "2232°F",
+      targetC: "1222°C",
+      totalHrs: (7.0 + (soakMins / 60)).toFixed(1),
+      purpose: "Full vitrification of stoneware clay body (< 2% absorption) and fluid glass melt."
+    },
+    cone_10_glaze: {
+      name: "Cone 10 Reduction Porcelain Glaze",
+      targetF: "2345°F",
+      targetC: "1285°C",
+      totalHrs: (10.5 + (soakMins / 60)).toFixed(1),
+      purpose: "Gas kiln heavy reduction (0.82 AF ratio) for celadons, copper reds, and iron saturates."
+    },
+    cone_018_luster: {
+      name: "Cone 018 Gold Luster & Overglaze Decal",
+      targetF: "1319°F",
+      targetC: "715°C",
+      totalHrs: "4.0",
+      purpose: "Fusing metallic gold, platinum, or silk-screen enamel decals onto fired glaze."
+    }
+  };
+
+  const c = coneData[cone] || coneData.cone_04_bisque;
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${c.name} — Peak ${c.targetF} (${c.targetC})</strong>
+        <span style="font-size:11px;color:var(--primary);font-weight:bold">Estimated Cycle: ~${c.totalHrs} Hours</span>
+      </div>
+      <p style="font-size:11px;color:var(--ink-secondary);margin:0 0 8px">${c.purpose}</p>
+
+      <div style="margin-top:6px">
+        <div class="ceramics-ramp-step">
+          <div class="ceramics-ramp-badge">STAGE 1</div>
+          <div class="ceramics-ramp-body">
+            <strong>Candling &amp; Water Smoking (Room Temp → 180°F / 82°C)</strong>
+            Hold for ${candlingHrs} hours. Eliminates mechanical pore moisture. <em>Critical: Never ramp above 212°F if ware is cool to the cheek, or water turns to explosive steam!</em>
+          </div>
+        </div>
+        <div class="ceramics-ramp-step">
+          <div class="ceramics-ramp-badge">STAGE 2</div>
+          <div class="ceramics-ramp-body">
+            <strong>Organic Burnout &amp; Chem-Water Dehydroxylation (200°F → 950°F / 510°C)</strong>
+            Ramp at 250°F/hr. Burns out lignite, sulfur, and drives off chemically bound lattice water. Keep kiln top peephole open.
+          </div>
+        </div>
+        <div class="ceramics-ramp-step">
+          <div class="ceramics-ramp-badge" style="background:#ef4444">STAGE 3</div>
+          <div class="ceramics-ramp-body">
+            <strong>Alpha-to-Beta Quartz Inversion Shock Zone (950°F → 1150°F / 620°C)</strong>
+            Slow ramp to 150°F/hr. Silica crystals expand 0.45% instantaneously at 1063°F (573°C). Slow heating prevents structural dunting stress fractures.
+          </div>
+        </div>
+        <div class="ceramics-ramp-step">
+          <div class="ceramics-ramp-badge">STAGE 4</div>
+          <div class="ceramics-ramp-body">
+            <strong>Final Vitrification Climb (1150°F → ${c.targetF})</strong>
+            Ramp at 180°F/hr for the last 200°F until target Orton cone tip bends into a clean 90° arch touching the shelf.
+          </div>
+        </div>
+        <div class="ceramics-ramp-step" style="margin-bottom:0">
+          <div class="ceramics-ramp-badge">STAGE 5</div>
+          <div class="ceramics-ramp-body">
+            <strong>Peak Soak &amp; Controlled Drop Cool</strong>
+            Hold at peak for ${soakMins} minutes to heal surface glaze bubbles. Natural cool with closed lid to prevent cristobalite thermal shock at 437°F.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updatePlasterCalc() {
+  const plasterType = $("#plaster-type")?.value || "usg_no1";
+  const shape = $("#plaster-mold-shape")?.value || "box";
+  const dim1 = Math.max(1, parseFloat($("#plaster-dim-1")?.value) || 20);
+  const dim2 = Math.max(1, parseFloat($("#plaster-dim-2")?.value) || 15);
+  const dim3 = Math.max(1, parseFloat($("#plaster-dim-3")?.value) || 10);
+  const res = $("#plaster-calc-result");
+  if (!res) return;
+
+  // Volume in cm3 (ml)
+  let vol = 0;
+  if (shape === "box") {
+    vol = dim1 * dim2 * dim3;
+  } else {
+    const radius = dim1 / 2;
+    vol = Math.PI * Math.pow(radius, 2) * dim2;
+  }
+
+  // Consistency ratios (parts water per 100 parts plaster by weight)
+  const ratios = {
+    usg_no1: { waterRatio: 70, name: "USG No. 1 Pottery Plaster", desc: "Standard 70 consistency. Superb capillary water absorption for slip-casting slip molds." },
+    hydrocal: { waterRatio: 45, name: "USG Hydrocal White", desc: "Dense 45 consistency. High compressive strength for mother molds and pressed tiles." },
+    ultracal30: { waterRatio: 38, name: "Ultracal 30", desc: "Low expansion 38 consistency. Maximum hardness and edge detail for resin tooling." }
+  };
+
+  const p = ratios[plasterType] || ratios.usg_no1;
+  // 1 cm3 of mixed slurry requires ~0.85g of dry plaster + (0.85 * ratio/100)g of water
+  const factor = 1 / (1 + (p.waterRatio / 100) * 0.7); // volume efficiency factor
+  const dryPlasterGrams = Math.round(vol * 0.88);
+  const waterGrams = Math.round(dryPlasterGrams * (p.waterRatio / 100));
+  const dryPlasterLbs = (dryPlasterGrams / 453.592).toFixed(2);
+  const waterLbs = (waterGrams / 453.592).toFixed(2);
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700">MOLD SLURRY BATCH (${vol.toFixed(0)} cm³ / ${(vol / 1000).toFixed(2)} Liters):</span>
+        <strong style="font-size:18px;color:var(--primary)">${waterGrams}g H₂O + ${dryPlasterGrams}g Plaster</strong>
+      </div>
+      <div class="welding-stat-grid" style="margin-bottom:6px">
+        <div class="welding-param-card">
+          <span class="label">Water Weight</span>
+          <span class="value">${waterGrams} <span style="font-size:11px;font-weight:normal">g</span></span>
+          <div class="hint">${waterLbs} lbs • Cool 70°F water</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Dry Plaster</span>
+          <span class="value">${dryPlasterGrams} <span style="font-size:11px;font-weight:normal">g</span></span>
+          <div class="hint">${dryPlasterLbs} lbs dry powder</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Slaking Soak</span>
+          <span class="value">2 Minutes</span>
+          <div class="hint">Sift into water; let hydrate</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Mix &amp; Pour Time</span>
+          <span class="value">3 Minutes</span>
+          <div class="hint">Pour before pudding phase</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      🪣 <strong>Mixing Protocol:</strong> Always add <em>plaster into water</em> (never water into plaster). Sift evenly across surface until an island forms. Allow to slake undisturbed for 2 minutes, then blend thoroughly from the bottom without whipping air into the slurry. Tap mold frame vigorously to dislodge bubbles.
+    </div>
+  `;
+}
+
+function renderCeramicsView() {
+  updateClayShrinkCalc();
+  updateGlazeUmfCalc();
+  updateKilnRampCalc();
+  updatePlasterCalc();
+}
+
+// ============================================================
+// ⚡ Welding & Metal Fabrication Calculations & Handlers
+// ============================================================
+function copyWeldingSpecs() {
+  const paramsText = $("#weld-params-result")?.innerText || "";
+  const gasText = $("#weld-gas-result")?.innerText || "";
+  const bendText = $("#weld-bend-result")?.innerText || "";
+  const text = `⚡ WELDING & METAL FABRICATION WORKSHOP SPEC SHEET\n\n${paramsText}\n\n${gasText}\n\n${bendText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Welding & Metal Specs to clipboard!"));
+}
+
+async function addWeldingSupplies() {
+  const process = $("#weld-process")?.value || "mig_gmaw";
+  if (process.includes("mig")) {
+    await addMaterialToProjectShopping("ER70S-6 Mild Steel MIG Wire 0.030\" (11 lb Spool)", "1 spool", 29.50, "Welding, Gas & Wire");
+  } else {
+    await addMaterialToProjectShopping("Welding Consumables & Filler Rods", "1 pack", 35.00, "Welding, Gas & Wire");
+  }
+}
+
+function updateWeldParamsCalc() {
+  const proc = $("#weld-process")?.value || "mig_gmaw";
+  const metal = $("#weld-metal")?.value || "mild_steel";
+  const thick = $("#weld-thickness")?.value || "in_0125";
+  const joint = $("#weld-joint")?.value || "butt";
+  const res = $("#weld-params-result");
+  if (!res) return;
+
+  // Welding parameters matrix
+  // [amps, volts, wfs_ipm, wire_dia_inch, polarity, tip_or_rod]
+  const weldMatrix = {
+    mig_gmaw: {
+      mild_steel: {
+        ga_20: [45, 15.0, 140, "0.023\"", "DCEP (Reverse)", "Short circuit arc; stitch weld to prevent burn-through."],
+        ga_16: [85, 17.0, 190, "0.030\"", "DCEP (Reverse)", "Smooth short circuit arc; 1/2\" wire stickout."],
+        in_0125: [135, 19.5, 260, "0.030\"", "DCEP (Reverse)", "Slight push angle (10-15°); solid penetration bead."],
+        in_0250: [190, 22.5, 340, "0.035\"", "DCEP (Reverse)", "Bevel plate 30° groove; 2 passes recommended."],
+        in_0375: [240, 25.0, 420, "0.035\" or 0.045\"", "DCEP (Reverse)", "Multi-pass stringer beads; root + hot pass + cap."]
+      },
+      stainless_304: {
+        ga_20: [40, 14.5, 130, "0.023\" ER308L", "DCEP (Reverse)", "Tri-mix gas required to prevent gray oxidized seam."],
+        ga_16: [75, 16.5, 170, "0.030\" ER308L", "DCEP (Reverse)", "Maintain short arc; stainless has 50% more thermal expansion."],
+        in_0125: [120, 18.5, 230, "0.030\" ER308L", "DCEP (Reverse)", "Keep heat low to preserve corrosion resistance."],
+        in_0250: [170, 21.0, 300, "0.035\" ER308L", "DCEP (Reverse)", "Interpass temp < 350°F to prevent carbide sensitization."],
+        in_0375: [210, 23.5, 360, "0.035\" ER308L", "DCEP (Reverse)", "Back purge with 100% Argon on pipe/enclosed boxes."]
+      },
+      aluminum_6061: {
+        ga_20: [0, 0, 0, "N/A", "AC TIG ONLY", "MIG on 20ga aluminum is too hot; switch to AC TIG."],
+        ga_16: [90, 19.0, 320, "0.035\" ER4043", "DCEP (Spool Gun)", "Spool gun mandatory; Teflon liner to prevent bird-nesting."],
+        in_0125: [145, 21.5, 380, "0.035\" ER4043", "DCEP (Spool Gun)", "100% Argon gas; stainless wire brush oxide immediately prior."],
+        in_0250: [210, 24.0, 460, "3/64\" (0.047\") ER5356", "DCEP (Spool Gun)", "Preheat to 150°F; clean with acetone."],
+        in_0375: [260, 26.5, 520, "3/64\" (0.047\") ER5356", "DCEP (Push-Pull)", "Heavy chamfer bevel; 3-pass sequence."]
+      },
+      chromoly_4130: {
+        ga_20: [50, 15.5, 140, "0.025\" ER70S-2", "DCEP", "TIG strongly preferred on thin 4130 aerospace tubing."],
+        ga_16: [85, 17.5, 190, "0.030\" ER70S-2", "DCEP", "Clean mill scale completely. No post-heat needed < 0.120\" thick."],
+        in_0125: [130, 19.0, 250, "0.030\" ER70S-2", "DCEP", "Slow air cool in still air; never quench in water."],
+        in_0250: [180, 22.0, 320, "0.035\" ER70S-2", "DCEP", "Preheat to 300°F to avoid martensitic brittle cracking."],
+        in_0375: [230, 24.5, 400, "0.035\" ER70S-2", "DCEP", "Preheat 400°F; post-weld stress relief annealing required."]
+      }
+    },
+    tig_gtaw: {
+      mild_steel: {
+        ga_20: [40, 11.0, 0, "1/16\" ER70S-6", "DCEN (Straight)", "Sharp 2% Lanthanated tungsten (20° included taper)."],
+        ga_16: [70, 12.5, 0, "1/16\" ER70S-6", "DCEN (Straight)", "3/32\" Lanthanated tungsten; clean base metal to bright shine."],
+        in_0125: [125, 14.0, 0, "3/32\" ER70S-6", "DCEN (Straight)", "High frequency start; add dab per puddle freeze cycle."],
+        in_0250: [185, 16.0, 0, "1/8\" ER70S-6", "DCEN (Straight)", "Bevel groove; 2 passes; maintain 1/16\" arc length."],
+        in_0375: [240, 18.0, 0, "1/8\" ER70S-6", "DCEN (Straight)", "Water-cooled torch recommended above 175 Amps."]
+      },
+      stainless_304: {
+        ga_20: [35, 11.0, 0, "1/16\" ER308L", "DCEN (Straight)", "Purge backside with argon. Move rapidly to keep color gold/pink."],
+        ga_16: [65, 12.0, 0, "1/16\" ER308L", "DCEN (Straight)", "Straw or salmon pink color = perfect shielding."],
+        in_0125: [110, 13.5, 0, "3/32\" ER308L", "DCEN (Straight)", "#12 jumbo gas lens cup; post-flow gas 10 seconds."],
+        in_0250: [160, 15.0, 0, "3/32\" ER308L", "DCEN (Straight)", "Skip-weld opposite sides to cancel distortion."],
+        in_0375: [210, 17.0, 0, "1/8\" ER308L", "DCEN (Straight)", "Root pass with gap spacer, followed by weave cap."]
+      },
+      aluminum_6061: {
+        ga_20: [55, 13.0, 0, "1/16\" ER4043", "AC High-Frequency", "70% AC Balance (cleaning action); 120 Hz pulse."],
+        ga_16: [85, 14.5, 0, "1/16\" ER4043", "AC High-Frequency", "Ball tungsten tip lightly; 100% Ultra-pure Argon."],
+        in_0125: [140, 16.0, 0, "3/32\" ER4043", "AC High-Frequency", "Rule of thumb: ~1 Amp per 0.001\" aluminum thickness."],
+        in_0250: [220, 18.5, 0, "1/8\" ER5356", "AC High-Frequency", "Foot pedal modulation: start hot, taper back as heat soaks."],
+        in_0375: [290, 20.0, 0, "5/32\" ER5356", "AC High-Frequency", "Water-cooled torch mandatory. Heavy chamfer."]
+      },
+      chromoly_4130: {
+        ga_20: [45, 11.5, 0, "1/16\" ER70S-2", "DCEN (Straight)", "Aerospace gold standard. Dip rod rhythmically at puddle edge."],
+        ga_16: [75, 13.0, 0, "1/16\" ER70S-2", "DCEN (Straight)", "ER70S-2 contains triple deoxidizers for pristine ductility."],
+        in_0125: [120, 14.5, 0, "3/32\" ER70S-2", "DCEN (Straight)", "Clean tubes inside and out with Scotch-Brite and acetone."],
+        in_0250: [175, 16.5, 0, "3/32\" ER70S-2", "DCEN (Straight)", "Multi-pass; maintain interpass temperature."],
+        in_0375: [225, 18.5, 0, "1/8\" ER70S-2", "DCEN (Straight)", "Slow air cool in still room. No cold drafts."]
+      }
+    },
+    flux_core: {
+      mild_steel: {
+        ga_20: [0, 0, 0, "N/A", "DCEN", "Flux-core is too hot for 20ga sheet metal; burns through."],
+        ga_16: [70, 15.0, 130, "0.030\" E71T-GS", "DCEN (Straight Polarity)", "Straight polarity (torch negative). Chipping hammer for slag."],
+        in_0125: [125, 17.5, 190, "0.030\" E71T-11", "DCEN (Straight Polarity)", "Excellent wind immunity outdoors. Drag angle 10-15°."],
+        in_0250: [175, 20.0, 260, "0.035\" E71T-11", "DCEN (Straight Polarity)", "Deep penetrating arc. Remove all slag before second pass."],
+        in_0375: [220, 22.5, 320, "0.045\" E71T-8", "DCEN (Straight Polarity)", "Heavy structural steel; high deposition rate."]
+      }
+    },
+    stick_smaw: {
+      mild_steel: {
+        ga_20: [0, 0, 0, "N/A", "DCEP", "Stick welding burns through 20ga immediately."],
+        ga_16: [50, 22.0, 0, "3/32\" E6013", "DCEP or AC", "Light penetration shallow arc rod for thin metal."],
+        in_0125: [90, 24.0, 0, "3/32\" E7018", "DCEP (Reverse)", "Low hydrogen rod. Keep rods in rod oven at 250°F to prevent porosity."],
+        in_0250: [135, 26.0, 0, "1/8\" E7018", "DCEP (Reverse)", "70,000 PSI high-strength structural weld. Clean slag with wire brush."],
+        in_0375: [170, 28.0, 0, "5/32\" E7018", "DCEP (Reverse)", "Heavy bevel; root pass with E6010, cap with E7018."]
+      }
+    }
+  };
+
+  const pData = weldMatrix[proc]?.[metal]?.[thick] || weldMatrix.mig_gmaw.mild_steel[thick] || [135, 19.5, 260, "0.030\"", "DCEP", "Standard settings."];
+  const [amps, volts, wfs, wire, polarity, note] = pData;
+
+  if (amps === 0) {
+    res.innerHTML = `
+      <div style="background:rgba(239, 68, 68, 0.1);border:1px solid #ef4444;border-radius:6px;padding:10px 12px;color:#991b1b">
+        ⚠️ <strong>Process / Thickness Incompatible:</strong> ${note}
+      </div>
+    `;
+    return;
+  }
+
+  res.innerHTML = `
+    <div class="welding-stat-grid" style="margin-bottom:8px">
+      <div class="welding-param-card">
+        <span class="label">Current (Amps)</span>
+        <span class="value">${amps} <span style="font-size:11px;font-weight:normal">A</span></span>
+        <div class="hint">Target heat window</div>
+      </div>
+      <div class="welding-param-card">
+        <span class="label">Arc Voltage</span>
+        <span class="value">${volts} <span style="font-size:11px;font-weight:normal">V</span></span>
+        <div class="hint">Puddle wet-out width</div>
+      </div>
+      ${wfs > 0 ? `
+      <div class="welding-param-card">
+        <span class="label">Wire Feed Speed</span>
+        <span class="value">${wfs} <span style="font-size:11px;font-weight:normal">IPM</span></span>
+        <div class="hint">${(wfs * 0.0254).toFixed(1)} m/min</div>
+      </div>` : `
+      <div class="welding-param-card">
+        <span class="label">Electrode Spec</span>
+        <span class="value" style="font-size:13px">3/32" 2% La</span>
+        <div class="hint">Tungsten ground to 20° point</div>
+      </div>`}
+      <div class="welding-param-card">
+        <span class="label">Filler Wire</span>
+        <span class="value" style="font-size:13px">${wire}</span>
+        <div class="hint">${polarity}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      💡 <strong>Machine Guidance:</strong> ${note}<br>
+      📐 <strong>Joint Note [${joint.toUpperCase()}]:</strong> For fillet/T-joints, increase wire feed speed by +10% to fill joint throat without undercut. Maintain 45° nozzle work angle bisecting the corner.
+    </div>
+  `;
+}
+
+function updateWeldGasCalc() {
+  const proc = $("#weld-process")?.value || "mig_gmaw";
+  const metal = $("#weld-metal")?.value || "mild_steel";
+  const opt = $("#weld-gas-opt")?.value || "standard";
+  const draft = $("#weld-draft-env")?.value || "still";
+  const res = $("#weld-gas-result");
+  if (!res) return;
+
+  let gasBlend = "75% Argon / 25% CO₂ (C25)";
+  let baseCfh = 20;
+  let cupSize = "#8 (1/2\" Nozzle)";
+  let why = "The universal gold standard for mild steel MIG. Creates smooth short-circuit arc with minimal spatter.";
+
+  if (proc === "flux_core") {
+    gasBlend = "None (Self-Shielding Flux Core)";
+    baseCfh = 0;
+    cupSize = "Thread Protector / Gasless Nozzle";
+    why = "Internal flux ingredients vaporize to generate CO₂ gas shielding around the arc. Zero cylinder required.";
+  } else if (proc === "tig_gtaw") {
+    gasBlend = "100% Ultra-Pure Industrial Argon (Ar)";
+    baseCfh = 15;
+    cupSize = "#12 Gas Lens with fine mesh screen";
+    why = "Inert argon protects molten tungsten electrode and pool from oxidation. Gas lens ensures laminar flow.";
+  } else if (metal === "aluminum_6061") {
+    gasBlend = "100% High-Purity Argon";
+    baseCfh = 25;
+    cupSize = "#8 or #10 Cup";
+    why = "Argon allows cathodic etching to blast through refractory aluminum oxide (melting point 3700°F).";
+  } else if (metal === "stainless_304") {
+    if (proc === "mig_gmaw") {
+      gasBlend = "90% He / 7.5% Ar / 2.5% CO₂ (Tri-Mix) or 98% Ar / 2% O₂";
+      baseCfh = 22;
+      why = "Prevents heavy chromium oxidation and keeps weld bead bright silver instead of scorched black.";
+    } else {
+      gasBlend = "100% Argon (Torch) + 100% Argon (Back-Purge)";
+      baseCfh = 16;
+      why = "Back-purging the backside of the seam prevents ugly 'sugaring' cauliflower oxidation inside the joint.";
+    }
+  } else if (opt === "deep_penetration") {
+    gasBlend = "100% CO₂ (Carbon Dioxide)";
+    baseCfh = 22;
+    why = "Hotter arc and deepest penetration into heavy steel plate, but generates noticeably more spatter.";
+  }
+
+  let draftAdj = 0;
+  let draftWarn = "";
+  if (draft === "drafty") {
+    draftAdj = 6;
+    draftWarn = "Light breeze detected: Flow increased by +6 CFH to prevent air turbulence from diluting shield.";
+  } else if (draft === "outdoor") {
+    draftAdj = 12;
+    draftWarn = "⚠️ WARNING: Shielding gas blows away outdoors at wind speeds > 4 MPH. Use wind shielding screens or switch to FCAW flux-cored wire.";
+  }
+
+  const totalCfh = baseCfh > 0 ? baseCfh + draftAdj : 0;
+  const lpm = (totalCfh * 0.4719).toFixed(1);
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${gasBlend}</strong>
+        ${totalCfh > 0 ? `<span style="font-size:12px;color:var(--primary);font-weight:bold">${totalCfh} CFH (${lpm} L/min)</span>` : `<span style="color:var(--muted)">No Gas Required</span>`}
+      </div>
+      <div style="font-size:11px;color:var(--ink-secondary);margin-bottom:4px">${why}</div>
+      <div style="font-size:11px">Cup / Diffuser: <strong>${cupSize}</strong></div>
+    </div>
+    ${draftWarn ? `<div style="font-size:11px;color:${draft === 'outdoor' ? '#ef4444' : 'var(--ink-secondary)'};padding:4px 6px;background:var(--surface-sunken);border-radius:4px">${draftWarn}</div>` : ""}
+  `;
+}
+
+function updateWeldBendCalc() {
+  const t = Math.max(0.1, parseFloat($("#weld-bend-thick")?.value) || 2.0);
+  const r = Math.max(0.1, parseFloat($("#weld-bend-radius")?.value) || 2.0);
+  const legA = Math.max(1, parseFloat($("#weld-bend-leg-a")?.value) || 50.0);
+  const legB = Math.max(1, parseFloat($("#weld-bend-leg-b")?.value) || 75.0);
+  const angle = Math.max(1, Math.min(179, parseFloat($("#weld-bend-angle")?.value) || 90));
+  const k = parseFloat($("#weld-bend-kfactor")?.value) || 0.44;
+  const res = $("#weld-bend-result");
+  if (!res) return;
+
+  const rad = angle * (Math.PI / 180);
+  // Bend Allowance BA = rad * (R + K * T)
+  const ba = rad * (r + (k * t));
+  // Outside Setback OSB = tan(rad / 2) * (R + T)
+  const osb = Math.tan(rad / 2) * (r + t);
+  // Bend Deduction BD = (2 * OSB) - BA
+  const bd = (2 * osb) - ba;
+  // Flat blank cut length = A + B - BD
+  const flatLength = legA + legB - bd;
+  // First bend tangent line from edge A = legA - osb
+  const bendLine1 = legA - osb;
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700">FLAT CUT LENGTH (L_FLAT):</span>
+        <strong style="font-size:18px;color:var(--primary)">${flatLength.toFixed(2)} mm</strong>
+      </div>
+      <div class="welding-stat-grid" style="margin-bottom:6px">
+        <div class="welding-param-card">
+          <span class="label">Bend Deduction (BD)</span>
+          <span class="value">${bd.toFixed(2)} <span style="font-size:11px;font-weight:normal">mm</span></span>
+          <div class="hint">Material subtracted for bend</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Bend Allowance (BA)</span>
+          <span class="value">${ba.toFixed(2)} <span style="font-size:11px;font-weight:normal">mm</span></span>
+          <div class="hint">Arc length of neutral axis</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Outside Setback (OSB)</span>
+          <span class="value">${osb.toFixed(2)} <span style="font-size:11px;font-weight:normal">mm</span></span>
+          <div class="hint">Apex to bend tangent line</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Brake Sight Line</span>
+          <span class="value">${bendLine1.toFixed(2)} <span style="font-size:11px;font-weight:normal">mm</span></span>
+          <div class="hint">From Flange A edge to bend</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      📐 <strong>Press Brake Setup:</strong> Mark your sheet metal scribe line at <strong>${bendLine1.toFixed(2)} mm</strong> from Edge A. Align the press brake punch nose directly over the scribe line.<br>
+      K-Factor <strong>${k}</strong> represents neutral axis displacement at ${(k * 100).toFixed(0)}% material thickness.
+    </div>
+  `;
+}
+
+function updateWeldHeatCalc() {
+  const volts = Math.max(5, parseFloat($("#weld-heat-volts")?.value) || 19.5);
+  const amps = Math.max(10, parseFloat($("#weld-heat-amps")?.value) || 140);
+  const speedIpm = Math.max(1, parseFloat($("#weld-heat-speed")?.value) || 14.0);
+  const eff = parseFloat($("#weld-heat-eff")?.value) || 0.80;
+  const res = $("#weld-heat-result");
+  if (!res) return;
+
+  // Arc Heat Input: H = (Volts * Amps * 60 * eff) / (TravelSpeed_IPM * 1000) in kJ/inch
+  const heatKjIn = (volts * amps * 60 * eff) / (speedIpm * 1000);
+  const heatKjMm = (heatKjIn / 25.4).toFixed(2);
+
+  let badgeClass = "low";
+  let badgeTitle = "LOW HEAT INPUT (OPTIMAL)";
+  let badgeNote = "Narrow Heat Affected Zone (HAZ). Minimal angular warpage and distortion. Low risk of burn-through.";
+
+  if (heatKjIn > 35.0) {
+    badgeClass = "high";
+    badgeTitle = "HIGH HEAT INPUT (SEVERE WARPING RISK)";
+    badgeNote = "Excessive heat build-up will cause severe angular potato-chipping distortion, grain coarsening in HAZ, and loss of toughness.";
+  } else if (heatKjIn > 22.0) {
+    badgeClass = "moderate";
+    badgeTitle = "MODERATE HEAT INPUT";
+    badgeNote = "Standard structural heat input. Clamp rigidly and use backstep welding to manage contraction stress.";
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span class="welding-heat-badge ${badgeClass}">${badgeTitle}</span>
+      <strong style="font-size:16px;color:var(--ink)">${heatKjIn.toFixed(1)} kJ/inch <span style="font-size:11px;font-weight:normal;color:var(--muted)">(${heatKjMm} kJ/mm)</span></strong>
+    </div>
+
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--ink-secondary);margin-bottom:8px">
+      ${badgeNote}
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:6px;font-size:11px;color:var(--ink-secondary)">
+      <div>🔄 <strong>Backstep Sequencing:</strong> Weld 2" beads backward towards the finished seam.</div>
+      <div>❄️ <strong>Interpass Cooling:</strong> Wait until joint drops below 350°F (check with Tempilstik).</div>
+      <div>🗜️ <strong>Pre-Bending Strategy:</strong> Preset flanges 2° reverse angle to pull 90° flat upon cooling.</div>
+      <div>⚡ <strong>Travel Speed:</strong> Speeding up to ${(speedIpm * 1.25).toFixed(1)} IPM drops heat input by 20%.</div>
+    </div>
+  `;
+}
+
+function renderWeldingView() {
+  updateWeldParamsCalc();
+  updateWeldGasCalc();
+  updateWeldBendCalc();
+  updateWeldHeatCalc();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -30212,6 +30943,25 @@ function initCraftStudios() {
   ["#leather-belt-waist", "#leather-belt-oz"].forEach(s => $(s)?.addEventListener("input", updateLeatherBeltCalc));
   ["#leather-belt-width", "#leather-belt-spacing"].forEach(s => $(s)?.addEventListener("change", updateLeatherBeltCalc));
   $("#leather-tannage-select")?.addEventListener("change", updateLeatherEdgeGuide);
+
+  // Ceramics & Pottery Studio Listeners
+  renderCeramicsView();
+  $("#clay-body-preset")?.addEventListener("change", updateClayShrinkCalc);
+  ["#clay-shrinkage-pct", "#clay-fired-height", "#clay-fired-diam", "#clay-fired-vol"].forEach(s => $(s)?.addEventListener("input", updateClayShrinkCalc));
+  $("#glaze-recipe-preset")?.addEventListener("change", updateGlazeUmfCalc);
+  ["#glaze-alumina", "#glaze-silica", "#glaze-r2o", "#glaze-ro"].forEach(s => $(s)?.addEventListener("input", updateGlazeUmfCalc));
+  ["#kiln-cone-preset", "#kiln-candling-mode", "#kiln-soak-time"].forEach(s => $(s)?.addEventListener("change", updateKilnRampCalc));
+  ["#plaster-type", "#plaster-mold-shape"].forEach(s => $(s)?.addEventListener("change", updatePlasterCalc));
+  ["#plaster-dim-1", "#plaster-dim-2", "#plaster-dim-3"].forEach(s => $(s)?.addEventListener("input", updatePlasterCalc));
+
+  // Welding & Metal Fabrication Studio Listeners
+  renderWeldingView();
+  ["#weld-process", "#weld-metal", "#weld-thickness", "#weld-joint"].forEach(s => $(s)?.addEventListener("change", updateWeldParamsCalc));
+  ["#weld-gas-opt", "#weld-draft-env"].forEach(s => $(s)?.addEventListener("change", updateWeldGasCalc));
+  ["#weld-bend-thick", "#weld-bend-radius", "#weld-bend-leg-a", "#weld-bend-leg-b", "#weld-bend-angle"].forEach(s => $(s)?.addEventListener("input", updateWeldBendCalc));
+  $("#weld-bend-kfactor")?.addEventListener("change", updateWeldBendCalc);
+  ["#weld-heat-volts", "#weld-heat-amps", "#weld-heat-speed"].forEach(s => $(s)?.addEventListener("input", updateWeldHeatCalc));
+  $("#weld-heat-eff")?.addEventListener("change", updateWeldHeatCalc);
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();

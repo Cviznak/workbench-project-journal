@@ -10144,6 +10144,175 @@ body.theme-dark .laser-badge-warning {
   margin-bottom: 2px;
 }
 
+/* ============================================================
+   🏺 Ceramics & Pottery Studio Styles
+   ============================================================ */
+.ceramics-ramp-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+}
+
+.ceramics-ramp-badge {
+  background: var(--primary);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.ceramics-ramp-body {
+  color: var(--ink-secondary);
+}
+
+.ceramics-ramp-body strong {
+  color: var(--ink);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.ceramics-stull-card {
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+
+.ceramics-stull-card.stull-gloss {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.ceramics-stull-card.stull-satin {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: #2563eb;
+  color: #1e40af;
+}
+
+.ceramics-stull-card.stull-matte {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.ceramics-stull-card.stull-unmelted {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+[data-theme="dark"] .ceramics-stull-card.stull-gloss,
+body.theme-dark .ceramics-stull-card.stull-gloss {
+  color: #34d399;
+}
+
+[data-theme="dark"] .ceramics-stull-card.stull-satin,
+body.theme-dark .ceramics-stull-card.stull-satin {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .ceramics-stull-card.stull-matte,
+body.theme-dark .ceramics-stull-card.stull-matte {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .ceramics-stull-card.stull-unmelted,
+body.theme-dark .ceramics-stull-card.stull-unmelted {
+  color: #f87171;
+}
+
+/* ============================================================
+   ⚡ Welding & Metal Fabrication Studio Styles
+   ============================================================ */
+.welding-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.welding-param-card {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.welding-param-card .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.welding-param-card .value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.welding-param-card .hint {
+  font-size: 10px;
+  color: var(--ink-secondary);
+  margin-top: 2px;
+}
+
+.welding-heat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.welding-heat-badge.low {
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.welding-heat-badge.moderate {
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.welding-heat-badge.high {
+  background: rgba(239, 68, 68, 0.12);
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+[data-theme="dark"] .welding-heat-badge.low,
+body.theme-dark .welding-heat-badge.low {
+  color: #34d399;
+}
+
+[data-theme="dark"] .welding-heat-badge.moderate,
+body.theme-dark .welding-heat-badge.moderate {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .welding-heat-badge.high,
+body.theme-dark .welding-heat-badge.high {
+  color: #f87171;
+}
+
 
 
 
