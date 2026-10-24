@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3924,7 +3924,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     sla: "Resin 3D Printing (SLA / MSLA) Studio",
     luthier: "Luthier & Instrument Building Studio",
     composites: "Composites & Carbon Fiber Fabrication Studio",
-    horology: "Watchmaking & Horology Studio"
+    horology: "Watchmaking & Horology Studio",
+    robotics: "Robotics & Mechatronics Studio",
+    bicycle: "Bicycle Framebuilding & Wheel Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3970,6 +3972,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "luthier") renderLuthierView();
   if (targetView === "composites") renderCompositesView();
   if (targetView === "horology") renderHorologyView();
+  if (targetView === "robotics") renderRoboticsView();
+  if (targetView === "bicycle") renderBicycleView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -7193,6 +7197,32 @@ const WORKSHOP_STARTER_KITS = {
       { type: "equipment", name: "Universal Reversible Watch Movement Holder (Large & Small)", category: "Hand Tools & Measuring", brand: "Bergeon 4040", cost: 24.50, condition: "operational", location: "Bench Top Caddy", specs: "Synthetic non-marring jaw vises", notes: "Locks calibers securely without bending pallet fork bridge or balance cock" },
       { type: "material", name: "Bergeon 6033-1 Rodico Cleaning Putty (Pack of 2 Bars)", category: "Watchmaking & Horology Tools", quantity: 2, unit: "bars", price: 8.50, cost: 17.00, lowStockThreshold: 1, location: "Parchment Box", supplier: "Bergeon", notes: "Cleans pivots, removes finger grease, absorbs excess oil droplets from train jewels" },
       { type: "material", name: "Moebius 9010 Fine Synthetic Horological Watch Oil (2ml Bottle)", category: "Watchmaking & Horology Tools", quantity: 1, unit: "bottle", price: 34.00, cost: 34.00, lowStockThreshold: 1, location: "Lube Safe", supplier: "Moebius Switzerland", notes: "Universal high-speed balance cap jewel & escape wheel pivot synthetic lubricant" }
+    ]
+  },
+  robotics: {
+    title: "Robotics & Mechatronics Lab Kit",
+    icon: "🤖",
+    category: "Robotics, Motors & Mechatronics",
+    description: "NEMA 17 high-torque steppers, TMC2209 silent drivers, GT2 timing pulley pack, 24V power supply, and metal-gear servos.",
+    items: [
+      { type: "equipment", name: "NEMA 17 Bipolar Stepper Motors 59 N·cm / 84 oz·in (Pair)", category: "Stationary Machinery", brand: "StepperOnline", cost: 32.00, condition: "operational", location: "Mechatronics Drawer 1", specs: "2.0A rated · 1.8° step angle (200 steps/rev)", notes: "Set driver VREF current to 1.4A for cool continuous operation with thermal sink" },
+      { type: "equipment", name: "Trinamic TMC2209 V1.3 SilentStepStick Drivers (Set of 4)", category: "Hand Tools & Measuring", brand: "BigTreeTech", cost: 24.50, condition: "operational", location: "Electronics Bench", specs: "StealthChop2 ultra-silent & StallGuard4 sensorless homing", notes: "UART address jumpers configurable; heat sinks mandatory with active fan airflow" },
+      { type: "equipment", name: "Mean Well LRS-350-24 Industrial 24V 14.6A Enclosed PSU", category: "Stationary Machinery", brand: "Mean Well", cost: 42.00, condition: "operational", location: "Power Shelf", specs: "350W · 24V DC regulated output", notes: "Verify 115V/230V selector switch before initial AC mains power connection" },
+      { type: "material", name: "GT2 6mm Neoprene Timing Belt (5m) & 20T Pulleys / Idler Kit", category: "Robotics, Motors & Mechatronics", quantity: 1, unit: "kit", price: 16.50, cost: 16.50, lowStockThreshold: 1, location: "Belts & Pulleys Caddy", supplier: "Gates Unitta", notes: "Fiberglass reinforced core prevents belt stretch under rapid acceleration" },
+      { type: "material", name: "Digital Metal-Gear High-Torque Servos MG996R (2-pack)", category: "Robotics, Motors & Mechatronics", quantity: 2, unit: "servos", price: 9.00, cost: 18.00, lowStockThreshold: 1, location: "Servo Box", supplier: "TowerPro", notes: "11 kg·cm holding torque at 6.0V; uses standard 50 Hz PWM control signals" }
+    ]
+  },
+  bicycle: {
+    title: "Bicycle Framebuilding & Wheel Studio Kit",
+    icon: "🚲",
+    category: "Bicycle Components & Tubing",
+    description: "Park Tool spoke tensiometer, 4130 chromoly frame tubing set, DT Swiss Competition double-butted spokes, and brass nipples.",
+    items: [
+      { type: "equipment", name: "Park Tool TM-1 Spoke Tension Meter with Deflection Gauge", category: "Hand Tools & Measuring", brand: "Park Tool", cost: 89.00, condition: "operational", location: "Wheelbuilding Stand", specs: "Measures absolute spoke tension across steel, titanium, and bladed spokes", notes: "Zero calibration against factory deflection wire before trueing dished rear wheels" },
+      { type: "equipment", name: "Professional Wheel Truing Stand with Radial Calipers", category: "Hand Tools & Measuring", brand: "Minoura / Park Tool", cost: 145.00, condition: "operational", location: "Wheel Stand Bench", specs: "Accommodates up to 29\" wheels with thru-axle adapters", notes: "Center calipers using reference dishing tool (WAG-4)" },
+      { type: "equipment", name: "Columbus 4130 Seamless Chromoly Main Frame Tube Set", category: "Hand Tools & Measuring", brand: "Columbus Tubi", cost: 125.00, condition: "operational", location: "Tubing Rack", specs: "Double-butted down tube, top tube, seat tube & BB shell", notes: "Degrease with acetone before TIG welding or silver brazing lugs" },
+      { type: "material", name: "DT Swiss Competition Double-Butted Spokes 2.0/1.8mm (Box of 72)", category: "Bicycle Components & Tubing", quantity: 72, unit: "spokes", price: 0.95, cost: 68.40, lowStockThreshold: 16, location: "Spoke Box", supplier: "DT Swiss", notes: "Cold-forged Swedish chrome-nickel steel for fatigue life and impact compliance" },
+      { type: "material", name: "DT Swiss Pro Lock 14mm Brass Spoke Nipples (Bag of 100)", category: "Bicycle Components & Tubing", quantity: 100, unit: "nipples", price: 0.18, cost: 18.00, lowStockThreshold: 20, location: "Nipple Tray", supplier: "DT Swiss", notes: "Pre-applied thread-locking compound prevents loosening under cyclic rim flex" }
     ]
   }
 };
@@ -10899,6 +10929,22 @@ async function handleAction(action, target) {
   }
   if (action === "add-horology-supplies") {
     void addHorologySupplies();
+    return;
+  }
+  if (action === "copy-robotics-specs") {
+    copyRoboticsSpecs();
+    return;
+  }
+  if (action === "add-robotics-supplies") {
+    void addRoboticsSupplies();
+    return;
+  }
+  if (action === "copy-bicycle-specs") {
+    copyBicycleSpecs();
+    return;
+  }
+  if (action === "add-bicycle-supplies") {
+    void addBicycleSupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -30596,7 +30642,7 @@ async function addCncSupplies() {
 }
 
 function updateCncFeeds() {
-  const matKey = $("#cnc-material")?.value || "hardwood";
+  const matKey = ($("#cnc-studio-material") || $("#cnc-material"))?.value || "hardwood";
   const bitType = $("#cnc-bit-type")?.value || "upcut_2f";
   const toolDia = parseFloat($("#cnc-tool-dia")?.value) || 0.250;
   const spindleType = $("#cnc-spindle-type")?.value || "router_dw";
@@ -33609,6 +33655,555 @@ function renderHorologyView() {
   updateHorologyPressure();
 }
 
+// ============================================================
+// 🤖 Robotics, Mechatronics & Kinematics Calculations
+// ============================================================
+function copyRoboticsSpecs() {
+  const torqText = $("#robo-torque-result")?.innerText || "";
+  const drvText = $("#robo-driver-result")?.innerText || "";
+  const linText = $("#robo-linear-result")?.innerText || "";
+  const kinText = $("#robo-kinematics-result")?.innerText || "";
+  const text = `🤖 ROBOTICS & MECHATRONICS SPEC SHEET\n\n${torqText}\n\n${drvText}\n\n${linText}\n\n${kinText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Robotics Specs to clipboard!"));
+}
+
+async function addRoboticsSupplies() {
+  const motor = $("#robo-motor-class option:checked")?.textContent.split("(")[0].trim() || "NEMA 17 Stepper";
+  await addMaterialToProjectShopping(`${motor} Motor Kit`, "1 kit", 32.00, "Robotics, Motors & Mechatronics");
+}
+
+function updateRoboticsTorque() {
+  const motorClass = $("#robo-motor-class")?.value || "nema17";
+  const mech = $("#robo-mech-type")?.value || "direct-rotary";
+  const massKg = Math.max(0.01, parseFloat($("#robo-load-mass")?.value) || 1.50);
+  const radiusMm = Math.max(1, parseFloat($("#robo-arm-radius")?.value) || 120);
+  const alpha = parseFloat($("#robo-ang-accel")?.value) || 25;
+  const safetyFactor = parseFloat($("#robo-safety-factor")?.value) || 1.8;
+  const res = $("#robo-torque-result");
+  if (!res) return;
+
+  const motorData = {
+    nema17: { name: "NEMA 17 Stepper", ratedNm: 0.45, ratedOzIn: 63.7, currentA: "1.5A – 2.0A" },
+    nema23: { name: "NEMA 23 Stepper", ratedNm: 1.90, ratedOzIn: 269.1, currentA: "2.8A – 4.2A" },
+    nema34: { name: "NEMA 34 Stepper", ratedNm: 8.50, ratedOzIn: 1203.7, currentA: "5.5A – 8.0A" },
+    "servo-standard": { name: "Digital MG996R Servo", ratedNm: 1.08, ratedOzIn: 152.8, currentA: "1.5A stall" },
+    "bldc-gimbal": { name: "BLDC FOC Direct-Drive", ratedNm: 0.80, ratedOzIn: 113.3, currentA: "2.2A bus" }
+  };
+
+  const m = motorData[motorClass] || motorData.nema17;
+  const radiusM = radiusMm / 1000;
+
+  // 1. Static holding torque:
+  const g = 9.80665;
+  let staticNm = massKg * g * radiusM;
+  if (mech === "leadscrew") {
+    const leadM = 0.008;
+    const eff = 0.90;
+    const mu = 0.05;
+    staticNm = (mu * massKg * g * leadM) / (2 * Math.PI * eff);
+  }
+
+  // 2. Dynamic inertial torque: T_inertia = J * alpha
+  const inertiaKgM2 = massKg * Math.pow(radiusM, 2);
+  const dynamicNm = inertiaKgM2 * alpha;
+
+  // 3. Required total torque with safety margin
+  const reqTotalNm = (staticNm + dynamicNm) * safetyFactor;
+  const reqOzIn = reqTotalNm * 141.612;
+
+  // Motor adequacy check
+  const adequacyRatio = m.ratedNm / reqTotalNm;
+  let statusColor = "#10b981";
+  let statusText = "Motor Adequately Sized";
+  if (adequacyRatio < 1.0) {
+    statusColor = "#ef4444";
+    statusText = "Stall / Step Loss Risk! Upgrade Motor";
+  } else if (adequacyRatio < 1.25) {
+    statusColor = "#f59e0b";
+    statusText = "Marginal Holding Torque";
+  }
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <span class="robo-badge">⚡ Req Torque: ${reqTotalNm.toFixed(2)} N·m (${Math.round(reqOzIn)} oz·in)</span>
+      <span style="font-size:11px;color:${statusColor}"><strong>${statusText}</strong> (${(adequacyRatio * 100).toFixed(0)}% capacity)</span>
+    </div>
+
+    <div class="robo-spec-grid">
+      <div class="robo-stat-card">
+        <span class="label">Static Gravitational Hold</span>
+        <span class="value" style="color:var(--primary)">${staticNm.toFixed(2)} N·m</span>
+        <div class="hint">Holding load at ${radiusMm}mm radius</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Dynamic Inertial Torque</span>
+        <span class="value">${dynamicNm.toFixed(2)} N·m</span>
+        <div class="hint">At &alpha; = ${alpha} rad/s² acceleration</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Selected Motor Rating</span>
+        <span class="value">${m.ratedNm} N·m</span>
+        <div class="hint">${m.name} (${Math.round(m.ratedOzIn)} oz·in)</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Rotational Inertia (J)</span>
+        <span class="value" style="font-size:13px">${inertiaKgM2.toFixed(4)} kg·m²</span>
+        <div class="hint">${safetyFactor}x safety margin applied</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ⚡ <strong>Stepper Torque Decay Physics:</strong> Unlike DC motors, stepper holding torque drops significantly as RPM increases. At 600 RPM, a NEMA 17 stepper typically outputs only <strong>40% to 50%</strong> of its static rating. Always design for a 1.8x to 2.0x safety factor to prevent skipped steps!
+    </div>
+  `;
+}
+
+function updateRoboticsDriver() {
+  const driver = $("#robo-driver-ic")?.value || "tmc2209";
+  const microsteps = parseInt($("#robo-microsteps")?.value, 10) || 16;
+  const rpm = Math.max(1, parseInt($("#robo-motor-rpm")?.value, 10) || 600);
+  const stepAngle = parseFloat($("#robo-step-angle")?.value) || 1.8;
+  const res = $("#robo-driver-result");
+  if (!res) return;
+
+  const stepsPerRevNative = Math.round(360 / stepAngle);
+  const totalMicrostepsPerRev = stepsPerRevNative * microsteps;
+
+  // Pulse step frequency: f = (RPM * totalMicrostepsPerRev) / 60
+  const stepPulseHz = (rpm * totalMicrostepsPerRev) / 60;
+  const stepPulseKhz = (stepPulseHz / 1000).toFixed(2);
+
+  let mcuHint = "32-bit MCU (RP2040 / STM32 / ESP32) recommended";
+  let mcuColor = "#10b981";
+  if (stepPulseHz > 150000) {
+    mcuHint = "High step rate! High-clock 32-bit MCU (RP2040 133MHz / Teensy 4.1) required";
+    mcuColor = "#f59e0b";
+  } else if (stepPulseHz <= 35000) {
+    mcuHint = "Compatible with standard 8-bit AVR (ATmega328P) & 32-bit controllers";
+  }
+
+  const driverNotes = {
+    tmc2209: "Trinamic StealthChop2 voltage-mode modulation provides whisper-quiet movement. Automatically transitions to SpreadCycle at higher velocities to maintain torque.",
+    a4988: "Cost-effective classic chopper driver. Prone to motor whine / audible singing frequencies at 1/16 microstepping.",
+    drv8825: "Fast decay mode recommended to eliminate low-speed motor resonance bumps. Supports up to 1/32 microstepping.",
+    tb6600: "Optocoupled isolated inputs prevent ground loops and inductive spikes from reaching microcontroller GPIO pins."
+  };
+
+  res.innerHTML = `
+    <div class="robo-spec-grid">
+      <div class="robo-stat-card">
+        <span class="label">Step Pulse Frequency</span>
+        <span class="value" style="color:var(--primary)">${stepPulseKhz} kHz</span>
+        <div class="hint">${Math.round(stepPulseHz).toLocaleString()} pulses/sec</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Microstep Resolution</span>
+        <span class="value">1 / ${microsteps}</span>
+        <div class="hint">${totalMicrostepsPerRev.toLocaleString()} steps per revolution</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Microcontroller Load</span>
+        <span class="value" style="font-size:12px;color:${mcuColor}">${stepPulseHz > 100000 ? 'High Step Frequency' : 'Optimal Bandwidth'}</span>
+        <div class="hint">${mcuHint}</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Native Step Profile</span>
+        <span class="value" style="font-size:13px">${stepAngle}° (${stepsPerRevNative} steps)</span>
+        <div class="hint">Operating at ${rpm} RPM</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🎛️ <strong>Driver Modulation Note:</strong> ${driverNotes[driver] || driverNotes.tmc2209}<br>
+      🧠 <strong>Current Calibration:</strong> Always calibrate VREF voltage with a ceramic screwdriver before connecting motor coils: <strong>I_RMS = VREF / (1.414 &times; R_sense)</strong>. For TMC2209 with 0.11&Omega; sense resistors, VREF = 1.20V yields ~1.1A RMS!
+    </div>
+  `;
+}
+
+function updateRoboticsLinear() {
+  const mech = $("#robo-drivetrain-mech")?.value || "gt2-20t";
+  const gearRatio = parseFloat($("#robo-gear-ratio")?.value) || 1.0;
+  const microsteps = parseInt($("#robo-microsteps")?.value, 10) || 16;
+  const stepAngle = parseFloat($("#robo-step-angle")?.value) || 1.8;
+  const res = $("#robo-linear-result");
+  if (!res) return;
+
+  const stepsPerRevNative = Math.round(360 / stepAngle);
+  const totalMicrostepsPerRev = stepsPerRevNative * microsteps;
+
+  const mechData = {
+    "gt2-20t": { leadMm: 40.0, name: "GT2 20-Tooth Belt (40mm/rev)", backlash: "0.02 – 0.05 mm" },
+    "gt2-16t": { leadMm: 32.0, name: "GT2 16-Tooth Belt (32mm/rev)", backlash: "0.02 – 0.05 mm" },
+    "t8-lead8": { leadMm: 8.0, name: "T8 Lead Screw (8mm lead)", backlash: "0.08 – 0.15 mm (Anti-backlash nut advised)" },
+    "t8-lead2": { leadMm: 2.0, name: "T8 Lead Screw (2mm lead)", backlash: "0.05 – 0.10 mm" },
+    sfu1605: { leadMm: 5.0, name: "SFU1605 Ground Ballscrew (5mm lead)", backlash: "< 0.015 mm (Zero backlash)" },
+    "rack-mod1": { leadMm: 62.83, name: "Rack & Pinion Module 1.0 (62.83mm/rev)", backlash: "0.05 – 0.10 mm" }
+  };
+
+  const d = mechData[mech] || mechData["gt2-20t"];
+
+  // Effective linear lead after gear reduction (mm/motor rev)
+  const linearLeadMm = d.leadMm / gearRatio;
+
+  // Steps per millimeter: steps/mm = totalMicrostepsPerRev / linearLeadMm
+  const stepsPerMm = (totalMicrostepsPerRev / linearLeadMm).toFixed(2);
+
+  // Linear travel per single microstep (microns)
+  const micronsPerStep = ((linearLeadMm / totalMicrostepsPerRev) * 1000).toFixed(2);
+
+  res.innerHTML = `
+    <div class="robo-spec-grid">
+      <div class="robo-stat-card">
+        <span class="label">Controller Firmware Config</span>
+        <span class="value" style="color:var(--primary)">${stepsPerMm} steps/mm</span>
+        <div class="hint">Value for GRBL / Klipper / Marlin</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Linear Resolution</span>
+        <span class="value">${micronsPerStep} &mu;m / step</span>
+        <div class="hint">Physical microstep resolution</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Travel per Revolution</span>
+        <span class="value">${linearLeadMm.toFixed(2)} mm</span>
+        <div class="hint">${gearRatio > 1 ? `${gearRatio}:1 reduction applied` : 'Direct drive 1:1'}</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Mechanical Backlash</span>
+        <span class="value" style="font-size:12px">${d.backlash}</span>
+        <div class="hint">${d.name}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📐 <strong>Backlash Compensation:</strong> Belt systems have negligible backlash when properly tensioned (taut acoustic resonance ~60–70 Hz over 150mm span). Lead screws with brass nuts develop axial play under reversal; use spring-loaded anti-backlash POM nuts or preloaded C7 ballscrews for precision CNC and robotic joints!
+    </div>
+  `;
+}
+
+function updateRoboticsKinematics() {
+  const l1 = Math.max(10, parseFloat($("#robo-arm-l1")?.value) || 220);
+  const l2 = Math.max(10, parseFloat($("#robo-arm-l2")?.value) || 180);
+  const theta1Deg = parseFloat($("#robo-arm-theta1")?.value) || 45;
+  const theta2Deg = parseFloat($("#robo-arm-theta2")?.value) || 30;
+  const batteryConfig = $("#robo-battery-pack")?.value || "24v-6s";
+  const batteryMah = Math.max(100, parseFloat($("#robo-battery-mah")?.value) || 5000);
+  const res = $("#robo-kinematics-result");
+  if (!res) return;
+
+  // Forward Kinematics for 2-DOF Planar Robot Arm:
+  const rad1 = (theta1Deg * Math.PI) / 180;
+  const rad2 = ((theta1Deg + theta2Deg) * Math.PI) / 180;
+
+  const posX = (l1 * Math.cos(rad1) + l2 * Math.cos(rad2)).toFixed(1);
+  const posY = (l1 * Math.sin(rad1) + l2 * Math.sin(rad2)).toFixed(1);
+  const maxReach = (l1 + l2).toFixed(0);
+  const currentRadius = Math.sqrt(Math.pow(parseFloat(posX), 2) + Math.pow(parseFloat(posY), 2)).toFixed(1);
+
+  // Battery Energy & Run-Time:
+  const voltMap = {
+    "12v-3s": { volts: 11.1, cRating: 25 },
+    "24v-6s": { volts: 22.2, cRating: 30 },
+    "48v": { volts: 48.0, cRating: 20 }
+  };
+  const b = voltMap[batteryConfig] || voltMap["24v-6s"];
+  const capacityAh = batteryMah / 1000;
+  const wattHours = (capacityAh * b.volts).toFixed(1);
+
+  const estPowerWatts = 65;
+  const runTimeHours = ((parseFloat(wattHours) * 0.85) / estPowerWatts).toFixed(1);
+  const maxContinuousAmps = (capacityAh * b.cRating).toFixed(0);
+
+  res.innerHTML = `
+    <div class="robo-spec-grid">
+      <div class="robo-stat-card">
+        <span class="label">End-Effector (X, Y)</span>
+        <span class="value" style="color:var(--primary)">(${posX}, ${posY}) mm</span>
+        <div class="hint">Radius: ${currentRadius} mm from base datum</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Max Envelope Reach</span>
+        <span class="value">${maxReach} mm</span>
+        <div class="hint">L1 (${l1}mm) + L2 (${l2}mm) fully extended</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Battery Energy</span>
+        <span class="value">${wattHours} Wh</span>
+        <div class="hint">${b.volts}V · ${batteryMah} mAh (${maxContinuousAmps}A max burst)</div>
+      </div>
+      <div class="robo-stat-card">
+        <span class="label">Estimated Run-Time</span>
+        <span class="value">~${runTimeHours} Hours</span>
+        <div class="hint">At ~${estPowerWatts}W average mechanical load</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🦾 <strong>Forward Kinematics:</strong> End effector position is computed via trigonometric joint angles &theta;1 (${theta1Deg}°) and &theta;2 (${theta2Deg}°). Avoid fully stretched singular positions (&theta;2 = 0°) where Jacobian determinant approaches zero and motor velocity requirements spike to infinity!<br>
+      🔋 <strong>Battery Protection:</strong> Never discharge LiPo cells below <strong>3.3V per cell (19.8V for 6S)</strong>. Deep discharge permanently destroys lithium polymer cell chemistry.
+    </div>
+  `;
+}
+
+function renderRoboticsView() {
+  updateRoboticsTorque();
+  updateRoboticsDriver();
+  updateRoboticsLinear();
+  updateRoboticsKinematics();
+}
+
+// ============================================================
+// 🚲 Bicycle Framebuilding & Wheel Building Calculations
+// ============================================================
+function copyBicycleSpecs() {
+  const spokeText = $("#bike-spoke-result")?.innerText || "";
+  const tensText = $("#bike-tension-result")?.innerText || "";
+  const trailText = $("#bike-trail-result")?.innerText || "";
+  const miterText = $("#bike-miter-result")?.innerText || "";
+  const text = `🚲 BICYCLE FRAMEBUILDING & WHEELBUILDING SPEC SHEET\n\n${spokeText}\n\n${tensText}\n\n${trailText}\n\n${miterText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Bicycle Specs to clipboard!"));
+}
+
+async function addBicycleSupplies() {
+  await addMaterialToProjectShopping("DT Swiss Competition Double-Butted Spokes 2.0/1.8mm (Box of 72)", "1 box", 68.40, "Bicycle Components & Tubing");
+}
+
+function updateBicycleSpoke() {
+  const erd = Math.max(200, parseFloat($("#bike-rim-erd")?.value) || 596.0);
+  const holes = parseInt($("#bike-spoke-count")?.value, 10) || 32;
+  const crosses = parseInt($("#bike-cross-pattern")?.value, 10) || 3;
+  const dl = Math.max(10, parseFloat($("#bike-hub-dl")?.value) || 58.0);
+  const dr = Math.max(10, parseFloat($("#bike-hub-dr")?.value) || 54.0);
+  const wl = Math.max(5, parseFloat($("#bike-hub-wl")?.value) || 34.0);
+  const wr = Math.max(5, parseFloat($("#bike-hub-wr")?.value) || 19.0);
+  const res = $("#bike-spoke-result");
+  if (!res) return;
+
+  // Erdmann Spoke Length Formula:
+  // L = sqrt( d^2 + (R - r*cos(alpha))^2 + (r*sin(alpha))^2 ) - S/2
+  const sHole = 2.6;
+  const R = erd / 2;
+  const alphaRad = ((720 * crosses) / holes) * (Math.PI / 180);
+
+  // Left side
+  const rL = dl / 2;
+  const termL1 = Math.pow(wl, 2);
+  const termL2 = Math.pow(R - rL * Math.cos(alphaRad), 2);
+  const termL3 = Math.pow(rL * Math.sin(alphaRad), 2);
+  const rawSpokeLeft = Math.sqrt(termL1 + termL2 + termL3) - (sHole / 2);
+
+  // Right side
+  const rR = dr / 2;
+  const termR1 = Math.pow(wr, 2);
+  const termR2 = Math.pow(R - rR * Math.cos(alphaRad), 2);
+  const termR3 = Math.pow(rR * Math.sin(alphaRad), 2);
+  const rawSpokeRight = Math.sqrt(termR1 + termR2 + termR3) - (sHole / 2);
+
+  const roundLeft = Math.round(rawSpokeLeft);
+  const roundRight = Math.round(rawSpokeRight);
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <span class="bike-badge">🎡 Left: ${rawSpokeLeft.toFixed(1)} mm (Buy ${roundLeft} mm)</span>
+      <span class="bike-badge" style="background:rgba(245,158,11,0.12);color:#b45309;border-color:#f59e0b">Right: ${rawSpokeRight.toFixed(1)} mm (Buy ${roundRight} mm)</span>
+    </div>
+
+    <div class="bike-spec-grid">
+      <div class="bike-stat-card">
+        <span class="label">Non-Drive Left Spoke</span>
+        <span class="value" style="color:var(--primary)">${roundLeft} mm</span>
+        <div class="hint">Exact: ${rawSpokeLeft.toFixed(2)} mm (WL: ${wl}mm)</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Drive-Side Right Spoke</span>
+        <span class="value">${roundRight} mm</span>
+        <div class="hint">Exact: ${rawSpokeRight.toFixed(2)} mm (WR: ${wr}mm)</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Spoke Length Delta</span>
+        <span class="value" style="font-size:13px">${Math.abs(rawSpokeLeft - rawSpokeRight).toFixed(1)} mm</span>
+        <div class="hint">Cassette dish offset differential</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Lacing Geometry</span>
+        <span class="value" style="font-size:13px">${crosses}-Cross (${holes} Spokes)</span>
+        <div class="hint">&alpha; = ${((720 * crosses) / holes).toFixed(1)}° tangent angle</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📏 <strong>Erdmann Formula:</strong> Accounts for true 3-dimensional triangulation from the hub flange plane to the rim bed. Round down to the nearest even integer if between sizes to ensure nipples do not bottom out on unthreaded spoke shank during high-tension trueing!
+    </div>
+  `;
+}
+
+function updateBicycleTension() {
+  const targetDs = Math.max(50, parseFloat($("#bike-target-tension")?.value) || 120);
+  const gauge = $("#bike-spoke-gauge")?.value || "double-butted";
+  const wl = Math.max(5, parseFloat($("#bike-hub-wl")?.value) || 34.0);
+  const wr = Math.max(5, parseFloat($("#bike-hub-wr")?.value) || 19.0);
+  const res = $("#bike-tension-result");
+  if (!res) return;
+
+  const tensionRatio = wr / wl;
+  const nonDriveTension = Math.round(targetDs * tensionRatio);
+
+  const gaugeData = {
+    plain14: { name: "14G Plain 2.0mm", stretchRate: "Low stretch • High stiffness", tm1Deflect: "21.5 Deflection reading" },
+    "double-butted": { name: "Double-Butted 2.0/1.8/2.0mm", stretchRate: "Optimal elasticity • Extended fatigue life", tm1Deflect: "23.0 Deflection reading" },
+    bladed: { name: "Bladed (Sapim CX-Ray)", stretchRate: "Cold-forged aero • High tensile", tm1Deflect: "16.0 Deflection reading (0.9x2.2mm)" }
+  };
+
+  const g = gaugeData[gauge] || gaugeData["double-butted"];
+
+  res.innerHTML = `
+    <div class="bike-spec-grid">
+      <div class="bike-stat-card">
+        <span class="label">Drive-Side Tension</span>
+        <span class="value" style="color:var(--primary)">${targetDs} kgf</span>
+        <div class="hint">Max target rim tension (~1177 N)</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Non-Drive Left Tension</span>
+        <span class="value">${nonDriveTension} kgf</span>
+        <div class="hint">${Math.round(tensionRatio * 100)}% of drive side tension</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Park Tool TM-1 Target</span>
+        <span class="value" style="font-size:12px">${g.tm1Deflect}</span>
+        <div class="hint">${g.name}</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Dish Elasticity</span>
+        <span class="value" style="font-size:12px">${g.stretchRate}</span>
+        <div class="hint">Prevents nipple loosening</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ⚖️ <strong>Dishing Balance Physics:</strong> Because the cassette body pushes the drive-side flange inward (WR = ${wr}mm vs WL = ${wl}mm), the left spokes pull at a shallower angle. To center the rim over the frame axle datum, non-drive spokes must sit at <strong>~${nonDriveTension} kgf</strong>. Never overtension the left side or the rim will dish out of frame alignment!
+    </div>
+  `;
+}
+
+function updateBicycleTrail() {
+  const headAngleDeg = parseFloat($("#bike-head-angle")?.value) || 72.5;
+  const forkRakeMm = parseFloat($("#bike-fork-rake")?.value) || 45.0;
+  const wheelRadiusMm = parseFloat($("#bike-wheel-radius")?.value) || 340.0;
+  const res = $("#bike-trail-result");
+  if (!res) return;
+
+  const hRad = (headAngleDeg * Math.PI) / 180;
+
+  // Mechanical Trail Formula:
+  // Trail = (Rw * cos(H) - Rf) / sin(H)
+  const trailMm = (wheelRadiusMm * Math.cos(hRad) - forkRakeMm) / Math.sin(hRad);
+
+  // Wheel Flop Factor:
+  // Flop = Trail * sin(H) * cos(H)
+  const wheelFlopMm = trailMm * Math.sin(hRad) * Math.cos(hRad);
+
+  let handling = "Neutral Road / All-Road Endurance";
+  let handlingDesc = "Balanced high-speed stability without sluggish low-speed steering.";
+  if (trailMm < 55) {
+    handling = "Fast Criterium / Track Twitchy";
+    handlingDesc = "Ultra-quick steering response; requires active rider attention at speed.";
+  } else if (trailMm > 66) {
+    handling = "Gravel / Touring / MTB Stable";
+    handlingDesc = "Self-centering directional stability; resists rock deflection on rough terrain.";
+  }
+
+  res.innerHTML = `
+    <div class="bike-spec-grid">
+      <div class="bike-stat-card">
+        <span class="label">Mechanical Trail</span>
+        <span class="value" style="color:var(--primary)">${trailMm.toFixed(1)} mm</span>
+        <div class="hint">${handling}</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Wheel Flop Factor</span>
+        <span class="value">${wheelFlopMm.toFixed(1)} mm</span>
+        <div class="hint">Tendency to lean into turns</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Head Tube Angle (H)</span>
+        <span class="value">${headAngleDeg}°</span>
+        <div class="hint">Fork Offset: ${forkRakeMm} mm</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Wheel Diameter Ref</span>
+        <span class="value">${(wheelRadiusMm * 2).toFixed(0)} mm</span>
+        <div class="hint">Effective rolling tire diameter</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📐 <strong>Trail Dynamics:</strong> Mechanical trail is the tire contact patch castor offset behind the steering axis projection. <strong>${handling}:</strong> ${handlingDesc}<br>
+      🚲 <strong>The Rake Paradox:</strong> INCREASING fork rake DECREASES mechanical trail, making steering quicker and lighter. Decreasing fork rake increases trail and directional stability!
+    </div>
+  `;
+}
+
+function updateBicycleMiter() {
+  const junction = $("#bike-tube-junction")?.value || "down-bb";
+  const alloy = $("#bike-tube-material")?.value || "4130";
+  const res = $("#bike-miter-result");
+  if (!res) return;
+
+  const junctionData = {
+    "down-bb": { name: "Down Tube to BB Shell", angle: "60.0°", cutterDia: "40.0 mm (1-9/16\")", tubeOD: "31.8 mm (1-1/4\")", fishmouthDepth: "9.2 mm" },
+    "top-head": { name: "Top Tube to Head Tube", angle: "73.0°", cutterDia: "36.0 mm (1-3/8\")", tubeOD: "28.6 mm (1-1/8\")", fishmouthDepth: "5.8 mm" },
+    "seat-bb": { name: "Seat Tube to BB Shell", angle: "73.5°", cutterDia: "40.0 mm (1-9/16\")", tubeOD: "28.6 mm (1-1/8\")", fishmouthDepth: "5.6 mm" },
+    "chain-bb": { name: "Chainstay to BB Shell", angle: "8.0° Flare", cutterDia: "40.0 mm (1-9/16\")", tubeOD: "22.2 mm Ovalized", fishmouthDepth: "3.4 mm" }
+  };
+
+  const alloyData = {
+    "4130": { name: "4130 Seamless Chromoly", weldMethod: "TIG (ER70S-2) or Bronze Fillet Braze (Gasflux 56% Silver)" },
+    columbus: { name: "Columbus Zona / Reynolds 853", weldMethod: "Silver Fillet Braze (Low heat prevents annealing thin butted zones)" },
+    titanium: { name: "3Al-2.5V Grade 9 Titanium", weldMethod: "TIG with Argon Purge Box + Trailing Shield (Zero discolouration)" },
+    aluminum: { name: "6061-T6 Aluminum", weldMethod: "TIG AC (4043/5356) + Post-weld Heat Treatment T4/T6 mandatory" }
+  };
+
+  const j = junctionData[junction] || junctionData["down-bb"];
+  const a = alloyData[alloy] || alloyData["4130"];
+
+  res.innerHTML = `
+    <div class="bike-spec-grid">
+      <div class="bike-stat-card">
+        <span class="label">Mitering Cut Angle</span>
+        <span class="value" style="color:var(--primary)">${j.angle}</span>
+        <div class="hint">Tube notcher vise angle</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Hole Saw Cutter Dia</span>
+        <span class="value">${j.cutterDia}</span>
+        <div class="hint">Matches mating tube OD</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Fishmouth Cope Depth</span>
+        <span class="value">${j.fishmouthDepth}</span>
+        <div class="hint">On ${j.tubeOD} tubing</div>
+      </div>
+      <div class="bike-stat-card">
+        <span class="label">Welding / Brazing</span>
+        <span class="value" style="font-size:12px">${a.name}</span>
+        <div class="hint">${a.weldMethod}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🪵 <strong>Framebuilder Precision:</strong> Tubing copes must achieve zero gap (&lt; 0.1 mm light check) prior to tacking. Large fitment gaps cause intense angular distortion from weld puddle shrink tension, pulling frame alignment out of plane!
+    </div>
+  `;
+}
+
+function renderBicycleView() {
+  updateBicycleSpoke();
+  updateBicycleTension();
+  updateBicycleTrail();
+  updateBicycleMiter();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -34274,7 +34869,7 @@ function initCraftStudios() {
 
   // CNC Machining & Milling Studio Listeners
   renderCncView();
-  ["#cnc-material", "#cnc-bit-type", "#cnc-tool-dia", "#cnc-spindle-type"].forEach(s => $(s)?.addEventListener("change", updateCncFeeds));
+  ["#cnc-studio-material", "#cnc-material", "#cnc-bit-type", "#cnc-tool-dia", "#cnc-spindle-type"].forEach(s => $(s)?.addEventListener("change", updateCncFeeds));
   ["#cnc-doc-in", "#cnc-woc-pct"].forEach(s => $(s)?.addEventListener("input", updateCncFeeds));
   ["#cnc-scallop-radius", "#cnc-scallop-stepover"].forEach(s => $(s)?.addEventListener("input", updateCncScallop));
   ["#cnc-deflect-stickout"].forEach(s => $(s)?.addEventListener("input", updateCncDeflection));
@@ -34392,6 +34987,50 @@ function initCraftStudios() {
   ["#horo-mainspring-type", "#horo-wind-state"].forEach(s => $(s)?.addEventListener("change", updateHorologyReserve));
   $("#horo-lube-point")?.addEventListener("change", updateHorologyLube);
   ["#horo-water-rating", "#horo-gasket-type"].forEach(s => $(s)?.addEventListener("change", updateHorologyPressure));
+
+  // Robotics & Mechatronics Studio Listeners
+  renderRoboticsView();
+  ["#robo-motor-class", "#robo-mech-type", "#robo-ang-accel", "#robo-safety-factor"].forEach(s => $(s)?.addEventListener("change", updateRoboticsTorque));
+  ["#robo-load-mass", "#robo-arm-radius"].forEach(s => $(s)?.addEventListener("input", updateRoboticsTorque));
+  ["#robo-driver-ic", "#robo-microsteps", "#robo-step-angle"].forEach(s => $(s)?.addEventListener("change", () => {
+    updateRoboticsDriver();
+    updateRoboticsLinear();
+  }));
+  $("#robo-motor-rpm")?.addEventListener("input", updateRoboticsDriver);
+  ["#robo-drivetrain-mech", "#robo-gear-ratio"].forEach(s => $(s)?.addEventListener("change", updateRoboticsLinear));
+  ["#robo-arm-l1", "#robo-arm-l2", "#robo-arm-theta1", "#robo-arm-theta2", "#robo-battery-mah"].forEach(s => $(s)?.addEventListener("input", updateRoboticsKinematics));
+  $("#robo-battery-pack")?.addEventListener("change", updateRoboticsKinematics);
+
+  // Bicycle Framebuilding & Wheel Studio Listeners
+  renderBicycleView();
+  ["#bike-spoke-count", "#bike-cross-pattern"].forEach(s => $(s)?.addEventListener("change", updateBicycleSpoke));
+  ["#bike-rim-erd", "#bike-hub-dl", "#bike-hub-dr", "#bike-hub-wl", "#bike-hub-wr"].forEach(s => $(s)?.addEventListener("input", () => {
+    updateBicycleSpoke();
+    updateBicycleTension();
+  }));
+  $("#bike-target-tension")?.addEventListener("input", updateBicycleTension);
+  $("#bike-spoke-gauge")?.addEventListener("change", updateBicycleTension);
+  ["#bike-head-angle", "#bike-fork-rake"].forEach(s => $(s)?.addEventListener("input", updateBicycleTrail));
+  $("#bike-wheel-radius")?.addEventListener("change", updateBicycleTrail);
+  ["#bike-tube-junction", "#bike-tube-material"].forEach(s => $(s)?.addEventListener("change", updateBicycleMiter));
+
+  // 🔍 Live Search Filter for Studio Switchers (Quick Dialog & Mobile Drawer)
+  const filterStudioElements = (query, containerSelector, itemSelector) => {
+    const q = (query || "").toLowerCase().trim();
+    $$(containerSelector + " " + itemSelector).forEach(el => {
+      const text = el.textContent.toLowerCase();
+      const match = !q || text.includes(q);
+      el.classList.toggle("hidden-studio", !match);
+    });
+  };
+
+  $("#studio-quick-filter")?.addEventListener("input", (e) => {
+    filterStudioElements(e.target.value, "#studio-quick-btn-grid", "button");
+  });
+
+  $("#mobile-studio-filter")?.addEventListener("input", (e) => {
+    filterStudioElements(e.target.value, "#mobile-studios-grid", ".mobile-studio-card");
+  });
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();

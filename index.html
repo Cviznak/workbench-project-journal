@@ -90,6 +90,8 @@
               <button class="nav-link" data-view="luthier"><span class="nav-icon">🎸</span>Luthier &amp; Instruments</button>
               <button class="nav-link" data-view="composites"><span class="nav-icon">🌀</span>Composites &amp; Carbon</button>
               <button class="nav-link" data-view="horology"><span class="nav-icon">⏱️</span>Watchmaking &amp; Horology</button>
+              <button class="nav-link" data-view="robotics"><span class="nav-icon">🤖</span>Robotics &amp; Motors</button>
+              <button class="nav-link" data-view="bicycle"><span class="nav-icon">🚲</span>Bicycle &amp; Framebuilding</button>
             </div>
           </div>
 
@@ -465,6 +467,8 @@
                     <option value="Luthier Tonewoods, Frets &amp; Parts">🎸 Luthier Tonewoods, Frets &amp; Parts</option>
                     <option value="Composites, Carbon Fiber &amp; Resins">🌀 Composites, Carbon Fiber &amp; Resins</option>
                     <option value="Watchmaking &amp; Horology Tools">⏱️ Watchmaking &amp; Horology Tools</option>
+                    <option value="Robotics, Motors &amp; Mechatronics">🤖 Robotics, Motors &amp; Mechatronics</option>
+                    <option value="Bicycle Components &amp; Tubing">🚲 Bicycle Components &amp; Tubing</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -4784,7 +4788,7 @@
 
                 <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
                   <label class="field-label" style="font-size:11px">Stock Material
-                    <select id="cnc-material">
+                    <select id="cnc-studio-material">
                       <option value="hardwood" selected>Hardwood (Oak, Walnut, Maple • SFM 600)</option>
                       <option value="softwood">Softwood (Pine, Cedar, Fir • SFM 900)</option>
                       <option value="plywood">Baltic Birch / Plywood (SFM 750)</option>
@@ -6312,6 +6316,355 @@
             </div>
           </section>
 
+          <!-- 🤖 Robotics & Mechatronics Studio View -->
+          <section class="view-section" id="robotics-view" aria-labelledby="robotics-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> STEPPER MOTORS, MICROSTEPPING, DRIVETRAIN RESOLUTION &amp; KINEMATICS</div>
+                <h1 id="robotics-title">Robotics &amp; Mechatronics Studio<span class="heading-period">.</span></h1>
+                <p>Calculate motor holding torque requirements, stepper pulse step frequencies, linear drivetrain resolution (&mu;m/step), 2-DOF forward kinematics reach envelopes, and LiPo battery run-time dynamics.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-robotics-specs">📋 Copy Robotics Specs</button>
+                <button type="button" class="button button-primary" data-action="add-robotics-supplies">🛒 Add Robotics Supplies</button>
+              </div>
+            </div>
+
+            <div class="tool-grid">
+              <!-- Card 1: Motor Sizing & Required Torque -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">⚡</div>
+                  <div>
+                    <h3>Motor Sizing &amp; Torque Dynamics</h3>
+                    <p class="tool-card-subtitle">Calculate torque for payload mass, lever arm radius, friction, and acceleration</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Motor Architecture / Class
+                    <select id="robo-motor-class">
+                      <option value="nema17" selected>NEMA 17 Stepper (0.45 N·m / 64 oz·in • 3D printers &amp; light robotics)</option>
+                      <option value="nema23">NEMA 23 Stepper (1.9 N·m / 269 oz·in • Heavy gantry &amp; mill axes)</option>
+                      <option value="nema34">NEMA 34 Stepper (8.5 N·m / 1204 oz·in • Industrial plasma &amp; router)</option>
+                      <option value="servo-standard">Digital Metal-Gear RC Servo (MG996R • 1.1 N·m / 153 oz·in)</option>
+                      <option value="bldc-gimbal">BLDC Gimbal / FOC Direct-Drive Motor (0.8 N·m continuous)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Mechanism Type
+                    <select id="robo-mech-type">
+                      <option value="direct-rotary" selected>Direct Rotary Lever / Arm (Gravity load W = m·g·r)</option>
+                      <option value="leadscrew">Lead Screw / Ballscrew (Horizontal payload F = &mu;·m·g)</option>
+                      <option value="timing-belt">Timing Belt / Rack &amp; Pinion Drive</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Payload Mass (kg)
+                    <input type="number" id="robo-load-mass" value="1.50" step="0.1" min="0.01" max="250">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Lever Arm / Pulley Radius (mm)
+                    <input type="number" id="robo-arm-radius" value="120" step="5" min="2" max="2000">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Angular Acceleration (&alpha; rad/s²)
+                    <select id="robo-ang-accel">
+                      <option value="10">Smooth / Gentle (10 rad/s²)</option>
+                      <option value="25" selected>Standard Industrial (25 rad/s²)</option>
+                      <option value="60">High-Speed Aggressive (60 rad/s²)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Safety Margin Factor
+                    <select id="robo-safety-factor">
+                      <option value="1.3">1.3x (Minimal margin)</option>
+                      <option value="1.8" selected>1.8x (Recommended for steppers)</option>
+                      <option value="2.5">2.5x (High-vibration dynamic loads)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="robo-torque-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 2: Stepper Pulse Rate & Microstepping Sizing -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🎛️</div>
+                  <div>
+                    <h3>Stepper Driver &amp; Microstepping Rate</h3>
+                    <p class="tool-card-subtitle">Driver step pulse frequency, silent StealthChop, and step loss velocity</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Driver IC Type
+                    <select id="robo-driver-ic">
+                      <option value="tmc2209" selected>Trinamic TMC2209 (StealthChop2 silent &amp; StallGuard4)</option>
+                      <option value="a4988">Allegro A4988 (Traditional budget driver • max 1/16)</option>
+                      <option value="drv8825">TI DRV8825 (High current 2.5A • max 1/32)</option>
+                      <option value="tb6600">Toshiba TB6600 (External discrete driver • 4A 45V)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Microstepping Resolution
+                    <select id="robo-microsteps">
+                      <option value="1">Full Step (1/1 • Max torque, high resonance)</option>
+                      <option value="2">Half Step (1/2 • 400 steps/rev)</option>
+                      <option value="4">Quarter Step (1/4 • 800 steps/rev)</option>
+                      <option value="8">Eighth Step (1/8 • 1600 steps/rev)</option>
+                      <option value="16" selected>1/16 Microstepping (3200 steps/rev • Standard)</option>
+                      <option value="32">1/32 Microstepping (6400 steps/rev • High precision)</option>
+                      <option value="64">1/64 Microstepping (12800 steps/rev • Silent smooth)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Target Motor Speed (RPM)
+                    <input type="number" id="robo-motor-rpm" value="600" step="50" min="10" max="3000">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Native Motor Step Angle
+                    <select id="robo-step-angle">
+                      <option value="1.8" selected>1.8° per step (200 steps/rev - Standard)</option>
+                      <option value="0.9">0.9° per step (400 steps/rev - High precision)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="robo-driver-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 3: Linear Drivetrain Resolution & Backlash -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">⚙️</div>
+                  <div>
+                    <h3>Linear Drivetrain &amp; Step Resolution</h3>
+                    <p class="tool-card-subtitle">Calculate linear travel per step, steps/mm configuration, and positional precision</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Drivetrain Mechanism
+                    <select id="robo-drivetrain-mech">
+                      <option value="gt2-20t" selected>GT2 Timing Belt (2mm pitch • 20 Tooth Pulley = 40mm pitch dia)</option>
+                      <option value="gt2-16t">GT2 Timing Belt (2mm pitch • 16 Tooth Pulley = 32mm pitch dia)</option>
+                      <option value="t8-lead8">T8 Lead Screw (2mm pitch • 4-start 8mm lead)</option>
+                      <option value="t8-lead2">T8 Lead Screw (2mm pitch • 1-start 2mm lead)</option>
+                      <option value="sfu1605">SFU1605 C7 Precision Ballscrew (5mm lead)</option>
+                      <option value="rack-mod1">Rack &amp; Pinion Module 1.0 (20 Tooth = 62.83mm lead)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Gearbox / Reduction Ratio
+                    <select id="robo-gear-ratio">
+                      <option value="1" selected>1 : 1 (Direct drive • No reduction)</option>
+                      <option value="3">3 : 1 (Planetary / belt gear reduction)</option>
+                      <option value="5">5 : 1 (Planetary reduction • High torque)</option>
+                      <option value="10">10 : 1 (Harmonic / high reduction)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="robo-linear-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 4: 2-DOF Arm Kinematics & LiPo Power Sizing -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🦾</div>
+                  <div>
+                    <h3>2-DOF Kinematics &amp; Power Dynamics</h3>
+                    <p class="tool-card-subtitle">Forward kinematics (x, y) reach coordinate and LiPo battery run-time</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Shoulder Link L1 (mm)
+                    <input type="number" id="robo-arm-l1" value="220" step="10" min="20" max="1500">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Forearm Link L2 (mm)
+                    <input type="number" id="robo-arm-l2" value="180" step="10" min="20" max="1500">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Shoulder Angle &theta;1 (Deg)
+                    <input type="number" id="robo-arm-theta1" value="45" step="5" min="-180" max="180">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Elbow Angle &theta;2 (Deg)
+                    <input type="number" id="robo-arm-theta2" value="30" step="5" min="-180" max="180">
+                  </label>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Battery Voltage Configuration
+                    <select id="robo-battery-pack">
+                      <option value="12v-3s">3S LiPo / 12V Lead-Acid (11.1V – 12.6V nominal)</option>
+                      <option value="24v-6s" selected>6S LiPo / 24V Industrial PSU (22.2V – 25.2V nominal)</option>
+                      <option value="48v">48V High-Voltage Bus (Rapid acceleration)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Battery Pack Capacity (mAh)
+                    <input type="number" id="robo-battery-mah" value="5000" step="500" min="500" max="50000">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="robo-kinematics-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🚲 Bicycle Framebuilding & Wheel Building Studio View -->
+          <section class="view-section" id="bicycle-view" aria-labelledby="bicycle-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> SPOKE LENGTHS, WHEEL DISH TENSION, STEERING TRAIL &amp; TUBE MITERS</div>
+                <h1 id="bicycle-title">Bicycle &amp; Framebuilding Studio<span class="heading-period">.</span></h1>
+                <p>Calculate Erdmann spoke lengths down to 0.1mm across cross patterns, drive-side vs non-drive-side spoke dish tension balance, steering head tube trail geometry, and coped tube mitering templates.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-bicycle-specs">📋 Copy Bicycle Specs</button>
+                <button type="button" class="button button-primary" data-action="add-bicycle-supplies">🛒 Add Framebuilding Supplies</button>
+              </div>
+            </div>
+
+            <div class="tool-grid">
+              <!-- Card 1: Erdmann Spoke Length Calculator -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🎡</div>
+                  <div>
+                    <h3>Erdmann Spoke Length Calculator</h3>
+                    <p class="tool-card-subtitle">Precision calculation for 3-cross, 2-cross, 1-cross, and radial lacing</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Rim Effective Rim Diameter (ERD in mm)
+                    <input type="number" id="bike-rim-erd" value="596.0" step="0.5" min="200" max="700">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Spoke Hole Count
+                    <select id="bike-spoke-count">
+                      <option value="28">28 Holes (Road &amp; lightweight)</option>
+                      <option value="32" selected>32 Holes (Classic standard • Trail &amp; gravel)</option>
+                      <option value="36">36 Holes (Touring &amp; tandem high strength)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Lacing Cross Pattern
+                    <select id="bike-cross-pattern">
+                      <option value="3" selected>3-Cross (Standard tangential torque transfer)</option>
+                      <option value="2">2-Cross (Lower spoke count / stiff)</option>
+                      <option value="1">1-Cross (Aero front)</option>
+                      <option value="0">Radial 0-Cross (Front non-disc only)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Left Flange Dia DL (mm)
+                    <input type="number" id="bike-hub-dl" value="58.0" step="0.5" min="20" max="120">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Right Flange Dia DR (mm)
+                    <input type="number" id="bike-hub-dr" value="54.0" step="0.5" min="20" max="120">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Left Center-to-Flange WL (mm)
+                    <input type="number" id="bike-hub-wl" value="34.0" step="0.5" min="10" max="60">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Right Center-to-Flange WR (mm)
+                    <input type="number" id="bike-hub-wr" value="19.0" step="0.5" min="10" max="60">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="bike-spoke-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 2: Spoke Tension Balance & Dishing Offset -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">⚖️</div>
+                  <div>
+                    <h3>Spoke Tension Balance &amp; Dish</h3>
+                    <p class="tool-card-subtitle">Rear cassette dish ratio, tension balance (kgf), and spoke elongation</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Drive-Side Target Tension (kgf)
+                    <input type="number" id="bike-target-tension" value="120" step="5" min="80" max="160">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Spoke Wire Gauge &amp; Butt Profile
+                    <select id="bike-spoke-gauge">
+                      <option value="plain14">14 Gauge Plain 2.0mm (Stiff &amp; economical)</option>
+                      <option value="double-butted" selected>Double-Butted 2.0 / 1.8 / 2.0mm (DT Swiss Competition / Sapim Race)</option>
+                      <option value="bladed">Bladed Aerodynamic (Sapim CX-Ray / DT Aerolite)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="bike-tension-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 3: Frame Steering Geometry, Fork Rake & Trail -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">📐</div>
+                  <div>
+                    <h3>Steering Geometry, Fork Rake &amp; Trail</h3>
+                    <p class="tool-card-subtitle">Head tube angle, fork offset, mechanical trail, and wheel flop factor</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Head Tube Angle H (Degrees)
+                    <input type="number" id="bike-head-angle" value="72.5" step="0.5" min="62" max="76">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Fork Offset / Rake (mm)
+                    <input type="number" id="bike-fork-rake" value="45.0" step="1.0" min="30" max="65">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Wheel &amp; Tire Outer Radius Rw (mm)
+                    <select id="bike-wheel-radius">
+                      <option value="340" selected>700c x 28mm Road Tire (340mm radius / 680mm dia)</option>
+                      <option value="350">700c x 40mm Gravel Tire (350mm radius / 700mm dia)</option>
+                      <option value="365">29" x 2.3" MTB Tire (365mm radius / 730mm dia)</option>
+                      <option value="352">27.5" x 2.4" Enduro Tire (352mm radius / 704mm dia)</option>
+                      <option value="330">26" x 2.1" Classic MTB (330mm radius / 660mm dia)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="bike-trail-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- Card 4: Tube Coping & Mitering Template Angles -->
+              <div class="tool-card">
+                <div class="tool-card-header">
+                  <div class="tool-card-icon">🪵</div>
+                  <div>
+                    <h3>Tube Coping &amp; Mitering Notch Template</h3>
+                    <p class="tool-card-subtitle">Hole saw cutter diameter, tube intersection angle, and fishmouth depth</p>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label class="field-label" style="font-size:11px">Joining Tube Junction
+                    <select id="bike-tube-junction">
+                      <option value="down-bb" selected>Down Tube to BB Shell (60° angle • 31.8mm to 40mm shell)</option>
+                      <option value="top-head">Top Tube to Head Tube (73° angle • 28.6mm to 36mm head)</option>
+                      <option value="seat-bb">Seat Tube to BB Shell (73.5° angle • 28.6mm to 40mm shell)</option>
+                      <option value="chain-bb">Chainstay to BB Shell (8° flare angle)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Frame Tubing Material Alloy
+                    <select id="bike-tube-material">
+                      <option value="4130" selected>4130 Seamless Chromoly Steel (TIG / Bronze Fillet)</option>
+                      <option value="columbus">Columbus Zona / Reynolds 853 Heat-Treated Steel</option>
+                      <option value="titanium">3Al-2.5V Aerospace Grade 9 Titanium</option>
+                      <option value="aluminum">6061-T6 Double-Butted Aluminum</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="bike-miter-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -6712,31 +7065,36 @@
       <!-- 🎨 Dedicated Craft Studios Shortcut Banner -->
       <div class="panel" style="margin-top:20px;background:var(--surface-subtle);border:1px dashed var(--border);border-radius:8px;padding:14px">
         <div class="eyebrow" style="margin-bottom:4px">DEDICATED CRAFT STUDIOS</div>
-        <p style="font-size:12px;margin:0 0 10px;color:var(--muted)">Woodworking, Textiles, Music, Electronics, Programming, and Art &amp; Design calculators have moved to full-page craft studios with live auditioning, code scratchpads, and pattern designers:</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="woodworking">🪵 Woodworking Studio</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="textiles">🧶 Textiles &amp; Yarn Studio</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="music">🎵 Music &amp; Audio Studio</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="electronics">⚡ Electronics Studio</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="programming">💻 Programming Studio</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="art">🎨 Art &amp; Design Studio</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="resin">🧪 Epoxy &amp; Silicone</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="printing">🖨️ 3D Printing Studio</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="origami">🦢 Origami &amp; Paper</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="laser">🔥 Laser Cutting</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="leather">🪡 Leathercraft</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="ceramics">🏺 Ceramics &amp; Pottery</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="welding">⚡ Welding &amp; Metal</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="cnc">⚙️ CNC Machining</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="blacksmith">⚒️ Blacksmithing &amp; Blades</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="fasteners">🔩 Fasteners &amp; Drills</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="glass">🪟 Stained Glass</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="jewelry">💍 Jewelry &amp; Metals</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="bookbinding">📖 Bookbinding &amp; Print</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="sla">🧪 Resin 3D Print (SLA)</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="luthier">🎸 Luthier &amp; Instruments</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="composites">🌀 Composites &amp; Carbon</button>
-          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="horology">⏱️ Watchmaking &amp; Horology</button>
+        <p style="font-size:12px;margin:0 0 10px;color:var(--muted)">25 full-featured craft &amp; fabrication studios with live simulations, CAD equations, and starter kits:</p>
+        <div style="margin-bottom:10px">
+          <input type="search" id="studio-quick-filter" class="studio-search-input" placeholder="🔍 Quick search 25 studios (e.g. robot, bike, carbon, fret, cnc, weld, resin)..." style="width:100%;font-size:12px;padding:7px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface)">
+        </div>
+        <div class="studio-quick-btn-grid" id="studio-quick-btn-grid" style="display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="woodworking">🪵 Woodworking Studio</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="textiles">🧶 Textiles &amp; Yarn Studio</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="music">🎵 Music &amp; Audio Studio</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="electronics">⚡ Electronics Studio</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="programming">💻 Programming Studio</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="art">🎨 Art &amp; Design Studio</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="resin">🧪 Epoxy &amp; Silicone</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="printing">🖨️ 3D Printing Studio</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="origami">🦢 Origami &amp; Paper</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="laser">🔥 Laser Cutting</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="leather">🪡 Leathercraft</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="ceramics">🏺 Ceramics &amp; Pottery</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="welding">⚡ Welding &amp; Metal</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="cnc">⚙️ CNC Machining</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="blacksmith">⚒️ Blacksmithing &amp; Blades</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="fasteners">🔩 Fasteners &amp; Drills</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="glass">🪟 Stained Glass</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="jewelry">💍 Jewelry &amp; Metals</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="bookbinding">📖 Bookbinding &amp; Print</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="sla">🧪 Resin 3D Print (SLA)</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="luthier">🎸 Luthier &amp; Instruments</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="composites">🌀 Composites &amp; Carbon</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="horology">⏱️ Watchmaking &amp; Horology</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="robotics">🤖 Robotics &amp; Motors</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="bicycle">🚲 Bicycle &amp; Framebuilding</button>
         </div>
       </div>
     </dialog>
@@ -7006,6 +7364,8 @@
                 <option value="Luthier Tonewoods, Frets &amp; Parts">🎸 Luthier Tonewoods, Frets &amp; Parts</option>
                 <option value="Composites, Carbon Fiber &amp; Resins">🌀 Composites, Carbon Fiber &amp; Resins</option>
                 <option value="Watchmaking &amp; Horology Tools">⏱️ Watchmaking &amp; Horology Tools</option>
+                <option value="Robotics, Motors &amp; Mechatronics">🤖 Robotics, Motors &amp; Mechatronics</option>
+                <option value="Bicycle Components &amp; Tubing">🚲 Bicycle Components &amp; Tubing</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -7950,7 +8310,10 @@
         </div>
         <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
       </div>
-      <div class="mobile-studios-grid">
+      <div style="padding:0 0 12px">
+        <input type="search" id="mobile-studio-filter" class="studio-search-input" placeholder="🔍 Search craft studios..." style="width:100%;font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface)">
+      </div>
+      <div class="mobile-studios-grid" id="mobile-studios-grid">
         <button type="button" class="mobile-studio-card" data-view="woodworking" data-action="select-mobile-studio">
           <span class="mobile-studio-icon" aria-hidden="true">🪵</span>
           <strong>Woodworking</strong>
@@ -8065,6 +8428,16 @@
           <span class="mobile-studio-icon" aria-hidden="true">⏱️</span>
           <strong>Watchmaking &amp; Horology</strong>
           <span class="mobile-studio-desc">Timegrapher beat error, balance amplitude, lubrication, depth rating</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="robotics" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🤖</span>
+          <strong>Robotics &amp; Motors</strong>
+          <span class="mobile-studio-desc">NEMA torque, stepper driver microstepping, arm kinematics</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="bicycle" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🚲</span>
+          <strong>Bicycle Framebuilding</strong>
+          <span class="mobile-studio-desc">Spoke lengths, wheel dish balance, trail &amp; tube miters</span>
         </button>
       </div>
     </dialog>
