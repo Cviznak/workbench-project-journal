@@ -12968,3 +12968,37 @@ body.theme-dark .mohs-badge-fragile {
   flex-shrink: 0;
   border: 1px solid rgba(0,0,0,0.2);
 }
+
+/* ============================================================
+   🌿 Botanical Distillation & Extracts Studio
+   ============================================================ */
+.distill-still-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+.distill-oil-glow {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.08));
+  border: 1px solid #d97706;
+}
+[data-theme="dark"] .distill-oil-glow,
+body.theme-dark .distill-oil-glow {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(180, 83, 9, 0.12));
+  border-color: #f59e0b;
+}
+.distill-hydrosol-glow {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08));
+  border: 1px solid #059669;
+}
+[data-theme="dark"] .distill-hydrosol-glow,
+body.theme-dark .distill-hydrosol-glow {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(4, 120, 87, 0.1));
+  border-color: #10b981;
+}

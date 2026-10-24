@@ -5017,14 +5017,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "ideas", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle", "candle", "perfume", "letter"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "ideas", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle", "candle", "perfume", "letter", "distillation"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle", "candle", "perfume", "letter"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle", "candle", "perfume", "letter", "distillation"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -5090,7 +5090,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     bicycle: "Bicycle Framebuilding & Wheel Studio",
     candle: "Candle Making Studio",
     perfume: "Perfume & Fragrance Studio",
-    letter: "Letter Planning & Wax Seal Studio"
+    letter: "Letter Planning & Wax Seal Studio",
+    distillation: "Botanical Distillation & Extracts Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -5142,6 +5143,7 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "candle") renderCandleView();
   if (targetView === "perfume") renderPerfumeView();
   if (targetView === "letter") renderLetterView();
+  if (targetView === "distillation") renderDistillationView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -12060,6 +12062,36 @@ async function handleAction(action, target) {
     if (hex) {
       void navigator.clipboard.writeText(hex).then(() => showToast(`Copied ${hex} to clipboard!`));
     }
+    return;
+  }
+  if (action === "copy-distill-specs") {
+    const steam = $("#distill-steam-result")?.innerText || "";
+    const ext = $("#distill-extract-result")?.innerText || "";
+    const text = `🌿 BOTANICAL DISTILLATION & EXTRACTS SPEC SHEET\n\n${steam}\n\n${ext}`;
+    void navigator.clipboard.writeText(text).then(() => showToast("Copied Distillation specs to clipboard!"));
+    return;
+  }
+  if (action === "export-oil-to-perfume") {
+    switchView("perfume");
+    showToast("🌸 Transferred extracted botanical oil to Perfume Studio!");
+    return;
+  }
+  if (action === "export-oil-to-candle") {
+    switchView("candle");
+    showToast("🕯️ Transferred essential oil fragrance profile to Candle Studio!");
+    return;
+  }
+  if (action === "add-distill-to-materials") {
+    await addMaterialToProjectShopping("Copper Alembic Still & Florentine Essencier Receiver Kit", "1 set", 85.00, "Distillation & Extracts");
+    return;
+  }
+  if (action === "save-distill-run") {
+    saveDistillationRun();
+    return;
+  }
+  if (action === "delete-distill-run") {
+    const idx = parseInt(target.dataset.index, 10);
+    deleteDistillationRun(idx);
     return;
   }
   if (action === "copy-candle-recipe") {
@@ -36773,6 +36805,383 @@ function updateCandleSafety() {
   `;
 }
 
+// scratch/distill_code.js
+// Standalone logic for Botanical Distillation, Essential Oils & Herbal Extracts Studio
+
+const DISTILL_STORAGE_KEY = "workbench_distill_runs";
+
+function getDistillRuns() {
+  try {
+    const raw = localStorage.getItem(DISTILL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveDistillRuns(runs) {
+  try {
+    localStorage.setItem(DISTILL_STORAGE_KEY, JSON.stringify(runs));
+  } catch {}
+}
+
+function updateSteamDistillCalc() {
+  const botanical = $("#distill-botanical-select")?.value || "lavender";
+  const harvestState = $("#distill-harvest-state")?.value || "dry";
+  const plantWeightG = Math.max(10, parseFloat($("#distill-plant-weight")?.value) || 500);
+  const stillType = $("#distill-still-type")?.value || "copper_alembic";
+  const boilerLiters = Math.max(0.2, parseFloat($("#distill-boiler-liters")?.value) || 3.0);
+  const res = $("#distill-steam-result");
+  if (!res) return;
+
+  const customYieldLbl = $("#distill-lbl-custom-yield");
+  let yieldPct = 2.2;
+  let botanicalName = "Lavender Buds";
+  let chemProfile = "Linalool & Linalyl acetate";
+  let noteClass = "Top-Heart Note";
+  let oilDensity = 0.89; // g/ml
+  let separatorBehavior = "Floats on water (Specific gravity 0.89 < 1.0)";
+
+  if (botanical === "custom") {
+    if (customYieldLbl) customYieldLbl.style.display = "block";
+    yieldPct = Math.max(0.01, parseFloat($("#distill-custom-yield")?.value) || 1.5);
+    botanicalName = "Custom Botanical Material";
+    chemProfile = "Terpenes & Aromatics";
+    noteClass = "Volatile Essence";
+  } else {
+    if (customYieldLbl) customYieldLbl.style.display = "none";
+    const botanicals = {
+      lavender: { name: "Lavender Buds (Lavandula angustifolia)", yield: 2.2, note: "Top-Heart Note", chem: "Linalool & Linalyl acetate", density: 0.89, sep: "Floats on top of hydrosol in essencier" },
+      peppermint: { name: "Peppermint Leaves (Mentha piperita)", yield: 1.3, note: "Top Note", chem: "Menthol & Menthone", density: 0.90, sep: "Floats; cool coolant ensures crystalline menthol doesn't clog" },
+      rosemary: { name: "Rosemary Leaves (Salvia rosmarinus)", yield: 1.5, note: "Top-Heart Note", chem: "1,8-Cineole & Camphor", density: 0.91, sep: "Floats; collect first 45 min for fresh green cineole notes" },
+      eucalyptus: { name: "Eucalyptus Leaves (Eucalyptus globulus)", yield: 2.0, note: "Top Note", chem: "Eucalyptol (Cineole)", density: 0.91, sep: "Floats on hydrosol; high volatile steam carryover" },
+      citrus_peel: { name: "Sweet Orange / Lemon Peel (Citrus sinensis)", yield: 1.0, note: "Top Note", chem: "d-Limonene", density: 0.85, sep: "Floats; light density, fast separation in Florentine receiver" },
+      frankincense: { name: "Frankincense Tears (Boswellia carterii)", yield: 5.5, note: "Base Note", chem: "Alpha-pinene & Incensole", density: 0.88, sep: "Hydro-distillation required (submerge crushed resin in water)" },
+      rose: { name: "Damask Rose Petals (Rosa damascena)", yield: 0.035, note: "Heart Note", chem: "Citronellol & Geraniol", density: 0.86, sep: "Forms thin golden surface sheen (Rose Otto); high value in rose water hydrosol" },
+      chamomile: { name: "German Chamomile (Matricaria chamomilla)", yield: 0.6, note: "Heart-Base Note", chem: "Chamazulene (Striking deep sapphire blue!)", density: 0.93, sep: "Dark cobalt blue oil drops collect on receiver surface" },
+      tea_tree: { name: "Tea Tree (Melaleuca alternifolia)", yield: 1.8, note: "Top-Heart Note", chem: "Terpinen-4-ol", density: 0.90, sep: "Floats cleanly on medicinal tea tree hydrosol" }
+    };
+    const b = botanicals[botanical] || botanicals.lavender;
+    yieldPct = b.yield;
+    botanicalName = b.name;
+    chemProfile = b.chem;
+    noteClass = b.note;
+    oilDensity = b.density;
+    separatorBehavior = b.sep;
+  }
+
+  // Effective dry mass calculation: fresh herb has ~70% water weight
+  const isFresh = harvestState === "fresh";
+  const effectiveG = isFresh ? plantWeightG * 0.35 : plantWeightG;
+
+  const oilWeightG = effectiveG * (yieldPct / 100);
+  const oilVolumeMl = oilWeightG / oilDensity;
+  const oilDrops = Math.round(oilVolumeMl * 28);
+
+  // Floral water hydrosol volume collected: ~1:1 with effective dry plant weight
+  const hydrosolMl = Math.round(effectiveG * 1.1);
+
+  // Minimum boiler water required: need 1.8x collected hydrosol to keep boiler safe
+  const minBoilerLiters = (hydrosolMl * 1.8) / 1000;
+  const isBoilerLow = boilerLiters < minBoilerLiters;
+
+  const stillSpecs = {
+    copper_alembic: { name: "Copper Alembic Still", tempTarget: "98°C − 100°C (208°F − 212°F)", coolantMax: "22°C (72°F)", note: "Copper ions chemically bind and neutralize harsh foul-smelling sulfur compounds, producing a sweet, floral, unblemished bouquet." },
+    stainless_column: { name: "Stainless Steel Column Still", tempTarget: "99°C − 100°C", coolantMax: "20°C (68°F)", note: "Inert sanitary stainless steel with perforated botanical vapor basket. High hygiene, perfect for medicinal extracts and easy sanitization." },
+    glass_clevenger: { name: "Borosilicate Glass Clevenger Still", tempTarget: "98°C − 100°C", coolantMax: "18°C (64°F)", note: "Laboratory standard with direct optical visualization of vapor condensate and calibrated return arm for exact micro-ml yield measurement." }
+  }[stillType] || {};
+
+  const boilerAlert = isBoilerLow ? `
+    <div class="resin-exotherm-alert resin-alert-warn" style="margin-top:8px">
+      <span>⚠️</span>
+      <div>
+        <strong>BOILER WATER CHARGE ALERT:</strong> Your ${boilerLiters} L water charge is too low for a ${plantWeightG}g run! You will collect ~${hydrosolMl} ml hydrosol. To prevent the boiler from running dry and scorching plant matter, fill boiler with at least <strong>${minBoilerLiters.toFixed(1)} Liters</strong> of distilled water.
+      </div>
+    </div>
+  ` : "";
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:8px">
+      <div class="jewelry-stat-card">
+        <span class="label">Pure Essential Oil Yield</span>
+        <span class="value" style="color:var(--primary)">${oilVolumeMl < 1 ? oilVolumeMl.toFixed(2) : oilVolumeMl.toFixed(1)} ml</span>
+        <div class="hint">${oilWeightG.toFixed(2)} g (~ ${oilDrops} drops)</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Aromatic Hydrosol Output</span>
+        <span class="value" style="color:#059669">${hydrosolMl} ml</span>
+        <div class="hint">100% Pure Floral Water Distillate</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Primary Active Terpenes</span>
+        <span class="value" style="font-size:12px;color:var(--ink)">${noteClass}</span>
+        <div class="hint">${chemProfile}</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Distillation Duration</span>
+        <span class="value" style="font-size:13px">45 − 90 mins</span>
+        <div class="hint">Top vapor head @ ${stillSpecs.tempTarget}</div>
+      </div>
+    </div>
+
+    ${boilerAlert}
+
+    <div style="margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;line-height:1.5">
+      <strong>⚗️ Still Operations Protocol (${stillSpecs.name}):</strong><br>
+      • <strong>Boiler Fill:</strong> Fill boiler with <strong>${boilerLiters} L</strong> of pure distilled water (never tap water to avoid mineral scale). Ensure water level stays below the perforated botanical basket (true steam distillation).<br>
+      • <strong>Packing:</strong> Pack ${plantWeightG}g of ${botanicalName} evenly into the vapor chamber. Do not over-compress or steam will channel through paths of least resistance.<br>
+      • <strong>Condenser Coolant:</strong> Run cold water through condenser jacket. Coolant outlet water must stay below <strong>${stillSpecs.coolantMax}</strong> to prevent volatile oil vapor escape into the air.<br>
+      • <strong>Essencier Separation:</strong> ${separatorBehavior}. Drain floral hydrosol from bottom valve while retaining the floating essential oil layer in the separator neck.<br>
+      • <em>Alembic Advantage: ${stillSpecs.note}</em>
+    </div>
+  `;
+}
+
+function updateSolventExtractCalc() {
+  const mode = $("#distill-extract-mode")?.value || "tincture_50";
+  const marcG = Math.max(5, parseFloat($("#distill-marc-grams")?.value) || 100);
+  const ratio = $("#distill-marc-ratio")?.value || "1:5";
+  const res = $("#distill-extract-result");
+  if (!res) return;
+
+  let mult = 5;
+  if (ratio === "1:2") mult = 2;
+  else if (ratio === "1:4") mult = 4;
+  else if (ratio === "1:5") mult = 5;
+  else if (ratio === "1:8") mult = 8;
+  else if (ratio === "1:10") mult = 10;
+
+  const solventMl = marcG * mult;
+  const recoveredMl = Math.round(solventMl * 0.82); // 82% recovered after pressing
+
+  const modeData = {
+    tincture_50: {
+      name: "50% ABV (100 Proof) Tincture",
+      macerateDays: "14 − 28 Days",
+      affinity: "Balanced universal solvent (dissolves both water-soluble saponins/tannins and alcohol-soluble essential oils).",
+      pressTip: "Shake amber mason jar daily for 21 days; press marc with stainless potato ricer or fruit press."
+    },
+    tincture_70: {
+      name: "70% ABV (140 Proof) Tincture",
+      macerateDays: "14 − 21 Days",
+      affinity: "High-affinity for botanical alkaloids, volatile terpenes, and antimicrobial compounds (Propolis, Echinacea).",
+      pressTip: "Keeps indefinitely at room temperature; 100% self-preserving."
+    },
+    tincture_95: {
+      name: "95% ABV (190 Proof Everclear) Tincture",
+      macerateDays: "7 − 14 Days",
+      affinity: "Specialized for tree resins, myrrh, frankincense, propolis, and essential oil extraction.",
+      pressTip: "Too high in alcohol for direct ingestion; ideal for perfumery concentrates or compounding."
+    },
+    oil_maceration: {
+      name: "Infused Botanical Carrier Oil",
+      macerateDays: "28 − 42 Days (or 4 hrs @ 45°C)",
+      affinity: "Extracts fat-soluble vitamins, carotenoids, and lipophilic herbal aromatics (Calendula, Arnica, St. John's Wort).",
+      pressTip: "Add 0.2% Vitamin E (Tocopherol) as natural antioxidant to prevent oil rancidity."
+    },
+    glycerite: {
+      name: "Vegetable Glycerite (Alcohol-Free)",
+      macerateDays: "28 − 35 Days",
+      affinity: "65% Food-Grade Vegetable Glycerin + 35% Distilled Water. Safe for children and individuals avoiding alcohol.",
+      pressTip: "Viscous liquid; shake vigorously twice daily to disperse herbal marc."
+    }
+  }[mode] || {};
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Required Solvent Volume</span>
+        <span class="value" style="color:var(--primary)">${solventMl} ml</span>
+        <div class="hint">${ratio} ratio on ${marcG}g herb marc</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Projected Finished Extract</span>
+        <span class="value" style="color:#059669">${recoveredMl} ml</span>
+        <div class="hint">~82% yield after pressing marc</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Maceration Duration</span>
+        <span class="value" style="font-size:13px">${modeData.macerateDays}</span>
+        <div class="hint">${modeData.name}</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Storage Bottle</span>
+        <span class="value" style="font-size:13px">Amber Dropper Glass</span>
+        <div class="hint">UV protection keeps potency</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🌿 <strong>Extraction Chemistry:</strong> ${modeData.affinity}<br>
+      📦 <strong>Pressing &amp; Filtering:</strong> ${modeData.pressTip}
+    </div>
+  `;
+}
+
+function updateAlcoholDilutionCalc() {
+  const startAbv = parseFloat($("#distill-start-abv")?.value) || 95;
+  const targetAbv = parseFloat($("#distill-target-abv")?.value) || 50;
+  const targetVol = Math.max(50, parseFloat($("#distill-target-volume")?.value) || 500);
+  const res = $("#distill-dilution-result");
+  if (!res) return;
+
+  // Pearson's Square: C1 * V1 = C2 * V2
+  const rawAlcoholMl = (targetAbv / startAbv) * targetVol;
+  const rawWaterMl = targetVol - rawAlcoholMl;
+
+  // Molecular volume contraction of ethanol and water mixing (~3.2%)
+  const compWaterMl = rawWaterMl * 1.032;
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">High-Proof Spirit (${startAbv}%)</span>
+        <span class="value" style="color:#d97706">${Math.round(rawAlcoholMl)} ml</span>
+        <div class="hint">${(rawAlcoholMl / 29.5735).toFixed(1)} fl oz spirit</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Distilled Water (+Contraction)</span>
+        <span class="value" style="color:var(--primary)">${Math.round(compWaterMl)} ml</span>
+        <div class="hint">Compensates for 3.2% volume shrinkage</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Finished Extract Base</span>
+        <span class="value">${targetVol} ml</span>
+        <div class="hint">Exact ${targetAbv}% ABV (${targetAbv * 2} Proof)</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📐 <strong>Pearson's Square Physics:</strong> Ethanol and water molecules form tight hydrogen bonds that pull together, shrinking the combined liquid by <strong>~3.2%</strong>. Adding ${Math.round(compWaterMl)} ml of water compensates for this contraction so your final volume is exactly ${targetVol} ml at ${targetAbv}% ABV.
+    </div>
+  `;
+}
+
+function updateHydrosolPreservation() {
+  const hydroType = $("#distill-hydrosol-type")?.value || "lavender";
+  const method = $("#distill-preservation-method")?.value || "refrigeration";
+  const res = $("#distill-preservation-result");
+  if (!res) return;
+
+  const hydroData = {
+    lavender: { ph: "pH 4.1 − 4.5", shelf: "6 − 12 months", benefits: "Calming skin toner, sunburn relief, linen bedtime mist" },
+    rose: { ph: "pH 4.6 − 5.0", shelf: "8 − 14 months", benefits: "Anti-inflammatory, balances skin microbiome, luxurious hydration" },
+    peppermint: { ph: "pH 4.2 − 4.6", shelf: "6 − 10 months", benefits: "Invigorating cooling mist, pores tightening, hot flash relief" },
+    chamomile: { ph: "pH 4.0 − 4.4", shelf: "6 − 12 months", benefits: "Gentle eye compress, eczema soothing, sensitive baby skin care" }
+  }[hydroType] || {};
+
+  const methodData = {
+    refrigeration: {
+      name: "Refrigerated Dark Storage (4°C)",
+      life: "6 − 9 Months",
+      protocol: "Store in sterile dark amber or cobalt blue bottles with zero headspace. Always keep refrigerated between uses. Discard if liquid becomes hazy or cloudy."
+    },
+    leucidal: {
+      name: "Natural Eco-Preservative (Leucidal / Geogard ECT)",
+      life: "12 − 18 Months (Room Temp)",
+      protocol: "Add 1.0% (1g per 100ml) Leucidal Liquid SF Max or Geogard ECT. Broad-spectrum protection against yeast, mold, and bacteria. Safe for facial cosmetics."
+    },
+    alcohol_fortified: {
+      name: "12% Neutral Grain Spirit Fortification",
+      life: "18+ Months Shelf Stable",
+      protocol: "Add 12.5 ml of 95% neutral grain alcohol to every 87.5 ml of hydrosol. Self-preserving facial spritz that naturally evaporates cleanly from skin."
+    }
+  }[method] || {};
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Natural Acidity Benchmark</span>
+        <span class="value" style="color:var(--primary)">${hydroData.ph}</span>
+        <div class="hint">Naturally acidic antimicrobial barrier</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Expected Shelf Life</span>
+        <span class="value" style="color:#059669">${methodData.life}</span>
+        <div class="hint">${methodData.name}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      🌿 <strong>Therapeutic Applications:</strong> ${hydroData.benefits}.<br>
+      🛡️ <strong>Sterility Protocol:</strong> ${methodData.protocol}<br>
+      🔬 <strong>Sterile Micro-Filtration:</strong> For commercial grade clarity, pass fresh distillate through a <strong>0.22 micron syringe filter</strong> to eliminate any trace spores.
+    </div>
+  `;
+}
+
+function renderDistillationRuns() {
+  const container = $("#distill-log-result");
+  if (!container) return;
+
+  const runs = getDistillRuns();
+  if (runs.length === 0) {
+    container.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">
+        No distillation runs recorded yet. Click "Record Run to Journal" above to log your first harvest!
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:8px">
+      ${runs.map((r, idx) => `
+        <div class="mohs-stone-card">
+          <div class="mohs-stone-top">
+            <span class="mohs-stone-name">${escapeHTML(r.name)}</span>
+            <span class="badge" style="font-size:10px;background:var(--surface-sunken);border:1px solid var(--border);padding:2px 6px;border-radius:10px">${escapeHTML(r.date)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--primary);font-weight:700">${escapeHTML(r.yield)}</div>
+          <div class="mohs-stone-rule">${escapeHTML(r.notes)}</div>
+          <div style="display:flex;justify-content:flex-end;margin-top:4px">
+            <button type="button" class="button button-small button-outline" style="font-size:10px;padding:1px 6px" data-action="delete-distill-run" data-index="${idx}">Delete</button>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function saveDistillationRun() {
+  const name = $("#distill-run-name")?.value || "Botanical Run";
+  const dateInput = $("#distill-run-date");
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toISOString().split("T")[0];
+  }
+  const date = dateInput?.value || new Date().toISOString().split("T")[0];
+  const source = $("#distill-run-source")?.value || "Harvest notes";
+
+  const plantWeightG = $("#distill-plant-weight")?.value || "500";
+  const botSelect = $("#distill-botanical-select option:checked")?.textContent.split("(")[0].trim() || "Lavender";
+
+  const runs = getDistillRuns();
+  runs.unshift({
+    name,
+    date,
+    yield: `${plantWeightG}g ${botSelect}`,
+    notes: source
+  });
+  saveDistillRuns(runs);
+  renderDistillationRuns();
+  if (typeof showToast === "function") showToast(`Logged distillation run: ${name}`);
+}
+
+function deleteDistillationRun(idx) {
+  const runs = getDistillRuns();
+  if (idx >= 0 && idx < runs.length) {
+    runs.splice(idx, 1);
+    saveDistillRuns(runs);
+    renderDistillationRuns();
+    if (typeof showToast === "function") showToast("Distillation run removed from log.");
+  }
+}
+
+function renderDistillationView() {
+  updateSteamDistillCalc();
+  updateSolventExtractCalc();
+  updateAlcoholDilutionCalc();
+  updateHydrosolPreservation();
+  renderDistillationRuns();
+}
+
 function renderCandleView() {
   updateCandleCalc();
   updateCandleWick();
@@ -38480,7 +38889,19 @@ function initCraftStudios() {
   $("#jewelry-mohs-filter")?.addEventListener("change", updateJewelryMohs);
   ["#jewelry-polish-start", "#jewelry-polish-metal"].forEach(s => $(s)?.addEventListener("change", updateJewelryPolishing));
 
-  // 🕯️ Candle Making Studio Listeners
+
+  // 🌿 Botanical Distillation & Extracts Studio Listeners
+  renderDistillationView();
+  ["#distill-botanical-select", "#distill-harvest-state", "#distill-still-type"].forEach(s => $(s)?.addEventListener("change", updateSteamDistillCalc));
+  ["#distill-plant-weight", "#distill-boiler-liters", "#distill-custom-yield"].forEach(s => $(s)?.addEventListener("input", updateSteamDistillCalc));
+  ["#distill-extract-mode", "#distill-marc-ratio"].forEach(s => $(s)?.addEventListener("change", updateSolventExtractCalc));
+  $("#distill-marc-grams")?.addEventListener("input", updateSolventExtractCalc);
+  ["#distill-start-abv", "#distill-target-abv"].forEach(s => $(s)?.addEventListener("change", updateAlcoholDilutionCalc));
+  $("#distill-target-volume")?.addEventListener("input", updateAlcoholDilutionCalc);
+  ["#distill-hydrosol-type", "#distill-preservation-method"].forEach(s => $(s)?.addEventListener("change", updateHydrosolPreservation));
+  ["#distill-run-name", "#distill-run-date", "#distill-run-source"].forEach(s => $(s)?.addEventListener("input", () => {}));
+
+    // 🕯️ Candle Making Studio Listeners
   renderCandleView();
   ["#candle-wax-type", "#candle-vessel-mode", "#candle-vol-unit"].forEach(s => $(s)?.addEventListener("change", updateCandleCalc));
   ["#candle-vessel-vol", "#candle-dim-dia", "#candle-dim-hgt", "#candle-count"].forEach(s => $(s)?.addEventListener("input", updateCandleCalc));

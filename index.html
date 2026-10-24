@@ -104,6 +104,7 @@
               <button class="nav-link" data-view="candle" data-keywords="candle wax soy beeswax fragrance wick container melt pour scent paraffin gel cure thermometer"><span class="nav-icon">🕯️</span>Candle Making</button>
               <button class="nav-link" data-view="perfume" data-keywords="perfume scent fragrance cologne aroma olfactory pyramid top heart base notes alcohol dilution edp edt ifra"><span class="nav-icon">🌸</span>Perfume &amp; Fragrance</button>
               <button class="nav-link" data-view="letter" data-keywords="letter wax seal paper envelope calligraphy fountain pen stationery stamp gsm deckle epistolary wedding nib"><span class="nav-icon">✉️</span>Letter &amp; Wax Seal</button>
+              <button class="nav-link" data-view="distillation" data-keywords="distillation essential oil hydrosol extract steam alembic tincture herbal solvent alcohol maceration clevenger aroma"><span class="nav-icon">🌿</span>Botanical Distillation</button>
             </div>
           </div>
 
@@ -7469,6 +7470,202 @@ With warm regards and friendship,</textarea>
             </div>
           </section>
 
+          <!-- 🌿 Botanical Distillation & Extracts Studio View -->
+          <section class="view-section" id="distillation-view" aria-labelledby="distillation-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> BOTANICAL EXTRACTION, ESSENTIAL OILS &amp; HYDROSOLS</div>
+                <h1 id="distillation-title">Botanical Distillation &amp; Extracts Studio<span class="heading-period">.</span></h1>
+                <p>Design home steam &amp; hydro-distillation runs for pure essential oils and aromatic hydrosols, formulate herbal tinctures and oil macerations, solve alcohol proof dilutions with contraction math, and log distillation batches.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-distill-specs">📋 Copy Distillation Run</button>
+                <button type="button" class="button button-outline" data-action="export-oil-to-perfume">🌸 Send Oil to Perfume</button>
+                <button type="button" class="button button-outline" data-action="export-oil-to-candle">🕯️ Send Oil to Candle</button>
+                <button type="button" class="button button-primary" data-action="add-distill-to-materials">📦 Add Still &amp; Supplies to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🌿 Steam & Hydro-Distillation Essential Oil Yield Calculator -->
+              <div class="panel" id="panel-distill-steam" style="grid-column: 1 / -1">
+                <div class="eyebrow">STEAM DISTILLATION &amp; ESSENCE YIELD</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🌿 Steam &amp; Hydro-Distillation Yield Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-distill-steam" title="Minimize panel">− Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate projected pure essential oil yield (ml / drops), floral water hydrosol collection volume, boiler charge requirements, and separation behavior in your Florentine essencier receiver.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Botanical Material
+                    <select id="distill-botanical-select">
+                      <option value="lavender" selected>Lavender Buds (Lavandula angustifolia − 2.2% yield)</option>
+                      <option value="peppermint">Peppermint Leaves (Mentha piperita − 1.3% yield)</option>
+                      <option value="rosemary">Rosemary Needles (Salvia rosmarinus − 1.5% yield)</option>
+                      <option value="eucalyptus">Eucalyptus Leaves (Eucalyptus globulus − 2.0% yield)</option>
+                      <option value="citrus_peel">Sweet Orange / Lemon Peel (Citrus sinensis − 1.0% yield)</option>
+                      <option value="frankincense">Frankincense Tears (Boswellia carterii − 5.5% yield)</option>
+                      <option value="rose">Damask Rose Petals (Rosa damascena − 0.035% yield)</option>
+                      <option value="chamomile">German Chamomile (Chamazulene Blue − 0.6% yield)</option>
+                      <option value="tea_tree">Tea Tree (Melaleuca alternifolia − 1.8% yield)</option>
+                      <option value="custom">Custom Botanical Material...</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px;display:none" id="distill-lbl-custom-yield">
+                    <span>Custom Oil Yield (%)</span>
+                    <input type="number" id="distill-custom-yield" value="1.5" min="0.01" max="15.0" step="0.1">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Harvest State
+                    <select id="distill-harvest-state">
+                      <option value="dry" selected>Dried Herb / Buds (Standard commercial)</option>
+                      <option value="fresh">Freshly Harvested (Contains ~70% plant water)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Botanical Charge Weight (g)
+                    <input type="number" id="distill-plant-weight" value="500" min="10" max="10000" step="50">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Still Hardware Apparatus
+                    <select id="distill-still-type">
+                      <option value="copper_alembic" selected>Copper Alembic Still (Sulfur binding / sweet floral)</option>
+                      <option value="stainless_column">Stainless Steel Column Still (Modular basket / high purity)</option>
+                      <option value="glass_clevenger">Borosilicate Glass Clevenger Still (Laboratory analytical)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Boiler Water Charge (Liters)
+                    <input type="number" id="distill-boiler-liters" value="3.0" min="0.5" max="50.0" step="0.5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="distill-steam-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🧪 Tincture, Maceration & Solvent Extract Calculator -->
+              <div class="panel" id="panel-distill-extract">
+                <div class="eyebrow">PHARMACOPOEIA RATIOS &amp; SOLVENT INFUSIONS</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧪 Tincture, Maceration &amp; Glycerite Calculator</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate Menstruum-to-Marc ratios (1:5 dry / 1:2 fresh), carrier oil warm-macerations, and alcohol-free vegetable glycerites.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Extraction Modality
+                    <select id="distill-extract-mode">
+                      <option value="tincture_50" selected>Alcohol Tincture (50% ABV / 100 Proof − General)</option>
+                      <option value="tincture_70">Alcohol Tincture (70% ABV − Antimicrobial / Alkaloid)</option>
+                      <option value="tincture_95">Alcohol Tincture (95% ABV / 190 Proof − Resins &amp; Gums)</option>
+                      <option value="oil_maceration">Infused Herbal Oil (Jojoba / Olive / Almond)</option>
+                      <option value="glycerite">Vegetable Glycerite (Alcohol-Free − 65% Glycerin)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Herbal Marc Weight (g)
+                    <input type="number" id="distill-marc-grams" value="100" min="5" max="2000" step="10">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Menstruum-to-Marc Ratio
+                    <select id="distill-marc-ratio">
+                      <option value="1:2">1:2 (Fresh succulent herbs / 2ml solvent per gram)</option>
+                      <option value="1:4">1:4 (Standard potent European tincture)</option>
+                      <option value="1:5" selected>1:5 (Standard USP herbal pharmacopoeia dry herb)</option>
+                      <option value="1:8">1:8 (Light botanical wash / high-volume infusion)</option>
+                      <option value="1:10">1:10 (Weak extract / delicate petals)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="distill-extract-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📐 Alcohol Proof Dilution & Pearson's Square Solver -->
+              <div class="panel" id="panel-distill-dilution">
+                <div class="eyebrow">PEARSON'S SQUARE &amp; CONTRACTION COMPENSATION</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📐 Alcohol Proof Dilution Solver</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact distilled water to dilute 190 proof (95% ABV) neutral spirit down to any target tincture proof, with 3.2% molecular volume contraction compensation.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Starting Spirit Strength (% ABV)
+                    <select id="distill-start-abv">
+                      <option value="95" selected>95% ABV (190 Proof Everclear / Neutral Grain)</option>
+                      <option value="96">96% ABV (192 Proof Rectified Spirit)</option>
+                      <option value="75">75% ABV (150 Proof Spirit)</option>
+                      <option value="60">60% ABV (120 Proof)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Target Extraction Strength (% ABV)
+                    <select id="distill-target-abv">
+                      <option value="70">70% ABV (140 Proof − Resins &amp; Antimicrobial)</option>
+                      <option value="50" selected>50% ABV (100 Proof − Universal Standard Tincture)</option>
+                      <option value="40">40% ABV (80 Proof − Water-soluble Tannins/Glycosides)</option>
+                      <option value="25">25% ABV (50 Proof − Mild Cordials &amp; Elixirs)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Desired Total Batch Volume (ml)
+                    <input type="number" id="distill-target-volume" value="500" min="50" max="10000" step="50">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="distill-dilution-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🛡️ Hydrosol pH, Preservation & Sterility Protocol -->
+              <div class="panel" id="panel-distill-preservation" style="grid-column: 1 / -1">
+                <div class="eyebrow">ACIDITY, PRESERVATION &amp; MICRO-STERILITY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🛡️ Hydrosol pH, Preservation &amp; Storage Protocol</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Fresh hydrosols have no alcohol barrier and require sterile handling and preservation to prevent microbial clouding.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Hydrosol Type
+                    <select id="distill-hydrosol-type">
+                      <option value="lavender" selected>Lavender Hydrosol (Natural pH 4.0 − 4.5)</option>
+                      <option value="rose">Rose Water Hydrosol (Natural pH 4.5 − 5.0)</option>
+                      <option value="peppermint">Peppermint Floral Water (Natural pH 4.2 − 4.8)</option>
+                      <option value="chamomile">Chamomile Distillate (Natural pH 4.0 − 4.6)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Preservation Strategy
+                    <select id="distill-preservation-method">
+                      <option value="refrigeration" selected>Refrigeration Only (4°C / Zero Headspace − 6 months)</option>
+                      <option value="leucidal">Natural Eco-Preservative (1.0% Geogard / Leucidal − 18 months)</option>
+                      <option value="alcohol_fortified">Alcohol Fortification (12% Grain Alcohol − Shelf stable mist)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="distill-preservation-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📜 Distillation Batch History & Harvest Log -->
+              <div class="panel" id="panel-distill-log" style="grid-column: 1 / -1">
+                <div class="eyebrow">BATCH ARCHIVE &amp; HARVEST LOG</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">📜 Distillation Run History &amp; Aroma Journal</h3>
+                  <button type="button" class="button button-outline button-small" data-action="save-distill-run">💾 Record Run to Journal</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Log and track seasonal distillation runs to compare yields and botanical terroir across growing seasons.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Batch Run Name
+                    <input type="text" id="distill-run-name" value="Provence Lavender Summer Distill" placeholder="Batch Name">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Run Date
+                    <input type="date" id="distill-run-date">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Harvest Source &amp; Notes
+                    <input type="text" id="distill-run-source" value="Morning harvest, full bloom, sunny morning" placeholder="Source / notes">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="distill-log-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -8087,6 +8284,7 @@ With warm regards and friendship,</textarea>
           <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="candle">🕯️ Candle Making</button>
           <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="perfume">🌸 Perfume &amp; Fragrance</button>
           <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="letter">✉️ Letter &amp; Wax Seal</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="distillation">🌿 Botanical Distillation</button>
         </div>
       </div>
     </dialog>
@@ -9445,6 +9643,11 @@ With warm regards and friendship,</textarea>
           <span class="mobile-studio-icon" aria-hidden="true">✉️</span>
           <strong>Letter &amp; Wax Seal</strong>
           <span class="mobile-studio-desc">Epistolary text, paper GSM, ink &amp; wax seal designer</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="distillation" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🌿</span>
+          <strong>Botanical Distillation</strong>
+          <span class="mobile-studio-desc">Essential oils, steam alembic, hydrosols &amp; tinctures</span>
         </button>
       </div>
     </dialog>
