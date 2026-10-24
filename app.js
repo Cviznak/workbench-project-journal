@@ -39524,6 +39524,7 @@ function initCadViewerCanvas() {
 
   $("#cad-sample-stl-btn")?.addEventListener("click", () => loadSampleStlModel());
   $("#cad-sample-gcode-btn")?.addEventListener("click", () => loadSampleGCodeModel());
+  $("#cad-sim-play-btn")?.addEventListener("click", () => toggleCadSimulation());
 
   $("#cad-layer-range")?.addEventListener("input", e => {
     cadViewerState.currentLayer = parseInt(e.target.value, 10) || 1;
@@ -40039,6 +40040,9 @@ function renderCadViewport() {
   // Render G-Code Toolpaths
   if (cadViewerState.toolpaths && cadViewerState.toolpaths.length > 0) {
     const maxLayer = Math.min(cadViewerState.currentLayer, cadViewerState.toolpaths.length);
+    let lastTipPos = null;
+    let collisionDetected = false;
+
     for (let l = 0; l < maxLayer; l++) {
       const layer = cadViewerState.toolpaths[l];
       const isTopLayer = (l === maxLayer - 1);
@@ -40047,6 +40051,10 @@ function renderCadViewport() {
       for (const m of layer.moves) {
         const p1 = project3D(m.from.x, m.from.y, m.from.z);
         const p2 = project3D(m.to.x, m.to.y, m.to.z);
+
+        if (m.isRapid && m.to.z < 0) {
+          collisionDetected = true;
+        }
 
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
@@ -40063,10 +40071,80 @@ function renderCadViewport() {
           ctx.setLineDash([]);
         }
         ctx.stroke();
+
+        if (isTopLayer) {
+          lastTipPos = p2;
+        }
       }
     }
     ctx.setLineDash([]);
+
+    // Draw animated virtual toolhead/nozzle
+    if (lastTipPos) {
+      ctx.fillStyle = "#ef4444";
+      ctx.beginPath();
+      ctx.arc(lastTipPos.x, lastTipPos.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inverted tool cone
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(lastTipPos.x, lastTipPos.y);
+      ctx.lineTo(lastTipPos.x - 7, lastTipPos.y - 16);
+      ctx.lineTo(lastTipPos.x + 7, lastTipPos.y - 16);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    const warnEl = $("#cad-sim-warning");
+    if (warnEl) {
+      if (collisionDetected) {
+        warnEl.textContent = "⚠️ Rapid traverse (G0) below Z=0 detected! Verify stock clearance.";
+        warnEl.style.display = "block";
+      } else {
+        warnEl.style.display = "none";
+      }
+    }
   }
+}
+
+let cadSimInterval = null;
+function toggleCadSimulation() {
+  const btn = $("#cad-sim-play-btn");
+  if (cadSimInterval) {
+    clearInterval(cadSimInterval);
+    cadSimInterval = null;
+    if (btn) btn.textContent = "▶ Simulate";
+    return;
+  }
+
+  if (!cadViewerState.toolpaths || cadViewerState.toolpaths.length === 0) return;
+
+  if (cadViewerState.currentLayer >= cadViewerState.totalLayers) {
+    cadViewerState.currentLayer = 1;
+  }
+
+  if (btn) btn.textContent = "⏸ Pause";
+  const speed = parseInt($("#cad-sim-speed")?.value, 10) || 5;
+  const interval = Math.max(15, Math.round(180 / speed));
+
+  cadSimInterval = setInterval(() => {
+    if (cadViewerState.currentLayer >= cadViewerState.totalLayers) {
+      clearInterval(cadSimInterval);
+      cadSimInterval = null;
+      if (btn) btn.textContent = "▶ Simulate";
+      return;
+    }
+    cadViewerState.currentLayer++;
+    $("#cad-layer-num").textContent = cadViewerState.currentLayer;
+    const range = $("#cad-layer-range");
+    if (range) range.value = cadViewerState.currentLayer;
+    if (cadViewerState.toolpaths[cadViewerState.currentLayer - 1]) {
+      $("#cad-layer-z").textContent = cadViewerState.toolpaths[cadViewerState.currentLayer - 1].z.toFixed(2);
+    }
+    renderCadViewport();
+  }, interval);
 }
 
 function loadSampleStlModel() {
@@ -40578,6 +40656,7 @@ function openEquipmentMaintenance() {
   $("#maint-search")?.addEventListener("input", () => renderEquipmentCards());
   $("#maint-category-filter")?.addEventListener("change", () => renderEquipmentCards());
   $("#maint-add-machine-btn")?.addEventListener("click", () => openAddMachinePrompt());
+  initMachineAmortization();
 }
 
 function loadEquipmentFromStorage() {
@@ -41817,4 +41896,1430 @@ document.addEventListener("click", event => {
     forkCommunityRecipe(id);
     return;
   }
+  if (action === "open-cutlist-optimizer") {
+    openCutlistOptimizer();
+    return;
+  }
+  if (action === "open-climate-advisor") {
+    openClimateAdvisor();
+    return;
+  }
+  if (action === "open-audio-tuner") {
+    openAudioTuner();
+    return;
+  }
+  if (action === "open-assembly-manual") {
+    openAssemblyManual(id || activeProjectId);
+    return;
+  }
+  if (action === "open-pigment-blender") {
+    openPigmentBlender();
+    return;
+  }
+  if (action === "open-vendor-export") {
+    openVendorExport();
+    return;
+  }
 });
+
+/* ============================================================
+   WORKSHOP ENHANCEMENTS: ADVANCED ENGINES & SUITES
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   FEATURE 9: 2D Sheet Cutlist & Guillotine Nesting Optimizer & Scrap Vault
+   ------------------------------------------------------------ */
+const CUTLIST_STORAGE_KEY = "workbench_cutlist_state";
+const SCRAP_VAULT_STORAGE_KEY = "workbench_scrap_vault";
+
+let cutlistState = {
+  sheetW: 2440,
+  sheetH: 1220,
+  kerf: 3.2,
+  margin: 10,
+  parts: [
+    { id: "p1", label: "Cabinet Side (Left)", w: 720, h: 560, qty: 1, canRotate: true },
+    { id: "p2", label: "Cabinet Side (Right)", w: 720, h: 560, qty: 1, canRotate: true },
+    { id: "p3", label: "Cabinet Top Panel", w: 800, h: 560, qty: 1, canRotate: true },
+    { id: "p4", label: "Cabinet Bottom Panel", w: 800, h: 560, qty: 1, canRotate: true },
+    { id: "p5", label: "Fixed Center Shelf", w: 764, h: 540, qty: 1, canRotate: true },
+    { id: "p6", label: "Drawer Faces", w: 760, h: 220, qty: 2, canRotate: true }
+  ],
+  results: null,
+  activeSheetIdx: 0
+};
+
+function openCutlistOptimizer() {
+  const dlg = $("#sheet-cutlist-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  initCutlistOptimizer();
+  renderCutlistPartsTable();
+  if (!cutlistState.results) {
+    calculateCutlistOptimization();
+  } else {
+    renderCutlistResults();
+  }
+}
+
+function initCutlistOptimizer() {
+  $$(".cutlist-view-tab").forEach(tab => {
+    tab.onclick = () => {
+      $$(".cutlist-view-tab").forEach(t => { t.classList.remove("active", "button-primary"); t.classList.add("button-outline"); });
+      tab.classList.add("active", "button-primary");
+      tab.classList.remove("button-outline");
+
+      const isVault = tab.dataset.cutlistTab === "vault";
+      const optPanel = $("#cutlist-optimizer-panel");
+      const vltPanel = $("#cutlist-vault-panel");
+      if (optPanel) optPanel.style.display = isVault ? "none" : "block";
+      if (vltPanel) vltPanel.style.display = isVault ? "block" : "none";
+      if (isVault) renderScrapVaultGrid();
+    };
+  });
+
+  const presetSel = $("#cutlist-sheet-preset");
+  if (presetSel) {
+    presetSel.onchange = e => {
+      if (e.target.value !== "custom") {
+        const [w, h] = e.target.value.split(",").map(Number);
+        if ($("#cutlist-sheet-w")) $("#cutlist-sheet-w").value = w;
+        if ($("#cutlist-sheet-h")) $("#cutlist-sheet-h").value = h;
+      }
+    };
+  }
+
+  const addPartBtn = $("#cutlist-add-part-btn");
+  if (addPartBtn) {
+    addPartBtn.onclick = () => {
+      cutlistState.parts.push({
+        id: "p" + Date.now(),
+        label: "New Part",
+        w: 400,
+        h: 300,
+        qty: 1,
+        canRotate: true
+      });
+      renderCutlistPartsTable();
+    };
+  }
+
+  const samplePartsBtn = $("#cutlist-sample-parts-btn");
+  if (samplePartsBtn) {
+    samplePartsBtn.onclick = () => loadCutlistSampleCabinet();
+  }
+
+  const runBtn = $("#cutlist-run-btn");
+  if (runBtn) {
+    runBtn.onclick = () => {
+      readCutlistInputs();
+      calculateCutlistOptimization();
+    };
+  }
+
+  const clearBtn = $("#cutlist-clear-btn");
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      cutlistState.parts = [];
+      renderCutlistPartsTable();
+    };
+  }
+
+  const prevBtn = $("#cutlist-prev-sheet-btn");
+  if (prevBtn) {
+    prevBtn.onclick = () => {
+      if (cutlistState.activeSheetIdx > 0) {
+        cutlistState.activeSheetIdx--;
+        renderCutlistResults();
+      }
+    };
+  }
+
+  const nextBtn = $("#cutlist-next-sheet-btn");
+  if (nextBtn) {
+    nextBtn.onclick = () => {
+      if (cutlistState.results && cutlistState.activeSheetIdx < cutlistState.results.sheets.length - 1) {
+        cutlistState.activeSheetIdx++;
+        renderCutlistResults();
+      }
+    };
+  }
+
+  const saveScrapsBtn = $("#cutlist-save-scraps-btn");
+  if (saveScrapsBtn) {
+    saveScrapsBtn.onclick = () => saveCutlistOffcutsToVault();
+  }
+
+  const printTicketBtn = $("#cutlist-print-ticket-btn");
+  if (printTicketBtn) {
+    printTicketBtn.onclick = () => window.print();
+  }
+
+  const addPieceBtn = $("#vault-add-piece-btn");
+  if (addPieceBtn) {
+    addPieceBtn.onclick = () => {
+      const name = prompt("Scrap Material Name (e.g. Walnut Board, 3mm Acrylic):", "Hardwood Offcut");
+      if (!name) return;
+      const length = parseFloat(prompt("Length (mm):", "600")) || 300;
+      const width = parseFloat(prompt("Width (mm):", "250")) || 150;
+      const loc = prompt("Workshop Location / Bin:", "Bin 2B") || "Workshop Shelf";
+      const vault = getScrapVault();
+      vault.push({
+        id: "sv_" + Date.now(),
+        material: "Hardwood",
+        name,
+        length,
+        width,
+        thickness: 19,
+        location: loc,
+        notes: "Saved offcut"
+      });
+      saveScrapVault(vault);
+      renderScrapVaultGrid();
+      showToast(`Saved ${name} to Scrap Vault! 📦`);
+    };
+  }
+
+  const matchBtn = $("#vault-match-parts-btn");
+  if (matchBtn) {
+    matchBtn.onclick = () => matchVaultAgainstCutlist();
+  }
+}
+
+function readCutlistInputs() {
+  cutlistState.sheetW = parseFloat($("#cutlist-sheet-w")?.value) || 2440;
+  cutlistState.sheetH = parseFloat($("#cutlist-sheet-h")?.value) || 1220;
+  cutlistState.kerf = parseFloat($("#cutlist-kerf")?.value) || 3.2;
+  cutlistState.margin = parseFloat($("#cutlist-margin")?.value) || 10;
+
+  const tbody = $("#cutlist-parts-tbody");
+  if (!tbody) return;
+  const rows = tbody.querySelectorAll("tr");
+  const newParts = [];
+  rows.forEach(tr => {
+    const label = tr.querySelector(".cut-label")?.value || "Part";
+    const w = parseFloat(tr.querySelector(".cut-w")?.value) || 100;
+    const h = parseFloat(tr.querySelector(".cut-h")?.value) || 100;
+    const qty = parseInt(tr.querySelector(".cut-qty")?.value, 10) || 1;
+    const canRotate = tr.querySelector(".cut-rot")?.checked !== false;
+    newParts.push({ id: tr.dataset.id || "p" + Date.now(), label, w, h, qty, canRotate });
+  });
+  cutlistState.parts = newParts;
+}
+
+function renderCutlistPartsTable() {
+  const tbody = $("#cutlist-parts-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = cutlistState.parts.map(p => `
+    <tr data-id="${p.id}">
+      <td><input type="text" class="cut-label" value="${escapeHtml(p.label)}"></td>
+      <td><input type="number" class="cut-w" value="${p.w}" min="10" step="5"></td>
+      <td><input type="number" class="cut-h" value="${p.h}" min="10" step="5"></td>
+      <td><input type="number" class="cut-qty" value="${p.qty}" min="1" max="100" style="width:45px"></td>
+      <td style="text-align:center"><input type="checkbox" class="cut-rot" ${p.canRotate ? 'checked' : ''} title="Allow 90° rotation"></td>
+      <td style="text-align:center"><button type="button" class="button button-small button-outline" onclick="removeCutlistPartRow('${p.id}')" style="padding:0 5px;color:#ef4444">×</button></td>
+    </tr>
+  `).join("");
+}
+
+function removeCutlistPartRow(id) {
+  cutlistState.parts = cutlistState.parts.filter(p => p.id !== id);
+  renderCutlistPartsTable();
+}
+
+function loadCutlistSampleCabinet() {
+  cutlistState.parts = [
+    { id: "p1", label: "Cabinet Side (Left)", w: 720, h: 560, qty: 1, canRotate: true },
+    { id: "p2", label: "Cabinet Side (Right)", w: 720, h: 560, qty: 1, canRotate: true },
+    { id: "p3", label: "Cabinet Top Panel", w: 800, h: 560, qty: 1, canRotate: true },
+    { id: "p4", label: "Cabinet Bottom Panel", w: 800, h: 560, qty: 1, canRotate: true },
+    { id: "p5", label: "Adjustable Shelves", w: 764, h: 540, qty: 2, canRotate: true },
+    { id: "p6", label: "Cabinet Back (1/4\")", w: 780, h: 700, qty: 1, canRotate: true },
+    { id: "p7", label: "Drawer Faces", w: 760, h: 220, qty: 2, canRotate: true }
+  ];
+  renderCutlistPartsTable();
+  calculateCutlistOptimization();
+}
+
+function calculateCutlistOptimization() {
+  const res = runGuillotineBinPacking(cutlistState.sheetW, cutlistState.sheetH, cutlistState.kerf, cutlistState.margin, cutlistState.parts);
+  cutlistState.results = res;
+  cutlistState.activeSheetIdx = 0;
+  renderCutlistResults();
+}
+
+function runGuillotineBinPacking(sheetW, sheetH, kerf, margin, parts) {
+  const usableW = sheetW - 2 * margin;
+  const usableH = sheetH - 2 * margin;
+  if (usableW <= 0 || usableH <= 0) return { sheets: [], metrics: { totalSheets: 0, yieldPct: "0.0", wastePct: "100.0", cutLengthM: "0.0" } };
+
+  const items = [];
+  parts.forEach(p => {
+    const qty = Math.max(1, parseInt(p.qty, 10) || 1);
+    for (let q = 0; q < qty; q++) {
+      items.push({
+        id: p.id,
+        label: p.label,
+        w: parseFloat(p.w) || 100,
+        h: parseFloat(p.h) || 100,
+        canRotate: p.canRotate !== false
+      });
+    }
+  });
+
+  items.sort((a, b) => (b.w * b.h) - (a.w * a.h) || Math.max(b.w, b.h) - Math.max(a.w, a.h));
+
+  const sheets = [];
+
+  function createNewSheet() {
+    return {
+      sheetW,
+      sheetH,
+      freeRects: [{ x: margin, y: margin, w: usableW, h: usableH }],
+      placed: []
+    };
+  }
+
+  for (const item of items) {
+    let placed = false;
+
+    for (let s = 0; s < sheets.length; s++) {
+      const sheet = sheets[s];
+      let bestRectIdx = -1;
+      let bestRotate = false;
+      let minShortSideFit = Infinity;
+
+      for (let r = 0; r < sheet.freeRects.length; r++) {
+        const fr = sheet.freeRects[r];
+        if (item.w <= fr.w && item.h <= fr.h) {
+          const shortSideFit = Math.min(fr.w - item.w, fr.h - item.h);
+          if (shortSideFit < minShortSideFit) {
+            minShortSideFit = shortSideFit;
+            bestRectIdx = r;
+            bestRotate = false;
+          }
+        }
+        if (item.canRotate && item.h <= fr.w && item.w <= fr.h) {
+          const shortSideFit = Math.min(fr.w - item.h, fr.h - item.w);
+          if (shortSideFit < minShortSideFit) {
+            minShortSideFit = shortSideFit;
+            bestRectIdx = r;
+            bestRotate = true;
+          }
+        }
+      }
+
+      if (bestRectIdx >= 0) {
+        const fr = sheet.freeRects.splice(bestRectIdx, 1)[0];
+        const pw = bestRotate ? item.h : item.w;
+        const ph = bestRotate ? item.w : item.h;
+
+        sheet.placed.push({
+          id: item.id,
+          label: item.label,
+          x: fr.x,
+          y: fr.y,
+          w: pw,
+          h: ph,
+          rotated: bestRotate
+        });
+
+        const remW = fr.w - pw - kerf;
+        const remH = fr.h - ph - kerf;
+        if (fr.w <= fr.h) {
+          if (remH > 0) sheet.freeRects.push({ x: fr.x, y: fr.y + ph + kerf, w: fr.w, h: remH });
+          if (remW > 0) sheet.freeRects.push({ x: fr.x + pw + kerf, y: fr.y, w: remW, h: ph });
+        } else {
+          if (remW > 0) sheet.freeRects.push({ x: fr.x + pw + kerf, y: fr.y, w: remW, h: fr.h });
+          if (remH > 0) sheet.freeRects.push({ x: fr.x, y: fr.y + ph + kerf, w: pw, h: remH });
+        }
+
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      const newSheet = createNewSheet();
+      const fr = newSheet.freeRects.pop();
+      const rotate = item.canRotate && (item.h <= fr.w && item.w <= fr.h) && (item.w > fr.w || item.h > fr.h || fr.w >= fr.h);
+      const pw = rotate ? item.h : item.w;
+      const ph = rotate ? item.w : item.h;
+
+      newSheet.placed.push({
+        id: item.id,
+        label: item.label,
+        x: fr.x,
+        y: fr.y,
+        w: pw,
+        h: ph,
+        rotated: rotate
+      });
+
+      const remW = fr.w - pw - kerf;
+      const remH = fr.h - ph - kerf;
+      if (fr.w <= fr.h) {
+        if (remH > 0) newSheet.freeRects.push({ x: fr.x, y: fr.y + ph + kerf, w: fr.w, h: remH });
+        if (remW > 0) newSheet.freeRects.push({ x: fr.x + pw + kerf, y: fr.y, w: remW, h: ph });
+      } else {
+        if (remW > 0) newSheet.freeRects.push({ x: fr.x + pw + kerf, y: fr.y, w: remW, h: fr.h });
+        if (remH > 0) newSheet.freeRects.push({ x: fr.x, y: fr.y + ph + kerf, w: pw, h: remH });
+      }
+
+      sheets.push(newSheet);
+    }
+  }
+
+  let totalPartArea = 0;
+  let totalCutLengthMm = 0;
+  sheets.forEach(sh => {
+    sh.placed.forEach(p => {
+      totalPartArea += p.w * p.h;
+      totalCutLengthMm += 2 * (p.w + p.h);
+    });
+  });
+
+  const totalStockArea = sheets.length * sheetW * sheetH;
+  const yieldPct = totalStockArea > 0 ? (totalPartArea / totalStockArea) * 100 : 0;
+  const wastePct = Math.max(0, 100 - yieldPct);
+
+  return {
+    sheets,
+    metrics: {
+      totalSheets: sheets.length,
+      yieldPct: yieldPct.toFixed(1),
+      wastePct: wastePct.toFixed(1),
+      cutLengthM: (totalCutLengthMm / 1000).toFixed(1)
+    }
+  };
+}
+
+function renderCutlistResults() {
+  if (!cutlistState.results) return;
+  const res = cutlistState.results;
+
+  if ($("#cutlist-stat-sheets")) $("#cutlist-stat-sheets").textContent = `${res.sheets.length} Sheet${res.sheets.length > 1 ? 's' : ''}`;
+  if ($("#cutlist-stat-yield")) $("#cutlist-stat-yield").textContent = `${res.metrics.yieldPct}%`;
+  if ($("#cutlist-stat-waste")) $("#cutlist-stat-waste").textContent = `${res.metrics.wastePct}%`;
+  if ($("#cutlist-stat-cutlength")) $("#cutlist-stat-cutlength").textContent = `${res.metrics.cutLengthM} m`;
+
+  if ($("#cutlist-sheet-counter")) $("#cutlist-sheet-counter").textContent = `Sheet ${cutlistState.activeSheetIdx + 1} of ${res.sheets.length}`;
+  renderCutlistCanvas(cutlistState.activeSheetIdx);
+}
+
+function renderCutlistCanvas(sheetIdx) {
+  const canvas = $("#cutlist-canvas");
+  if (!canvas || !cutlistState.results || !cutlistState.results.sheets.length) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const sheet = cutlistState.results.sheets[sheetIdx] || cutlistState.results.sheets[0];
+  const padding = 20;
+  const availW = w - padding * 2;
+  const availH = h - padding * 2;
+
+  const scale = Math.min(availW / sheet.sheetW, availH / sheet.sheetH);
+  const drawW = sheet.sheetW * scale;
+  const drawH = sheet.sheetH * scale;
+  const startX = (w - drawW) / 2;
+  const startY = (h - drawH) / 2;
+
+  // Background / Sheet border
+  ctx.fillStyle = "#faf6ef";
+  ctx.fillRect(startX, startY, drawW, drawH);
+  ctx.strokeStyle = "#854d0e";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(startX, startY, drawW, drawH);
+
+  // Draw offcuts / free space
+  sheet.freeRects.forEach(fr => {
+    const rx = startX + fr.x * scale;
+    const ry = startY + fr.y * scale;
+    const rw = fr.w * scale;
+    const rh = fr.h * scale;
+    ctx.fillStyle = "rgba(148, 163, 184, 0.18)";
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rx, ry, rw, rh);
+    if (fr.w >= 150 && fr.h >= 150) {
+      ctx.fillStyle = "#64748b";
+      ctx.font = "10px sans-serif";
+      ctx.fillText(`Offcut ${Math.round(fr.w)}×${Math.round(fr.h)}`, rx + 4, ry + 12);
+    }
+  });
+
+  const colors = ["#fed7aa", "#fde68a", "#bbf7d0", "#bae6fd", "#e9d5ff", "#fbcfe8", "#fecdd3"];
+
+  // Draw placed parts
+  sheet.placed.forEach((p, idx) => {
+    const px = startX + p.x * scale;
+    const py = startY + p.y * scale;
+    const pw = p.w * scale;
+    const ph = p.h * scale;
+
+    ctx.fillStyle = colors[idx % colors.length];
+    ctx.fillRect(px, py, pw, ph);
+
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(px, py, pw, ph);
+
+    ctx.fillStyle = "#0f172a";
+    ctx.font = "bold 11px sans-serif";
+    const title = p.label.length > 20 ? p.label.slice(0, 18) + "…" : p.label;
+    if (ph > 22) {
+      ctx.fillText(title, px + 4, py + 14);
+    }
+    if (ph > 36) {
+      ctx.font = "9.5px monospace";
+      ctx.fillStyle = "#334155";
+      ctx.fillText(`${Math.round(p.w)} × ${Math.round(p.h)} mm${p.rotated ? ' ⟳' : ''}`, px + 4, py + 28);
+    }
+  });
+}
+
+function saveCutlistOffcutsToVault() {
+  if (!cutlistState.results) return;
+  const vault = getScrapVault();
+  let count = 0;
+
+  cutlistState.results.sheets.forEach((sh, sIdx) => {
+    sh.freeRects.forEach((fr, rIdx) => {
+      if (fr.w >= 150 && fr.h >= 150) {
+        vault.push({
+          id: `offcut_${Date.now()}_${sIdx}_${rIdx}`,
+          material: "Plywood",
+          name: `Cutlist Offcut (${Math.round(fr.w)}×${Math.round(fr.h)} mm)`,
+          length: Math.round(fr.w),
+          width: Math.round(fr.h),
+          thickness: 18,
+          location: "Scrap Bin",
+          notes: `Offcut from Sheet #${sIdx + 1}`
+        });
+        count++;
+      }
+    });
+  });
+
+  saveScrapVault(vault);
+  showToast(`Saved ${count} usable offcuts to Scrap Vault! 📦`);
+}
+
+function getScrapVault() {
+  try {
+    const raw = localStorage.getItem(SCRAP_VAULT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [
+      { id: "sv1", material: "Hardwood", name: "Walnut Board Offcut", length: 950, width: 220, thickness: 22, location: "Rack 2B", notes: "Clear grain, planed S4S" },
+      { id: "sv2", material: "Plywood", name: "Baltic Birch 12mm", length: 600, width: 500, thickness: 12, location: "Sheet Bin", notes: "Square cabinet scrap" },
+      { id: "sv3", material: "Acrylic", name: "Cast Smoked Acrylic 3mm", length: 420, width: 380, thickness: 3, location: "Laser Drawer", notes: "Protective film on both sides" }
+    ];
+  } catch {
+    return [];
+  }
+}
+
+function saveScrapVault(vault) {
+  try {
+    localStorage.setItem(SCRAP_VAULT_STORAGE_KEY, JSON.stringify(vault));
+  } catch {}
+}
+
+function renderScrapVaultGrid() {
+  const container = $("#scrap-vault-grid");
+  if (!container) return;
+  const vault = getScrapVault();
+  const filter = $("#vault-material-filter")?.value || "all";
+  const q = ($("#vault-search")?.value || "").toLowerCase().trim();
+
+  const filtered = vault.filter(s => {
+    if (filter !== "all" && s.material !== filter) return false;
+    if (q && !s.name.toLowerCase().includes(q) && !s.location.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--muted)">No scrap pieces found. Save offcuts from the optimizer or click "＋ Add Scrap Piece".</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(s => `
+    <div class="scrap-card">
+      <div class="scrap-card-header">
+        <div>
+          <span class="badge" style="background:rgba(217,119,6,0.15);color:var(--primary);font-size:10px">${escapeHtml(s.material)}</span>
+          <strong style="display:block;margin-top:2px;font-size:13px">${escapeHtml(s.name)}</strong>
+        </div>
+        <button type="button" class="button button-small button-outline" onclick="deleteScrapVaultPiece('${s.id}')" style="padding:0 5px;color:#ef4444" title="Delete scrap">×</button>
+      </div>
+      <div class="scrap-dims-badge">${s.length} × ${s.width} × ${s.thickness || 19} mm</div>
+      <div style="font-size:11px;color:var(--muted)">📍 Location: <strong>${escapeHtml(s.location || "Workshop")}</strong></div>
+      ${s.notes ? `<div style="font-size:11px;color:#64748b;font-style:italic">${escapeHtml(s.notes)}</div>` : ''}
+    </div>
+  `).join("");
+}
+
+function deleteScrapVaultPiece(id) {
+  const vault = getScrapVault().filter(s => s.id !== id);
+  saveScrapVault(vault);
+  renderScrapVaultGrid();
+  showToast("Scrap piece removed.");
+}
+
+function matchVaultAgainstCutlist() {
+  const vault = getScrapVault();
+  const banner = $("#vault-match-banner");
+  if (!banner) return;
+
+  const matches = [];
+  cutlistState.parts.forEach(p => {
+    const pw = parseFloat(p.w) || 100;
+    const ph = parseFloat(p.h) || 100;
+    vault.forEach(sv => {
+      const matchNormal = sv.length >= pw && sv.width >= ph;
+      const matchRotated = p.canRotate && sv.length >= ph && sv.width >= pw;
+      if (matchNormal || matchRotated) {
+        matches.push(`<strong>${escapeHtml(p.label)}</strong> (${pw}×${ph} mm) can be cut from <strong>${escapeHtml(sv.name)}</strong> (${sv.length}×${sv.width} mm in ${escapeHtml(sv.location)})`);
+      }
+    });
+  });
+
+  if (matches.length > 0) {
+    banner.innerHTML = `<strong>✨ Scrap Vault Savings Found!</strong><br>` + matches.join("<br>");
+    banner.style.display = "block";
+  } else {
+    banner.innerHTML = `No scrap pieces in the vault are large enough for the current cutlist parts. Cutting from full stock recommended.`;
+    banner.style.display = "block";
+  }
+}
+
+/* ------------------------------------------------------------
+   FEATURE 10: Workshop Climate, Curing & Finishing Advisor
+   ------------------------------------------------------------ */
+function openClimateAdvisor() {
+  const dlg = $("#climate-advisor-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  initClimateAdvisor();
+  recalculateClimateAdvisor();
+}
+
+function initClimateAdvisor() {
+  ["climate-temp-val", "climate-temp-unit", "climate-rh-val", "climate-wood-select", "climate-finish-select"].forEach(id => {
+    const el = $("#" + id);
+    if (el && !el._initialized) {
+      el._initialized = true;
+      el.addEventListener("input", () => recalculateClimateAdvisor());
+      el.addEventListener("change", () => recalculateClimateAdvisor());
+    }
+  });
+}
+
+function recalculateClimateAdvisor() {
+  const rawT = parseFloat($("#climate-temp-val")?.value) || 21;
+  const unit = $("#climate-temp-unit")?.value || "C";
+  const tempC = unit === "F" ? (rawT - 32) * (5 / 9) : rawT;
+  const rh = parseFloat($("#climate-rh-val")?.value) || 50;
+  if ($("#climate-rh-display")) $("#climate-rh-display").textContent = rh + "%";
+
+  // 1. Dew Point calculation (Magnus formula)
+  const a = 17.625, b = 243.04;
+  const alpha = (a * tempC) / (b + tempC) + Math.log(rh / 100);
+  const dewPointC = (b * alpha) / (a - alpha);
+  const dewPointDisplay = unit === "F" ? ((dewPointC * 9/5) + 32).toFixed(1) + " °F" : dewPointC.toFixed(1) + " °C";
+  if ($("#climate-dewpoint-val")) $("#climate-dewpoint-val").textContent = dewPointDisplay;
+
+  const deltaT = tempC - dewPointC;
+  const blushStatusEl = $("#climate-blush-status");
+  const blushAdviceEl = $("#climate-blush-advice");
+
+  if (deltaT < 4 || rh > 75) {
+    if (blushStatusEl) { blushStatusEl.className = "climate-badge-status climate-badge-danger"; blushStatusEl.textContent = "High Blushing & Moisture Trap Hazard!"; }
+    if (blushAdviceEl) blushAdviceEl.textContent = `Ambient is only ${deltaT.toFixed(1)}°C above dew point (RH ${rh}%). Rapid solvent evaporation will cause white condensation blush. Delay spray finishing or add blush retarder.`;
+  } else if (deltaT < 8 || rh > 65) {
+    if (blushStatusEl) { blushStatusEl.className = "climate-badge-status climate-badge-warn"; blushStatusEl.textContent = "Caution: Marginal Finishing Window"; }
+    if (blushAdviceEl) blushAdviceEl.textContent = `Moderate moisture risk. Apply light coats, ensure warm cross-ventilation, and avoid thick wet film passes.`;
+  } else {
+    if (blushStatusEl) { blushStatusEl.className = "climate-badge-status"; blushStatusEl.textContent = "Safe: Optimal Finishing Window"; }
+    if (blushAdviceEl) blushAdviceEl.textContent = `Ambient is ${deltaT.toFixed(1)}°C above dew point. Solvents evaporate cleanly with zero blush or orange-peel trapping.`;
+  }
+
+  // 2. Epoxy & Resin Arrhenius Curing Speed
+  const cureMultiplier = Math.pow(2, (tempC - 21) / 10);
+  const nominalHours = 24;
+  const effectiveHours = Math.max(2, nominalHours / cureMultiplier);
+  const nominalPotLife = 45;
+  const effectivePotLife = Math.max(8, nominalPotLife / cureMultiplier);
+
+  const epoxySpeedEl = $("#climate-epoxy-speed");
+  const epoxyStatusEl = $("#climate-epoxy-status");
+  const epoxyAdviceEl = $("#climate-epoxy-advice");
+
+  if (epoxySpeedEl) epoxySpeedEl.textContent = `${cureMultiplier.toFixed(2)}× (${effectiveHours.toFixed(1)} hrs)`;
+  if (tempC < 16) {
+    if (epoxyStatusEl) { epoxyStatusEl.className = "climate-badge-status climate-badge-danger"; epoxyStatusEl.textContent = "Cold: Sluggish Cure & Sticky Amine Blush Risk"; }
+    if (epoxyAdviceEl) epoxyAdviceEl.textContent = `Below 16°C (60°F), epoxy polymerizes very slowly and can cure gummy. Heat shop or use heating blankets.`;
+  } else if (tempC > 27) {
+    if (epoxyStatusEl) { epoxyStatusEl.className = "climate-badge-status climate-badge-warn"; epoxyStatusEl.textContent = "Warm: High Exotherm & Flash Cure Warning"; }
+    if (epoxyAdviceEl) epoxyAdviceEl.textContent = `Pot life compressed to ~${Math.round(effectivePotLife)} min! Deep pours risk thermal runaway cracking. Pour in thin lifts or chill resin.`;
+  } else {
+    if (epoxyStatusEl) { epoxyStatusEl.className = "climate-badge-status"; epoxyStatusEl.textContent = "Balanced Pot Life & Optimal Polymerization"; }
+    if (epoxyAdviceEl) epoxyAdviceEl.textContent = `Working pot life is ~${Math.round(effectivePotLife)} min. Full demold strength expected in ~${effectiveHours.toFixed(1)} hours.`;
+  }
+
+  // 3. Wood Equilibrium Moisture Content (EMC)
+  const h = rh / 100;
+  const W = 330 + 0.452 * tempC;
+  const K = 0.791 + 0.000463 * tempC;
+  const K1 = 6.34 + 0.000775 * tempC;
+  const K2 = 1.09 + 0.0171 * tempC;
+  const emc = (1800 / W) * ((K * h) / (1 - K * h) + (K1 * K * h + 2 * K1 * K2 * K * K * h * h) / (1 + K1 * K * h + K1 * K2 * K * K * h * h));
+
+  if ($("#climate-emc-val")) $("#climate-emc-val").textContent = emc.toFixed(1) + "% EMC";
+  const woodCoeff = parseFloat($("#climate-wood-select")?.value) || 0.00369;
+  const woodName = $("#climate-wood-select")?.selectedOptions?.[0]?.dataset?.name || "Wood";
+  const movementMm = 900 * woodCoeff * 4;
+  if ($("#climate-wood-advice")) $("#climate-wood-advice").textContent = `A 900 mm (36″) ${woodName} tabletop will expand/contract ~${movementMm.toFixed(1)} mm seasonally between summer and winter. Always use slotted figure-8 clips or breadboard expansion tenons.`;
+
+  // 4. 3D Filament moisture
+  const filVal = $("#climate-filament-val");
+  const filStat = $("#climate-filament-status");
+  const filAdvice = $("#climate-filament-advice");
+  if (rh > 60) {
+    if (filVal) filVal.textContent = `High RH (${rh}%)`;
+    if (filStat) { filStat.className = "climate-badge-status climate-badge-danger"; filStat.textContent = "Desiccant Dry Box Required"; }
+    if (filAdvice) filAdvice.textContent = "PETG & TPU will pop and string within 24 hours. Nylon must be printed directly from a heated drybox.";
+  } else if (rh > 40) {
+    if (filVal) filVal.textContent = `Moderate RH (${rh}%)`;
+    if (filStat) { filStat.className = "climate-badge-status"; filStat.textContent = "PLA Safe · Store Spools Sealed"; }
+    if (filAdvice) filAdvice.textContent = "PLA prints cleanly for up to a week. Store PETG with desiccant beads when not actively printing.";
+  } else {
+    if (filVal) filVal.textContent = `Dry Climate (${rh}%)`;
+    if (filStat) { filStat.className = "climate-badge-status"; filStat.textContent = "Ideal Filament Storage"; }
+    if (filAdvice) filAdvice.textContent = "Filament shelf life in open air is extended. Minimal moisture bubbling.";
+  }
+}
+
+/* ------------------------------------------------------------
+   FEATURE 11: Workshop Audio Spindle Tachometer & dB Sound Level Monitor
+   ------------------------------------------------------------ */
+let audioTunerState = {
+  isListening: false,
+  audioCtx: null,
+  stream: null,
+  analyser: null,
+  animId: null
+};
+
+function openAudioTuner() {
+  const dlg = $("#audio-tuner-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  initAudioTuner();
+}
+
+function initAudioTuner() {
+  const btn = $("#audio-toggle-listen-btn");
+  if (btn && !btn._initialized) {
+    btn._initialized = true;
+    btn.onclick = () => {
+      if (audioTunerState.isListening) {
+        stopAudioTunerListening();
+      } else {
+        startAudioTunerListening();
+      }
+    };
+  }
+
+  const dlg = $("#audio-tuner-dialog");
+  if (dlg && !dlg._closeBound) {
+    dlg._closeBound = true;
+    dlg.addEventListener("close", () => {
+      if (audioTunerState.isListening) stopAudioTunerListening();
+    });
+  }
+}
+
+function startAudioTunerListening() {
+  const btn = $("#audio-toggle-listen-btn");
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) {
+    showToast("Web Audio API not supported on this browser.");
+    return;
+  }
+
+  audioTunerState.audioCtx = new AudioContext();
+
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      audioTunerState.stream = stream;
+      audioTunerState.isListening = true;
+      if (btn) btn.textContent = "⏹ Stop Listening";
+
+      const source = audioTunerState.audioCtx.createMediaStreamSource(stream);
+      const analyser = audioTunerState.audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+      audioTunerState.analyser = analyser;
+
+      runAudioTunerLoop();
+      showToast("Microphone connected! Monitoring dB and spindle RPM.");
+    }).catch(err => {
+      console.warn("Microphone access error, starting simulated audio analyzer:", err);
+      audioTunerState.isListening = true;
+      if (btn) btn.textContent = "⏹ Stop Demo Mode";
+      runSimulatedAudioLoop();
+      showToast("Running Audio Tachometer Demo Simulator.");
+    });
+  } else {
+    audioTunerState.isListening = true;
+    if (btn) btn.textContent = "⏹ Stop Demo Mode";
+    runSimulatedAudioLoop();
+  }
+}
+
+function stopAudioTunerListening() {
+  audioTunerState.isListening = false;
+  const btn = $("#audio-toggle-listen-btn");
+  if (btn) btn.textContent = "🎙️ Start Listening";
+
+  if (audioTunerState.animId) {
+    cancelAnimationFrame(audioTunerState.animId);
+    audioTunerState.animId = null;
+  }
+  if (audioTunerState.stream) {
+    audioTunerState.stream.getTracks().forEach(t => t.stop());
+    audioTunerState.stream = null;
+  }
+  if (audioTunerState.audioCtx) {
+    audioTunerState.audioCtx.close();
+    audioTunerState.audioCtx = null;
+  }
+  if ($("#audio-rpm-reading")) $("#audio-rpm-reading").innerHTML = "— <span style='font-size:16px;color:var(--muted)'>RPM</span>";
+  if ($("#audio-freq-reading")) $("#audio-freq-reading").innerHTML = "— <span style='font-size:14px;color:var(--muted)'>Hz</span>";
+}
+
+function runAudioTunerLoop() {
+  if (!audioTunerState.isListening || !audioTunerState.analyser) return;
+
+  const analyser = audioTunerState.analyser;
+  const timeBuf = new Float32Array(analyser.fftSize);
+  const freqBuf = new Uint8Array(analyser.frequencyBinCount);
+
+  analyser.getFloatTimeDomainData(timeBuf);
+  analyser.getByteFrequencyData(freqBuf);
+
+  let sumSq = 0;
+  for (let i = 0; i < timeBuf.length; i++) {
+    sumSq += timeBuf[i] * timeBuf[i];
+  }
+  const rms = Math.sqrt(sumSq / timeBuf.length);
+  const db = Math.min(120, Math.max(35, 20 * Math.log10(rms + 1e-6) + 100));
+
+  updateDbMeterUI(db);
+
+  const sampleRate = audioTunerState.audioCtx.sampleRate || 44100;
+  const binWidth = sampleRate / analyser.fftSize;
+  let maxVal = 0;
+  let peakBin = 0;
+
+  const minBin = Math.floor(20 / binWidth);
+  const maxBin = Math.min(freqBuf.length, Math.floor(1200 / binWidth));
+
+  for (let b = minBin; b < maxBin; b++) {
+    if (freqBuf[b] > maxVal && freqBuf[b] > 60) {
+      maxVal = freqBuf[b];
+      peakBin = b;
+    }
+  }
+
+  const peakFreq = peakBin * binWidth;
+  const toolTeeth = parseInt($("#audio-tool-preset")?.value, 10) || 2;
+  const rpm = peakFreq > 0 ? (peakFreq * 60) / toolTeeth : 0;
+
+  if (maxVal > 70 && rpm >= 300) {
+    if ($("#audio-rpm-reading")) $("#audio-rpm-reading").innerHTML = `${Math.round(rpm).toLocaleString()} <span style='font-size:16px;color:var(--muted)'>RPM</span>`;
+    if ($("#audio-freq-reading")) $("#audio-freq-reading").innerHTML = `${peakFreq.toFixed(1)} <span style='font-size:14px;color:var(--muted)'>Hz</span>`;
+  }
+
+  drawAudioSpectrum(freqBuf, peakBin);
+
+  audioTunerState.animId = requestAnimationFrame(runAudioTunerLoop);
+}
+
+function runSimulatedAudioLoop() {
+  if (!audioTunerState.isListening) return;
+  const now = Date.now() / 1000;
+  const simDb = 78 + 8 * Math.sin(now * 1.5) + (Math.random() * 4);
+  updateDbMeterUI(simDb);
+
+  const toolTeeth = parseInt($("#audio-tool-preset")?.value, 10) || 2;
+  const baseRpm = toolTeeth === 2 ? 18000 : (toolTeeth === 40 ? 3450 : 2200);
+  const simRpm = baseRpm + (Math.sin(now * 0.8) * 120);
+  const simFreq = (simRpm * toolTeeth) / 60;
+
+  if ($("#audio-rpm-reading")) $("#audio-rpm-reading").innerHTML = `${Math.round(simRpm).toLocaleString()} <span style='font-size:16px;color:var(--muted)'>RPM</span>`;
+  if ($("#audio-freq-reading")) $("#audio-freq-reading").innerHTML = `${simFreq.toFixed(1)} <span style='font-size:14px;color:var(--muted)'>Hz</span>`;
+
+  const simFreqBuf = new Uint8Array(256);
+  const targetBin = Math.min(250, Math.round(simFreq / 8));
+  for (let i = 0; i < simFreqBuf.length; i++) {
+    const dist = Math.abs(i - targetBin);
+    simFreqBuf[i] = Math.max(0, 180 - dist * 12 + (Math.random() * 20));
+  }
+  drawAudioSpectrum(simFreqBuf, targetBin);
+
+  audioTunerState.animId = requestAnimationFrame(runSimulatedAudioLoop);
+}
+
+function updateDbMeterUI(db) {
+  if ($("#audio-db-reading")) $("#audio-db-reading").innerHTML = `${db.toFixed(1)} <span style='font-size:16px;color:var(--muted)'>dB</span>`;
+  const pct = Math.min(100, Math.max(0, ((db - 40) / 80) * 100));
+  const bar = $("#audio-meter-bar");
+  if (bar) bar.style.width = pct + "%";
+
+  const statusBadge = $("#audio-db-status");
+  const title = $("#audio-safety-title");
+  const desc = $("#audio-safety-desc");
+
+  if (db < 70) {
+    if (statusBadge) { statusBadge.className = "audio-db-status-badge"; statusBadge.textContent = "Safe: Conversational Sound"; }
+    if (title) title.textContent = "Hearing Protection: Not Required";
+    if (desc) desc.textContent = "Sound pressure is well below OSHA hazard thresholds (Safe for 8+ hours).";
+  } else if (db < 85) {
+    if (statusBadge) { statusBadge.className = "audio-db-status-badge"; statusBadge.style.background = "rgba(245,158,11,0.15)"; statusBadge.style.color = "#d97706"; statusBadge.textContent = "Moderate Workshop Noise"; }
+    if (title) title.textContent = "Hearing Protection: Recommended";
+    if (desc) desc.textContent = "Approaching 85 dB threshold. Consider earplugs for extended machining sessions.";
+  } else if (db < 100) {
+    if (statusBadge) { statusBadge.className = "audio-db-status-badge"; statusBadge.style.background = "rgba(239,68,68,0.15)"; statusBadge.style.color = "#ef4444"; statusBadge.textContent = "OSHA Hazard: Ear Protection Mandatory!"; }
+    if (title) title.textContent = "Hearing Protection: Mandatory (Earplugs or Muffs)";
+    if (desc) desc.textContent = "Continuous unshielded exposure above 85 dB causes permanent hearing damage. Put on hearing PPE.";
+  } else {
+    if (statusBadge) { statusBadge.className = "audio-db-status-badge"; statusBadge.style.background = "#ef4444"; statusBadge.style.color = "#fff"; statusBadge.textContent = "DANGER: Extreme Sound Pressure!"; }
+    if (title) title.textContent = "CRITICAL: Dual Protection Required (Plugs + Muffs)";
+    if (desc) desc.textContent = "Severe noise hazard (>100 dB). Maximum safe exposure without dual protection is under 15 minutes.";
+  }
+}
+
+function drawAudioSpectrum(freqBuf, peakBin) {
+  const canvas = $("#audio-spectrum-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const barCount = Math.min(freqBuf.length, 120);
+  const barW = w / barCount;
+
+  for (let i = 0; i < barCount; i++) {
+    const val = freqBuf[i] / 255.0;
+    const barH = val * h;
+    const isPeak = Math.abs(i - peakBin) <= 1 && val > 0.3;
+
+    ctx.fillStyle = isPeak ? "#ef4444" : (i % 2 === 0 ? "#f59e0b" : "#d97706");
+    ctx.fillRect(i * barW, h - barH, barW - 1, barH);
+  }
+}
+
+/* ------------------------------------------------------------
+   FEATURE 12: IKEA-Style Illustrated Assembly Manual Generator
+   ------------------------------------------------------------ */
+function openAssemblyManual(projectId) {
+  const dlg = $("#assembly-manual-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  initAssemblyManual(projectId);
+}
+
+function initAssemblyManual(selectedProjectId) {
+  const select = $("#manual-project-select");
+  if (!select) return;
+  select.innerHTML = state.projects.map(p => `<option value="${p.id}" ${p.id === selectedProjectId ? 'selected' : ''}>${escapeHtml(p.title)}</option>`).join("");
+
+  const activeProject = state.projects.find(p => p.id === selectedProjectId) || state.projects[0];
+  if (activeProject) {
+    renderAssemblyManualDocument(activeProject);
+  } else {
+    loadSampleAssemblyManual();
+  }
+
+  select.onchange = () => {
+    const prj = state.projects.find(p => p.id === select.value);
+    if (prj) renderAssemblyManualDocument(prj);
+  };
+
+  const sampleBtn = $("#manual-sample-blueprint-btn");
+  if (sampleBtn) sampleBtn.onclick = () => loadSampleAssemblyManual();
+
+  const printBtn = $("#manual-print-btn");
+  if (printBtn) printBtn.onclick = () => window.print();
+}
+
+function renderAssemblyManualDocument(project) {
+  const container = $("#manual-document-container");
+  if (!container) return;
+
+  const steps = (project.tasks && project.tasks.length > 0) ? project.tasks : [
+    { title: "Prep & Mill Lumber", notes: "Joint and plane all stock to 20mm uniform thickness." },
+    { title: "Cut Joinery Mortises", notes: "Route 10mm wide x 25mm deep mortises on leg components." },
+    { title: "Dry Fit Assembly", notes: "Check squareness with diagonal tape measurements." },
+    { title: "Glue-Up & Clamp", notes: "Apply PVA wood glue and clamp with parallel bar clamps for 3 hours." },
+    { title: "Sand & Apply Hardwax Oil", notes: "Progressive sand to 220 grit and buff two coats of finish." }
+  ];
+
+  const tools = ["Clamps (4x Parallel)", "Table Saw / Miter Saw", "Drill / Driver", "Router", "Safety Glasses (PPE)", "Ear Protection (PPE)", "Dust Mask (PPE)", "Square & Tape Measure"];
+  const hardware = [
+    { name: "Pocket Hole Screws M4×30", qty: "24 pcs", type: "Fastener" },
+    { name: "Domino / Dowel Pins 8×40mm", qty: "16 pcs", type: "Joinery" },
+    { name: "PVA Type II Wood Glue", qty: "1 bottle", type: "Adhesive" },
+    { name: "Silicone Bumpers", qty: "4 pcs", type: "Hardware" }
+  ];
+
+  container.innerHTML = `
+    <div class="manual-cover-card">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#64748b;text-transform:uppercase">TECHNICAL INSTRUCTION MANUAL</div>
+        <h1 style="margin:4px 0 6px;font-size:24px;color:#0f172a">${escapeHtml(project.title)}</h1>
+        <div style="font-size:12px;color:#64748b">Lead Artisan: <strong>${escapeHtml(state.userProfile?.name || "Workshop Maker")}</strong> · Rev 1.0</div>
+      </div>
+      <div style="text-align:right">
+        <span style="font-size:11px;background:#0f172a;color:#fff;padding:4px 10px;border-radius:4px;font-weight:700">Difficulty: Intermediate</span>
+        <div style="font-size:11px;color:#64748b;margin-top:4px">Est. Build Time: ~${project.tasks ? Math.max(4, project.tasks.length * 2) : 12} Hours</div>
+      </div>
+    </div>
+
+    <!-- Required Tools & PPE -->
+    <div style="margin-top:12px">
+      <h3 style="margin:0 0 6px;font-size:13px;color:#0f172a">1. Required Tools &amp; Safety PPE Checklist</h3>
+      <div class="manual-tools-grid">
+        ${tools.map(t => `<div class="manual-tool-item"><span>🔧</span><span>${escapeHtml(t)}</span></div>`).join("")}
+      </div>
+    </div>
+
+    <!-- Bill of Materials Hardware Checklist -->
+    <div style="margin-top:14px">
+      <h3 style="margin:0 0 6px;font-size:13px;color:#0f172a">2. Hardware &amp; Fasteners Schedule</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:11.5px">
+        <thead>
+          <tr style="border-bottom:2px solid #cbd5e1;text-align:left">
+            <th style="padding:4px">Hardware Part</th>
+            <th style="padding:4px">Type</th>
+            <th style="padding:4px">Quantity</th>
+            <th style="padding:4px;text-align:center">Check</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${hardware.map(h => `
+            <tr style="border-bottom:1px solid #e2e8f0">
+              <td style="padding:6px 4px;font-weight:600">${escapeHtml(h.name)}</td>
+              <td style="padding:6px 4px;color:#64748b">${escapeHtml(h.type)}</td>
+              <td style="padding:6px 4px;font-family:monospace;font-weight:700">${escapeHtml(h.qty)}</td>
+              <td style="padding:6px 4px;text-align:center"><input type="checkbox"></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Step by Step Sequence -->
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:12px">
+      <h3 style="margin:0;font-size:13px;color:#0f172a">3. Numbered Assembly Steps</h3>
+      ${steps.map((s, idx) => `
+        <div class="manual-step-card">
+          <div class="manual-step-header">
+            <span class="manual-step-num">Step ${idx + 1}: ${escapeHtml(s.title || s.text || "Assembly Procedure")}</span>
+            <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer">
+              <input type="checkbox" class="manual-step-checkbox">
+              <span>Mark Complete</span>
+            </label>
+          </div>
+          <p style="margin:0;font-size:12px;line-height:1.6;color:#334155">${escapeHtml(s.notes || s.description || "Follow dimensions as indicated in the blueprint. Clamp firmly and wipe excess glue with a damp sponge before curing.")}</p>
+          <div class="manual-step-cautions">
+            <strong>⚠️ Quality &amp; Safety Note:</strong> Verify squareness across diagonal corners before clamps fully set. Wear ANSI Z87.1 safety glasses.
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function loadSampleAssemblyManual() {
+  renderAssemblyManualDocument({
+    id: "sample_credenza",
+    title: "Mid-Century Walnut Credenza & Media Console",
+    tasks: [
+      { title: "Stock Dimensioning & Grain Selection", notes: "Plane 4/4 Black Walnut to 19mm. Arrange top board grain for continuous waterfall matching." },
+      { title: "Mitered Waterfall Joint Cutting", notes: "Set table saw blade to 45.0° with digital protractor. Cut 45° miters for waterfall end grain." },
+      { title: "Domino & Biscuit Routing", notes: "Route 8x40mm domino slots along miter faces for high joint shear strength." },
+      { title: "Sliding Door Track Routing", notes: "Route two 6mm wide x 8mm deep channels along top and bottom for tambour sliding doors." },
+      { title: "Sub-Frame & Leg Tapering", notes: "Cut 10° splay angles on tapered solid brass tipped legs." },
+      { title: "Final Sanding & Hardwax Oil Finish", notes: "Sand to 240 grit. Apply 2 coats of Rubio Monocoat or Osmo Polyx satin oil." }
+    ]
+  });
+}
+
+/* ------------------------------------------------------------
+   FEATURE 13: Color Science & Pigment Matching Blender
+   ------------------------------------------------------------ */
+function openPigmentBlender() {
+  const dlg = $("#pigment-blender-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  initPigmentBlender();
+  recalculatePigmentBlend($("#pigment-hex-input")?.value || "#9B4D1B");
+}
+
+function initPigmentBlender() {
+  const picker = $("#pigment-color-picker");
+  const hexInput = $("#pigment-hex-input");
+  const imgInput = $("#pigment-image-input");
+
+  if (picker && !picker._initialized) {
+    picker._initialized = true;
+    picker.addEventListener("input", e => {
+      if (hexInput) hexInput.value = e.target.value.toUpperCase();
+      recalculatePigmentBlend(e.target.value);
+    });
+    if (hexInput) {
+      hexInput.addEventListener("input", e => {
+        let val = e.target.value.trim();
+        if (!val.startsWith("#")) val = "#" + val;
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          if (picker) picker.value = val;
+          recalculatePigmentBlend(val);
+        }
+      });
+    }
+
+    $$(".pigment-preset-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const c = chip.dataset.color;
+        if (picker) picker.value = c;
+        if (hexInput) hexInput.value = c.toUpperCase();
+        recalculatePigmentBlend(c);
+      });
+    });
+
+    if (imgInput) {
+      imgInput.addEventListener("change", e => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const img = new Image();
+          img.onload = () => {
+            const oc = document.createElement("canvas");
+            oc.width = img.width;
+            oc.height = img.height;
+            const octx = oc.getContext("2d");
+            octx.drawImage(img, 0, 0);
+            const imgData = octx.getImageData(Math.floor(img.width/2), Math.floor(img.height/2), 5, 5).data;
+            const r = imgData[0], g = imgData[1], b = imgData[2];
+            const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+            if (picker) picker.value = hex;
+            if (hexInput) hexInput.value = hex;
+            recalculatePigmentBlend(hex);
+            showToast("Eye-dropped color from image! 🎨");
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  }
+}
+
+function recalculatePigmentBlend(hex) {
+  const cleanHex = hex.replace("#", "");
+  const num = parseInt(cleanHex, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+
+  const k = 1 - Math.max(rNorm, gNorm, bNorm);
+  const c = k < 1 ? (1 - rNorm - k) / (1 - k) : 0;
+  const m = k < 1 ? (1 - gNorm - k) / (1 - k) : 0;
+  const y = k < 1 ? (1 - bNorm - k) / (1 - k) : 0;
+  const white = Math.min(rNorm, gNorm, bNorm);
+
+  const cPct = Math.round(c * 100);
+  const mPct = Math.round(m * 100);
+  const yPct = Math.round(y * 100);
+  const kPct = Math.round(k * 100);
+  const wPct = Math.round(white * 50);
+
+  const cmykContainer = $("#pigment-cmyk-list");
+  if (cmykContainer) {
+    cmykContainer.innerHTML = `
+      <div class="pigment-bar-row">
+        <span class="pigment-color-dot" style="background:#06b6d4"></span>
+        <span style="width:110px">Cyan Primary:</span>
+        <div style="flex:1;background:rgba(0,0,0,0.1);height:10px;border-radius:5px;overflow:hidden">
+          <div style="width:${cPct}%;background:#06b6d4;height:100%"></div>
+        </div>
+        <strong style="width:40px;text-align:right">${cPct}%</strong>
+      </div>
+      <div class="pigment-bar-row">
+        <span class="pigment-color-dot" style="background:#ec4899"></span>
+        <span style="width:110px">Magenta Primary:</span>
+        <div style="flex:1;background:rgba(0,0,0,0.1);height:10px;border-radius:5px;overflow:hidden">
+          <div style="width:${mPct}%;background:#ec4899;height:100%"></div>
+        </div>
+        <strong style="width:40px;text-align:right">${mPct}%</strong>
+      </div>
+      <div class="pigment-bar-row">
+        <span class="pigment-color-dot" style="background:#eab308"></span>
+        <span style="width:110px">Yellow Primary:</span>
+        <div style="flex:1;background:rgba(0,0,0,0.1);height:10px;border-radius:5px;overflow:hidden">
+          <div style="width:${yPct}%;background:#eab308;height:100%"></div>
+        </div>
+        <strong style="width:40px;text-align:right">${yPct}%</strong>
+      </div>
+      <div class="pigment-bar-row">
+        <span class="pigment-color-dot" style="background:#0f172a"></span>
+        <span style="width:110px">Carbon Black:</span>
+        <div style="flex:1;background:rgba(0,0,0,0.1);height:10px;border-radius:5px;overflow:hidden">
+          <div style="width:${kPct}%;background:#0f172a;height:100%"></div>
+        </div>
+        <strong style="width:40px;text-align:right">${kPct}%</strong>
+      </div>
+      <div class="pigment-bar-row">
+        <span class="pigment-color-dot" style="background:#ffffff;border:1px solid #cbd5e1"></span>
+        <span style="width:110px">Titanium White:</span>
+        <div style="flex:1;background:rgba(0,0,0,0.1);height:10px;border-radius:5px;overflow:hidden">
+          <div style="width:${wPct}%;background:#94a3b8;height:100%"></div>
+        </div>
+        <strong style="width:40px;text-align:right">${wPct}%</strong>
+      </div>
+    `;
+  }
+
+  const stainCard = $("#stain-parts-card");
+  if (stainCard) {
+    const isDark = (r * 0.299 + g * 0.587 + b * 0.114) < 120;
+    const isReddish = r > g + 25;
+    const isGolden = r > 140 && g > 100 && b < 80;
+
+    let walnutParts = isDark ? 3 : 1;
+    let cherryParts = isReddish ? 2 : 0;
+    let oakParts = isGolden ? 3 : 1;
+    let thinnerParts = isDark ? 0 : 2;
+
+    stainCard.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+        <div><strong>Recommended Oil Stain Recipe:</strong></div>
+        <div style="display:flex;align-items:center;gap:6px"><span>🪵 Dark Walnut Base:</span> <strong>${walnutParts} Part${walnutParts > 1 ? 's' : ''}</strong></div>
+        ${cherryParts > 0 ? `<div style="display:flex;align-items:center;gap:6px"><span>🍒 Red Mahogany / Cherry:</span> <strong>${cherryParts} Parts</strong></div>` : ''}
+        <div style="display:flex;align-items:center;gap:6px"><span>🍂 Golden Oak:</span> <strong>${oakParts} Part${oakParts > 1 ? 's' : ''}</strong></div>
+        ${thinnerParts > 0 ? `<div style="display:flex;align-items:center;gap:6px"><span>🧪 Mineral Spirits (Thinner):</span> <strong>${thinnerParts} Parts</strong></div>` : ''}
+      </div>
+    `;
+  }
+
+  const resinSpec = $("#resin-tint-spec");
+  if (resinSpec) {
+    const dropEstimate = Math.max(1, Math.round((k + (1 - rNorm)) * 6));
+    const micaGramEstimate = (1.5 + (m + y) * 2.0).toFixed(1);
+    resinSpec.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+        <div>Translucent Ocean/Tint: <strong>${dropEstimate} Drops Liquid Dye / 100g Resin</strong></div>
+        <div>Metallic Pearl / River Swirl: <strong>${micaGramEstimate} g Pearlescent Mica Powder</strong></div>
+        <div style="font-size:11px;color:var(--muted)">Pour when resin viscosity reaches honey consistency (approx 25 min) to prevent mica settling to bottom.</div>
+      </div>
+    `;
+  }
+}
+
+/* ------------------------------------------------------------
+   FEATURE: Machine Operating Hours & Hourly Amortization Ledger
+   ------------------------------------------------------------ */
+function initMachineAmortization() {
+  const panel = $("#maint-amort-panel");
+  const toggleBtn = $("#maint-calc-amort-btn");
+  const applyBtn = $("#maint-apply-commission-btn");
+
+  if (toggleBtn && !toggleBtn._initialized) {
+    toggleBtn._initialized = true;
+    toggleBtn.addEventListener("click", () => {
+      if (panel) {
+        panel.style.display = panel.style.display === "none" ? "block" : "none";
+        calculateMachineAmortizationRate();
+      }
+    });
+
+    ["maint-amort-cost", "maint-amort-life", "maint-amort-wear", "maint-amort-watts", "maint-amort-kwh"].forEach(id => {
+      $("#" + id)?.addEventListener("input", () => calculateMachineAmortizationRate());
+    });
+
+    if (applyBtn) {
+      applyBtn.addEventListener("click", () => {
+        const rate = calculateMachineAmortizationRate();
+        const quoteRateInput = $("#quote-rate-machine");
+        if (quoteRateInput) {
+          quoteRateInput.value = rate.toFixed(2);
+        }
+        showToast(`Applied $${rate.toFixed(2)}/hr equipment rate to Client Commission Portal! ⚙️`);
+      });
+    }
+  }
+}
+
+function calculateMachineAmortizationRate() {
+  const price = parseFloat($("#maint-amort-cost")?.value) || 1800;
+  const lifespan = parseFloat($("#maint-amort-life")?.value) || 3000;
+  const wear = parseFloat($("#maint-amort-wear")?.value) || 1.50;
+  const watts = parseFloat($("#maint-amort-watts")?.value) || 800;
+  const kwhCost = parseFloat($("#maint-amort-kwh")?.value) || 0.16;
+
+  const deprecPerHour = lifespan > 0 ? (price / lifespan) : 0;
+  const powerPerHour = (watts / 1000) * kwhCost;
+  const totalRate = deprecPerHour + wear + powerPerHour;
+
+  if ($("#maint-amort-deprec")) $("#maint-amort-deprec").textContent = `$${deprecPerHour.toFixed(2)}/hr`;
+  if ($("#maint-amort-power")) $("#maint-amort-power").textContent = `$${powerPerHour.toFixed(2)}/hr`;
+  if ($("#maint-amort-total")) $("#maint-amort-total").textContent = `$${totalRate.toFixed(2)} / hr`;
+
+  return totalRate;
+}
+
+/* ------------------------------------------------------------
+   FEATURE 14: Multi-Store Shopping Cart & Vendor Purchase Order Exporter
+   ------------------------------------------------------------ */
+function openVendorExport() {
+  const dlg = $("#vendor-export-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+  initVendorExport();
+  renderVendorExport("all");
+}
+
+function initVendorExport() {
+  $$(".vendor-tab-btn").forEach(btn => {
+    btn.onclick = () => {
+      $$(".vendor-tab-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderVendorExport(btn.dataset.vendor);
+    };
+  });
+
+  const downloadBtn = $("#vendor-download-csv-btn");
+  if (downloadBtn) downloadBtn.onclick = () => downloadVendorPoCsv();
+
+  const printBtn = $("#vendor-print-po-btn");
+  if (printBtn) printBtn.onclick = () => window.print();
+}
+
+function classifyItemVendor(item) {
+  const text = (item.title || item.name || "") + " " + (item.category || "");
+  const lower = text.toLowerCase();
+  if (lower.match(/\b(bolt|bolts|screw|screws|nut|nuts|washer|washers|dowel|dowels|bearing|bearings|bushing|thread|pin|pins|fastener|fasteners|brass|aluminum|steel|rod|rods|sheet metal)\b/)) {
+    return { id: "mcmaster", name: "McMaster-Carr / Fasteners", searchUrl: `https://www.mcmaster.com/${encodeURIComponent(item.title || item.name)}` };
+  }
+  if (lower.match(/\b(resistor|resistors|led|leds|capacitor|capacitors|wire|arduino|sensor|sensors|ic|ics|pcb|pcbs|smd|relay|relays|microcontroller|switch|switches|breadboard)\b/)) {
+    return { id: "digikey", name: "DigiKey / Electronics", searchUrl: `https://www.digikey.com/en/products?keywords=${encodeURIComponent(item.title || item.name)}` };
+  }
+  if (lower.match(/\b(walnut|oak|maple|cherry|pine|lumber|veneer|plywood|finish|polyurethane|shellac|stain|stains|hardwax)\b/)) {
+    return { id: "woodcraft", name: "Woodcraft / Rockler", searchUrl: `https://www.woodcraft.com/search?q=${encodeURIComponent(item.title || item.name)}` };
+  }
+  if (lower.match(/\b(epoxy|resin|resins|silicone|silicones|hardener|mold|molds|pigment|pigments|dye|dyes|fiberglass)\b/)) {
+    return { id: "smoothon", name: "Smooth-On / Resins", searchUrl: `https://www.google.com/search?q=${encodeURIComponent((item.title || item.name) + " Smooth-On")}` };
+  }
+  return { id: "amazon", name: "Amazon / General Consumables", searchUrl: `https://www.amazon.com/s?k=${encodeURIComponent(item.title || item.name)}` };
+}
+
+function renderVendorExport(filterVendor) {
+  const tbody = $("#vendor-po-tbody");
+  if (!tbody) return;
+
+  const allItems = [];
+  if (state.shoppingItems) {
+    state.shoppingItems.forEach(si => allItems.push({ name: si.name, qty: si.qty || "1", estCost: si.cost || 0, category: si.category || "General" }));
+  }
+  state.projects.forEach(p => {
+    if (p.materials) {
+      p.materials.forEach(m => allItems.push({ name: m.name, qty: m.quantity || "1", estCost: m.cost || 0, category: p.title }));
+    }
+  });
+
+  if (allItems.length === 0) {
+    allItems.push(
+      { name: "M5×30 Button Head Socket Screws (100pk)", qty: "1 pk", estCost: 8.50, category: "Fasteners" },
+      { name: "608-2RS Ball Bearings (8pk)", qty: "1 pk", estCost: 12.00, category: "Hardware" },
+      { name: "ATmega328P Microcontroller DIP-28", qty: "3 pcs", estCost: 7.20, category: "Electronics" },
+      { name: "4/4 Black Walnut Board 6ft", qty: "2 bft", estCost: 32.00, category: "Lumber" },
+      { name: "Epoxy Resin Deep Pour 1.5 Gal Kit", qty: "1 kit", estCost: 85.00, category: "Chemicals" }
+    );
+  }
+
+  const counts = { all: allItems.length, mcmaster: 0, digikey: 0, woodcraft: 0, smoothon: 0, amazon: 0 };
+  let grandTotal = 0;
+
+  const rows = [];
+  allItems.forEach(item => {
+    const vendor = classifyItemVendor(item);
+    counts[vendor.id] = (counts[vendor.id] || 0) + 1;
+
+    if (filterVendor === "all" || filterVendor === vendor.id) {
+      const cost = parseFloat(item.estCost) || 0;
+      grandTotal += cost;
+      rows.push(`
+        <tr>
+          <td><span class="badge" style="background:rgba(217,119,6,0.15);color:var(--primary);font-size:10px">${escapeHtml(vendor.name)}</span></td>
+          <td><strong>${escapeHtml(item.name)}</strong></td>
+          <td style="font-family:monospace">${escapeHtml(item.qty || "1")}</td>
+          <td>$${cost.toFixed(2)}</td>
+          <td><strong>$${cost.toFixed(2)}</strong></td>
+          <td><a href="${vendor.searchUrl}" target="_blank" rel="noopener noreferrer" class="button button-small button-outline" style="padding:2px 8px;font-size:10px">Find Item ↗</a></td>
+        </tr>
+      `);
+    }
+  });
+
+  Object.keys(counts).forEach(k => {
+    const el = $("#vendor-count-" + k);
+    if (el) el.textContent = counts[k];
+  });
+
+  if ($("#vendor-po-total")) $("#vendor-po-total").textContent = "$" + grandTotal.toFixed(2);
+  tbody.innerHTML = rows.length > 0 ? rows.join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px">No items classified for this vendor category.</td></tr>`;
+}
+
+function downloadVendorPoCsv() {
+  const allItems = [];
+  if (state.shoppingItems) {
+    state.shoppingItems.forEach(si => allItems.push({ name: si.name, qty: si.qty || "1", estCost: si.cost || 0 }));
+  }
+  if (allItems.length === 0) {
+    allItems.push(
+      { name: "M5×30 Socket Screws", qty: "100", estCost: 8.50 },
+      { name: "Black Walnut 4/4", qty: "2 bft", estCost: 32.00 }
+    );
+  }
+
+  let csv = "Vendor Category,Item Specification,Quantity,Estimated Cost\n";
+  allItems.forEach(i => {
+    const vendor = classifyItemVendor(i);
+    csv += `"${vendor.name}","${i.name.replace(/"/g, '""')}","${i.qty}","${i.estCost}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Workshop_Vendor_PO_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Downloaded Vendor PO CSV! 📥");
+}
+
+window.removeCutlistPartRow = removeCutlistPartRow;
+window.deleteScrapVaultPiece = deleteScrapVaultPiece;
+

@@ -13796,3 +13796,507 @@ body.theme-dark .distill-hydrosol-glow {
     font-size: 20px;
   }
 }
+
+/* ============================================================
+   WORKSHOP ENHANCEMENTS: ADVANCED ENGINES & SUITES
+   ============================================================ */
+
+/* ✂️ 9. 2D Sheet Cutlist & Scrap Vault */
+.sheet-cutlist-dialog {
+  max-width: 1200px;
+  width: 95vw;
+  max-height: 94vh;
+  overflow-y: auto;
+}
+.cutlist-layout-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.cutlist-sidebar-column {
+  min-width: 0;
+}
+.cutlist-display-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cutlist-parts-table-wrap {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 6px;
+}
+.cutlist-parts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.cutlist-parts-table th, .cutlist-parts-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.cutlist-parts-table th {
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  font-weight: 700;
+  color: var(--muted);
+}
+.cutlist-parts-table input {
+  padding: 2px 4px;
+  font-size: 11px;
+  width: 100%;
+}
+.cutlist-metrics-panel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 12px;
+}
+.cutlist-metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.cutlist-metric-val {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary);
+}
+.cutlist-metric-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-top: 2px;
+}
+.cutlist-canvas-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.06);
+}
+.cutlist-canvas-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#cutlist-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+  background: #fdfbf7;
+}
+
+/* Scrap Vault */
+.scrap-vault-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.scrap-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.scrap-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.scrap-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.scrap-dims-badge {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary);
+  font-family: monospace;
+}
+
+/* 🌡️ 10. Workshop Climate Advisor */
+.climate-advisor-dialog {
+  max-width: 980px;
+  width: 95vw;
+}
+.climate-controls-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.climate-input-group {
+  display: flex;
+  flex-direction: column;
+}
+.climate-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.climate-card {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.climate-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.climate-card-icon {
+  font-size: 20px;
+}
+.climate-metric-num {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--primary);
+  margin: 4px 0;
+}
+.climate-badge-status {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(16,185,129,0.15);
+  color: var(--green);
+  width: fit-content;
+}
+.climate-badge-warn {
+  background: rgba(245,158,11,0.15) !important;
+  color: #d97706 !important;
+}
+.climate-badge-danger {
+  background: rgba(239,68,68,0.15) !important;
+  color: #ef4444 !important;
+}
+.climate-card-desc {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* 🎙️ 11. Audio Spindle Tachometer & dB Monitor */
+.audio-tuner-dialog {
+  max-width: 900px;
+  width: 95vw;
+}
+.audio-tuner-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.audio-db-hero {
+  text-align: center;
+  padding: 16px 0 8px;
+}
+.audio-db-reading {
+  font-size: 48px;
+  font-weight: 800;
+  font-family: monospace;
+  letter-spacing: -1px;
+}
+.audio-db-status-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgba(16,185,129,0.15);
+  color: var(--green);
+  margin-top: 4px;
+}
+.audio-meter-bar-wrap {
+  width: 100%;
+  height: 14px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 7px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+.audio-meter-bar {
+  height: 100%;
+  background: linear-gradient(to right, #10b981 0%, #f59e0b 65%, #ef4444 85%);
+  transition: width 0.08s ease-out;
+}
+.audio-safety-box {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.audio-tach-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 12px 4px 8px;
+}
+.audio-rpm-reading {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--primary);
+  font-family: monospace;
+}
+.audio-freq-reading {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--muted);
+  font-family: monospace;
+}
+.audio-canvas-wrap {
+  background: #090d16;
+  border-radius: 6px;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+#audio-spectrum-canvas {
+  width: 100%;
+  height: 140px;
+  display: block;
+}
+
+/* 📖 12. Assembly Manual Generator */
+.assembly-manual-dialog {
+  max-width: 1050px;
+  width: 95vw;
+  max-height: 94vh;
+  overflow-y: auto;
+}
+.manual-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.manual-document-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #fdfdfd;
+  color: #111;
+  padding: 24px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.manual-cover-card {
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.manual-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.manual-tool-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 11px;
+  background: #f8fafc;
+}
+.manual-step-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 14px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.manual-step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 6px;
+}
+.manual-step-num {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.manual-step-cautions {
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #92400e;
+  border-radius: 0 4px 4px 0;
+}
+
+/* 🎨 13. Color Science & Pigment Blender */
+.pigment-blender-dialog {
+  max-width: 950px;
+  width: 95vw;
+}
+.pigment-picker-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pigment-preset-chip {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.pigment-preset-chip:hover {
+  transform: scale(1.2);
+}
+.pigment-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.pigment-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.pigment-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 📦 14. Multi-Store Shopping Cart & Vendor Exporter */
+.vendor-export-dialog {
+  max-width: 1050px;
+  width: 95vw;
+  max-height: 94vh;
+  overflow-y: auto;
+}
+.vendor-category-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+.vendor-tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.vendor-tab-btn.active {
+  background: rgba(217, 119, 6, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.vendor-po-sheet {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.vendor-po-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.vendor-po-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.vendor-po-table th, .vendor-po-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.vendor-po-table th {
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .cutlist-layout-grid,
+  .audio-tuner-grid {
+    grid-template-columns: 1fr;
+  }
+  .cutlist-metrics-panel {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media print {
+  .manual-document-container {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  .manual-step-card {
+    page-break-inside: avoid;
+  }
+}

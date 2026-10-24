@@ -112,8 +112,13 @@
           <div class="sidebar-label" style="margin:10px 0 4px 10px;font-size:10px;letter-spacing:.08em;color:var(--muted)">WORKSHOP SUITES</div>
           <button class="nav-link" type="button" data-action="open-cad-viewer"><span class="nav-icon">🧊</span>3D CAD &amp; STL</button>
           <button class="nav-link" type="button" data-action="open-floorplan"><span class="nav-icon">🗺️</span>Floorplan Planner</button>
+          <button class="nav-link" type="button" data-action="open-cutlist-optimizer"><span class="nav-icon">✂️</span>Sheet Cutlist &amp; Vault</button>
+          <button class="nav-link" type="button" data-action="open-climate-advisor"><span class="nav-icon">🌡️</span>Climate &amp; Curing</button>
+          <button class="nav-link" type="button" data-action="open-audio-tuner"><span class="nav-icon">🎙️</span>Audio Tachometer &amp; dB</button>
+          <button class="nav-link" type="button" data-action="open-assembly-manual"><span class="nav-icon">📖</span>Assembly Manuals</button>
+          <button class="nav-link" type="button" data-action="open-pigment-blender"><span class="nav-icon">🎨</span>Pigment &amp; Stains</button>
+          <button class="nav-link" type="button" data-action="open-maintenance-engine"><span class="nav-icon">🛠️</span>Tool Care &amp; Costs</button>
           <button class="nav-link" type="button" data-action="open-community-hub"><span class="nav-icon">🌐</span>Community Hub</button>
-          <button class="nav-link" type="button" data-action="open-maintenance-engine"><span class="nav-icon">🛠️</span>Tool Care</button>
 
           <div class="sidebar-section-divider"></div>
           <div class="sidebar-label" style="margin:10px 0 4px 10px;font-size:10px;letter-spacing:.08em;color:var(--muted)">WORKSPACE</div>
@@ -489,6 +494,7 @@
                 <p>All materials and supplies needed across your active projects, ready for your next trip to the store.</p>
               </div>
               <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="open-vendor-export">📦 Export Vendor PO / Carts</button>
                 <button type="button" class="button button-outline" data-action="copy-shopping-list">📋 Copy shopping list</button>
               </div>
             </div>
@@ -8124,6 +8130,12 @@ With warm regards and friendship,</textarea>
         <button type="button" class="tool-tab-btn" id="tool-tab-maint-trigger" data-action="open-maintenance-engine">🛠️ Tool Maintenance</button>
         <button type="button" class="tool-tab-btn" id="tool-tab-qr-trigger" data-action="open-qr-studio">🏷️ QR Label Studio</button>
         <button type="button" class="tool-tab-btn" id="tool-tab-community-trigger" data-action="open-community-hub">🌐 Recipe Hub</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-cutlist-trigger" data-action="open-cutlist-optimizer">✂️ Sheet Cutlist</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-climate-trigger" data-action="open-climate-advisor">🌡️ Climate &amp; Curing</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-audio-trigger" data-action="open-audio-tuner">🎙️ Tachometer &amp; dB</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-manual-trigger" data-action="open-assembly-manual">📖 Assembly Manual</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-pigment-trigger" data-action="open-pigment-blender">🎨 Pigment &amp; Stains</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-vendor-trigger" data-action="open-vendor-export">📦 Vendor PO / Cart</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -10013,10 +10025,22 @@ With warm regards and friendship,</textarea>
               <input type="file" id="cad-file-input" accept=".stl,.obj,.gcode,.nc,.svg" style="display:none">
             </div>
             <div class="cad-gcode-scrubber" id="cad-gcode-scrubber" style="display:none">
-              <label style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:8px">
-                Layer <span id="cad-layer-num">1</span> / <span id="cad-layer-total">100</span> (Z = <span id="cad-layer-z">0.2</span> mm):
-                <input type="range" id="cad-layer-range" min="1" max="100" value="1" style="flex:1">
-              </label>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+                <label style="font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px;flex:1">
+                  Layer <span id="cad-layer-num">1</span> / <span id="cad-layer-total">100</span> (Z = <span id="cad-layer-z">0.2</span> mm):
+                  <input type="range" id="cad-layer-range" min="1" max="100" value="1" style="flex:1">
+                </label>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <button type="button" class="button button-small button-outline" id="cad-sim-play-btn" style="padding:2px 8px;font-size:10px">▶ Simulate</button>
+                  <select id="cad-sim-speed" class="calc-input" style="padding:2px 4px;font-size:10px;width:65px">
+                    <option value="1">1×</option>
+                    <option value="5" selected>5×</option>
+                    <option value="20">20×</option>
+                    <option value="50">50×</option>
+                  </select>
+                </div>
+              </div>
+              <div id="cad-sim-warning" style="display:none;font-size:10px;color:#ef4444;font-weight:700"></div>
             </div>
           </div>
         </div>
@@ -10230,6 +10254,7 @@ With warm regards and friendship,</textarea>
           <h2>Machine Maintenance &amp; Tool Health Engine</h2>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="maint-calc-amort-btn">⏱️ Machine Rates &amp; Costs</button>
           <button type="button" class="button button-small button-primary" id="maint-add-machine-btn">＋ Add Machine</button>
           <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
         </div>
@@ -10251,6 +10276,36 @@ With warm regards and friendship,</textarea>
         <div class="maint-summary-card maint-card-alert">
           <span class="maint-summary-count" id="maint-stat-overdue">0</span>
           <span class="maint-summary-label">Overdue Maintenance</span>
+        </div>
+      </div>
+
+      <!-- Machine Hourly Operating Rate & Amortization Calculator Panel -->
+      <div id="maint-amort-panel" class="panel maint-amort-panel" style="display:none;margin-bottom:14px;background:var(--surface)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <h3 style="margin:0;font-size:13px">⏱️ Machine Hourly Operating Rate &amp; Amortization Calculator</h3>
+          <button type="button" class="button button-small button-outline" id="maint-apply-commission-btn" style="padding:2px 8px;font-size:11px">Apply Rate to Client Quotes</button>
+        </div>
+        <p class="form-hint" style="margin-bottom:10px">Calculate realistic equipment depreciation, power draw, and tooling wear per hour.</p>
+        <div class="maint-amort-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
+          <label class="field-label">Machine Price ($)
+            <input type="number" id="maint-amort-cost" class="calc-input" value="1800" min="0" step="50">
+          </label>
+          <label class="field-label">Lifespan Hours
+            <input type="number" id="maint-amort-life" class="calc-input" value="3000" min="100" step="100">
+          </label>
+          <label class="field-label">Tooling Wear ($/hr)
+            <input type="number" id="maint-amort-wear" class="calc-input" value="1.50" min="0" step="0.25">
+          </label>
+          <label class="field-label">Power (Watts)
+            <input type="number" id="maint-amort-watts" class="calc-input" value="800" min="0" step="50">
+          </label>
+          <label class="field-label">Electricity ($/kWh)
+            <input type="number" id="maint-amort-kwh" class="calc-input" value="0.16" min="0" step="0.01">
+          </label>
+        </div>
+        <div class="maint-amort-result-row" style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:12px">
+          <div>Depreciation: <strong id="maint-amort-deprec">$0.60/hr</strong> · Electricity: <strong id="maint-amort-power">$0.13/hr</strong></div>
+          <div>Calculated Machine Rate: <strong id="maint-amort-total" style="font-size:15px;color:var(--green)">$2.23 / hr</strong></div>
         </div>
       </div>
 
@@ -10565,5 +10620,480 @@ With warm regards and friendship,</textarea>
       </div>
     </dialog>
 
+    <!-- ✂️ 9. 2D Sheet Cutlist & Guillotine Nesting Optimizer Dialog -->
+    <dialog class="app-dialog sheet-cutlist-dialog" id="sheet-cutlist-dialog" aria-label="2D Sheet Cutlist &amp; Guillotine Nesting Optimizer">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">STOCK NESTING &amp; YIELD MAXIMIZATION</div>
+          <h2>2D Sheet Cutlist &amp; Scrap Vault</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="cutlist-tab-buttons" style="display:flex;gap:4px">
+            <button type="button" class="button button-small button-primary cutlist-view-tab active" data-cutlist-tab="optimizer">✂️ Optimizer</button>
+            <button type="button" class="button button-small button-outline cutlist-view-tab" data-cutlist-tab="vault">📦 Scrap Vault</button>
+          </div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <!-- Tab 1: Cutlist Optimizer Panel -->
+      <div id="cutlist-optimizer-panel" class="cutlist-panel-section active">
+        <div class="cutlist-layout-grid">
+          <div class="cutlist-sidebar-column">
+            <div class="panel cutlist-setup-panel">
+              <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">📋 Stock Sheet &amp; Kerf</h3>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <label class="field-label">Stock Sheet Preset:
+                  <select id="cutlist-sheet-preset" class="calc-input">
+                    <option value="2440,1220">4×8 ft Plywood / MDF (2440 × 1220 mm)</option>
+                    <option value="1525,1525">5×5 ft Baltic Birch (1525 × 1525 mm)</option>
+                    <option value="600,400">Laser Bed Acrylic / Wood (600 × 400 mm)</option>
+                    <option value="1200,600">Sheet Metal / Aluminum (1200 × 600 mm)</option>
+                    <option value="custom">Custom Dimensions...</option>
+                  </select>
+                </label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label">Sheet Length (mm):
+                    <input type="number" id="cutlist-sheet-w" class="calc-input" value="2440" min="50" step="10">
+                  </label>
+                  <label class="field-label">Sheet Width (mm):
+                    <input type="number" id="cutlist-sheet-h" class="calc-input" value="1220" min="50" step="10">
+                  </label>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                  <label class="field-label">Saw Kerf (mm):
+                    <input type="number" id="cutlist-kerf" class="calc-input" value="3.2" min="0" max="20" step="0.1" title="Saw blade thickness (1/8 inch = ~3.2mm, laser = ~0.2mm)">
+                  </label>
+                  <label class="field-label">Edge Trim (mm):
+                    <input type="number" id="cutlist-margin" class="calc-input" value="10" min="0" max="100" step="5" title="Squaring trim off edges">
+                  </label>
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0 6px">
+                <h3 style="margin:0;font-size:13px">📐 Required Parts List</h3>
+                <div style="display:flex;gap:4px">
+                  <button type="button" class="button button-small button-outline" id="cutlist-sample-parts-btn" style="padding:2px 6px;font-size:10px">Sample Cabinet</button>
+                  <button type="button" class="button button-small button-primary" id="cutlist-add-part-btn" style="padding:2px 8px;font-size:10px">＋ Add Part</button>
+                </div>
+              </div>
+
+              <div class="cutlist-parts-table-wrap">
+                <table class="cutlist-parts-table">
+                  <thead>
+                    <tr>
+                      <th>Part Label</th>
+                      <th>L (mm)</th>
+                      <th>W (mm)</th>
+                      <th>Qty</th>
+                      <th>Rot</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="cutlist-parts-tbody">
+                    <!-- Dynamic rows -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div style="display:flex;gap:6px;margin-top:10px">
+                <button type="button" class="button button-primary" id="cutlist-run-btn" style="flex:1">⚡ Calculate Optimal Layout</button>
+                <button type="button" class="button button-outline" id="cutlist-clear-btn" style="padding:0 10px" title="Clear table">🗑</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="cutlist-display-column">
+            <div class="panel cutlist-metrics-panel">
+              <div class="cutlist-metric-item">
+                <span class="cutlist-metric-val" id="cutlist-stat-sheets">1 Sheet</span>
+                <span class="cutlist-metric-label">Stock Required</span>
+              </div>
+              <div class="cutlist-metric-item">
+                <span class="cutlist-metric-val" id="cutlist-stat-yield" style="color:var(--green)">89.4%</span>
+                <span class="cutlist-metric-label">Material Yield</span>
+              </div>
+              <div class="cutlist-metric-item">
+                <span class="cutlist-metric-val" id="cutlist-stat-waste">10.6%</span>
+                <span class="cutlist-metric-label">Scrap Offcut</span>
+              </div>
+              <div class="cutlist-metric-item">
+                <span class="cutlist-metric-val" id="cutlist-stat-cutlength">18.4 m</span>
+                <span class="cutlist-metric-label">Total Cut Path</span>
+              </div>
+            </div>
+
+            <div class="cutlist-canvas-container">
+              <div class="cutlist-canvas-toolbar">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button type="button" class="button button-small button-outline" id="cutlist-prev-sheet-btn">◀</button>
+                  <span id="cutlist-sheet-counter" style="font-weight:700;font-size:11px">Sheet 1 of 1</span>
+                  <button type="button" class="button button-small button-outline" id="cutlist-next-sheet-btn">▶</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button type="button" class="button button-small button-outline" id="cutlist-save-scraps-btn">📦 Save Offcuts to Vault</button>
+                  <button type="button" class="button button-small button-outline" id="cutlist-print-ticket-btn">🖨️ Print Cut Ticket</button>
+                </div>
+              </div>
+              <canvas id="cutlist-canvas" width="760" height="460"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Scrap & Offcut Vault Panel -->
+      <div id="cutlist-vault-panel" class="cutlist-panel-section" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="search" id="vault-search" placeholder="Search wood, acrylic, sheet scraps..." style="font-size:12px;padding:5px 8px;width:240px">
+            <select id="vault-material-filter" class="calc-input" style="font-size:12px">
+              <option value="all">All Materials</option>
+              <option value="Hardwood">Hardwood / Lumber</option>
+              <option value="Plywood">Plywood / Sheet</option>
+              <option value="Acrylic">Acrylic / Plastic</option>
+              <option value="Metal">Aluminum / Steel</option>
+              <option value="Leather">Leather Offcuts</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="button button-small button-outline" id="vault-match-parts-btn">🔍 Match Against Active Cutlist</button>
+            <button type="button" class="button button-small button-primary" id="vault-add-piece-btn">＋ Add Scrap Piece</button>
+          </div>
+        </div>
+
+        <div id="vault-match-banner" style="display:none;padding:8px 12px;background:rgba(16,185,129,0.1);border:1px solid var(--green);border-radius:6px;margin-bottom:12px;font-size:12px"></div>
+
+        <div class="scrap-vault-grid" id="scrap-vault-grid">
+          <!-- Dynamic scrap cards -->
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🌡️ 10. Workshop Climate, Curing & Finishing Advisor Dialog -->
+    <dialog class="app-dialog climate-advisor-dialog" id="climate-advisor-dialog" aria-label="Workshop Climate, Curing &amp; Finishing Advisor">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">ENVIRONMENTAL ATMOSPHERIC PHYSICS</div>
+          <h2>Workshop Climate, Curing &amp; Finishing Advisor</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="climate-controls-row">
+        <div class="climate-input-group">
+          <label class="field-label">Workshop Temperature:
+            <div style="display:flex;gap:4px">
+              <input type="number" id="climate-temp-val" class="calc-input" value="21" step="0.5" style="width:90px">
+              <select id="climate-temp-unit" class="calc-input" style="width:65px">
+                <option value="C">°C</option>
+                <option value="F">°F</option>
+              </select>
+            </div>
+          </label>
+        </div>
+
+        <div class="climate-input-group" style="flex:1">
+          <label class="field-label" style="display:flex;justify-content:space-between">
+            <span>Relative Humidity (RH):</span>
+            <strong id="climate-rh-display" style="color:var(--primary)">50%</strong>
+          </label>
+          <input type="range" id="climate-rh-val" min="10" max="95" value="50" style="width:100%">
+        </div>
+
+        <div class="climate-input-group">
+          <label class="field-label">Target Wood Species:
+            <select id="climate-wood-select" class="calc-input">
+              <option value="0.00369" data-name="White Oak">White Oak (Tangential 0.00369)</option>
+              <option value="0.00274" data-name="Black Walnut">Black Walnut (Tangential 0.00274)</option>
+              <option value="0.00353" data-name="Hard Maple">Hard Maple (Tangential 0.00353)</option>
+              <option value="0.00248" data-name="Black Cherry">Black Cherry (Tangential 0.00248)</option>
+              <option value="0.00263" data-name="Eastern White Pine">White Pine (Tangential 0.00263)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="climate-input-group">
+          <label class="field-label">Finish / Coating:
+            <select id="climate-finish-select" class="calc-input">
+              <option value="lacquer">Nitrocellulose Spray Lacquer</option>
+              <option value="poly">Oil-Based Polyurethane / Varnish</option>
+              <option value="waterpoly">Waterborne Polyurethane / Acrylic</option>
+              <option value="epoxy">Deep Pour / Tabletop Epoxy Resin</option>
+              <option value="shellac">Dewaxed Shellac</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="climate-cards-grid">
+        <!-- Card 1: Dew Point & Blushing Risk -->
+        <div class="panel climate-card" id="climate-card-blush">
+          <div class="climate-card-header">
+            <span class="climate-card-icon">🌫️</span>
+            <h3 style="margin:0;font-size:13px">Dew Point &amp; Finish Blushing</h3>
+          </div>
+          <div class="climate-metric-num" id="climate-dewpoint-val">10.2 °C</div>
+          <div class="climate-badge-status" id="climate-blush-status">Safe: Optimal Finishing Window</div>
+          <p class="climate-card-desc" id="climate-blush-advice">Ambient is 10.8°C above dew point. Solvents can evaporate smoothly with no condensation blush.</p>
+        </div>
+
+        <!-- Card 2: Epoxy & Silicone Cure Rate -->
+        <div class="panel climate-card" id="climate-card-epoxy">
+          <div class="climate-card-header">
+            <span class="climate-card-icon">🧪</span>
+            <h3 style="margin:0;font-size:13px">Epoxy &amp; Resin Curing Speed</h3>
+          </div>
+          <div class="climate-metric-num" id="climate-epoxy-speed">1.00× (Nominal)</div>
+          <div class="climate-badge-status" id="climate-epoxy-status">Balanced Pot Life</div>
+          <p class="climate-card-desc" id="climate-epoxy-advice">Standard 24-hr cure will take ~24.0 hours. Nominal working pot life is ~45 minutes with low thermal exotherm risk.</p>
+        </div>
+
+        <!-- Card 3: Wood Movement & EMC -->
+        <div class="panel climate-card" id="climate-card-wood">
+          <div class="climate-card-header">
+            <span class="climate-card-icon">🪵</span>
+            <h3 style="margin:0;font-size:13px">Wood EMC &amp; Seasonal Expansion</h3>
+          </div>
+          <div class="climate-metric-num" id="climate-emc-val">9.3% EMC</div>
+          <div class="climate-badge-status" id="climate-wood-status">Standard Indoor Humidity</div>
+          <p class="climate-card-desc" id="climate-wood-advice">A 900mm (36″) wide solid tabletop will fluctuate by ±4.8 mm between dry winter and humid summer. Provide slotted screw holes.</p>
+        </div>
+
+        <!-- Card 4: 3D Filament Moisture -->
+        <div class="panel climate-card" id="climate-card-filament">
+          <div class="climate-card-header">
+            <span class="climate-card-icon">🧵</span>
+            <h3 style="margin:0;font-size:13px">3D Filament Moisture Risk</h3>
+          </div>
+          <div class="climate-metric-num" id="climate-filament-val">Moderate RH (50%)</div>
+          <div class="climate-badge-status" id="climate-filament-status">PLA Safe · Dry Nylon</div>
+          <p class="climate-card-desc" id="climate-filament-advice">PLA can remain open for ~7 days. Dry Nylon / PETG at 65°C for 6 hours prior to high-detail prints.</p>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🎙️ 11. Workshop Audio Spindle Tachometer & dB Sound Level Monitor Dialog -->
+    <dialog class="app-dialog audio-tuner-dialog" id="audio-tuner-dialog" aria-label="Workshop Audio Spindle Tachometer &amp; dB Sound Level Monitor">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">ACOUSTIC FREQUENCY &amp; DECIBEL PHYSICS</div>
+          <h2>Acoustic Spindle Tachometer &amp; dB Monitor</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-primary" id="audio-toggle-listen-btn">🎙️ Start Listening</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="audio-tuner-grid">
+        <!-- Left Panel: Sound Level Meter & Hearing Safety -->
+        <div class="panel audio-meter-panel">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">📢 Sound Pressure &amp; OSHA Exposure</h3>
+          
+          <div class="audio-db-hero">
+            <div class="audio-db-reading" id="audio-db-reading">42.5 <span style="font-size:16px;color:var(--muted)">dB</span></div>
+            <div class="audio-db-status-badge" id="audio-db-status">Safe Environment (&lt;70 dB)</div>
+          </div>
+
+          <div class="audio-meter-bar-wrap">
+            <div class="audio-meter-bar" id="audio-meter-bar" style="width:25%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px">
+            <span>40 dB (Whisper)</span>
+            <span>85 dB (OSHA Limit)</span>
+            <span>120 dB (Max Danger)</span>
+          </div>
+
+          <div class="audio-safety-box" id="audio-safety-box">
+            <strong id="audio-safety-title">Hearing Protection: Not Required</strong>
+            <p id="audio-safety-desc" style="margin:4px 0 0;font-size:11px;color:var(--muted)">Ambient noise is within comfortable conversational range. Safe for continuous 8+ hours exposure.</p>
+          </div>
+        </div>
+
+        <!-- Right Panel: Acoustic Spindle RPM Tachometer -->
+        <div class="panel audio-tach-panel">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:8px">
+            <h3 style="margin:0;font-size:13px">⚙️ Acoustic Spindle RPM Tachometer</h3>
+            <label class="field-label" style="margin:0;display:flex;align-items:center;gap:6px;font-size:11px">
+              Target Tool:
+              <select id="audio-tool-preset" class="calc-input" style="padding:2px 6px;font-size:11px">
+                <option value="2">Router (2-Flute Bit)</option>
+                <option value="1">Router / Spindle (1-Flute)</option>
+                <option value="3">Lathe Spindle (3-Jaw Chuck)</option>
+                <option value="40">Table Saw (40-Tooth Blade)</option>
+                <option value="24">Miter Saw (24-Tooth Blade)</option>
+                <option value="4">Dust Collector / Impeller (4 Blades)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="audio-tach-hero">
+            <div>
+              <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Estimated Speed</span>
+              <div class="audio-rpm-reading" id="audio-rpm-reading">— <span style="font-size:16px;color:var(--muted)">RPM</span></div>
+            </div>
+            <div style="text-align:right">
+              <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Dominant Peak</span>
+              <div class="audio-freq-reading" id="audio-freq-reading">— <span style="font-size:14px;color:var(--muted)">Hz</span></div>
+            </div>
+          </div>
+
+          <div class="audio-canvas-wrap">
+            <canvas id="audio-spectrum-canvas" width="480" height="160"></canvas>
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-top:2px">
+              <span>0 Hz</span>
+              <span>FFT Spectrum</span>
+              <span>2,000 Hz</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 📖 12. IKEA-Style Step-by-Step Illustrated Assembly Manual Generator Dialog -->
+    <dialog class="app-dialog assembly-manual-dialog" id="assembly-manual-dialog" aria-label="Step-by-Step Illustrated Assembly Manual Generator">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">TECHNICAL ILLUSTRATION &amp; INSTRUCTIONS</div>
+          <h2>Step-by-Step Assembly Manual Generator</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="manual-print-btn">🖨️ Print / PDF Manual</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="manual-toolbar">
+        <label class="field-label" style="margin:0;display:flex;align-items:center;gap:6px">
+          Source Project:
+          <select id="manual-project-select" class="calc-input" style="font-size:12px;max-width:260px">
+            <!-- Dynamic project list -->
+          </select>
+        </label>
+        <button type="button" class="button button-small button-outline" id="manual-sample-blueprint-btn">Load Sample Credenza Blueprint</button>
+        <label style="font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="manual-interactive-check" checked>
+          <span>Interactive Checkbox Mode</span>
+        </label>
+      </div>
+
+      <div class="manual-document-container" id="manual-document-container">
+        <!-- Rendered dynamically -->
+      </div>
+    </dialog>
+
+    <!-- 🎨 13. Color Science & Pigment Matching Blender Dialog -->
+    <dialog class="app-dialog pigment-blender-dialog" id="pigment-blender-dialog" aria-label="Color Science &amp; Pigment Matching Blender">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">SUBTRACTIVE CHROMATICS &amp; WOOD STAINS</div>
+          <h2>Color Science &amp; Pigment Matching Blender</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="pigment-picker-strip">
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="color" id="pigment-color-picker" value="#9b4d1b" style="width:44px;height:40px;padding:0;border:none;cursor:pointer;border-radius:4px">
+          <div>
+            <label class="field-label" style="margin:0">Hex Color:
+              <input type="text" id="pigment-hex-input" class="calc-input" value="#9B4D1B" maxlength="7" style="width:90px;font-family:monospace;font-weight:700">
+            </label>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--muted)">Presets:</span>
+          <button type="button" class="pigment-preset-chip" data-color="#5C3A21" style="background:#5C3A21" title="Walnut"></button>
+          <button type="button" class="pigment-preset-chip" data-color="#B87333" style="background:#B87333" title="Copper"></button>
+          <button type="button" class="pigment-preset-chip" data-color="#0E7490" style="background:#0E7490" title="Teal Resin"></button>
+          <button type="button" class="pigment-preset-chip" data-color="#991B1B" style="background:#991B1B" title="Cherry Stain"></button>
+          <button type="button" class="pigment-preset-chip" data-color="#4B5563" style="background:#4B5563" title="Weathered Grey"></button>
+        </div>
+
+        <label class="button button-small button-outline" style="cursor:pointer;margin:0">
+          📷 Eye-Drop from Image
+          <input type="file" id="pigment-image-input" accept="image/*" style="display:none">
+        </label>
+      </div>
+
+      <div class="pigment-results-grid">
+        <!-- Panel 1: CMYK Subtractive Paint Mixing -->
+        <div class="panel pigment-solver-panel">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">🎨 Primary Paint &amp; Pigment Formulation</h3>
+          <p class="form-hint" style="margin-bottom:10px">Proportional recipe to mix this exact shade from primary base artist pigments.</p>
+          <div class="pigment-bars-list" id="pigment-cmyk-list">
+            <!-- Dynamic bars -->
+          </div>
+        </div>
+
+        <!-- Panel 2: Wood Stain Formulation -->
+        <div class="panel pigment-solver-panel">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">🪵 Custom Wood Stain Blend</h3>
+          <p class="form-hint" style="margin-bottom:10px">Parts ratio of standard hardware store oil stains to achieve this tone.</p>
+          <div class="stain-parts-card" id="stain-parts-card">
+            <!-- Dynamic stain parts -->
+          </div>
+        </div>
+
+        <!-- Panel 3: Resin Dye & Mica Powder -->
+        <div class="panel pigment-solver-panel">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">🧪 Epoxy Tint &amp; Pearlescent Mica Recipe</h3>
+          <p class="form-hint" style="margin-bottom:10px">Per 100g of mixed epoxy resin for casting and river tables.</p>
+          <div class="resin-tint-spec" id="resin-tint-spec">
+            <!-- Dynamic resin recipe -->
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 📦 14. Multi-Store Shopping Cart & Vendor Purchase Order Exporter Dialog -->
+    <dialog class="app-dialog vendor-export-dialog" id="vendor-export-dialog" aria-label="Multi-Store Shopping Cart &amp; Vendor Purchase Order Exporter">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">SUPPLY CHAIN &amp; PROCUREMENT</div>
+          <h2>Multi-Store Vendor PO &amp; Cart Exporter</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="vendor-download-csv-btn">📥 Download Formatted CSV</button>
+          <button type="button" class="button button-small button-outline" id="vendor-print-po-btn">🖨️ Print Purchase Order</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="vendor-category-tabs" id="vendor-category-tabs">
+        <button type="button" class="vendor-tab-btn active" data-vendor="all">All Vendors (<span id="vendor-count-all">0</span>)</button>
+        <button type="button" class="vendor-tab-btn" data-vendor="mcmaster">McMaster-Carr / Hardware (<span id="vendor-count-mcmaster">0</span>)</button>
+        <button type="button" class="vendor-tab-btn" data-vendor="digikey">DigiKey / Electronics (<span id="vendor-count-digikey">0</span>)</button>
+        <button type="button" class="vendor-tab-btn" data-vendor="woodcraft">Lumber &amp; Finishing (<span id="vendor-count-woodcraft">0</span>)</button>
+        <button type="button" class="vendor-tab-btn" data-vendor="smoothon">Resins &amp; Silicones (<span id="vendor-count-smoothon">0</span>)</button>
+        <button type="button" class="vendor-tab-btn" data-vendor="amazon">Amazon / Consumables (<span id="vendor-count-amazon">0</span>)</button>
+      </div>
+
+      <div class="vendor-po-sheet" id="vendor-po-sheet">
+        <div class="vendor-po-meta">
+          <div>PO Number: <strong id="vendor-po-num">PO-2026-1024</strong></div>
+          <div>Generated: <strong id="vendor-po-date">Oct 24, 2026</strong></div>
+          <div>Total Estimated Cost: <strong id="vendor-po-total" style="color:var(--green)">$0.00</strong></div>
+        </div>
+        <div class="vendor-table-wrap">
+          <table class="vendor-po-table">
+            <thead>
+              <tr>
+                <th>Category / Supplier</th>
+                <th>Item &amp; Specification</th>
+                <th>Qty</th>
+                <th>Est. Unit</th>
+                <th>Total</th>
+                <th>Direct Search</th>
+              </tr>
+            </thead>
+            <tbody id="vendor-po-tbody">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </dialog>
   </body>
 </html>
