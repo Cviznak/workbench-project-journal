@@ -301,9 +301,17 @@ const imageUrls = new Map();
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const uid = () => (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
-  ? crypto.randomUUID()
-  : "uid_" + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
+const uid = () => {
+  if (typeof crypto !== "undefined") {
+    if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+    if (typeof crypto.getRandomValues === "function") {
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      return Array.from(buf, b => b.toString(16).padStart(2, "0")).join("");
+    }
+  }
+  return "uid_" + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
+};
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -472,7 +480,25 @@ function sanitizeProjectObject(raw) {
     clean.notes = Array.isArray(clean.notes) ? clean.notes : [];
     clean.materials = Array.isArray(clean.materials) ? clean.materials : [];
     clean.folders = Array.isArray(clean.folders) ? clean.folders : [];
-    clean.coCreators = Array.isArray(clean.coCreators) ? clean.coCreators : [];
+    if (clean.creator && typeof clean.creator === "object") {
+      clean.creator = {
+        id: typeof clean.creator.id === "string" ? clean.creator.id.slice(0, 100) : "",
+        name: typeof clean.creator.name === "string" ? clean.creator.name.slice(0, 150) : "Maker",
+        email: typeof clean.creator.email === "string" ? clean.creator.email.slice(0, 150) : ""
+      };
+    }
+    clean.coCreators = Array.isArray(clean.coCreators) ? clean.coCreators.map(c => {
+      if (!c || typeof c !== "object") return null;
+      const rawRole = String(c.role || "Editor").toLowerCase();
+      const role = (rawRole === "viewer" || rawRole === "admin") ? rawRole : "editor";
+      return {
+        id: typeof c.id === "string" ? c.id.slice(0, 100) : "",
+        name: typeof c.name === "string" ? c.name.slice(0, 150) : "Collaborator",
+        email: typeof c.email === "string" ? c.email.slice(0, 150) : "",
+        role,
+        addedAt: typeof c.addedAt === "string" ? c.addedAt : new Date().toISOString()
+      };
+    }).filter(Boolean) : [];
     clean.pinned = Boolean(clean.pinned);
     clean.timeSpent = Number.isFinite(clean.timeSpent) ? clean.timeSpent : 0;
     return clean;
@@ -1087,10 +1113,6 @@ function isGenericName(name) {
 function isPrimaryOwner(user = null) {
   const u = user || getActiveUser();
   if (!u) return false;
-  const email = (u.email || "").toLowerCase().trim();
-  if (email.includes("rakowshik")) return true;
-  const name = (u.displayName || u.display_name || u.name || "").toLowerCase().trim();
-  if (name.includes("rakowshik")) return true;
   const primaryId = getPrimaryAdminId();
   if (u.id && primaryId && u.id === primaryId) return true;
   return Boolean(u.isPrimary);
@@ -1173,8 +1195,7 @@ async function syncUserProfile(userId) {
 
 function ensurePrimaryAdmin(user) {
   if (!user?.id) return;
-  const isOwnerEmail = user.email && user.email.toLowerCase().includes("rakowshik");
-  if (isOwnerEmail || user.isPrimary) {
+  if (user.isPrimary) {
     localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, user.id);
     return;
   }
@@ -1195,6 +1216,19 @@ async function claimPrimaryAdmin() {
   if (existingPrimary && existingPrimary !== user.id) {
     showToast("The Shop Owner role is permanently assigned and immutable.");
     return;
+  }
+
+  try {
+    const ownerRows = await cloudRequest("/rest/v1/workbench_profiles?is_primary=eq.true&select=id");
+    if (Array.isArray(ownerRows) && ownerRows.length > 0 && ownerRows[0]?.id) {
+      localStorage.setItem(PRIMARY_ADMIN_STORAGE_KEY, ownerRows[0].id);
+      if (ownerRows[0].id !== user.id) {
+        showToast("The Shop Owner role is permanently assigned and immutable.");
+        return;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not query primary owner status:", err);
   }
 
   try {
@@ -4989,12 +5023,17 @@ function renderProjectDetail(projectId) {
             <span>👑 <strong>${escapeHTML(project.creator?.name || "Creator")}</strong> created project</span>
             <span style="color:var(--muted);font-size:11px">${relativeTime(project.createdAt || project.updatedAt)}</span>
           </div>
-          ${(project.coCreators || []).map(c => `
+          ${(project.coCreators || []).map(c => {
+            const rawRole = String(c.role || "editor").toLowerCase();
+            const safeRole = (rawRole === "viewer") ? "viewer" : "editor";
+            const roleLabel = safeRole === "viewer" ? "Viewer" : "Editor";
+            return `
             <div class="team-timeline-item">
-              <span>${c.role === "editor" || !c.role ? "✏️" : "👁️"} <strong>${escapeHTML(c.name || c.email)}</strong> joined as ${c.role || "editor"}</span>
-              <span class="collab-role-pill role-${(c.role || "editor").toLowerCase()}">${c.role || "editor"}</span>
+              <span>${safeRole === "editor" ? "✏️" : "👁️"} <strong>${escapeHTML(c.name || c.email || "Collaborator")}</strong> joined as ${roleLabel}</span>
+              <span class="collab-role-pill role-${safeRole}">${roleLabel}</span>
             </div>
-          `).join("")}
+            `;
+          }).join("")}
           ${project.lastStatusChange ? `
             <div class="team-timeline-item">
               <span>🔄 <strong>${escapeHTML(project.lastStatusChange.by)}</strong> changed status to <em>${STATUS_LABELS[safeStatus(project.status)]}</em></span>
@@ -14687,6 +14726,10 @@ $("#auth-dialog")?.addEventListener("cancel", event => {
 /* Admin console listeners */
 $("#admin-create-user-form")?.addEventListener("submit", async event => {
   event.preventDefault();
+  if (!isCurrentUserAdmin()) {
+    showToast("Admin privileges required to create accounts.");
+    return;
+  }
   const name = $("#admin-new-name")?.value?.trim() || "";
   const email = $("#admin-new-email")?.value?.trim() || "";
   const pass = $("#admin-new-password")?.value || "";
@@ -20862,6 +20905,9 @@ function printFormattedMarkdown(projectId) {
     window.print();
     return;
   }
+  try {
+    printWin.opener = null;
+  } catch {}
 
   printWin.document.write(`
     <!DOCTYPE html>
@@ -21038,7 +21084,7 @@ function isProjectCreator(project, user = null, includeAdmin = false) {
   const primaryOwnerFallback = Boolean(
     isPrimaryOwner(curUser) &&
     (!cId || cId === "local-maker" || isGenericName(cName)) &&
-    (!cEmail || cEmail === "local@workbench.maker" || cEmail.includes("rakowshik"))
+    (!cEmail || cEmail === "local@workbench.maker")
   );
 
   if (uId && (emailMatch || nameMatch || primaryOwnerFallback) && (!cId || cId !== uId || cId === "local-maker")) {
@@ -22926,13 +22972,17 @@ function exportProjectBinder(projectId) {
         <strong>${escapeHTML(project.creator?.name || "Creator")}</strong>
         <div style="font-size:12px;color:var(--muted)">${escapeHTML(project.creator?.email || "")}</div>
       </div>
-      ${(project.coCreators || []).map(c => `
+      ${(project.coCreators || []).map(c => {
+        const rawRole = String(c.role || "Editor").toLowerCase();
+        const safeRole = rawRole === "viewer" ? "👁️ Viewer" : "✏️ Editor";
+        return `
         <div class="team-card">
-          <div class="team-role">${c.role === "viewer" ? "👁️ Viewer" : "✏️ " + (c.role || "Editor")}</div>
+          <div class="team-role">${safeRole}</div>
           <strong>${escapeHTML(c.name || c.email || "Collaborator")}</strong>
           <div style="font-size:12px;color:var(--muted)">${escapeHTML(c.email || "")}</div>
         </div>
-      `).join("")}
+        `;
+      }).join("")}
     </div>
   </section>
   ` : ""}
@@ -36574,7 +36624,8 @@ function updateCandleCalc() {
   const vesselMode = $("#candle-vessel-mode")?.value || "volume";
   const volUnit = $("#candle-vol-unit")?.value || "ml";
   const count = Math.max(1, parseInt($("#candle-count")?.value, 10) || 1);
-  const fragPct = parseFloat($("#candle-fragrance-pct")?.value) || 9.0;
+  const rawFrag = parseFloat($("#candle-fragrance-pct")?.value);
+  const fragPct = Number.isFinite(rawFrag) && rawFrag >= 0 ? rawFrag : 9.0;
   const res = $("#candle-calc-result");
   if (!res) return;
 
@@ -37018,11 +37069,23 @@ function updateSolventExtractCalc() {
 }
 
 function updateAlcoholDilutionCalc() {
-  const startAbv = parseFloat($("#distill-start-abv")?.value) || 95;
-  const targetAbv = parseFloat($("#distill-target-abv")?.value) || 50;
+  const startAbv = Math.min(100, Math.max(1, parseFloat($("#distill-start-abv")?.value) || 95));
+  const targetAbv = Math.min(100, Math.max(1, parseFloat($("#distill-target-abv")?.value) || 50));
   const targetVol = Math.max(50, parseFloat($("#distill-target-volume")?.value) || 500);
   const res = $("#distill-dilution-result");
   if (!res) return;
+
+  if (targetAbv >= startAbv) {
+    res.innerHTML = `
+      <div class="resin-exotherm-alert resin-alert-warn" style="margin-top:4px">
+        <span>⚠️</span>
+        <div>
+          <strong>INVALID DILUTION TARGET:</strong> Target ABV (${targetAbv}%) must be strictly lower than starting spirit ABV (${startAbv}%). Water only dilutes alcohol; it cannot raise proof.
+        </div>
+      </div>
+    `;
+    return;
+  }
 
   // Pearson's Square: C1 * V1 = C2 * V2
   const rawAlcoholMl = (targetAbv / startAbv) * targetVol;
