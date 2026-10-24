@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3914,7 +3914,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     laser: "Laser Cutting & Engraving Studio",
     leather: "Leathercraft & Stitching Studio",
     ceramics: "Ceramics & Pottery Studio",
-    welding: "Welding & Metal Fabrication Studio"
+    welding: "Welding & Metal Fabrication Studio",
+    cnc: "CNC Machining & Milling Studio",
+    blacksmith: "Blacksmithing & Bladesmithing Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3950,6 +3952,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "leather") renderLeatherView();
   if (targetView === "ceramics") renderCeramicsView();
   if (targetView === "welding") renderWeldingView();
+  if (targetView === "cnc") renderCncView();
+  if (targetView === "blacksmith") renderBlacksmithView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -7040,6 +7044,32 @@ const WORKSHOP_STARTER_KITS = {
       { type: "equipment", name: "Magnetic Multi-Angle Ground Clamp & Clamping Square (4-pack)", category: "Hand Tools & Measuring", brand: "Strong Hand Tools", cost: 48.00, condition: "operational", location: "Steel Fab Table", specs: "50 lb pull strength · 45°/90°/135°", notes: "Wipe metal shavings off magnets before precision layout" },
       { type: "material", name: "ER70S-6 Mild Steel MIG Wire 0.030\" (11 lb Spool)", category: "Welding, Gas & Wire", quantity: 1, unit: "spool", price: 29.50, cost: 29.50, lowStockThreshold: 1, location: "MIG Machine Spool Hub", supplier: "Hobart", notes: "Deoxidized with silicon and manganese for clean arc with C25 gas" },
       { type: "material", name: "Heavy Duty Premium Goat-Grain TIG/MIG Gloves (Pair)", category: "Safety Gear & PPE", quantity: 2, unit: "pairs", price: 18.00, cost: 36.00, lowStockThreshold: 1, location: "Safety Cabinet", supplier: "Tillman", notes: "Kevlar stitched heat-resistant goatskin" }
+    ]
+  },
+  cnc: {
+    title: "CNC Machining & Router Starter Kit",
+    icon: "⚙️",
+    category: "CNC Bits & Tooling",
+    description: "Solid carbide upcut, downcut, compression spiral bits, 60° V-groove bit, precision ER20 collet set, and collet wrench.",
+    items: [
+      { type: "equipment", name: "High-Precision ER20 Spring Collet Set (1/8\", 1/4\", 3/8\", 1/2\")", category: "Hand Tools & Measuring", brand: "Techniks", cost: 68.00, condition: "operational", location: "CNC Spindle Drawer", specs: "T.I.R. < 0.0002\" precision runout", notes: "Clean collet cone and nut threads before torquing endmills" },
+      { type: "equipment", name: "Solid Carbide 1/4\" Upcut Spiral Endmill (2-Flute)", category: "Hand Tools & Measuring", brand: "Amana Tool", model: "46102-K", cost: 36.00, condition: "operational", location: "Bit Block 1", specs: "Spektra extreme tool life coating", notes: "Superior chip evacuation on deep pockets and through-mortises" },
+      { type: "equipment", name: "Solid Carbide 1/4\" Compression Spiral Endmill", category: "Hand Tools & Measuring", brand: "Amana Tool", model: "46170-K", cost: 44.00, condition: "operational", location: "Bit Block 1", specs: "Dual upcut/downcut shear geometry", notes: "Prevents veneer tearout on both top and bottom faces of plywood" },
+      { type: "equipment", name: "Solid Carbide 60° V-Groove Lettering & Chamfer Bit", category: "Hand Tools & Measuring", brand: "Whiteside", model: "1540", cost: 24.50, condition: "operational", location: "Bit Block 2", specs: "1/4\" shank 60-degree point", notes: "Ideal for fine V-carving text, signage, and edge chamfers" },
+      { type: "material", name: "Double-Sided CNC Spoilboard Hold-Down Tape (36 yd)", category: "Finishes & Adhesives", quantity: 1, unit: "roll", price: 16.00, cost: 16.00, lowStockThreshold: 1, location: "CNC Shelf", supplier: "XFasten", notes: "Leaves zero gummy residue on wood bottom or spoilboard MDF" }
+    ]
+  },
+  blacksmith: {
+    title: "Blacksmithing & Knife Making Studio Kit",
+    icon: "⚒️",
+    category: "Blacksmithing, Steels & Gas",
+    description: "Hand-forged rounding hammer, Wolf Jaw tongs, Parks 50 fast quench oil, AISI 1095 & 15N20 Damascus steel billet stock.",
+    items: [
+      { type: "equipment", name: "Blacksmith Swedish Pattern Rounding Hammer (2.5 lb)", category: "Hand Tools & Measuring", brand: "Picard", cost: 62.00, condition: "operational", location: "Anvil Tool Rack", specs: "C45 carbon steel · crowned flat and round faces", notes: "Flat face for drawing out; rounded face for fast fullering" },
+      { type: "equipment", name: "Wolf Jaw Blacksmithing Tongs (16\")", category: "Hand Tools & Measuring", brand: "Centaur Forge", cost: 42.00, condition: "operational", location: "Forge Wall Hook", specs: "Holds round, square, and flat blade stock securely", notes: "Never quench tongs cold in water while holding red hot steel" },
+      { type: "equipment", name: "Digital Magnetic Contact Thermometer & Curie Magnet", category: "Hand Tools & Measuring", brand: "ThermoWorks", cost: 38.00, condition: "operational", location: "Quench Tank Bench", specs: "Tests 1414°F non-magnetic phase shift", notes: "Verify steel is non-magnetic before final soak and quench" },
+      { type: "material", name: "Parks 50 Fast Knife Quench Oil (1 Gallon)", category: "Other Supplies", quantity: 1, unit: "gal", price: 38.00, cost: 38.00, lowStockThreshold: 1, location: "Steel Quench Tank", supplier: "Maxim Oil", notes: "Engineered specifically for 1095 and W2 to beat the 9-second nose curve" },
+      { type: "material", name: "AISI 1095 & 15N20 Precision Ground Blade Bar Assortment", category: "Raw Metals & Acrylic", quantity: 4, unit: "bars", price: 14.50, cost: 58.00, lowStockThreshold: 2, location: "Steel Rack B2", supplier: "New Jersey Steel Baron", notes: "1.5\" x 0.156\" x 12\" annealed high-carbon flat bars for Damascus forge welding" }
     ]
   }
 };
@@ -10636,6 +10666,30 @@ async function handleAction(action, target) {
   }
   if (action === "add-welding-supplies") {
     void addWeldingSupplies();
+    return;
+  }
+  if (action === "copy-cnc-specs") {
+    copyCncSpecs();
+    return;
+  }
+  if (action === "add-cnc-supplies") {
+    void addCncSupplies();
+    return;
+  }
+  if (action === "simulate-cnc-gcode") {
+    simulateCncGcode();
+    return;
+  }
+  if (action === "reset-cnc-gcode") {
+    resetCncGcode();
+    return;
+  }
+  if (action === "copy-forge-specs") {
+    copyForgeSpecs();
+    return;
+  }
+  if (action === "add-forge-supplies") {
+    void addForgeSupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -30300,6 +30354,691 @@ function renderWeldingView() {
   updateWeldHeatCalc();
 }
 
+// ============================================================
+// ⚙️ CNC Machining & Milling Studio Calculations & Handlers
+// ============================================================
+const CNC_MATERIALS = {
+  hardwood: { sfm: 600, chip: 0.0035, hpFactor: 1.1, name: "Hardwood (Oak, Walnut, Maple)" },
+  softwood: { sfm: 900, chip: 0.0045, hpFactor: 0.8, name: "Softwood (Pine, Cedar, Fir)" },
+  plywood: { sfm: 750, chip: 0.0038, hpFactor: 0.9, name: "Baltic Birch / Plywood" },
+  mdf: { sfm: 800, chip: 0.0040, hpFactor: 0.85, name: "MDF / Draftboard" },
+  acrylic: { sfm: 500, chip: 0.0028, hpFactor: 0.7, name: "Cast Acrylic / PMMA" },
+  delrin: { sfm: 600, chip: 0.0038, hpFactor: 0.65, name: "Delrin / Acetal POM" },
+  aluminum: { sfm: 250, chip: 0.0015, hpFactor: 1.8, name: "6061-T6 Aluminum" },
+  brass: { sfm: 300, chip: 0.0018, hpFactor: 1.6, name: "C360 Free-Cutting Brass" }
+};
+
+let cncSimTimer = null;
+let cncSimStep = 0;
+let cncSimPaths = [];
+
+function copyCncSpecs() {
+  const feedsText = $("#cnc-feeds-result")?.innerText || "";
+  const scallopText = $("#cnc-scallop-result")?.innerText || "";
+  const deflectText = $("#cnc-deflect-result")?.innerText || "";
+  const text = `⚙️ CNC MACHINING FEEDS, SPEEDS & TOOLPATH SPEC SHEET\n\n${feedsText}\n\n${scallopText}\n\n${deflectText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied CNC Machining Specs to clipboard!"));
+}
+
+async function addCncSupplies() {
+  const dia = $("#cnc-tool-dia option:checked")?.textContent.split("(")[0].trim() || "1/4\"";
+  const bit = $("#cnc-bit-type option:checked")?.textContent.split("(")[0].trim() || "Solid Carbide Endmill";
+  await addMaterialToProjectShopping(`${dia} ${bit}`, "1 bit", 36.00, "CNC Bits & Tooling");
+}
+
+function updateCncFeeds() {
+  const matKey = $("#cnc-material")?.value || "hardwood";
+  const bitType = $("#cnc-bit-type")?.value || "upcut_2f";
+  const toolDia = parseFloat($("#cnc-tool-dia")?.value) || 0.250;
+  const spindleType = $("#cnc-spindle-type")?.value || "router_dw";
+  const doc = Math.max(0.01, parseFloat($("#cnc-doc-in")?.value) || 0.125);
+  const wocPct = Math.max(5, Math.min(100, parseFloat($("#cnc-woc-pct")?.value) || 40));
+  const res = $("#cnc-feeds-result");
+  if (!res) return;
+
+  const mat = CNC_MATERIALS[matKey] || CNC_MATERIALS.hardwood;
+  let flutes = 2;
+  if (bitType === "surfacing") flutes = 3;
+  if (toolDia <= 0.0625) flutes = 1;
+
+  // Spindle constraints
+  const spindleRanges = {
+    router_dw: [16000, 27000, "DeWalt/Makita Trim Router (Dial 1–6)"],
+    vfd_spindle: [8000, 24000, "VFD Spindle (ER20 / 2.2kW)"],
+    desktop_cnc: [5000, 12000, "Desktop 775 / Genmitsu Hobby"]
+  };
+  const [minRpm, maxRpm, spindleName] = spindleRanges[spindleType] || spindleRanges.router_dw;
+
+  // Theoretical RPM = (SFM * 3.82) / Diameter
+  const rawRpm = Math.round((mat.sfm * 3.82) / toolDia);
+  const clampedRpm = Math.max(minRpm, Math.min(maxRpm, rawRpm));
+
+  // Feed Rate IPM = RPM * flutes * chipLoad
+  const chipLoad = mat.chip * (toolDia / 0.250); // scales proportionally with bit size
+  const feedIpm = Math.round(clampedRpm * flutes * chipLoad);
+  const feedMmpm = Math.round(feedIpm * 25.4);
+  const plungeIpm = Math.round(feedIpm * 0.35);
+  const plungeMmpm = Math.round(plungeIpm * 25.4);
+
+  // Material Removal Rate (MRR) = Feed * DOC * WOC
+  const wocIn = toolDia * (wocPct / 100);
+  const mrr = (feedIpm * doc * wocIn).toFixed(2);
+  const estHp = (mrr * mat.hpFactor * 0.12).toFixed(2);
+
+  let bitGuidance = "Standard two-flute tool.";
+  if (bitType === "upcut_2f") bitGuidance = "High upward chip evacuation; ideal for deep pockets and slotting. May produce slight fuzz on top edge of wood.";
+  else if (bitType === "downcut_2f") bitGuidance = "Forces chips down; leaves pristine razor-clean top veneer on plywood and laminated sheet goods.";
+  else if (bitType === "compression") bitGuidance = "Upcut tip + downcut upper flutes. Clean edges on both top and bottom surfaces of plywood.";
+  else if (bitType === "ballnose") bitGuidance = "Spherical hemispherical tip. Use 8–12% stepover for smooth 3D organic finishing.";
+  else if (bitType === "vbit_90") bitGuidance = "V-carving bit; enter depth determines line width. Ramp into vector corners.";
+
+  res.innerHTML = `
+    <div class="welding-stat-grid" style="margin-bottom:8px">
+      <div class="welding-param-card">
+        <span class="label">Spindle Speed</span>
+        <span class="value">${clampedRpm.toLocaleString()} <span style="font-size:11px;font-weight:normal">RPM</span></span>
+        <div class="hint">${spindleName.split("(")[0].trim()}</div>
+      </div>
+      <div class="welding-param-card">
+        <span class="label">Cutting Feed Rate</span>
+        <span class="value">${feedIpm} <span style="font-size:11px;font-weight:normal">IPM</span></span>
+        <div class="hint">${feedMmpm.toLocaleString()} mm/min</div>
+      </div>
+      <div class="welding-param-card">
+        <span class="label">Plunge Rate</span>
+        <span class="value">${plungeIpm} <span style="font-size:11px;font-weight:normal">IPM</span></span>
+        <div class="hint">${plungeMmpm} mm/min (Ramp 20°)</div>
+      </div>
+      <div class="welding-param-card">
+        <span class="label">Chip Load</span>
+        <span class="value">${chipLoad.toFixed(4)}"</span>
+        <div class="hint">${(chipLoad * 25.4).toFixed(3)} mm / tooth</div>
+      </div>
+      <div class="welding-param-card">
+        <span class="label">Removal Rate (MRR)</span>
+        <span class="value">${mrr} <span style="font-size:11px;font-weight:normal">in³/min</span></span>
+        <div class="hint">~${estHp} Spindle HP draw</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      💡 <strong>Bit Geometry:</strong> ${bitGuidance}<br>
+      📐 <strong>Cut Depth &amp; Stepover:</strong> DOC: <strong>${doc}"</strong> (${(doc * 25.4).toFixed(2)} mm) · Stepover: <strong>${wocPct}%</strong> (${wocIn.toFixed(3)}" / ${(wocIn * 25.4).toFixed(2)} mm).
+    </div>
+  `;
+}
+
+function updateCncScallop() {
+  const r = Math.max(0.1, parseFloat($("#cnc-scallop-radius")?.value) || 1.587);
+  const s = Math.max(0.01, parseFloat($("#cnc-scallop-stepover")?.value) || 0.30);
+  const res = $("#cnc-scallop-result");
+  if (!res) return;
+
+  // Cusp height h = R - sqrt(R^2 - (S/2)^2)
+  let cuspMm = 0;
+  if (s < 2 * r) {
+    cuspMm = r - Math.sqrt(Math.pow(r, 2) - Math.pow(s / 2, 2));
+  } else {
+    cuspMm = r;
+  }
+  const cuspMicrons = (cuspMm * 1000).toFixed(1);
+  const cuspInches = (cuspMm / 25.4).toFixed(5);
+  const stepoverPct = ((s / (2 * r)) * 100).toFixed(0);
+
+  let finishQuality = "Super Fine (Near Optical)";
+  let sandAdvice = "Minimal to zero hand-sanding needed. Ready for direct oil / finish.";
+  if (cuspMicrons > 25.0) {
+    finishQuality = "Rough Corduroy Ridges";
+    sandAdvice = "Heavy visible stepping ridges. Requires 80–120 grit aggressive hand sanding.";
+  } else if (cuspMicrons > 10.0) {
+    finishQuality = "Medium Satin 3D Finish";
+    sandAdvice = "Moderate scallop. Quick pass with 220–320 grit sandpaper will smooth clean.";
+  }
+
+  res.innerHTML = `
+    <div class="cnc-scallop-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${finishQuality}</strong>
+        <span style="font-size:11px;color:var(--primary);font-weight:bold">Cusp Height: ${cuspMicrons} µm</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;font-size:11px;margin-bottom:6px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Cusp Depth (in)</span>
+          <strong>${cuspInches}"</strong>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Stepover %</span>
+          <strong>${stepoverPct}% of tool dia</strong>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Est. Ra Finish</span>
+          <strong>~${(cuspMicrons / 4).toFixed(1)} µm Ra</strong>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--ink-secondary)">🪵 <strong>Sanding Profile:</strong> ${sandAdvice}</div>
+    </div>
+  `;
+}
+
+function updateCncDeflection() {
+  const stickout = Math.max(0.1, parseFloat($("#cnc-deflect-stickout")?.value) || 0.875);
+  const toolDia = parseFloat($("#cnc-tool-dia")?.value) || 0.250;
+  const matType = $("#cnc-deflect-mat")?.value || "carbide";
+  const res = $("#cnc-deflect-result");
+  if (!res) return;
+
+  // Elastic modulus E: Carbide = 85M PSI, HSS = 30M PSI
+  const e = matType === "carbide" ? 85e6 : 30e6;
+  // Second moment of area I = (pi * D^4) / 64
+  const i = (Math.PI * Math.pow(toolDia, 4)) / 64;
+  // Cutting force estimate F_t = 12 lbs for typical 1/4" cut
+  const force = 12.0;
+  // Deflection delta = (F * L^3) / (3 * E * I)
+  const defInches = (force * Math.pow(stickout, 3)) / (3 * e * i);
+  const defMm = defInches * 25.4;
+  const defMicrons = (defMm * 1000).toFixed(1);
+
+  const isSafe = defInches < 0.001; // under 0.001" (25 microns) is rigid and accurate
+  const badgeClass = isSafe ? "cnc-deflect-safe" : "cnc-deflect-warn";
+  const badgeText = isSafe ? "🟢 RIGID & ACCURATE" : "🔴 HIGH BIT FLEX (CHATTER RISK)";
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span class="cnc-deflect-badge ${badgeClass}">${badgeText}</span>
+      <strong style="font-size:15px;color:var(--ink)">${defMicrons} µm <span style="font-size:11px;color:var(--muted)">(${defInches.toFixed(5)}")</span></strong>
+    </div>
+
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      ${isSafe ? 
+        `Deflection is within tight precision tolerances (< 0.001"). Slot walls will be perfectly vertical with zero taper.` :
+        `⚠️ <strong>Deflection Exceeds 0.001" (25 µm):</strong> This stickout length (${stickout}") will cause the bit to flex away from the cut line, creating tapered walls, chatter lines, and high risk of snapped flutes. Choke up the bit in the collet or reduce pass depth.`
+      }
+    </div>
+  `;
+}
+
+const CNC_GCODE_PRESETS = {
+  pocket_spiral: `G90 G21
+G0 Z5.000
+G0 X200.000 Y150.000
+G1 Z-2.000 F600
+G2 X200.000 Y150.000 I15.000 J0.000 F1800
+G2 X200.000 Y150.000 I30.000 J0.000 F1800
+G2 X200.000 Y150.000 I45.000 J0.000 F1800
+G0 Z5.000
+G0 X50.000 Y50.000`,
+
+  star_contour: `G90 G21
+G0 Z5.000
+G0 X200.000 Y70.000
+G1 Z-3.000 F600
+G1 X225.000 Y125.000 F2000
+G1 X285.000 Y130.000
+G1 X240.000 Y170.000
+G1 X255.000 Y230.000
+G1 X200.000 Y195.000
+G1 X145.000 Y230.000
+G1 X160.000 Y170.000
+G1 X115.000 Y130.000
+G1 X175.000 Y125.000
+G1 X200.000 Y70.000
+G0 Z5.000`,
+
+  facing_zigzag: `G90 G21
+G0 Z5.000
+G0 X50.000 Y50.000
+G1 Z-0.500 F800
+G1 X350.000 Y50.000 F3000
+G1 X350.000 Y90.000
+G1 X50.000 Y90.000
+G1 X50.000 Y130.000
+G1 X350.000 Y130.000
+G1 X350.000 Y170.000
+G1 X50.000 Y170.000
+G1 X50.000 Y210.000
+G1 X350.000 Y210.000
+G0 Z5.000`,
+
+  bore_helix: `G90 G21
+G0 Z5.000
+G0 X200.000 Y100.000
+G1 Z0.000 F600
+G2 X200.000 Y100.000 I0.000 J50.000 Z-2.000 F1500
+G2 X200.000 Y100.000 I0.000 J50.000 Z-4.000
+G2 X200.000 Y100.000 I0.000 J50.000 Z-6.000
+G2 X200.000 Y100.000 I0.000 J50.000
+G0 Z5.000`
+};
+
+function parseAndRenderCncGcode(gcodeText) {
+  const svg = $("#cnc-sim-svg");
+  if (!svg) return;
+
+  const lines = gcodeText.split("\n");
+  let curX = 50, curY = 50;
+  let paths = [];
+  let totalCutLen = 0;
+  let totalRapidLen = 0;
+
+  lines.forEach(line => {
+    const l = line.trim().toUpperCase();
+    if (!l || l.startsWith("(") || l.startsWith(";")) return;
+
+    const xMatch = l.match(/X([-\d.]+)/);
+    const yMatch = l.match(/Y([-\d.]+)/);
+    const targetX = xMatch ? parseFloat(xMatch[1]) : curX;
+    const targetY = yMatch ? parseFloat(yMatch[1]) : curY;
+
+    if (l.startsWith("G0")) {
+      const dist = Math.hypot(targetX - curX, targetY - curY);
+      totalRapidLen += dist;
+      paths.push({ type: "G0", x1: curX, y1: curY, x2: targetX, y2: targetY });
+      curX = targetX;
+      curY = targetY;
+    } else if (l.startsWith("G1")) {
+      const dist = Math.hypot(targetX - curX, targetY - curY);
+      totalCutLen += dist;
+      paths.push({ type: "G1", x1: curX, y1: curY, x2: targetX, y2: targetY });
+      curX = targetX;
+      curY = targetY;
+    } else if (l.startsWith("G2") || l.startsWith("G3")) {
+      const iMatch = l.match(/I([-\d.]+)/);
+      const jMatch = l.match(/J([-\d.]+)/);
+      const iVal = iMatch ? parseFloat(iMatch[1]) : 0;
+      const jVal = jMatch ? parseFloat(jMatch[1]) : 0;
+      const dist = Math.PI * 2 * Math.hypot(iVal, jVal);
+      totalCutLen += dist;
+      paths.push({ type: "G2", x1: curX, y1: curY, x2: targetX, y2: targetY, i: iVal, j: jVal });
+      curX = targetX;
+      curY = targetY;
+    }
+  });
+
+  cncSimPaths = paths;
+
+  // Build SVG elements
+  let svgContent = `
+    <defs>
+      <pattern id="cnc-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e293b" stroke-width="0.8"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#cnc-grid)" />
+    <!-- Machine Limits Origin Crosshair -->
+    <path d="M 10 280 L 40 280 M 25 265 L 25 295" stroke="#475569" stroke-width="1.5" />
+    <text x="32" y="275" fill="#64748b" font-size="10" font-family="monospace">(0,0)</text>
+  `;
+
+  paths.forEach(p => {
+    if (p.type === "G0") {
+      svgContent += `<line x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}" stroke="#ef4444" stroke-width="1.2" stroke-dasharray="3,3" />`;
+    } else if (p.type === "G1") {
+      svgContent += `<line x1="${p.x1}" y1="${p.y1}" x2="${p.x2}" y2="${p.y2}" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />`;
+    } else if (p.type === "G2") {
+      const radius = Math.hypot(p.i, p.j);
+      svgContent += `<circle cx="${p.x1 + p.i}" cy="${p.y1 + p.j}" r="${radius}" fill="none" stroke="#4ade80" stroke-width="2" />`;
+    }
+  });
+
+  // Animated tool cursor
+  svgContent += `<circle id="cnc-tool-cursor" cx="${paths[0]?.x1 || 50}" cy="${paths[0]?.y1 || 50}" r="5" fill="#facc15" stroke="#ffffff" stroke-width="1.5" filter="drop-shadow(0 0 6px #facc15)" />`;
+
+  svg.innerHTML = svgContent;
+
+  const res = $("#cnc-gcode-result");
+  if (res) {
+    const estSec = ((totalCutLen / 2000) * 60 + (totalRapidLen / 5000) * 60).toFixed(1);
+    res.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink-secondary)">
+        <span>Vector Cut Distance: <strong>${(totalCutLen).toFixed(0)} mm</strong> · Rapid Transit: <strong>${(totalRapidLen).toFixed(0)} mm</strong></span>
+        <strong style="color:var(--primary)">Estimated Run Time: ~${estSec}s</strong>
+      </div>
+    `;
+  }
+}
+
+function simulateCncGcode() {
+  if (cncSimTimer) clearInterval(cncSimTimer);
+  const status = $("#cnc-sim-status");
+  const cursor = $("#cnc-tool-cursor");
+  if (!cursor || !cncSimPaths.length) return;
+
+  cncSimStep = 0;
+  if (status) status.textContent = "Simulating...";
+
+  cncSimTimer = setInterval(() => {
+    if (cncSimStep >= cncSimPaths.length) {
+      clearInterval(cncSimTimer);
+      cncSimTimer = null;
+      if (status) status.textContent = "✓ Completed";
+      return;
+    }
+    const p = cncSimPaths[cncSimStep];
+    cursor.setAttribute("cx", p.x2);
+    cursor.setAttribute("cy", p.y2);
+    cncSimStep++;
+  }, 120);
+}
+
+function resetCncGcode() {
+  if (cncSimTimer) clearInterval(cncSimTimer);
+  cncSimTimer = null;
+  cncSimStep = 0;
+  const status = $("#cnc-sim-status");
+  if (status) status.textContent = "Ready";
+  const cursor = $("#cnc-tool-cursor");
+  if (cursor && cncSimPaths.length) {
+    cursor.setAttribute("cx", cncSimPaths[0].x1);
+    cursor.setAttribute("cy", cncSimPaths[0].y1);
+  }
+}
+
+function renderCncView() {
+  updateCncFeeds();
+  updateCncScallop();
+  updateCncDeflection();
+  const presetKey = $("#cnc-gcode-preset")?.value || "pocket_spiral";
+  const input = $("#cnc-gcode-input");
+  if (input && !input.value.trim()) {
+    input.value = CNC_GCODE_PRESETS[presetKey];
+  }
+  parseAndRenderCncGcode(input?.value || CNC_GCODE_PRESETS.pocket_spiral);
+}
+
+// ============================================================
+// ⚒️ Blacksmithing & Bladesmithing Studio Calculations & Handlers
+// ============================================================
+function copyForgeSpecs() {
+  const steelText = $("#forge-steel-result")?.innerText || "";
+  const temperText = $("#forge-temper-result")?.innerText || "";
+  const damascusText = $("#forge-damascus-result")?.innerText || "";
+  const text = `⚒️ BLACKSMITHING & BLADESMITHING HEAT TREAT SPEC SHEET\n\n${steelText}\n\n${temperText}\n\n${damascusText}`;
+  void navigator.clipboard.writeText(text).then(() => showToast("Copied Blacksmithing Specs to clipboard!"));
+}
+
+async function addForgeSupplies() {
+  const steel = $("#forge-steel-select option:checked")?.textContent.split("(")[0].trim() || "1095 High Carbon";
+  await addMaterialToProjectShopping(`${steel} Precision Ground Flat Bar (1.5" x 0.156" x 12")`, "2 bars", 29.00, "Blacksmithing, Steels & Gas");
+}
+
+function updateForgeSteel() {
+  const steelKey = $("#forge-steel-select")?.value || "1095";
+  const bladeType = $("#forge-blade-type")?.value || "chef";
+  const res = $("#forge-steel-result");
+  if (!res) return;
+
+  const steelData = {
+    "1095": {
+      name: "AISI 1095 High Carbon Simple Steel",
+      carbon: "0.95% Carbon",
+      austTemp: "1475°F (802°C)",
+      soak: "5–10 Minutes",
+      quenchOil: "Fast Oil (Parks 50 / 9-second oil)",
+      quenchTemp: "65°F – 75°F",
+      asQuenchedHrc: "66 – 67 HRC",
+      curie: "Non-magnetic transition at 1414°F (Curie point). Heat ~60°F past shadow fade.",
+      normCycles: "1600°F -> 1525°F -> 1450°F (Three thermal cycles in air to eliminate forging stress)."
+    },
+    "5160": {
+      name: "AISI 5160 Chromium Spring Steel",
+      carbon: "0.60% Carbon, 0.80% Chromium",
+      austTemp: "1525°F (830°C)",
+      soak: "5 Minutes",
+      quenchOil: "Medium Oil (Parks AAA or warm Canola oil)",
+      quenchTemp: "120°F – 130°F (warm oil)",
+      asQuenchedHrc: "62 – 64 HRC",
+      curie: "Non-magnetic transition at 1420°F. Forgiving alloy for beginner and production bladesmiths.",
+      normCycles: "1625°F -> 1550°F -> 1475°F air cool cycles."
+    },
+    "80crv2": {
+      name: "80CrV2 Swedish High-Carbon Saw Steel",
+      carbon: "0.80% Carbon, 0.50% Cr, 0.20% Vanadium",
+      austTemp: "1510°F (820°C)",
+      soak: "8–10 Minutes",
+      quenchOil: "Fast to Medium Oil (Parks 50 or warm Parks AAA)",
+      quenchTemp: "100°F – 120°F",
+      asQuenchedHrc: "64 – 66 HRC",
+      curie: "Vanadium addition inhibits grain growth even at slightly elevated temperatures.",
+      normCycles: "1600°F -> 1525°F -> 1450°F cycles."
+    },
+    "o1": {
+      name: "O1 Oil-Hardening Precision Tool Steel",
+      carbon: "0.90% Carbon, 1.20% Manganese, 0.50% Chromium, 0.50% Tungsten",
+      austTemp: "1475°F – 1500°F (815°C)",
+      soak: "15–20 Minutes (Dwell time essential to dissolve complex carbides)",
+      quenchOil: "Medium Speed Oil (Parks AAA)",
+      quenchTemp: "125°F – 140°F",
+      asQuenchedHrc: "64 – 65 HRC",
+      curie: "Very low distortion during quench due to manganese stabilizing lattice.",
+      normCycles: "1600°F -> 1500°F -> 1425°F cycles."
+    },
+    "d2": {
+      name: "D2 High-Carbon High-Chromium Die Steel",
+      carbon: "1.50% Carbon, 12.0% Chromium, 1.0% Moly, 1.0% Vanadium",
+      austTemp: "1850°F (1010°C) in sealed stainless heat-treat foil",
+      soak: "30 Minutes soak at peak heat",
+      quenchOil: "Air Plate Quench (Clamp between 1\" aluminum chill plates with compressed air)",
+      quenchTemp: "Ambient Room Temp",
+      asQuenchedHrc: "63 – 65 HRC",
+      curie: "High chromium semi-stainless. Massive carbide volume yields extreme abrasion wear life.",
+      normCycles: "Do not normalize D2 in open forge; wrap in high-temp stainless foil."
+    },
+    "15n20": {
+      name: "15N20 High-Nickel Band Saw Steel",
+      carbon: "0.75% Carbon, 2.0% Nickel",
+      austTemp: "1500°F (815°C)",
+      soak: "5 Minutes",
+      quenchOil: "Fast Oil (Parks 50)",
+      quenchTemp: "70°F – 90°F",
+      asQuenchedHrc: "64 – 65 HRC",
+      curie: "Nickel resists ferric chloride acid attack, producing bright silvery Damascus lines.",
+      normCycles: "Matches 1095 and 80CrV2 thermal cycling perfectly."
+    }
+  };
+
+  const s = steelData[steelKey] || steelData["1095"];
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${s.name} (${s.carbon})</strong>
+        <span class="forge-quench-badge">As-Quenched: ${s.asQuenchedHrc}</span>
+      </div>
+      <div class="welding-stat-grid" style="margin-bottom:6px">
+        <div class="welding-param-card">
+          <span class="label">Austenitizing Temp</span>
+          <span class="value" style="font-size:14px">${s.austTemp}</span>
+          <div class="hint">Soak: ${s.soak}</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Quench Medium</span>
+          <span class="value" style="font-size:13px">${s.quenchOil.split("(")[0].trim()}</span>
+          <div class="hint">Preheat oil to ${s.quenchTemp}</div>
+        </div>
+        <div class="welding-param-card">
+          <span class="label">Curie Point Transition</span>
+          <span class="value" style="font-size:13px">1414°F (Non-Mag)</span>
+          <div class="hint">Use neodymium test wand</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      🧲 <strong>Magnetic Check:</strong> ${s.curie}<br>
+      🔄 <strong>Thermal Normalization Cycles:</strong> ${s.normCycles}
+    </div>
+  `;
+}
+
+function updateForgeTemper() {
+  const steelKey = $("#forge-steel-select")?.value || "1095";
+  const tempF = Math.max(300, Math.min(650, parseFloat($("#forge-temper-temp")?.value) || 400));
+  const cycles = $("#forge-temper-cycles")?.value || "2";
+  const res = $("#forge-temper-result");
+  if (!res) return;
+
+  // Estimate HRC based on temp
+  // Base 66 HRC - ~1 HRC per 25°F above 350°F
+  let estHrc = 66 - ((tempF - 350) / 25);
+  if (steelKey === "5160") estHrc = 63 - ((tempF - 350) / 28);
+  if (steelKey === "d2") estHrc = 64 - ((tempF - 400) / 40);
+  estHrc = Math.max(48, Math.min(64, estHrc));
+
+  // Determine oxide color
+  let colorName = "Pale Straw";
+  let hexColor = "#fef08a";
+  let appBest = "Straight razors, surgical scalpels, fine woodworking chisels";
+
+  if (tempF >= 590) {
+    colorName = "Dark Blue / Gray";
+    hexColor = "#475569";
+    appBest = "Springs, pry bars, structural brackets (High impact shock, ductile)";
+  } else if (tempF >= 540) {
+    colorName = "Bright Peacock Blue";
+    hexColor = "#2563eb";
+    appBest = "Throwing knives, axes, tomahawks, broadsword blades";
+  } else if (tempF >= 490) {
+    colorName = "Purple / Brown";
+    hexColor = "#9333ea";
+    appBest = "Heavy camp knives, machetes, survival choppers";
+  } else if (tempF >= 440) {
+    colorName = "Bronze / Deep Straw";
+    hexColor = "#ca8a04";
+    appBest = "Everyday carry (EDC) pocket knives, hunting skinners";
+  } else if (tempF >= 390) {
+    colorName = "Light Straw";
+    hexColor = "#facc15";
+    appBest = "Japanese Santoku, Gyuto, French chef knives (Exceptional edge retention)";
+  }
+
+  res.innerHTML = `
+    <div class="forge-temper-card">
+      <div class="forge-color-swatch" style="background:${hexColor}"></div>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>${colorName} (${tempF}°F / ${Math.round((tempF - 32) * 5 / 9)}°C)</strong>
+          <strong style="font-size:16px;color:var(--primary)">~${estHrc.toFixed(1)} HRC</strong>
+        </div>
+        <div style="font-size:11px;color:var(--ink-secondary);margin-top:2px">Best suited for: <em>${appBest}</em></div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      ⏱️ <strong>Soak Protocol [${cycles} Cycles]:</strong> Bake in oven for <strong>2 hours per cycle</strong>. Allow to cool completely to room temperature between cycles to convert retained austenite into tempered martensite.
+    </div>
+  `;
+}
+
+function updateForgeDamascus() {
+  const initial = parseInt($("#forge-damascus-initial")?.value, 10) || 7;
+  const cutMult = parseInt($("#forge-damascus-cut")?.value, 10) || 3;
+  const folds = Math.max(1, Math.min(8, parseInt($("#forge-damascus-folds")?.value, 10) || 4));
+  const pattern = $("#forge-damascus-pattern")?.value || "raindrop";
+  const res = $("#forge-damascus-result");
+  if (!res) return;
+
+  // Final layer count = initial * (cutMult ^ folds)
+  const totalLayers = initial * Math.pow(cutMult, folds);
+  // Layer thickness in finished 3.0mm blade spine = (3.0mm / totalLayers) * 1000 in microns
+  const layerMicrons = (3000 / totalLayers).toFixed(1);
+
+  const patternData = {
+    raindrop: "Drill shallow cone divots across billet surface with ball mill or drill bit. When ground flat, concentric ring circles emerge.",
+    ladder: "Grind or forge transverse grooves across billet width every 1/2\". Flattens into ladder rung stripes.",
+    twist: "Heat billet to yellow forging heat (2100°F). Clamp end in heavy vise and twist 360° continuously. Yields intricate starburst spiral whorls.",
+    feather: "Cut billet down center with hot hardy cut chisel; restack with spine in center to form feathered chevron backbone."
+  };
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11px;font-weight:700">DAMASCUS ARCHITECTURE:</span>
+        <strong style="font-size:18px;color:var(--primary)">${totalLayers.toLocaleString()} True Layers</strong>
+      </div>
+      <div class="forge-damascus-bar"></div>
+      <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;font-size:11px;margin-top:8px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Layer Thickness</span>
+          <strong>~${layerMicrons} µm</strong>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Initial Stack</span>
+          <strong>${initial} Plies</strong>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px">
+          <span style="font-size:10px;color:var(--muted);display:block">Folds (${folds}×)</span>
+          <strong>${cutMult}× Multiplier</strong>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      🎨 <strong>Pattern Method:</strong> ${patternData[pattern]}<br>
+      🧪 <strong>Contrast Etch:</strong> Submerge clean blade into <strong>Ferric Chloride (FeCl₃) 1:4 with distilled water</strong> for 10 minutes. Neutralize in baking soda bath, then soak 4 hours in strong instant coffee to turn 1095 pitch black while 15N20 stays bright chrome!
+    </div>
+  `;
+}
+
+function updateForgeGas() {
+  const burners = parseInt($("#forge-gas-burners")?.value, 10) || 2;
+  const tip = parseFloat($("#forge-gas-tip")?.value) || 0.035;
+  const psi = Math.max(3, Math.min(30, parseFloat($("#forge-gas-psi")?.value) || 12));
+  const targetHeat = $("#forge-target-temp")?.value || "weld";
+  const res = $("#forge-gas-result");
+  if (!res) return;
+
+  // Approx BTU per burner: 0.035" tip @ 10 PSI = ~55,000 BTU/hr
+  const baseBtuPerBurner = (tip / 0.035) * Math.sqrt(psi / 10) * 55000;
+  const totalBtu = Math.round(baseBtuPerBurner * burners);
+  // Propane has ~21,500 BTU per pound; 20 lb tank = ~430,000 BTU
+  const lbsPerHour = (totalBtu / 21500).toFixed(2);
+  const tankHours = (430000 / totalBtu).toFixed(1);
+
+  let atmosphereDesc = "Neutral balanced flame (clean heating with low scaling).";
+  if (targetHeat === "weld") {
+    atmosphereDesc = "Slightly reducing / rich flame (excess unburnt gas forms soft blue flame lick at door; excludes oxygen to prevent scale between forge weld layers).";
+  } else if (targetHeat === "heattreat") {
+    atmosphereDesc = "Dial back choke and pressure to 4–6 PSI for gentle 1475°F soaking without overheating thin blade tips.";
+  }
+
+  res.innerHTML = `
+    <div class="welding-stat-grid" style="margin-bottom:8px">
+      <div class="welding-param-card">
+        <span class="label">Total Forge Output</span>
+        <span class="value">${(totalBtu / 1000).toFixed(0)}k <span style="font-size:11px;font-weight:normal">BTU/hr</span></span>
+        <div class="hint">${burners} Burners @ ${psi} PSI</div>
+      </div>
+      <div class="welding-param-card">
+        <span class="label">Fuel Consumption</span>
+        <span class="value">${lbsPerHour} <span style="font-size:11px;font-weight:normal">lbs/hr</span></span>
+        <div class="hint">Propane vapor draw</div>
+      </div>
+      <div class="welding-param-card">
+        <span class="label">20 lb Tank Runtime</span>
+        <span class="value">~${tankHours} <span style="font-size:11px;font-weight:normal">Hours</span></span>
+        <div class="hint">Continuous full fire</div>
+      </div>
+      <div class="welding-param-card">
+        <span class="label">Atmosphere</span>
+        <span class="value" style="font-size:13px">${targetHeat === 'weld' ? 'Reducing Flame' : 'Neutral Flame'}</span>
+        <div class="hint">Zero scale oxidation</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      🔥 <strong>Atmospheric Tuning:</strong> ${atmosphereDesc}<br>
+      ⚠️ <strong>Freeze Prevention:</strong> High draw (> 3.5 lbs/hr) causes 20 lb tanks to frost over. Place tank in a bucket of lukewarm room-temperature water to maintain steady vapor pressure.
+    </div>
+  `;
+}
+
+function renderBlacksmithView() {
+  updateForgeSteel();
+  updateForgeTemper();
+  updateForgeDamascus();
+  updateForgeGas();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -30962,6 +31701,37 @@ function initCraftStudios() {
   $("#weld-bend-kfactor")?.addEventListener("change", updateWeldBendCalc);
   ["#weld-heat-volts", "#weld-heat-amps", "#weld-heat-speed"].forEach(s => $(s)?.addEventListener("input", updateWeldHeatCalc));
   $("#weld-heat-eff")?.addEventListener("change", updateWeldHeatCalc);
+
+  // CNC Machining & Milling Studio Listeners
+  renderCncView();
+  ["#cnc-material", "#cnc-bit-type", "#cnc-tool-dia", "#cnc-spindle-type"].forEach(s => $(s)?.addEventListener("change", updateCncFeeds));
+  ["#cnc-doc-in", "#cnc-woc-pct"].forEach(s => $(s)?.addEventListener("input", updateCncFeeds));
+  ["#cnc-scallop-radius", "#cnc-scallop-stepover"].forEach(s => $(s)?.addEventListener("input", updateCncScallop));
+  ["#cnc-deflect-stickout"].forEach(s => $(s)?.addEventListener("input", updateCncDeflection));
+  ["#cnc-deflect-mat", "#cnc-tool-dia"].forEach(s => $(s)?.addEventListener("change", updateCncDeflection));
+  $("#cnc-gcode-preset")?.addEventListener("change", (e) => {
+    const val = e.target.value;
+    if ($("#cnc-gcode-input")) $("#cnc-gcode-input").value = CNC_GCODE_PRESETS[val] || "";
+    parseAndRenderCncGcode($("#cnc-gcode-input")?.value || "");
+    resetCncGcode();
+  });
+  $("#cnc-gcode-input")?.addEventListener("input", (e) => {
+    parseAndRenderCncGcode(e.target.value);
+    resetCncGcode();
+  });
+
+  // Blacksmithing & Bladesmithing Studio Listeners
+  renderBlacksmithView();
+  ["#forge-steel-select", "#forge-blade-type"].forEach(s => $(s)?.addEventListener("change", () => {
+    updateForgeSteel();
+    updateForgeTemper();
+  }));
+  $("#forge-temper-temp")?.addEventListener("input", updateForgeTemper);
+  $("#forge-temper-cycles")?.addEventListener("change", updateForgeTemper);
+  ["#forge-damascus-initial", "#forge-damascus-cut", "#forge-damascus-pattern"].forEach(s => $(s)?.addEventListener("change", updateForgeDamascus));
+  $("#forge-damascus-folds")?.addEventListener("input", updateForgeDamascus);
+  ["#forge-gas-burners", "#forge-gas-tip", "#forge-target-temp"].forEach(s => $(s)?.addEventListener("change", updateForgeGas));
+  $("#forge-gas-psi")?.addEventListener("input", updateForgeGas);
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();

@@ -80,6 +80,8 @@
               <button class="nav-link" data-view="leather"><span class="nav-icon">🪡</span>Leathercraft</button>
               <button class="nav-link" data-view="ceramics"><span class="nav-icon">🏺</span>Ceramics &amp; Pottery</button>
               <button class="nav-link" data-view="welding"><span class="nav-icon">⚡</span>Welding &amp; Metal</button>
+              <button class="nav-link" data-view="cnc"><span class="nav-icon">⚙️</span>CNC Machining</button>
+              <button class="nav-link" data-view="blacksmith"><span class="nav-icon">⚒️</span>Blacksmithing &amp; Blades</button>
             </div>
           </div>
 
@@ -446,6 +448,8 @@
                     <option value="Leather, Hides &amp; Hardware">🪡 Leather, Hides &amp; Hardware</option>
                     <option value="Ceramics, Clay &amp; Glaze">🏺 Ceramics, Clay &amp; Glaze</option>
                     <option value="Welding, Gas &amp; Wire">⚡ Welding, Gas &amp; Wire</option>
+                    <option value="CNC Bits &amp; Tooling">⚙️ CNC Bits &amp; Tooling</option>
+                    <option value="Blacksmithing, Steels &amp; Gas">⚒️ Blacksmithing, Steels &amp; Gas</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -4739,6 +4743,308 @@
             </div>
           </section>
 
+          <!-- ⚙️ CNC Machining & Milling Studio View -->
+          <section class="view-section" id="cnc-view" aria-labelledby="cnc-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> SUBTRACTIVE CAM &amp; TOOLPATHS</div>
+                <h1 id="cnc-title">CNC Machining &amp; Milling Studio<span class="heading-period">.</span></h1>
+                <p>Feeds, speeds &amp; chip load calculators, 3D carving ballnose scallop cusp height estimators, endmill deflection watchdogs, and an interactive 2D G-code toolpath canvas simulator.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-cnc-specs">📋 Copy CNC Specs</button>
+                <button type="button" class="button button-primary" data-action="add-cnc-supplies">🛒 Add Endmills to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- ⚙️ Feeds, Speeds & Chip Load Calculator -->
+              <div class="panel" id="panel-cnc-feeds" style="grid-column: 1 / -1">
+                <div class="eyebrow">FEEDS, SPEEDS &amp; SPINDLE DIAL-IN</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">⚙️ CNC Feeds, Speeds &amp; Chip Load Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-cnc-feeds" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact spindle RPM, feed rate (IPM &amp; mm/min), plunge rate, and material removal rate (MRR) to prevent rubbing friction heat and bit breakage.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Stock Material
+                    <select id="cnc-material">
+                      <option value="hardwood" selected>Hardwood (Oak, Walnut, Maple • SFM 600)</option>
+                      <option value="softwood">Softwood (Pine, Cedar, Fir • SFM 900)</option>
+                      <option value="plywood">Baltic Birch / Plywood (SFM 750)</option>
+                      <option value="mdf">MDF / Draftboard (SFM 800)</option>
+                      <option value="acrylic">Cast Acrylic / PMMA (SFM 500)</option>
+                      <option value="delrin">Delrin / Acetal POM (SFM 600)</option>
+                      <option value="aluminum">6061-T6 Aluminum (SFM 250 • Mist Coolant)</option>
+                      <option value="brass">C360 Free-Cutting Brass (SFM 300)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Endmill Bit Profile
+                    <select id="cnc-bit-type">
+                      <option value="upcut_2f" selected>2-Flute Upcut Spiral (Chip evacuation)</option>
+                      <option value="downcut_2f">2-Flute Downcut Spiral (Zero top tearout)</option>
+                      <option value="compression">Compression Spiral (Top &amp; bottom clean)</option>
+                      <option value="ballnose">2-Flute Ballnose (3D organic carving)</option>
+                      <option value="vbit_90">90° V-Bit (Sign chamfer &amp; carving)</option>
+                      <option value="surfacing">1-1/2" 3-Wing Flycutter (Spoilboard surfacing)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Tool Diameter
+                    <select id="cnc-tool-dia">
+                      <option value="0.125">1/8" (3.175 mm) • Detail &amp; Pockets</option>
+                      <option value="0.250" selected>1/4" (6.35 mm) • Standard Shop Cut</option>
+                      <option value="0.375">3/8" (9.525 mm) • Heavy Rougher</option>
+                      <option value="0.500">1/2" (12.7 mm) • Production Rigid</option>
+                      <option value="0.0625">1/16" (1.587 mm) • Micro PCB / Inlay</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Spindle Platform
+                    <select id="cnc-spindle-type">
+                      <option value="router_dw" selected>Trim Router (16,000 – 27,000 RPM DeWalt/Makita)</option>
+                      <option value="vfd_spindle">VFD Water-Cooled (8,000 – 24,000 RPM ER20)</option>
+                      <option value="desktop_cnc">Desktop Hobby Spindle (5,000 – 12,000 RPM 775/Genmitsu)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Depth of Cut (DOC, in)
+                    <input type="number" id="cnc-doc-in" value="0.125" min="0.01" max="1.0" step="0.025">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Stepover Width (WOC, %)
+                    <input type="number" id="cnc-woc-pct" value="40" min="5" max="100" step="5">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="cnc-feeds-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🌊 3D Carving Ballnose Scallop Cusp Height Calculator -->
+              <div class="panel" id="panel-cnc-scallop">
+                <div class="eyebrow">3D RELIEF SURFACE FINISH</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🌊 Ballnose Scallop &amp; Cusp Height Estimator</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate microscopic ridge height (cusp) left between ballnose passes on organic 3D reliefs, topographical maps, and dished trays.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Ballnose Tip Radius (R, mm)
+                    <input type="number" id="cnc-scallop-radius" value="1.587" min="0.25" max="15.0" step="0.1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Stepover Distance (mm)
+                    <input type="number" id="cnc-scallop-stepover" value="0.30" min="0.02" max="10.0" step="0.02">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="cnc-scallop-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📏 Endmill Deflection & Tool Flex Watchdog -->
+              <div class="panel" id="panel-cnc-deflection">
+                <div class="eyebrow">CANTILEVER RIGIDITY &amp; CHATTER</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📏 Tool Stickout Deflection Watchdog</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Check endmill cantilever flex under lateral cutting forces. Prevent tapered slot walls, chatter resonance marks, and snapped carbide flutes.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Collet Stickout (in)
+                    <input type="number" id="cnc-deflect-stickout" value="0.875" min="0.25" max="3.5" step="0.125">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Tool Core Material
+                    <select id="cnc-deflect-mat">
+                      <option value="carbide" selected>Solid Tungsten Carbide (E = 85M PSI • Rigid)</option>
+                      <option value="hss">High Speed Steel / Cobalt (E = 30M PSI • Flexible)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="cnc-deflect-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🖥️ Interactive 2D G-Code Toolpath Visualizer & Simulator -->
+              <div class="panel" id="panel-cnc-gcode" style="grid-column: 1 / -1">
+                <div class="eyebrow">CAM SIMULATION &amp; TOOLPATH VERIFICATION</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🖥️ Interactive 2D G-Code Toolpath Simulator</h3>
+                  <div style="display:flex;gap:6px">
+                    <button type="button" class="button button-small button-outline" data-action="simulate-cnc-gcode">▶ Run Toolpath</button>
+                    <button type="button" class="button button-small button-outline" data-action="reset-cnc-gcode">↺ Reset</button>
+                  </div>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Preview rapid travel moves (G0), linear feed cuts (G1), and arc interpolations (G2/G3) before running unverified code on your machine bed.</p>
+
+                <div style="display:grid;grid-template-columns:1fr 280px;gap:12px;align-items:start">
+                  <div class="cnc-canvas-container" style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:8px;padding:12px;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative">
+                    <svg id="cnc-sim-svg" viewBox="0 0 400 300" style="width:100%;max-width:400px;height:260px;background:#0f172a;border-radius:6px;border:1px solid #1e293b"></svg>
+                    <div style="display:flex;justify-content:space-between;width:100%;margin-top:8px;font-size:11px;color:var(--muted)">
+                      <span><span style="color:#ef4444">---</span> G0 Rapid</span>
+                      <span><span style="color:#38bdf8">───</span> G1 Feed Cut</span>
+                      <span><span style="color:#4ade80">───</span> G2/G3 Arc</span>
+                      <span id="cnc-sim-status" style="color:var(--primary);font-weight:bold">Ready</span>
+                    </div>
+                  </div>
+
+                  <div style="display:flex;flex-direction:column;gap:8px">
+                    <label class="field-label" style="font-size:11px">G-Code Toolpath Preset
+                      <select id="cnc-gcode-preset">
+                        <option value="pocket_spiral" selected>Spiral Pocket Milling (G1/G2)</option>
+                        <option value="star_contour">Star Profile Contour with Lead-in</option>
+                        <option value="facing_zigzag">Zig-Zag Spoilboard Facing Pass</option>
+                        <option value="bore_helix">Helical Bore Circular Hole</option>
+                      </select>
+                    </label>
+                    <label class="field-label" style="font-size:11px">G-Code Editor / Scratchpad
+                      <textarea id="cnc-gcode-input" rows="8" style="font-family:monospace;font-size:11px;line-height:1.3;resize:vertical;padding:6px" placeholder="Paste G-code (G0 X0 Y0...)"></textarea>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="tool-result-box" id="cnc-gcode-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ⚒️ Blacksmithing, Bladesmithing & Heat Treatment Studio View -->
+          <section class="view-section" id="blacksmith-view" aria-labelledby="blacksmith-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> FORGING, STEEL METALLURGY &amp; QUENCH</div>
+                <h1 id="blacksmith-title">Blacksmithing &amp; Bladesmithing Studio<span class="heading-period">.</span></h1>
+                <p>High-carbon steel austenitizing &amp; quench matrices, tempering oxide colors &amp; Rockwell HRC curves, pattern-welded Damascus fold calculators, and propane forge burner atmospheric tuning.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-forge-specs">📋 Copy Forging Specs</button>
+                <button type="button" class="button button-primary" data-action="add-forge-supplies">🛒 Add Steels to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- ⚒️ Steel Metallurgy & Heat Treatment Quench Matrix -->
+              <div class="panel" id="panel-forge-steels" style="grid-column: 1 / -1">
+                <div class="eyebrow">AUSTENITIZING, SOAK &amp; QUENCH MEDIA</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">⚒️ Blade Steel Heat Treatment &amp; Quench Guide</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-forge-steels" title="Minimize panel">— Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Dial in precise critical temperatures, dwell soaking times, quench speeds (fast vs medium oil), and grain normalization cycles for professional cutlery and forged tools.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Steel Alloy
+                    <select id="forge-steel-select">
+                      <option value="1095" selected>AISI 1095 High Carbon (0.95% C • Razor Sharpness)</option>
+                      <option value="5160">AISI 5160 Spring Steel (0.60% C, 0.80% Cr • Extreme Toughness)</option>
+                      <option value="80crv2">80CrV2 Swedish Saw Steel (0.80% C, 0.20% V • Universal Master)</option>
+                      <option value="o1">O1 Oil-Hardening Tool Steel (0.90% C, 1.20% Mn • Low Distortion)</option>
+                      <option value="d2">D2 High-Carbon Die Steel (1.50% C, 12.0% Cr • Plate Quench)</option>
+                      <option value="15n20">15N20 High Nickel Steel (0.75% C, 2.0% Ni • Damascus Bright)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Blade Type &amp; Geometry
+                    <select id="forge-blade-type">
+                      <option value="chef" selected>Chef / Kitchen Knife (Thin edge, high hardness)</option>
+                      <option value="edc">EDC / Camp Hunting Knife (Balanced edge &amp; spine)</option>
+                      <option value="chopper">Heavy Chopper / Axe (Shock impact resistance)</option>
+                      <option value="razor">Straight Razor / Wood Chisel (Maximum acute hardness)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="forge-steel-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🎨 Tempering Oxide Colors & Rockwell Hardness Curve -->
+              <div class="panel" id="panel-forge-temper">
+                <div class="eyebrow">OXIDE SPECTRUM &amp; TOUGHNESS BALANCING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🎨 Tempering Temperature &amp; Rockwell Hardness (HRC)</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Determine tempering oven temperatures, surface oxide colors, and final Rockwell C hardness (HRC) to relieve quench stress without making blades brittle.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Tempering Oven Temp (°F)
+                    <input type="number" id="forge-temper-temp" value="400" min="300" max="650" step="10">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Tempering Cycles
+                    <select id="forge-temper-cycles">
+                      <option value="2" selected>2 Cycles (2 hrs each • Standard Best Practice)</option>
+                      <option value="3">3 Cycles (High-alloy D2 / Cryo quench)</option>
+                      <option value="1">1 Cycle (Practice only • Risk of retained austenite)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="forge-temper-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🗡️ Pattern-Welded Damascus Layer Count & Fold Calculator -->
+              <div class="panel" id="panel-forge-damascus">
+                <div class="eyebrow">DAMASCUS STEEL BILLET ARCHITECTURE</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🗡️ Damascus Pattern &amp; Layer Fold Calculator</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate total layer counts across forge-welding folds, microscopic layer thickness in the final blade spine, and ferric chloride contrast etching recipes.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Initial Billet Stack
+                    <select id="forge-damascus-initial">
+                      <option value="7" selected>7 Layers (4x 1095 + 3x 15N20)</option>
+                      <option value="11">11 Layers (6x 1095 + 5x 15N20)</option>
+                      <option value="15">15 Layers (8x 1095 + 7x 15N20)</option>
+                      <option value="5">5 Layers (Thick dramatic contrast)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Cut &amp; Restack Method
+                    <select id="forge-damascus-cut">
+                      <option value="3" selected>Cut in 3 &amp; Restack (Rapid layer growth)</option>
+                      <option value="2">Fold in Half (Traditional 2× doubling)</option>
+                      <option value="4">Cut in 4 Accordion Tiles (4× multiplier)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Number of Forge Folds (N)
+                    <input type="number" id="forge-damascus-folds" value="4" min="1" max="8" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Pattern Manipulation
+                    <select id="forge-damascus-pattern">
+                      <option value="raindrop" selected>Raindrop (Ball-end drill divots)</option>
+                      <option value="ladder">Ladder (Fuller grooves across billet)</option>
+                      <option value="twist">Twist / Torsion (Tight 360° rotational twist)</option>
+                      <option value="feather">Feather / W-Pattern (Split &amp; re-weld)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="forge-damascus-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🔥 Propane Gas Forge Burner & Pressure Optimizer -->
+              <div class="panel" id="panel-forge-gas" style="grid-column: 1 / -1">
+                <div class="eyebrow">BURNER COMBUSTION &amp; FORGE ATMOSPHERE</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🔥 Propane Burner Orifice &amp; Atmosphere Optimizer</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Tune gas pressure (PSI), burner orifice MIG tip sizes, flame atmosphere (reducing vs oxidizing to eliminate scaling), and calculate tank consumption.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Venturi Burner Count
+                    <select id="forge-gas-burners">
+                      <option value="1">1 Burner (Small 200–350 cu in chamber)</option>
+                      <option value="2" selected>2 Burners (Standard 400–700 cu in chamber)</option>
+                      <option value="3">3 Burners (Long sword forge > 800 cu in)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Gas Jet Orifice Tip
+                    <select id="forge-gas-tip">
+                      <option value="0.030">0.030" MIG Contact Tip (Fuel efficient)</option>
+                      <option value="0.035" selected>0.035" MIG Contact Tip (Standard High BTU)</option>
+                      <option value="0.045">0.045" MIG Contact Tip (High Output Forge Welding)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Regulator Pressure (PSI)
+                    <input type="number" id="forge-gas-psi" value="12" min="3" max="30" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Target Forge Temperature
+                    <select id="forge-target-temp">
+                      <option value="forge">Forging Heat (1800°F – 2000°F • Orange)</option>
+                      <option value="weld" selected>Forge Welding Heat (2300°F • Brilliant Lemon/White)</option>
+                      <option value="heattreat">Heat Treat Soak (1450°F – 1550°F • Cherry Red)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="forge-gas-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -5153,6 +5459,8 @@
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="leather">🪡 Leathercraft</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="ceramics">🏺 Ceramics &amp; Pottery</button>
           <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="welding">⚡ Welding &amp; Metal</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="cnc">⚙️ CNC Machining</button>
+          <button type="button" class="button button-small button-outline" data-action="switch-studio-from-tools" data-studio="blacksmith">⚒️ Blacksmithing &amp; Blades</button>
         </div>
       </div>
     </dialog>
@@ -5409,6 +5717,8 @@
                 <option value="Leather, Hides &amp; Hardware">🪡 Leather, Hides &amp; Hardware</option>
                 <option value="Ceramics, Clay &amp; Glaze">🏺 Ceramics, Clay &amp; Glaze</option>
                 <option value="Welding, Gas &amp; Wire">⚡ Welding, Gas &amp; Wire</option>
+                <option value="CNC Bits &amp; Tooling">⚙️ CNC Bits &amp; Tooling</option>
+                <option value="Blacksmithing, Steels &amp; Gas">⚒️ Blacksmithing, Steels &amp; Gas</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -6418,6 +6728,16 @@
           <span class="mobile-studio-icon" aria-hidden="true">⚡</span>
           <strong>Welding &amp; Metal</strong>
           <span class="mobile-studio-desc">MIG/TIG feeds, bend deduction, heat input</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="cnc" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">⚙️</span>
+          <strong>CNC Machining</strong>
+          <span class="mobile-studio-desc">Feeds &amp; speeds, scallop cusp, G-code preview</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="blacksmith" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">⚒️</span>
+          <strong>Blacksmithing</strong>
+          <span class="mobile-studio-desc">Heat treat steels, temper HRC, Damascus layers</span>
         </button>
       </div>
     </dialog>

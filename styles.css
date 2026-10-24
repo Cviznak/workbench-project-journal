@@ -10313,6 +10313,105 @@ body.theme-dark .welding-heat-badge.high {
   color: #f87171;
 }
 
+/* ============================================================
+   ⚙️ CNC Machining & Milling Studio Styles
+   ============================================================ */
+.cnc-scallop-card {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+
+.cnc-deflect-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cnc-deflect-safe {
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.cnc-deflect-warn {
+  background: rgba(239, 68, 68, 0.12);
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+[data-theme="dark"] .cnc-deflect-safe,
+body.theme-dark .cnc-deflect-safe {
+  color: #34d399;
+}
+
+[data-theme="dark"] .cnc-deflect-warn,
+body.theme-dark .cnc-deflect-warn {
+  color: #f87171;
+}
+
+/* ============================================================
+   ⚒️ Blacksmithing & Bladesmithing Studio Styles
+   ============================================================ */
+.forge-temper-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+
+.forge-color-swatch {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.forge-damascus-bar {
+  height: 16px;
+  width: 100%;
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    #1e293b,
+    #1e293b 2px,
+    #e2e8f0 2px,
+    #e2e8f0 4px
+  );
+  margin-top: 6px;
+  border: 1px solid var(--border);
+}
+
+.forge-quench-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1e40af;
+  border: 1px solid #2563eb;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+[data-theme="dark"] .forge-quench-badge,
+body.theme-dark .forge-quench-badge {
+  color: #60a5fa;
+}
+
 
 
 
