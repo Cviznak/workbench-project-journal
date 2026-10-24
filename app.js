@@ -3857,14 +3857,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -3909,7 +3909,8 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     programming: "Programming Studio",
     art: "Art & Design Studio",
     resin: "Epoxy & Silicone Studio",
-    printing: "3D Printing Studio"
+    printing: "3D Printing Studio",
+    origami: "Origami & Papercraft Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -3940,6 +3941,7 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "programming") renderProgrammingView();
   if (targetView === "art") renderArtView();
   if (targetView === "printing") renderSpoolRack();
+  if (targetView === "origami") renderOrigamiView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -6963,6 +6965,20 @@ const WORKSHOP_STARTER_KITS = {
       { type: "equipment", name: "3-Speed Ceiling Air Filtration Unit", category: "Dust Collection & Air", brand: "WEN", model: "3410", cost: 140, condition: "operational", location: "Ceiling Mount Center", specs: "400 CFM with RF remote control", notes: "Wash electrostatic outer filter monthly; replace inner filter yearly" },
       { type: "equipment", name: "Professional Half-Face Respirator (P100)", category: "Safety Gear & PPE", brand: "3M", model: "Rugged Comfort 6502QL", cost: 38, condition: "operational", location: "PPE Hook 1", specs: "P100 organic vapor filters", notes: "Store in airtight ziplock bag when not in use to preserve filters" },
       { type: "material", name: "Nitrile Gloves 5-mil (Box of 100)", category: "Other Supplies", quantity: 2, unit: "boxes", price: 12.50, lowStockThreshold: 1, location: "Safety Cabinet", supplier: "Costco / Harbor Freight" }
+    ]
+  },
+  origami: {
+    title: "Origami & Papercraft Studio Kit",
+    icon: "🦢",
+    category: "Papercraft & Origami",
+    description: "Precision folding bone folders, authentic Japanese Kami & Tant papers, self-healing cutting mat, and methyl cellulose sizing.",
+    items: [
+      { type: "equipment", name: "Genuine Cattle Bone Folder (6\")", category: "Hand Tools & Measuring", brand: "Lineco", cost: 14.50, condition: "operational", location: "Origami Desk", specs: "Smooth polished natural bone", notes: "Use blunt tip for scoring and flat edge for sharp creases" },
+      { type: "equipment", name: "A3 Self-Healing Cutting Mat (12x18\")", category: "Hand Tools & Measuring", brand: "Olfa", cost: 22.00, condition: "operational", location: "Origami Desk", specs: "Grid markings & angle guidelines", notes: "Never fold on rough table without mat underneath" },
+      { type: "equipment", name: "Stainless Steel Precision Rotary Ruler (30cm)", category: "Hand Tools & Measuring", brand: "Shinwa", cost: 12.00, condition: "operational", location: "Tool Drawer", specs: "Zero-glare metric & imperial", notes: "Use with rotary cutter for squaring sheets" },
+      { type: "material", name: "Japanese Kami Origami Paper Pack (15x15cm, 100 sheets)", category: "Papercraft & Origami", quantity: 100, unit: "sheets", price: 0.12, cost: 12.00, lowStockThreshold: 20, location: "Paper Drawer A", supplier: "Taro's Origami" },
+      { type: "material", name: "Tant Dual-Color Paper Assortment (15x15cm, 48 sheets)", category: "Papercraft & Origami", quantity: 48, unit: "sheets", price: 0.28, cost: 13.50, lowStockThreshold: 10, location: "Paper Drawer B", supplier: "Toyo Japan" },
+      { type: "material", name: "Methyl Cellulose (MC) Powder (100g)", category: "Finishes & Adhesives", quantity: 100, unit: "g", price: 0.08, cost: 8.00, lowStockThreshold: 25, location: "Sizing Shelf", supplier: "Bookbinding Supplies", notes: "Mix 1 tbsp powder into 1 cup cold water; let hydrate overnight for tissue foil & wet-folding" }
     ]
   }
 };
@@ -10507,6 +10523,26 @@ async function handleAction(action, target) {
     const spoolId = target.dataset.spoolId;
     const weightG = parseFloat(target.dataset.weight) || 0;
     void deductJobFromSpool(spoolId, weightG);
+    return;
+  }
+  if (action === "origami-prev-step") {
+    origamiPrevStep();
+    return;
+  }
+  if (action === "origami-next-step") {
+    origamiNextStep();
+    return;
+  }
+  if (action === "origami-restart") {
+    origamiRestart();
+    return;
+  }
+  if (action === "copy-origami-steps") {
+    copyOrigamiSteps();
+    return;
+  }
+  if (action === "add-origami-supplies") {
+    void addOrigamiSupplies();
     return;
   }
   if (action === "add-filament-to-materials") {
@@ -27955,6 +27991,774 @@ function update3DSlaGuide() {
   `;
 }
 
+// --- 🦢 Origami & Papercraft Studio Engine ---
+let activeOrigamiModel = "crane";
+let activeOrigamiStepIndex = 0;
+
+const ORIGAMI_MODELS = {
+  crane: {
+    title: "Traditional Peace Crane (Orizuru)",
+    difficulty: "Traditional • Intermediate",
+    paperNeeded: "15×15 cm Kami or Washi (square)",
+    steps: [
+      {
+        title: "Initial Diagonal Crease",
+        desc: "Place paper with colored side DOWN. Fold along the diagonal from top-left to bottom-right, crease firmly with a bone folder, and unfold.",
+        action: "Valley Fold & Unfold",
+        paperSide: "Colored Side Down",
+        svg: `
+          <polygon points="50,50 350,50 350,350 50,350" fill="#f8fafc" stroke="#334155" stroke-width="2.5"/>
+          <line x1="50" y1="50" x2="350" y2="350" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="8,5"/>
+          <path d="M 120,70 Q 220,180 320,300" fill="none" stroke="#10b981" stroke-width="3" marker-end="url(#origami-arrow)"/>
+        `
+      },
+      {
+        title: "Opposite Diagonal Crease",
+        desc: "Fold the opposite diagonal from top-right to bottom-left, crease sharply, and unfold to form an 'X' crease.",
+        action: "Valley Fold & Unfold",
+        paperSide: "Colored Side Down",
+        svg: `
+          <polygon points="50,50 350,50 350,350 50,350" fill="#f8fafc" stroke="#334155" stroke-width="2.5"/>
+          <line x1="50" y1="50" x2="350" y2="350" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <line x1="350" y1="50" x2="50" y2="350" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="8,5"/>
+          <path d="M 280,70 Q 180,180 80,300" fill="none" stroke="#10b981" stroke-width="3" marker-end="url(#origami-arrow)"/>
+        `
+      },
+      {
+        title: "Turn Over & Horizontal/Vertical Mountain Creases",
+        desc: "Turn paper over so the colored side is facing UP. Fold in half horizontally and vertically, creasing both ways, then unfold.",
+        action: "Mountain Folds (Colored Up)",
+        paperSide: "Colored Side Facing Up",
+        svg: `
+          <polygon points="50,50 350,50 350,350 50,350" fill="#3b82f6" fill-opacity="0.25" stroke="#1d4ed8" stroke-width="2.5"/>
+          <line x1="50" y1="200" x2="350" y2="200" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="10,4,2,4"/>
+          <line x1="200" y1="50" x2="200" y2="350" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="10,4,2,4"/>
+          <circle cx="200" cy="200" r="6" fill="#ef4444"/>
+        `
+      },
+      {
+        title: "Collapse into Preliminary / Square Base",
+        desc: "Using the mountain and valley creases, push the top and bottom corners together while bringing left and right corners inward. Collapse flat into a square diamond base.",
+        action: "Preliminary Base Collapse",
+        paperSide: "Colored Flaps Outside",
+        svg: `
+          <polygon points="200,60 330,190 200,320 70,190" fill="#3b82f6" fill-opacity="0.3" stroke="#1d4ed8" stroke-width="2.5"/>
+          <line x1="200" y1="60" x2="200" y2="320" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <line x1="70" y1="190" x2="330" y2="190" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <text x="200" y="345" font-size="12" text-anchor="middle" fill="#64748b" font-weight="bold">Open flaps at bottom point</text>
+        `
+      },
+      {
+        title: "Kite Creases & Top Triangle",
+        desc: "With the open corners at the bottom, fold the lower left and right edges into the center vertical crease. Fold the top triangle flap down firmly and unfold all three.",
+        action: "Pre-creasing for Petal Fold",
+        paperSide: "Front Flaps Only",
+        svg: `
+          <polygon points="200,60 330,190 200,320 70,190" fill="#3b82f6" fill-opacity="0.3" stroke="#1d4ed8" stroke-width="2.5"/>
+          <line x1="70" y1="190" x2="200" y2="240" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6,4"/>
+          <line x1="330" y1="190" x2="200" y2="240" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6,4"/>
+          <line x1="135" y1="125" x2="265" y2="125" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6,4"/>
+          <path d="M 85,210 Q 150,260 195,245" fill="none" stroke="#10b981" stroke-width="2.5" marker-end="url(#origami-arrow)"/>
+          <path d="M 315,210 Q 250,260 205,245" fill="none" stroke="#10b981" stroke-width="2.5" marker-end="url(#origami-arrow)"/>
+        `
+      },
+      {
+        title: "Petal Fold into Bird Base",
+        desc: "Lift the single bottom point up along the horizontal crease. Allow the left and right outer sides to collapse inward along your pre-creases into an elongated diamond.",
+        action: "Petal Fold (Repeat on Back)",
+        paperSide: "Elongated Diamond Base",
+        svg: `
+          <polygon points="200,30 290,190 200,370 110,190" fill="#3b82f6" fill-opacity="0.35" stroke="#1d4ed8" stroke-width="2.5"/>
+          <line x1="200" y1="30" x2="200" y2="370" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <line x1="110" y1="190" x2="290" y2="190" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <text x="200" y="390" font-size="11" text-anchor="middle" fill="#15803d" font-weight="bold">Bird Base Complete (both sides)</text>
+        `
+      },
+      {
+        title: "Narrow Neck and Tail Legs",
+        desc: "Fold the lower outer edges of both front legs into the center vertical crease. Flip the model over and repeat on the back.",
+        action: "Valley Folds on Legs",
+        paperSide: "Front and Back",
+        svg: `
+          <polygon points="200,40 260,190 200,360 140,190" fill="#3b82f6" fill-opacity="0.35" stroke="#1d4ed8" stroke-width="2"/>
+          <line x1="140" y1="190" x2="200" y2="360" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,3"/>
+          <line x1="260" y1="190" x2="200" y2="360" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,3"/>
+          <path d="M 155,240 L 195,250" fill="none" stroke="#10b981" stroke-width="2" marker-end="url(#origami-arrow)"/>
+          <path d="M 245,240 L 205,250" fill="none" stroke="#10b981" stroke-width="2" marker-end="url(#origami-arrow)"/>
+        `
+      },
+      {
+        title: "Inside Reverse Folds & Wings Flap",
+        desc: "Inside reverse-fold the left leg upward to form the neck and fold its tip downward for the head. Inside reverse-fold the right leg upward for the tail. Gently pull the wings apart to inflate the crane's body!",
+        action: "Inside Reverse Folds (Finish)",
+        paperSide: "3D Origami Crane",
+        svg: `
+          <!-- Crane Body and Wings -->
+          <polygon points="200,160 110,120 180,220" fill="#3b82f6" stroke="#1d4ed8" stroke-width="2"/>
+          <polygon points="200,160 290,120 220,220" fill="#3b82f6" stroke="#1d4ed8" stroke-width="2"/>
+          <polygon points="180,220 200,170 220,220 200,240" fill="#60a5fa" stroke="#1d4ed8" stroke-width="2"/>
+          <!-- Neck and Head -->
+          <polyline points="180,210 110,110 85,125" stroke="#1d4ed8" stroke-width="4" stroke-linecap="round" fill="none"/>
+          <!-- Tail -->
+          <polyline points="220,210 290,120" stroke="#1d4ed8" stroke-width="4" stroke-linecap="round" fill="none"/>
+          <text x="200" y="320" font-size="14" text-anchor="middle" fill="#047857" font-weight="bold">🎉 Peace Crane Complete!</text>
+        `
+      }
+    ]
+  },
+  flower: {
+    title: "Kusudama Bell Flower (Petal Unit)",
+    difficulty: "Modular • Beginner-Intermediate",
+    paperNeeded: "7.5×7.5 cm or 15×15 cm square",
+    steps: [
+      {
+        title: "Diagonal Triangle Fold",
+        desc: "Fold square paper in half diagonally to form a triangle with the apex pointing up.",
+        action: "Valley Fold",
+        paperSide: "Colored Side Outside",
+        svg: `<polygon points="50,330 350,330 200,70" fill="#ec4899" fill-opacity="0.3" stroke="#be185d" stroke-width="2.5"/>`
+      },
+      {
+        title: "Fold Bottom Corners to Apex",
+        desc: "Fold both bottom-left and bottom-right corners up to meet the top point, creating a compact diamond.",
+        action: "Valley Folds to Apex",
+        paperSide: "Diamond Shape",
+        svg: `
+          <polygon points="200,70 290,200 200,330 110,200" fill="#ec4899" fill-opacity="0.3" stroke="#be185d" stroke-width="2.5"/>
+          <line x1="200" y1="70" x2="200" y2="330" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <line x1="110" y1="200" x2="290" y2="200" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,3"/>
+        `
+      },
+      {
+        title: "Squash Fold Outer Flaps",
+        desc: "Open each flap slightly, insert finger, and squash fold flat so the crease aligns with the outer edge.",
+        action: "Squash Fold (Both Flaps)",
+        paperSide: "Kite Wing Flaps",
+        svg: `
+          <polygon points="200,70 340,160 270,330 130,330 60,160" fill="#ec4899" fill-opacity="0.35" stroke="#be185d" stroke-width="2.5"/>
+          <line x1="130" y1="160" x2="60" y2="160" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,3"/>
+          <line x1="270" y1="160" x2="340" y2="160" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,3"/>
+        `
+      },
+      {
+        title: "Fold Outer Tips Down & Fold Wings in Half",
+        desc: "Fold down the extending triangular tips level with the outer edges. Then fold both flaps in half along the existing crease lines.",
+        action: "Valley Folds",
+        paperSide: "Folded Wings",
+        svg: `
+          <polygon points="200,70 300,190 200,310 100,190" fill="#ec4899" fill-opacity="0.4" stroke="#be185d" stroke-width="2.5"/>
+          <line x1="200" y1="70" x2="200" y2="310" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <path d="M 120,200 Q 150,240 185,220" fill="none" stroke="#10b981" stroke-width="2" marker-end="url(#origami-arrow)"/>
+          <path d="M 280,200 Q 250,240 215,220" fill="none" stroke="#10b981" stroke-width="2" marker-end="url(#origami-arrow)"/>
+        `
+      },
+      {
+        title: "Roll into Cone Petal & Glue Seam",
+        desc: "Bring the two outer flaps together to form a 3D conical petal with 3 stamens inside! Glue or tape the outer edges together. Make 5 units to form a complete Kusudama flower.",
+        action: "Cone Assembly (3D)",
+        paperSide: "Finished Petal Unit",
+        svg: `
+          <path d="M 130,280 Q 200,340 270,280 L 230,120 Q 200,150 170,120 Z" fill="#ec4899" fill-opacity="0.5" stroke="#be185d" stroke-width="2.5"/>
+          <path d="M 170,120 Q 200,190 230,120" fill="none" stroke="#fbcfe8" stroke-width="3"/>
+          <text x="200" y="360" font-size="13" text-anchor="middle" fill="#be185d" font-weight="bold">🌸 Petal Unit Ready (Assemble 5 for Flower)</text>
+        `
+      }
+    ]
+  },
+  sonobe: {
+    title: "Sonobe Modular Polyhedron Unit",
+    difficulty: "Modular Building Block",
+    paperNeeded: "7.5×7.5 cm square sheet",
+    steps: [
+      {
+        title: "Horizontal Half Crease",
+        desc: "Fold the square in half horizontally and unfold to create a center reference crease.",
+        action: "Valley Fold & Unfold",
+        paperSide: "White Side Up",
+        svg: `
+          <polygon points="50,50 350,50 350,350 50,350" fill="#f8fafc" stroke="#334155" stroke-width="2.5"/>
+          <line x1="50" y1="200" x2="350" y2="200" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="8,5"/>
+        `
+      },
+      {
+        title: "Cupboard / Shutter Folds",
+        desc: "Fold both top and bottom edges into the center crease line.",
+        action: "Valley Folds to Center",
+        paperSide: "Cupboard Fold",
+        svg: `
+          <polygon points="50,125 350,125 350,275 50,275" fill="#6366f1" fill-opacity="0.3" stroke="#4338ca" stroke-width="2.5"/>
+          <line x1="50" y1="200" x2="350" y2="200" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+        `
+      },
+      {
+        title: "Fold Opposite Corners into Triangles",
+        desc: "Fold the top-left corner down to the edge, and bottom-right corner up to the edge. Unfold.",
+        action: "Corner Triangles",
+        paperSide: "Pre-creasing",
+        svg: `
+          <polygon points="50,125 350,125 350,275 50,275" fill="#6366f1" fill-opacity="0.3" stroke="#4338ca" stroke-width="2.5"/>
+          <line x1="50" y1="125" x2="125" y2="200" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,3"/>
+          <line x1="350" y1="275" x2="275" y2="200" stroke="#2563eb" stroke-width="2" stroke-dasharray="5,3"/>
+        `
+      },
+      {
+        title: "Tuck Tabs into Pockets (Parallelogram)",
+        desc: "Tuck the bottom-left diagonal flap under the top shutter layer, and the top-right diagonal flap under the bottom shutter layer. Flatten into a parallelogram.",
+        action: "Tuck into Pockets",
+        paperSide: "Sonobe Parallelogram",
+        svg: `
+          <polygon points="80,275 220,125 320,125 180,275" fill="#6366f1" fill-opacity="0.4" stroke="#4338ca" stroke-width="2.5"/>
+          <line x1="130" y1="200" x2="270" y2="200" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+        `
+      },
+      {
+        title: "Turn Over & Crease Tabs (Finished Unit)",
+        desc: "Flip the unit over. Fold the two triangular points inward to form a square with two insertion tabs and two receiving pockets. Ready to connect!",
+        action: "Mountain Folds on Tabs",
+        paperSide: "Modular Unit Complete",
+        svg: `
+          <polygon points="120,120 280,120 280,280 120,280" fill="#6366f1" fill-opacity="0.5" stroke="#4338ca" stroke-width="2.5"/>
+          <line x1="120" y1="120" x2="280" y2="280" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6,4"/>
+          <text x="200" y="325" font-size="12" text-anchor="middle" fill="#4338ca" font-weight="bold">📦 Sonobe Unit Ready (Tabs &amp; Pockets)</text>
+        `
+      }
+    ]
+  },
+  butterfly: {
+    title: "Japanese Butterfly (Chocho)",
+    difficulty: "Traditional • Beginner-Intermediate",
+    paperNeeded: "15×15 cm Kami",
+    steps: [
+      {
+        title: "Diagonal & Orthogonal Creases",
+        desc: "Crease both diagonals (valley) and both midpoints (mountain).",
+        action: "Valley & Mountain Creases",
+        paperSide: "Colored Side Down",
+        svg: `
+          <polygon points="50,50 350,50 350,350 50,350" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+          <line x1="50" y1="50" x2="350" y2="350" stroke="#2563eb" stroke-width="2" stroke-dasharray="6,4"/>
+          <line x1="350" y1="50" x2="50" y2="350" stroke="#2563eb" stroke-width="2" stroke-dasharray="6,4"/>
+          <line x1="50" y1="200" x2="350" y2="200" stroke="#ef4444" stroke-width="2" stroke-dasharray="8,3,2,3"/>
+        `
+      },
+      {
+        title: "Collapse into Waterbomb Base",
+        desc: "Push horizontal creases inward and collapse into a wide triangle with 2 flaps on each side.",
+        action: "Waterbomb Base",
+        paperSide: "Triangle Base",
+        svg: `<polygon points="50,280 350,280 200,100" fill="#f59e0b" fill-opacity="0.35" stroke="#d97706" stroke-width="2.5"/>`
+      },
+      {
+        title: "Fold Top Flaps to Center Apex",
+        desc: "Fold only the top layer's left and right bottom points up to meet the top apex.",
+        action: "Valley Folds to Apex",
+        paperSide: "Front Flaps Only",
+        svg: `
+          <polygon points="50,280 350,280 200,100" fill="#f59e0b" fill-opacity="0.35" stroke="#d97706" stroke-width="2.5"/>
+          <polygon points="200,100 135,190 200,280" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+          <polygon points="200,100 265,190 200,280" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+        `
+      },
+      {
+        title: "Flip Over & Pull Bottom Corner Up Past Top Edge",
+        desc: "Turn model over. Pull the bottom corner up past the top horizontal edge so a small tip protrudes over the top edge.",
+        action: "Valley Fold Past Edge",
+        paperSide: "Back Side",
+        svg: `
+          <polygon points="60,240 340,240 200,120" fill="#f59e0b" fill-opacity="0.4" stroke="#d97706" stroke-width="2.5"/>
+          <polygon points="180,120 220,120 200,80" fill="#d97706" stroke="#b45309" stroke-width="2"/>
+        `
+      },
+      {
+        title: "Wrap Tip Around Edge & Fold Center to Form Wings",
+        desc: "Fold the protruding tip over the edge to lock the paper. Pinch the center spine vertically to spread the butterfly wings!",
+        action: "Lock Tip & Spread Wings",
+        paperSide: "Butterfly Complete",
+        svg: `
+          <polygon points="200,180 80,100 110,250" fill="#f59e0b" stroke="#d97706" stroke-width="2.5"/>
+          <polygon points="200,180 320,100 290,250" fill="#f59e0b" stroke="#d97706" stroke-width="2.5"/>
+          <ellipse cx="200" cy="180" rx="8" ry="30" fill="#b45309"/>
+          <text x="200" y="320" font-size="14" text-anchor="middle" fill="#d97706" font-weight="bold">🦋 Japanese Butterfly Complete!</text>
+        `
+      }
+    ]
+  },
+  frog: {
+    title: "Traditional Jumping Frog",
+    difficulty: "Action Origami • Intermediate",
+    paperNeeded: "15×15 cm Kami or Index Card",
+    steps: [
+      {
+        title: "Top Waterbomb Base",
+        desc: "Fold the top half of the rectangle into an X-crease and collapse into a waterbomb triangle.",
+        action: "Waterbomb on Top Half",
+        paperSide: "Green Kami",
+        svg: `
+          <polygon points="100,170 300,170 200,50" fill="#10b981" fill-opacity="0.35" stroke="#059669" stroke-width="2.5"/>
+          <rect x="120" y="170" width="160" height="150" fill="#10b981" fill-opacity="0.2" stroke="#059669" stroke-width="2.5"/>
+        `
+      },
+      {
+        title: "Fold Front Legs & Bottom Flaps",
+        desc: "Fold the front triangular flaps up and out at an angle for the front legs. Fold the bottom rectangle up to meet the base of the triangle.",
+        action: "Leg Folds & Bottom Shutter",
+        paperSide: "Front Legs Formed",
+        svg: `
+          <polygon points="100,170 300,170 200,50" fill="#10b981" fill-opacity="0.35" stroke="#059669" stroke-width="2"/>
+          <polyline points="200,50 140,110 90,80" stroke="#059669" stroke-width="3" fill="none"/>
+          <polyline points="200,50 260,110 310,80" stroke="#059669" stroke-width="3" fill="none"/>
+          <rect x="120" y="170" width="160" height="90" fill="#10b981" fill-opacity="0.3" stroke="#059669" stroke-width="2"/>
+        `
+      },
+      {
+        title: "Accordion Pleat for Spring Action",
+        desc: "Fold the lower half up horizontally, then fold it back down halfway to create a spring pleat. Press the tail with your finger and slide off to make the frog jump!",
+        action: "Z-Fold Accordion Spring",
+        paperSide: "Jumping Action Complete",
+        svg: `
+          <polygon points="120,180 280,180 200,90" fill="#10b981" fill-opacity="0.5" stroke="#059669" stroke-width="2.5"/>
+          <polyline points="200,90 130,130 90,110" stroke="#059669" stroke-width="3.5" fill="none"/>
+          <polyline points="200,90 270,130 310,110" stroke="#059669" stroke-width="3.5" fill="none"/>
+          <polyline points="150,180 120,240 80,260" stroke="#059669" stroke-width="3.5" fill="none"/>
+          <polyline points="250,180 280,240 320,260" stroke="#059669" stroke-width="3.5" fill="none"/>
+          <text x="200" y="320" font-size="14" text-anchor="middle" fill="#059669" font-weight="bold">🐸 Press Spring Tail to Jump!</text>
+        `
+      }
+    ]
+  },
+  lotus: {
+    title: "Origami Water Lotus (Blintz Base)",
+    difficulty: "Traditional • Intermediate",
+    paperNeeded: "15×15 cm or 20×20 cm Duo Paper",
+    steps: [
+      {
+        title: "First Blintz Fold",
+        desc: "Fold all 4 corners into the exact center of the square.",
+        action: "Blintz Fold (All 4 Corners)",
+        paperSide: "Smaller Square",
+        svg: `
+          <polygon points="200,60 340,200 200,340 60,200" fill="#a855f7" fill-opacity="0.3" stroke="#7e22ce" stroke-width="2.5"/>
+          <line x1="200" y1="60" x2="200" y2="340" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <line x1="60" y1="200" x2="340" y2="200" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+        `
+      },
+      {
+        title: "Second Blintz Fold",
+        desc: "Without turning over, fold all 4 new corners into the center again.",
+        action: "Second Blintz Fold",
+        paperSide: "Even Smaller Square",
+        svg: `<rect x="110" y="110" width="180" height="180" fill="#a855f7" fill-opacity="0.4" stroke="#7e22ce" stroke-width="2.5"/>`
+      },
+      {
+        title: "Turn Over & Third Blintz Fold",
+        desc: "Turn the paper over to the smooth side. Fold all 4 corners into the center for the third time.",
+        action: "Third Blintz (Opposite Side)",
+        paperSide: "Turned Over",
+        svg: `<polygon points="200,120 280,200 200,280 120,200" fill="#a855f7" fill-opacity="0.45" stroke="#7e22ce" stroke-width="2.5"/>`
+      },
+      {
+        title: "Pull Up Petals from Underneath",
+        desc: "Reach underneath each corner from behind and gently curl the flaps forward and upward over the corners to bloom the lotus petals!",
+        action: "Petal Bloom Action",
+        paperSide: "3D Blossom",
+        svg: `
+          <circle cx="200" cy="200" r="40" fill="#fef08a" stroke="#ca8a04" stroke-width="2"/>
+          <path d="M 200,160 Q 200,90 200,60 Q 220,120 200,160 Z" fill="#c084fc" stroke="#7e22ce" stroke-width="2"/>
+          <path d="M 200,240 Q 200,310 200,340 Q 180,280 200,240 Z" fill="#c084fc" stroke="#7e22ce" stroke-width="2"/>
+          <path d="M 160,200 Q 90,200 60,200 Q 120,220 160,200 Z" fill="#c084fc" stroke="#7e22ce" stroke-width="2"/>
+          <path d="M 240,200 Q 310,200 340,200 Q 280,180 240,200 Z" fill="#c084fc" stroke="#7e22ce" stroke-width="2"/>
+          <text x="200" y="370" font-size="14" text-anchor="middle" fill="#7e22ce" font-weight="bold">🪷 Water Lotus Bloomed!</text>
+        `
+      }
+    ]
+  },
+  waterbomb: {
+    title: "Waterbomb Balloon Base",
+    difficulty: "Base Model • Beginner",
+    paperNeeded: "15×15 cm Kami or Copy Paper",
+    steps: [
+      {
+        title: "Diagonal Valley Folds",
+        desc: "Fold both diagonals in half and unfold.",
+        action: "Valley Folds",
+        paperSide: "Colored Side Down",
+        svg: `
+          <polygon points="50,50 350,50 350,350 50,350" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+          <line x1="50" y1="50" x2="350" y2="350" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6,4"/>
+          <line x1="350" y1="50" x2="50" y2="350" stroke="#2563eb" stroke-width="2.5" stroke-dasharray="6,4"/>
+        `
+      },
+      {
+        title: "Turn Over & Horizontal Mountain Fold",
+        desc: "Flip the paper over. Fold in half horizontally and unfold.",
+        action: "Mountain Fold",
+        paperSide: "Colored Side Up",
+        svg: `
+          <polygon points="50,50 350,50 350,350 50,350" fill="#0284c7" fill-opacity="0.3" stroke="#0369a1" stroke-width="2"/>
+          <line x1="50" y1="200" x2="350" y2="200" stroke="#ef4444" stroke-width="2.5" stroke-dasharray="8,3,2,3"/>
+        `
+      },
+      {
+        title: "Push Sides in to Collapse Base",
+        desc: "Push the left and right horizontal edges toward each other; the top and bottom will collapse forward into a layered triangle.",
+        action: "Collapse Waterbomb Base",
+        paperSide: "Waterbomb Complete",
+        svg: `
+          <polygon points="50,310 350,310 200,100" fill="#0284c7" fill-opacity="0.4" stroke="#0369a1" stroke-width="2.5"/>
+          <line x1="200" y1="100" x2="200" y2="310" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="3,3"/>
+          <text x="200" y="350" font-size="13" text-anchor="middle" fill="#0369a1" font-weight="bold">💧 Waterbomb Base Complete!</text>
+        `
+      }
+    ]
+  }
+};
+
+function renderOrigamiStep(modelKey = activeOrigamiModel, stepIndex = activeOrigamiStepIndex) {
+  const model = ORIGAMI_MODELS[modelKey];
+  if (!model) return;
+  const steps = model.steps || [];
+  if (stepIndex < 0) stepIndex = 0;
+  if (stepIndex >= steps.length) stepIndex = steps.length - 1;
+  activeOrigamiStepIndex = stepIndex;
+  activeOrigamiModel = modelKey;
+
+  const currentStep = steps[stepIndex];
+  if (!currentStep) return;
+
+  const diffEl = $("#origami-model-difficulty");
+  const stepLabel = $("#origami-step-label");
+  const stepTitle = $("#origami-step-title");
+  const stepDesc = $("#origami-step-desc");
+  const actionTag = $("#origami-step-action-tag");
+  const paperSide = $("#origami-step-paper-side");
+  const prevBtn = $("#origami-prev-step");
+  const nextBtn = $("#origami-next-step");
+  const svgEl = $("#origami-svg");
+
+  if (diffEl) diffEl.textContent = model.difficulty;
+  if (stepLabel) stepLabel.textContent = `Step ${stepIndex + 1} of ${steps.length}`;
+  if (stepTitle) stepTitle.textContent = currentStep.title;
+  if (stepDesc) stepDesc.textContent = currentStep.desc;
+  if (actionTag) actionTag.textContent = currentStep.action;
+  if (paperSide) paperSide.textContent = currentStep.paperSide;
+
+  if (prevBtn) prevBtn.disabled = stepIndex === 0;
+  if (nextBtn) {
+    if (stepIndex === steps.length - 1) {
+      nextBtn.textContent = "Finish ✓";
+      nextBtn.disabled = true;
+    } else {
+      nextBtn.textContent = "Next ▶";
+      nextBtn.disabled = false;
+    }
+  }
+
+  if (svgEl) {
+    svgEl.innerHTML = `
+      <defs>
+        <marker id="origami-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981"/>
+        </marker>
+      </defs>
+      ${currentStep.svg}
+    `;
+  }
+}
+
+function origamiNextStep() {
+  const model = ORIGAMI_MODELS[activeOrigamiModel];
+  if (!model) return;
+  if (activeOrigamiStepIndex < model.steps.length - 1) {
+    renderOrigamiStep(activeOrigamiModel, activeOrigamiStepIndex + 1);
+  }
+}
+
+function origamiPrevStep() {
+  if (activeOrigamiStepIndex > 0) {
+    renderOrigamiStep(activeOrigamiModel, activeOrigamiStepIndex - 1);
+  }
+}
+
+function origamiRestart() {
+  renderOrigamiStep(activeOrigamiModel, 0);
+  showToast(`Restarted ${ORIGAMI_MODELS[activeOrigamiModel]?.title || "model"} from Step 1.`);
+}
+
+function copyOrigamiSteps() {
+  const model = ORIGAMI_MODELS[activeOrigamiModel];
+  if (!model) return;
+  const text = `${model.title} (${model.difficulty})\nPaper: ${model.paperNeeded}\n\n` +
+    model.steps.map((s, idx) => `Step ${idx + 1}: ${s.title}\n${s.desc}\n[${s.action} - ${s.paperSide}]`).join("\n\n");
+  void navigator.clipboard.writeText(text).then(() => showToast(`Copied ${model.title} folding steps to clipboard!`));
+}
+
+async function addOrigamiSupplies() {
+  await addMaterialToProjectShopping("Japanese Kami Origami Paper (15x15cm, 100 sheets)", "1 pack", 12.00, "Papercraft & Origami");
+}
+
+function updateOrigamiPaperCalc() {
+  const parentFormat = $("#origami-parent-format")?.value || "a4";
+  const targetShape = $("#origami-target-shape")?.value || "square";
+  const parentWInput = $("#origami-parent-w");
+  const parentHInput = $("#origami-parent-h");
+  const targetSizeInput = $("#origami-target-size");
+  const res = $("#origami-paper-calc-result");
+  if (!res) return;
+
+  const presets = {
+    a4: [210, 297],
+    a3: [297, 420],
+    letter: [216, 279],
+    scrapbook12: [305, 305],
+    giant_kami: [350, 350],
+    washi_sheet: [640, 940]
+  };
+
+  if (parentFormat !== "custom" && presets[parentFormat] && parentWInput && parentHInput) {
+    parentWInput.value = presets[parentFormat][0];
+    parentHInput.value = presets[parentFormat][1];
+  }
+
+  const pW = Math.max(10, parseFloat(parentWInput?.value) || 210);
+  const pH = Math.max(10, parseFloat(parentHInput?.value) || 297);
+  const cutW = Math.max(10, parseFloat(targetSizeInput?.value) || 150);
+
+  // Aspect ratio calculation
+  const ratios = {
+    square: 1.0,
+    silver: Math.SQRT2, // 1.4142
+    golden: 1.61803,
+    double_square: 2.0,
+    dollar: 2.348
+  };
+  const ratio = ratios[targetShape] || 1.0;
+  const cutH = Math.round(cutW * ratio);
+
+  // Orientation 1: (W / cutW) * (H / cutH)
+  const count1 = Math.floor(pW / cutW) * Math.floor(pH / cutH);
+  // Orientation 2: (W / cutH) * (H / cutW)
+  const count2 = Math.floor(pW / cutH) * Math.floor(pH / cutW);
+
+  const bestCount = Math.max(count1, count2);
+  const bestOrient = count1 >= count2 ? "Standard" : "Rotated 90°";
+
+  const totalParentArea = pW * pH;
+  const cutArea = cutW * cutH;
+  const usedArea = bestCount * cutArea;
+  const efficiency = ((usedArea / totalParentArea) * 100).toFixed(1);
+
+  // Leftover strip dimension
+  const remainderW = count1 >= count2 ? pW - (Math.floor(pW / cutW) * cutW) : pW - (Math.floor(pW / cutH) * cutH);
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700">EXTRACTABLE CUTS:</span>
+      <strong style="font-size:18px;color:var(--primary)">${bestCount} sheet${bestCount === 1 ? "" : "s"} <span style="font-size:12px;font-weight:normal;color:var(--muted)">(${cutW} × ${cutH} mm)</span></strong>
+    </div>
+
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span>Paper Sheet Yield:</span>
+        <strong>${efficiency}% paper utilized</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:11px">
+        <span>Optimal Orientation:</span>
+        <span>${bestOrient}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:11px">
+        <span>Remainder Offcut Strip:</span>
+        <span>~${Math.round(remainderW)} × ${Math.round(pH)} mm</span>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary)">
+      💡 <strong>Folder's Pro Tip:</strong> Use the remaining ${Math.round(remainderW)}mm offcut strip for folding mini Sonobe units, bookmark corners, or modular Kusudama connector tabs!
+    </div>
+  `;
+}
+
+function updateOrigamiModularCalc() {
+  const polyKey = $("#origami-modular-poly")?.value || "cube";
+  const squareSize = Math.max(10, parseFloat($("#origami-modular-square-size")?.value) || 75);
+  const colorCount = parseInt($("#origami-modular-colors")?.value, 10) || 6;
+  const res = $("#origami-modular-result");
+  if (!res) return;
+
+  const polyData = {
+    cube: { title: "Sonobe Cube", units: 6, faces: 6, edges: 12, vertices: 8, diamFactor: 1.22, notes: "Classic 6-face cube. Use 3 dual pairs or 6 distinct colors so opposite faces match." },
+    octahedron: { title: "Triakis Octahedron", units: 12, faces: 8, edges: 24, vertices: 6, diamFactor: 1.6, notes: "3 intersecting rings of 4 units each. Ideal with 3 or 4 color symmetry." },
+    icosahedron: { title: "Stellated Icosahedron", units: 30, faces: 20, edges: 30, vertices: 12, diamFactor: 2.45, notes: "Five intersecting rings of 6 units. 5-color Hamiltonian path ensures no adjacent units share a color!" },
+    dodecahedron: { title: "Pentagonal Dodecahedron", units: 30, faces: 12, edges: 30, vertices: 20, diamFactor: 2.6, notes: "Folded with PHiZZ units (Tom Hull). 3 units meet at every vertex." },
+    kusudama_classic: { title: "Classic Kusudama Flower Ball", units: 60, faces: 12, edges: 30, vertices: 20, diamFactor: 2.2, notes: "12 flowers assembled from 5 conical petals each. Sew or glue petal seams with methyl cellulose." },
+    cherry_kusudama: { title: "Cherry Blossom Kusudama", units: 72, faces: 12, edges: 36, vertices: 24, diamFactor: 2.5, notes: "12 flowers of 6 petals each. Elegant curved bell openings." },
+    buckyball: { title: "Buckminsterfullerene (C60)", units: 90, faces: 32, edges: 90, vertices: 60, diamFactor: 3.8, notes: "90 PHiZZ units forming 12 pentagons and 20 hexagons. Geodesic sphere geometry." },
+    great_stellated: { title: "Great Stellated Dodecahedron", units: 60, faces: 20, edges: 60, vertices: 32, diamFactor: 3.2, notes: "60 triangular spikes. Requires crisp tant paper with high friction." }
+  };
+
+  const p = polyData[polyKey] || polyData.cube;
+  const finishedDiamMm = Math.round(p.diamFactor * squareSize);
+  const finishedDiamIn = (finishedDiamMm / 25.4).toFixed(1);
+
+  const sheetsPerColor = Math.ceil(p.units / colorCount);
+  const colorBreakdown = Array.from({ length: colorCount }, (_, i) => {
+    const isLast = i === colorCount - 1;
+    const count = isLast ? (p.units - (sheetsPerColor * (colorCount - 1))) : sheetsPerColor;
+    return `Color ${i + 1}: ${count} sheet${count === 1 ? '' : 's'}`;
+  }).join(" · ");
+
+  res.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700">REQUIRED PAPER SHEETS:</span>
+      <strong style="font-size:18px;color:var(--primary)">${p.units} sheets <span style="font-size:12px;font-weight:normal;color:var(--muted)">(${squareSize}×${squareSize} mm)</span></strong>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:6px;font-size:11px;margin-bottom:8px">
+      <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+        <span style="color:var(--muted);text-transform:uppercase;font-weight:700;font-size:9px">Assembled Diameter</span>
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-top:2px">~${finishedDiamMm} mm (${finishedDiamIn}")</div>
+      </div>
+      <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:6px 8px">
+        <span style="color:var(--muted);text-transform:uppercase;font-weight:700;font-size:9px">Polyhedral Topology</span>
+        <div style="font-size:13px;font-weight:700;color:var(--ink);margin-top:2px">${p.vertices} Vertices • ${p.edges} Edges</div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11px;margin-bottom:6px">
+      <strong>Color Palette Split (${colorCount} colors):</strong> ${colorBreakdown}
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary)">
+      🧩 <strong>Assembly Note:</strong> ${p.notes}
+    </div>
+  `;
+}
+
+function updateOrigamiCpValidator() {
+  const preset = $("#origami-cp-preset")?.value || "bird_base";
+  const mInput = $("#origami-cp-m");
+  const vInput = $("#origami-cp-v");
+  const anglesInput = $("#origami-cp-angles");
+  const res = $("#origami-cp-result");
+  if (!res) return;
+
+  const presets = {
+    bird_base: { m: 3, v: 1, angles: "45, 45, 135, 135" },
+    waterbomb: { m: 3, v: 1, angles: "90, 90, 90, 90" },
+    frog_base: { m: 5, v: 3, angles: "22.5, 67.5, 67.5, 22.5, 22.5, 67.5, 67.5, 22.5" },
+    flat_twist: { m: 2, v: 2, angles: "90, 90, 90, 90" },
+    invalid_maekawa: { m: 2, v: 2, angles: "45, 135, 45, 135" },
+    invalid_kawasaki: { m: 3, v: 1, angles: "60, 100, 80, 120" }
+  };
+
+  if (preset !== "custom" && presets[preset] && mInput && vInput && anglesInput) {
+    mInput.value = presets[preset].m;
+    vInput.value = presets[preset].v;
+    anglesInput.value = presets[preset].angles;
+  }
+
+  const M = parseInt(mInput?.value, 10) || 0;
+  const V = parseInt(vInput?.value, 10) || 0;
+  const totalCreases = M + V;
+
+  // Maekawa's Theorem: |M - V| === 2
+  const maekawaDiff = Math.abs(M - V);
+  const maekawaValid = (totalCreases % 2 === 0) && (maekawaDiff === 2);
+
+  // Parse angles
+  const anglesStr = (anglesInput?.value || "").split(/[,;\s]+/).filter(Boolean);
+  const angles = anglesStr.map(a => parseFloat(a)).filter(n => !isNaN(n));
+  const sumAngles = angles.reduce((sum, n) => sum + n, 0);
+
+  let oddSum = 0;
+  let evenSum = 0;
+  for (let i = 0; i < angles.length; i++) {
+    if (i % 2 === 0) oddSum += angles[i];
+    else evenSum += angles[i];
+  }
+
+  const sumValid = Math.abs(sumAngles - 360) < 0.5;
+  const kawasakiValid = sumValid && (angles.length % 2 === 0) && Math.abs(oddSum - 180) < 0.5 && Math.abs(evenSum - 180) < 0.5;
+  const isFlatFoldable = maekawaValid && kawasakiValid;
+
+  res.innerHTML = `
+    <div class="origami-theorem-card ${isFlatFoldable ? 'theorem-valid' : 'theorem-invalid'}">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>${isFlatFoldable ? '✅ Mathematically Flat-Foldable Vertex' : '❌ Non-Flat Foldable Vertex (Self-Intersecting)'}</strong>
+        <span style="font-size:11px;font-weight:bold">${isFlatFoldable ? 'Valid CP Node' : 'Theorem Failure'}</span>
+      </div>
+      <div style="font-size:11px;margin-top:4px">
+        ${isFlatFoldable ? 'This vertex can be pressed completely flat without tearing, warping, or self-intersection.' : 'Paper cannot lie flat around this vertex in Euclidean space.'}
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px">
+      <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px">
+        <div style="font-weight:700;color:${maekawaValid ? '#10b981' : '#ef4444'}">${maekawaValid ? '✓ Maekawa\'s Theorem Passed' : '✗ Maekawa\'s Theorem Failed'}</div>
+        <div style="color:var(--muted);font-size:10px;margin-top:2px">|M − V| = |${M} − ${V}| = ${maekawaDiff} ${maekawaValid ? '(exactly 2)' : '(must equal 2)'}</div>
+      </div>
+      <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px">
+        <div style="font-weight:700;color:${kawasakiValid ? '#10b981' : '#ef4444'}">${kawasakiValid ? '✓ Kawasaki\'s Theorem Passed' : '✗ Kawasaki\'s Theorem Failed'}</div>
+        <div style="color:var(--muted);font-size:10px;margin-top:2px">Σ odd = ${oddSum.toFixed(1)}°, Σ even = ${evenSum.toFixed(1)}° ${kawasakiValid ? '(both = 180°)' : '(must both equal 180°)'}</div>
+      </div>
+    </div>
+  `;
+}
+
+function updateOrigamiPaperGuide() {
+  const paperKey = $("#origami-guide-paper")?.value || "kami";
+  const compKey = $("#origami-guide-complexity")?.value || "intermediate";
+  const res = $("#origami-guide-result");
+  if (!res) return;
+
+  const papers = {
+    kami: { name: "Japanese Kami", gsm: "50–60 GSM", fibers: "Short wood pulp", memory: "Medium-High", wetFold: "Low (blowout risk if damp)", sizing: "None (pre-sized)", rating: "⭐⭐⭐⭐ (Best for general models)" },
+    tant: { name: "Tant Paper", gsm: "75–80 GSM", fibers: "Medium textured pulp", memory: "Very High", wetFold: "Moderate (misting with spray)", sizing: "Pre-sized textured surface", rating: "⭐⭐⭐⭐⭐ (Ideal for modular polyhedra)" },
+    elephant_hide: { name: "Elephant Hide (Elefantenhaut)", gsm: "110 GSM", fibers: "Synthetic parchment finish", memory: "Extreme", wetFold: "⭐⭐⭐⭐⭐ Master Class (water repellant)", sizing: "Heavy chemical sizing", rating: "⭐⭐⭐⭐⭐ (King of 3D organic curves)" },
+    tissue_foil: { name: "Tissue Foil / Sandwich", gsm: "40 GSM", fibers: "Foil core with tissue laminate", memory: "Infinite (zero spring-back)", wetFold: "N/A (metal foil core)", sizing: "Methyl Cellulose adhesive layer", rating: "⭐⭐⭐⭐⭐ (Best for complex insects with 8+ legs)" },
+    washi: { name: "Washi / Kozo / Unryu", gsm: "35–50 GSM", fibers: "Extremely long Mulberry bark", memory: "Low (requires MC treatment)", sizing: "Brush 3% Methyl Cellulose to stiffen", rating: "⭐⭐⭐⭐ (Delicate organic translucent art)" },
+    origamido: { name: "Origamido Paper", gsm: "30–40 GSM", fibers: "Handmade kozo/hemp custom blend", memory: "Highest possible", wetFold: "⭐⭐⭐⭐⭐ Extreme wet-sculpting", sizing: "Custom formulated", rating: "👑 Museum Grade Master Paper" },
+    copy_paper: { name: "20lb Office Copy Paper", gsm: "75 GSM", fibers: "Short machine pulp", memory: "Springy (cracks easily on thick folds)", wetFold: "Poor (turns to mush)", sizing: "Acidic starch", rating: "⭐⭐ (Practice folds only)" }
+  };
+
+  const compLayers = {
+    simple: { folds: 12, maxLayers: 16, note: "Almost any paper works cleanly." },
+    intermediate: { folds: 30, maxLayers: 64, note: "Kami or Tant recommended. Use bone folder on bird base points." },
+    modular: { folds: 24, maxLayers: 32, note: "Tant is unmatched: its textured grain creates friction to prevent units sliding apart." },
+    complex: { folds: 80, maxLayers: 256, note: "MUST use paper < 45 GSM (Tissue Foil, Origamido, or treated Washi) or joints will tear." },
+    organic_wet: { folds: 40, maxLayers: 48, note: "Elephant Hide or 100+ GSM watercolor paper treated with Methyl Cellulose." }
+  };
+
+  const p = papers[paperKey] || papers.kami;
+  const c = compLayers[compKey] || compLayers.intermediate;
+
+  res.innerHTML = `
+    <div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <strong>${p.name} (${p.gsm})</strong>
+        <span style="font-size:11px;color:var(--primary);font-weight:bold">${p.rating}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:6px;font-size:11px;color:var(--ink-secondary)">
+        <div>Fibers: <strong>${p.fibers}</strong></div>
+        <div>Crease Memory: <strong>${p.memory}</strong></div>
+        <div>Wet-Folding: <strong>${p.wetFold}</strong></div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4">
+      🧪 <strong>Sizing &amp; Chemical Treatment:</strong> ${p.sizing}.<br>
+      📐 <strong>Complexity Compatibility:</strong> At ${c.folds} folds, paper accumulates up to <strong>~${c.maxLayers} layers</strong> at critical apexes. ${c.note}
+    </div>
+  `;
+}
+
+function renderOrigamiView() {
+  renderOrigamiStep();
+  updateOrigamiPaperCalc();
+  updateOrigamiModularCalc();
+  updateOrigamiCpValidator();
+  updateOrigamiPaperGuide();
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -28548,6 +29352,36 @@ function initCraftStudios() {
   $("#spool-weigh-tab-deduct")?.addEventListener("click", () => setWeighDialogMode("deduct"));
   $("#spool-weigh-gross-input")?.addEventListener("input", updateWeighDialogPreview);
   $("#spool-weigh-deduct-input")?.addEventListener("input", updateWeighDialogPreview);
+
+  // Origami & Papercraft Studio Listeners
+  renderOrigamiView();
+  $("#origami-model-select")?.addEventListener("change", (e) => {
+    activeOrigamiModel = e.target.value;
+    activeOrigamiStepIndex = 0;
+    renderOrigamiStep(activeOrigamiModel, 0);
+  });
+
+  ["#origami-parent-format", "#origami-target-shape", "#origami-quick-size-preset"].forEach(s => {
+    $(s)?.addEventListener("change", (e) => {
+      if (e.target.id === "origami-quick-size-preset" && e.target.value !== "custom") {
+        if ($("#origami-target-size")) $("#origami-target-size").value = e.target.value;
+      }
+      updateOrigamiPaperCalc();
+    });
+  });
+  ["#origami-parent-w", "#origami-parent-h", "#origami-target-size"].forEach(s => {
+    $(s)?.addEventListener("input", updateOrigamiPaperCalc);
+  });
+
+  ["#origami-modular-poly", "#origami-modular-colors"].forEach(s => $(s)?.addEventListener("change", updateOrigamiModularCalc));
+  $("#origami-modular-square-size")?.addEventListener("input", updateOrigamiModularCalc);
+
+  $("#origami-cp-preset")?.addEventListener("change", updateOrigamiCpValidator);
+  ["#origami-cp-m", "#origami-cp-v", "#origami-cp-angles"].forEach(s => {
+    $(s)?.addEventListener("input", updateOrigamiCpValidator);
+  });
+
+  ["#origami-guide-paper", "#origami-guide-complexity"].forEach(s => $(s)?.addEventListener("change", updateOrigamiPaperGuide));
 
   // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();

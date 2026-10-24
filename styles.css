@@ -9824,6 +9824,167 @@ body.theme-dark .sidebar-section-header:hover {
   }
 }
 
+/* ============================================================
+   🦢 Origami & Papercraft Studio Styles
+   ============================================================ */
+.origami-viewer-container {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 10px;
+}
+
+.origami-canvas-box {
+  background: radial-gradient(circle at 50% 50%, var(--surface-2) 0%, var(--surface-sunken) 100%);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  min-height: 360px;
+  position: relative;
+  overflow: hidden;
+}
+
+#origami-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 360px;
+  max-height: 360px;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12));
+  transition: all 0.25s ease;
+}
+
+.origami-step-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.origami-step-progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface-sunken);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.origami-stepper-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.origami-step-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.origami-step-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.origami-legend-card {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.origami-legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ink-secondary);
+}
+
+.origami-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-line {
+  display: inline-block;
+  width: 24px;
+  height: 0;
+  flex-shrink: 0;
+}
+
+.legend-line.valley-line {
+  border-top: 2.5px dashed #2563eb;
+}
+
+.legend-line.mountain-line {
+  border-top: 2.5px dashed #ef4444;
+}
+
+.legend-line.crease-line {
+  border-top: 2px dotted #94a3b8;
+}
+
+.legend-line.arrow-line {
+  border-top: 2.5px solid #10b981;
+}
+
+.origami-paper-cut-map {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.origami-theorem-card {
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+}
+
+.origami-theorem-card.theorem-valid {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.origami-theorem-card.theorem-invalid {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+[data-theme="dark"] .origami-theorem-card.theorem-valid,
+body.theme-dark .origami-theorem-card.theorem-valid {
+  color: #34d399;
+}
+
+[data-theme="dark"] .origami-theorem-card.theorem-invalid,
+body.theme-dark .origami-theorem-card.theorem-invalid {
+  color: #f87171;
+}
+
+@media (max-width: 820px) {
+  .origami-viewer-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+
 
 
 

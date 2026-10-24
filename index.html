@@ -75,6 +75,7 @@
               <button class="nav-link" data-view="art"><span class="nav-icon">🎨</span>Art &amp; Design</button>
               <button class="nav-link" data-view="resin"><span class="nav-icon">🧪</span>Epoxy &amp; Silicone</button>
               <button class="nav-link" data-view="printing"><span class="nav-icon">🖨️</span>3D Printing</button>
+              <button class="nav-link" data-view="origami"><span class="nav-icon">🦢</span>Origami &amp; Paper</button>
             </div>
           </div>
 
@@ -436,6 +437,7 @@
                     <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
                     <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
                     <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
+                    <option value="Papercraft &amp; Origami">🦢 Papercraft &amp; Origami</option>
                     <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                     <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                     <option value="Other Supplies">Other Supplies</option>
@@ -3873,6 +3875,258 @@
             </div>
           </section>
 
+          <!-- 🦢 Origami & Papercraft Studio View -->
+          <section class="view-section" id="origami-view" aria-labelledby="origami-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> COMPUTATIONAL PAPERCRAFT &amp; FOLDING ARTS</div>
+                <h1 id="origami-title">Origami &amp; Papercraft Studio<span class="heading-period">.</span></h1>
+                <p>Interactive step-by-step folding viewer, Crease Pattern (CP) flat-foldability theorems, paper cutting optimizer, modular polyhedra sheet calculator, and paper GSM wet-folding guides.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-origami-steps">📋 Copy Folding Steps</button>
+                <button type="button" class="button button-primary" data-action="add-origami-supplies">🛒 Add Paper to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🕊️ Interactive Step-by-Step Folding Diagram Viewer -->
+              <div class="panel" id="panel-origami-viewer" style="grid-column: 1 / -1">
+                <div class="eyebrow">STEP-BY-STEP FOLDING DIAGRAMS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <h3 style="font-size:16px;margin:0">🕊️ Interactive Fold Navigator &amp; Model Player</h3>
+                    <span class="spool-tag material-pla" id="origami-model-difficulty">Traditional • Intermediate</span>
+                  </div>
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <select id="origami-model-select" style="font-size:12px;padding:6px 10px;border-radius:6px;font-weight:600">
+                      <option value="crane" selected>🕊️ Traditional Peace Crane (Orizuru)</option>
+                      <option value="flower">🌸 Kusudama Bell Flower (Petal Unit)</option>
+                      <option value="sonobe">📦 Sonobe Modular Polyhedron Unit</option>
+                      <option value="butterfly">🦋 Japanese Butterfly (Chocho)</option>
+                      <option value="frog">🐸 Traditional Jumping Frog</option>
+                      <option value="lotus">🪷 Origami Water Lotus (Blintz Base)</option>
+                      <option value="waterbomb">💧 Waterbomb Balloon Base</option>
+                    </select>
+                    <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-origami-viewer" title="Minimize panel">— Minimize</button>
+                  </div>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Follow step-by-step vector folding diagrams with standard Yoshizawa-Randlett notation: Mountain folds (red dash-dot), Valley folds (blue dashed), squash, reverse, and rotate operations.</p>
+
+                <div class="origami-viewer-container">
+                  <!-- Left: Interactive Canvas Viewport -->
+                  <div class="origami-canvas-box" id="origami-canvas-box">
+                    <svg id="origami-svg" viewBox="0 0 400 400" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                      <!-- Rendered dynamically by renderOrigamiStep() -->
+                    </svg>
+                  </div>
+
+                  <!-- Right: Step Instructions, Symbols, Hand Advice -->
+                  <div class="origami-step-sidebar">
+                    <div class="origami-step-progress-row">
+                      <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase" id="origami-step-label">Step 1 of 8</span>
+                      <div class="origami-stepper-btn-group">
+                        <button type="button" class="button button-small button-outline" id="origami-prev-step" data-action="origami-prev-step" title="Previous Step">◀ Back</button>
+                        <button type="button" class="button button-small button-primary" id="origami-next-step" data-action="origami-next-step" title="Next Step">Next ▶</button>
+                      </div>
+                    </div>
+
+                    <div class="origami-step-card">
+                      <h4 id="origami-step-title" style="margin:0 0 6px;font-size:15px;color:var(--ink)">Diagonal Valley Crease</h4>
+                      <p id="origami-step-desc" style="font-size:13px;line-height:1.5;margin:0 0 10px;color:var(--ink-secondary)">Start with colored side down. Fold the top corner down to meet the bottom corner precisely, crease sharply with a bone folder, and unfold.</p>
+                      
+                      <div class="origami-step-meta" id="origami-step-meta">
+                        <span class="spool-tag" id="origami-step-action-tag">Valley Fold</span>
+                        <span class="spool-tag slot-tag" id="origami-step-paper-side">White Side Facing Up</span>
+                      </div>
+                    </div>
+
+                    <!-- Yoshizawa-Randlett Legend -->
+                    <div class="origami-legend-card">
+                      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Folding Notation Legend</div>
+                      <div class="origami-legend-grid">
+                        <div class="origami-legend-item">
+                          <span class="legend-line valley-line"></span>
+                          <span>Valley Fold (Dashed)</span>
+                        </div>
+                        <div class="origami-legend-item">
+                          <span class="legend-line mountain-line"></span>
+                          <span>Mountain Fold (Dash-Dot)</span>
+                        </div>
+                        <div class="origami-legend-item">
+                          <span class="legend-line crease-line"></span>
+                          <span>Crease / Unfold</span>
+                        </div>
+                        <div class="origami-legend-item">
+                          <span class="legend-line arrow-line"></span>
+                          <span>Fold Direction Arrow</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style="display:flex;gap:6px;margin-top:6px">
+                      <button type="button" class="button button-small button-outline" style="flex:1" data-action="origami-restart">↺ Restart Model</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 📐 Paper Sizing, Aspect Ratios & Cutting Optimizer -->
+              <div class="panel" id="panel-origami-paper-calc">
+                <div class="eyebrow">PAPER DIMENSIONS &amp; CUTTING OPTIMIZER</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📐 Sheet Sizing &amp; Multi-Square Extractor</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact square extraction yields, aspect ratios ($\sqrt{2}:1$ DIN Silver Ratio, $1:\phi$ Golden, $2:1$), and leftover strip uses.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Parent Sheet Format
+                    <select id="origami-parent-format">
+                      <option value="a4" selected>A4 (210 × 297 mm)</option>
+                      <option value="a3">A3 (297 × 420 mm)</option>
+                      <option value="letter">US Letter (8.5 × 11 in / 216 × 279 mm)</option>
+                      <option value="scrapbook12">Scrapbook 12×12" (305 × 305 mm)</option>
+                      <option value="giant_kami">Large Kami (350 × 350 mm)</option>
+                      <option value="washi_sheet">Washi Kozo (640 × 940 mm)</option>
+                      <option value="custom">Custom Dimensions (mm)...</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Target Origami Shape
+                    <select id="origami-target-shape">
+                      <option value="square" selected>Square (1 : 1)</option>
+                      <option value="silver">Silver Ratio / A-Series (1 : √2)</option>
+                      <option value="golden">Golden Rectangle (1 : 1.618)</option>
+                      <option value="double_square">Double Square (1 : 2)</option>
+                      <option value="dollar">Dollar Bill Ratio (1 : 2.348)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Parent Width (mm)
+                    <input type="number" id="origami-parent-w" value="210" min="10" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Parent Height (mm)
+                    <input type="number" id="origami-parent-h" value="297" min="10" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px;grid-column: 1 / -1">Desired Cut Size (mm)
+                    <div style="display:flex;gap:6px">
+                      <input type="number" id="origami-target-size" value="150" min="20" step="5" style="flex:1">
+                      <select id="origami-quick-size-preset" style="font-size:11px;max-width:140px">
+                        <option value="custom">Quick Presets...</option>
+                        <option value="75">7.5 cm (Mini Modular)</option>
+                        <option value="150" selected>15 cm (Standard Kami)</option>
+                        <option value="200">20 cm (Medium)</option>
+                        <option value="240">24 cm (Tant)</option>
+                        <option value="300">30 cm (Complex Box)</option>
+                        <option value="350">35 cm (Complex Insect)</option>
+                      </select>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="origami-paper-calc-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🧩 Modular Polyhedra & Kusudama Assembly Calculator -->
+              <div class="panel" id="panel-origami-modular">
+                <div class="eyebrow">MODULAR UNITS &amp; 3D POLYHEDRA</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧩 Kusudama &amp; Sonobe Assembly Calculator</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate required units, color distributions, vertices, and finished outer diameter for modular structures.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px;grid-column:1 / -1">Polyhedral Structure
+                    <select id="origami-modular-poly">
+                      <option value="cube" selected>Cube (6 Sonobe Units • 6 Faces)</option>
+                      <option value="octahedron">Triakis Octahedron (12 Sonobe Units)</option>
+                      <option value="icosahedron">Stellated Icosahedron (30 Sonobe Units)</option>
+                      <option value="dodecahedron">Dodecahedron (30 PHiZZ Units)</option>
+                      <option value="kusudama_classic">Classic Kusudama Flower Ball (60 sheets • 12 flowers)</option>
+                      <option value="cherry_kusudama">Cherry Blossom Kusudama (72 sheets • 12 flowers × 6 petals)</option>
+                      <option value="buckyball">Buckyball Fullerene (90 PHiZZ Units)</option>
+                      <option value="great_stellated">Great Stellated Dodecahedron (60 Units)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Unit Square Size (mm)
+                    <input type="number" id="origami-modular-square-size" value="75" min="20" max="300" step="5">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Color Palette Count
+                    <select id="origami-modular-colors">
+                      <option value="3">3 Colors (Symmetric Triad)</option>
+                      <option value="5">5 Colors (Icosahedral Hamiltonian)</option>
+                      <option value="6" selected>6 Colors (Standard Spectrum)</option>
+                      <option value="1">1 Color (Monochrome Classic)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="origami-modular-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🔬 Computational Flat-Foldability Validator (Maekawa & Kawasaki Theorems) -->
+              <div class="panel" id="panel-origami-cp-checker">
+                <div class="eyebrow">MATHEMATICAL ORIGAMI THEOREMS</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🔬 Crease Pattern (CP) Flat-Foldability Checker</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Verify whether a single vertex in a crease pattern can fold completely flat without paper self-intersection, using Maekawa and Kawasaki's fundamental theorems.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:6px">
+                  <label class="field-label" style="font-size:11px">Vertex Preset
+                    <select id="origami-cp-preset">
+                      <option value="bird_base" selected>Bird Base Interior Vertex</option>
+                      <option value="waterbomb">Waterbomb Central Vertex</option>
+                      <option value="frog_base">Frog Base Corner Vertex</option>
+                      <option value="flat_twist">Miura-Ori Flat Twist</option>
+                      <option value="invalid_maekawa">❌ Invalid (Violates Maekawa)</option>
+                      <option value="invalid_kawasaki">❌ Invalid (Violates Kawasaki)</option>
+                      <option value="custom">Custom Vertex...</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Mountain Creases (M)
+                    <input type="number" id="origami-cp-m" value="3" min="0" max="16" step="1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Valley Creases (V)
+                    <input type="number" id="origami-cp-v" value="1" min="0" max="16" step="1">
+                  </label>
+                </div>
+
+                <div style="margin-top:8px">
+                  <label class="field-label" style="font-size:11px">Consecutive Sector Angles Around Vertex (° sum must equal 360°)
+                    <input type="text" id="origami-cp-angles" value="45, 45, 135, 135" placeholder="e.g. 45, 45, 135, 135">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="origami-cp-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📜 Paper Types, GSM & Wet-Folding Chemistry Guide -->
+              <div class="panel" id="panel-origami-paper-guide">
+                <div class="eyebrow">MATERIAL SELECTION &amp; CHEMISTRY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📜 Paper Weight (GSM) &amp; Wet-Folding Sizing Guide</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Select optimal paper chemistry, fiber length, sizing agents (Methyl Cellulose), and prevent blowout on thick 3D models.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px">
+                  <label class="field-label" style="font-size:11px">Paper Substrate
+                    <select id="origami-guide-paper">
+                      <option value="kami" selected>Standard Kami (50–60 GSM • Crisp • White Back)</option>
+                      <option value="tant">Tant Paper (75–80 GSM • Textured • Dyed Through)</option>
+                      <option value="elephant_hide">Elephant Hide / Elefantenhaut (110 GSM • King of Wet-Folding)</option>
+                      <option value="tissue_foil">Tissue Foil / Sandwich (40 GSM • High Memory • Zero Spring)</option>
+                      <option value="washi">Washi / Kozo / Unryu (35–50 GSM • Long Mulberry Fibers)</option>
+                      <option value="origamido">Origamido Paper (30–40 GSM • Michael LaFosse Master Art)</option>
+                      <option value="copy_paper">Standard 20lb Copy Paper (75 GSM • Stiff • High Spring-back)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Model Complexity
+                    <select id="origami-guide-complexity">
+                      <option value="simple">Simple / Action (&lt; 20 folds)</option>
+                      <option value="intermediate" selected>Intermediate (20–45 folds • Bird/Frog Base)</option>
+                      <option value="modular">Modular Polyhedra (Interlocking units)</option>
+                      <option value="complex">Complex / Insect (50+ folds • Multi-Sink Flaps)</option>
+                      <option value="organic_wet">3D Organic Animal (Wet-folded curves)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="origami-guide-result" style="margin-top:10px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -4531,6 +4785,7 @@
                 <option value="Finishes &amp; Adhesives">Finishes &amp; Adhesives</option>
                 <option value="Electronics &amp; Wiring">Electronics &amp; Wiring</option>
                 <option value="3D Printing &amp; Filament">3D Printing &amp; Filament</option>
+                <option value="Papercraft &amp; Origami">🦢 Papercraft &amp; Origami</option>
                 <option value="Raw Metals &amp; Acrylic">Raw Metals &amp; Acrylic</option>
                 <option value="Sanding &amp; Abrasives">Sanding &amp; Abrasives</option>
                 <option value="Other Supplies">Other Supplies</option>
@@ -5515,6 +5770,11 @@
           <span class="mobile-studio-icon" aria-hidden="true">🖨️</span>
           <strong>3D Printing</strong>
           <span class="mobile-studio-desc">FDM &amp; resin cost, flow rate, wash</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="origami" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🦢</span>
+          <strong>Origami &amp; Paper</strong>
+          <span class="mobile-studio-desc">Folding viewer, CP theorems, modular units</span>
         </button>
       </div>
     </dialog>
