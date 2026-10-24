@@ -1988,10 +1988,13 @@ async function signInWithEmail(email, password) {
     await upsertUserProfile(session.user);
     await loadUserScopedState();
     loadSharedCollaborationsIntoState();
+    await autoDiscoverCollaborativeProjects();
     await syncCloudWorkspace("pull");
     loadSharedCollaborationsIntoState();
+    await autoDiscoverCollaborativeProjects();
     await syncCloudCollaborations().catch(() => {});
     loadSharedCollaborationsIntoState();
+    await autoDiscoverCollaborativeProjects();
     syncSharedCollaborations();
     await persistState({ syncCloud: false });
   } catch (e) {
@@ -13829,6 +13832,7 @@ async function initialize() {
       ensureProjectCreator(p);
     }
     loadSharedCollaborationsIntoState();
+    await autoDiscoverCollaborativeProjects();
     syncSharedCollaborations();
 
     if (!saved?.starterSkillsAdded) {
@@ -21436,6 +21440,86 @@ function loadSharedCollaborationsIntoState() {
       }
     }
   }
+
+  void autoDiscoverCollaborativeProjects();
+}
+
+async function autoDiscoverCollaborativeProjects() {
+  const curUser = getActiveUser() || getCurrentMakerIdentity();
+  if (!curUser || !database) return false;
+
+  return new Promise(resolve => {
+    try {
+      const tx = database.transaction(STORE_NAME, "readonly");
+      const store = tx.objectStore(STORE_NAME);
+      const items = [];
+
+      if (typeof store.getAll === "function") {
+        const req = store.getAll();
+        req.onsuccess = () => processStates(req.result);
+        req.onerror = () => resolve(false);
+      } else {
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = event => {
+          const cursor = event.target.result;
+          if (cursor) {
+            items.push(cursor.value);
+            cursor.continue();
+          } else {
+            processStates(items);
+          }
+        };
+        cursorReq.onerror = () => resolve(false);
+      }
+
+      function processStates(allStates) {
+        if (!Array.isArray(allStates)) return resolve(false);
+        let foundAny = false;
+        for (const st of allStates) {
+          if (!st || !Array.isArray(st.projects)) continue;
+          for (const p of st.projects) {
+            if (!p || !p.id || !isCollaborativeProject(p)) continue;
+            ensureProjectCreator(p);
+            if (isDeletedProject(p.id)) continue;
+            if (isUserCollaborator(p, curUser)) {
+              const existingIdx = state.projects.findIndex(ep => ep.id === p.id);
+              if (existingIdx === -1) {
+                state.projects.unshift(structuredClone(p));
+                foundAny = true;
+              } else {
+                const ex = state.projects[existingIdx];
+                if (new Date(p.updatedAt || 0) > new Date(ex.updatedAt || 0)) {
+                  state.projects[existingIdx] = structuredClone(p);
+                  foundAny = true;
+                }
+              }
+
+              // Also ensure collaborator has skills linked to this project
+              for (const sid of (p.skillIds || [])) {
+                const hasSkill = (state.skills || []).some(s => s.id === sid);
+                if (!hasSkill && Array.isArray(st.skills)) {
+                  const matched = st.skills.find(s => s.id === sid);
+                  if (matched) {
+                    state.skills.push({ ...matched, xp: 0 });
+                    foundAny = true;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (foundAny) {
+          syncSharedCollaborations();
+          render();
+          void persistState({ syncCloud: false });
+        }
+        resolve(foundAny);
+      }
+    } catch {
+      resolve(false);
+    }
+  });
 }
 
 let activeCollabProjectId = null;
@@ -21510,6 +21594,9 @@ async function renderCollaboratorsDialog(project) {
       <button type="button" class="button button-quiet button-small" data-action="open-project-qr" data-project="${project.id}" style="display:inline-flex;align-items:center;gap:6px">
         📱 Project QR
       </button>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);margin:4px 0 10px 0;line-height:1.4">
+      💡 Co-creators on this browser see this project automatically upon login. To open on a phone or other computer, share the Team Project Link or scan the QR.
     </div>
 
     <div>
