@@ -6199,6 +6199,16 @@ body.theme-dark .version-tag {
   color: #7dd3fc;
   border-color: #0369a1;
 }
+.collab-role-pill.role-contributor {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+}
+[data-theme="dark"] .collab-role-pill.role-contributor {
+  background: #064e3b;
+  color: #6ee7b7;
+  border-color: #059669;
+}
 
 .materials-stock-badge {
   display: inline-flex;

@@ -1987,9 +1987,11 @@ async function signInWithEmail(email, password) {
     await syncUserProfile(session.user.id);
     await upsertUserProfile(session.user);
     await loadUserScopedState();
+    loadSharedCollaborationsIntoState();
     await syncCloudWorkspace("pull");
     loadSharedCollaborationsIntoState();
     await syncCloudCollaborations().catch(() => {});
+    loadSharedCollaborationsIntoState();
     syncSharedCollaborations();
     await persistState({ syncCloud: false });
   } catch (e) {
@@ -2081,6 +2083,9 @@ async function signUpWithEmail(email, password, displayName, role = "maker") {
 async function signOutUser() {
   try {
     syncSharedCollaborations();
+    if (state.hasUserChanges && getCloudSession()) {
+      await storeRemoteWorkspace().catch(() => {});
+    }
     await cloudRequest("/auth/v1/logout", { method: "POST" });
   } catch {}
   clearTimeout(syncTimer);
@@ -2571,8 +2576,12 @@ async function loadRemoteWorkspace(remote) {
       folder.images = Array.isArray(folder.images) ? folder.images : [];
       for (const image of folder.images) {
         if (!image.cloudPath) continue;
-        const blob = await cloudDownloadPhoto(image.cloudPath);
-        image.blob = blob;
+        try {
+          const blob = await cloudDownloadPhoto(image.cloudPath);
+          image.blob = blob;
+        } catch (photoErr) {
+          console.warn("Could not download cloud photo:", image.cloudPath, photoErr);
+        }
       }
     }
   }
@@ -13850,6 +13859,9 @@ async function initialize() {
       if (event.key === CLOUD_SESSION_KEY || event.key === CURRENT_PROFILE_STORAGE_KEY || event.key === PRIMARY_ADMIN_STORAGE_KEY) {
         updateUserUI();
         void loadUserScopedState().then(() => render());
+      } else if (event.key === SHARED_COLLAB_STORAGE_KEY || (event.key && event.key.startsWith("workbench_collab_invites_"))) {
+        loadSharedCollaborationsIntoState();
+        render();
       }
     });
     try {
@@ -21062,31 +21074,56 @@ function getProjectUserRole(project, user = null) {
   const uEmail = (curUser.email || "").toLowerCase().trim();
   const uName = (curUser.displayName || curUser.display_name || curUser.name || (uEmail ? uEmail.split("@")[0] : "")).toLowerCase().trim();
 
-  const cId = project.creator?.id;
-  const cEmail = (project.creator?.email || "").toLowerCase().trim();
-  const cName = (project.creator?.name || project.creator?.displayName || (cEmail ? cEmail.split("@")[0] : "")).toLowerCase().trim();
+  const normalize = s => (s || "").toLowerCase().replace(/[\s._-]+/g, "");
+  const uNorm = normalize(uName);
+  const uPrefix = uEmail ? normalize(uEmail.split("@")[0]) : "";
 
-  const isCreator = Boolean(
-    (uId && cId && uId === cId && uId !== "local-maker") ||
-    (uEmail && cEmail && uEmail === cEmail) ||
-    (!isGenericName(cName) && !isGenericName(uName) && cName === uName)
-  );
-  if (isCreator) return { role: "creator", label: "👑 Creator", className: "role-creator" };
+  const tokenize = s => (s || "").toLowerCase().split(/[\s._@-]+/).filter(t => t.length >= 2);
+  const uTokens = tokenize(uName).concat(tokenize(uEmail));
+
+  if (isProjectCreator(project, curUser)) {
+    return { role: "creator", label: "👑 Creator", className: "role-creator" };
+  }
+
+  const matchesUser = (member) => {
+    if (!member) return false;
+    const mId = member.id || member.user_id;
+    if (mId && uId && mId === uId && mId !== "local-maker") return true;
+
+    const mEmail = (member.email || "").toLowerCase().trim();
+    if (mEmail && uEmail && mEmail === uEmail) return true;
+
+    const mName = (member.displayName || member.display_name || member.name || "").toLowerCase().trim();
+    const mNorm = normalize(mName);
+    const mPrefix = mEmail ? normalize(mEmail.split("@")[0]) : "";
+    const mTokens = tokenize(mName).concat(tokenize(mEmail));
+
+    if (!isGenericName(mName) && !isGenericName(uName) && mNorm && mNorm === uNorm) return true;
+    if (!isGenericName(mName) && mNorm && uPrefix && mNorm === uPrefix) return true;
+    if (!isGenericName(uName) && uNorm && mPrefix && uNorm === mPrefix) return true;
+    if (mPrefix && uPrefix && mPrefix === uPrefix) return true;
+
+    if (mTokens.length > 0 && uTokens.length > 0) {
+      const hasTokenMatch = mTokens.some(mt => !isGenericName(mt) && uTokens.some(ut => !isGenericName(ut) && (mt === ut || (mt.length >= 3 && ut.length >= 3 && (mt.includes(ut) || ut.includes(mt))))));
+      if (hasTokenMatch) return true;
+    }
+
+    if (!isGenericName(mName) && !isGenericName(uName)) {
+      if (mNorm && uNorm && (mNorm.includes(uNorm) || uNorm.includes(mNorm))) return true;
+    }
+    if (!isGenericName(mName) && mNorm && uPrefix && (mNorm.includes(uPrefix) || uPrefix.includes(mNorm))) return true;
+    if (!isGenericName(uName) && uNorm && mPrefix && (uNorm.includes(mPrefix) || mPrefix.includes(uNorm))) return true;
+    if (mPrefix && uPrefix && (mPrefix.includes(uPrefix) || uPrefix.includes(mPrefix))) return true;
+
+    return false;
+  };
 
   if (Array.isArray(project.coCreators)) {
     for (const c of project.coCreators) {
-      const mId = c.id || c.user_id;
-      const mEmail = (c.email || "").toLowerCase().trim();
-      const mName = (c.displayName || c.display_name || c.name || "").toLowerCase().trim();
-
-      const matched = Boolean(
-        (uId && mId && uId === mId) ||
-        (uEmail && mEmail && uEmail === mEmail) ||
-        (!isGenericName(mName) && !isGenericName(uName) && (mName === uName || mName.includes(uName) || uName.includes(mName)))
-      );
-      if (matched) {
+      if (matchesUser(c)) {
         const r = (c.role || "editor").toLowerCase();
         if (r === "viewer") return { role: "viewer", label: "👁️ Viewer", className: "role-viewer" };
+        if (r === "contributor") return { role: "contributor", label: "🤝 Contributor", className: "role-contributor" };
         return { role: "editor", label: "✏️ Editor", className: "role-editor" };
       }
     }
@@ -21103,6 +21140,16 @@ async function syncCloudCollaborations() {
   try {
     const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=user_id,updated_at,data`).catch(() => []);
     if (!Array.isArray(rows) || rows.length === 0) return;
+
+    if (rows.length === 1 && !adminInspectionActive) {
+      const hasSharedCollabs = (state.projects || []).some(isCollaborativeProject) || getSharedCollaborations().length > 0;
+      if (hasSharedCollabs) {
+        console.info(
+          "ℹ️ Cloud sync note: Only 1 workspace row returned from Supabase. To enable automatic cross-device sync for collaborative projects across different user accounts, make sure this SQL policy is run in your Supabase SQL Editor:\n" +
+          "create policy \"Authenticated users can select workspaces\" on public.workbench_workspace for select to authenticated using (true);"
+        );
+      }
+    }
 
     let hasChanges = false;
     const myId = curUser.id;
@@ -21134,11 +21181,15 @@ async function syncCloudCollaborations() {
         const isCollaborator = isUserCollaborator(rp, curUser);
 
         if (!isCollaborator) {
-          // Only remove if this remote row belongs to the actual project creator revoking access
+          // Only remove if this remote row belongs to the actual project creator
+          // AND is strictly newer than our local version (explicit revocation)
           const isCreatorRow = isProjectCreator(rp, { id: row.user_id });
-          if (isCreatorRow) {
-            const existingIdx = state.projects.findIndex(p => p.id === rp.id);
-            if (existingIdx !== -1) {
+          const existingIdx = state.projects.findIndex(p => p.id === rp.id);
+          if (isCreatorRow && existingIdx !== -1) {
+            const existing = state.projects[existingIdx];
+            const remoteTime = new Date(rp.updatedAt || 0).getTime();
+            const localTime = new Date(existing.updatedAt || 0).getTime();
+            if (remoteTime > localTime) {
               state.projects.splice(existingIdx, 1);
               hasChanges = true;
             }
@@ -21339,9 +21390,35 @@ function loadSharedCollaborationsIntoState() {
   const curUser = getActiveUser() || getCurrentMakerIdentity();
   if (!curUser) return;
   const shared = getSharedCollaborations();
-  if (!shared || shared.length === 0) return;
+  const candidates = [...shared];
 
-  for (const sp of shared) {
+  // Also check mailbox invite keys in localStorage
+  try {
+    const keysToCheck = [];
+    if (curUser.id) keysToCheck.push(`workbench_collab_invites_${curUser.id}`);
+    if (curUser.email) keysToCheck.push(`workbench_collab_invites_${curUser.email.toLowerCase().trim()}`);
+    const uName = (curUser.displayName || curUser.display_name || curUser.name || (curUser.email ? curUser.email.split("@")[0] : "")).toLowerCase().replace(/[\s._-]+/g, "");
+    if (uName) keysToCheck.push(`workbench_collab_invites_${uName}`);
+    if (curUser.email && curUser.email.includes("@")) {
+      keysToCheck.push(`workbench_collab_invites_${curUser.email.split("@")[0].toLowerCase().replace(/[\s._-]+/g, "")}`);
+    }
+
+    for (const key of keysToCheck) {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const invProj = JSON.parse(raw);
+          if (invProj && invProj.id && !candidates.some(c => c.id === invProj.id)) {
+            candidates.push(invProj);
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+
+  if (candidates.length === 0) return;
+
+  for (const sp of candidates) {
     if (!sp || !sp.id) continue;
     ensureProjectCreator(sp);
     if (isDeletedProject(sp.id)) continue;
@@ -21561,25 +21638,64 @@ async function pushProjectToCollaboratorWorkspaces(project) {
 
   // Also push project to local user-scoped IndexedDB state for all collaborators on this browser
   try {
+    const targetUsers = new Map();
+    // 1. Direct co-creators from project
+    for (const c of (project.coCreators || [])) {
+      if (c?.id && c.id !== curUser?.id && c.id !== "local-maker") {
+        targetUsers.set(c.id, c);
+      }
+    }
+    // 2. Known makers from localStorage
     const knownMakersRaw = localStorage.getItem("workbench_known_makers");
     const knownList = knownMakersRaw ? JSON.parse(knownMakersRaw) : [];
     for (const m of knownList) {
       if (!m?.id || m.id === curUser?.id || m.id === "local-maker") continue;
       if (isUserCollaborator(project, m)) {
-        const userStateKey = `workbench_state_${m.id}`;
-        const uState = await readSavedState(userStateKey);
-        if (uState) {
-          uState.projects = Array.isArray(uState.projects) ? uState.projects : [];
-          const idx = uState.projects.findIndex(p => p.id === project.id);
-          if (idx >= 0) {
-            uState.projects[idx] = structuredClone(project);
-          } else {
-            uState.projects.unshift(structuredClone(project));
-          }
-          const tx = database.transaction(STORE_NAME, "readwrite");
-          tx.objectStore(STORE_NAME).put(uState, userStateKey);
-        }
+        targetUsers.set(m.id, m);
       }
+    }
+
+    for (const [targetId, targetInfo] of targetUsers) {
+      const userStateKey = `workbench_state_${targetId}`;
+      let uState = await readSavedState(userStateKey);
+      if (!uState) {
+        uState = {
+          projects: [],
+          ideas: [...STARTER_IDEAS],
+          skills: [],
+          activity: [],
+          practiceLog: [],
+          inventory: [],
+          depotRestockList: [],
+          customTemplates: [],
+          makerGoals: [],
+          maintenance: [],
+          currency: state.currency || "USD",
+          unitSystem: state.unitSystem || "in",
+          weeklyGoal: 60,
+          updatedAt: new Date().toISOString(),
+          hasUserChanges: false,
+          starterSkillsAdded: true
+        };
+      }
+      uState.projects = Array.isArray(uState.projects) ? uState.projects : [];
+      const idx = uState.projects.findIndex(p => p.id === project.id);
+      if (idx >= 0) {
+        uState.projects[idx] = structuredClone(project);
+      } else {
+        uState.projects.unshift(structuredClone(project));
+      }
+      const tx = database.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).put(uState, userStateKey);
+
+      // Write mailbox invites into localStorage for immediate discovery
+      if (targetInfo.email) {
+        localStorage.setItem(`workbench_collab_invites_${targetInfo.email.toLowerCase().trim()}`, JSON.stringify(project));
+      }
+      if (targetInfo.name) {
+        localStorage.setItem(`workbench_collab_invites_${targetInfo.name.toLowerCase().replace(/[\s._-]+/g, "")}`, JSON.stringify(project));
+      }
+      localStorage.setItem(`workbench_collab_invites_${targetId}`, JSON.stringify(project));
     }
   } catch (err) {
     console.warn("Could not push project to local collaborator IndexedDB state:", err);
@@ -21994,6 +22110,7 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
   const project = state.projects.find(p => p.id === (projectId || activeCollabProjectId));
   if (!project) return;
   ensureProjectCreator(project);
+  const curUser = getActiveUser();
   const normalize = s => (s || "").toLowerCase().replace(/[\s._-]+/g, "");
 
   let newMember;
@@ -22033,17 +22150,20 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
     const newPrefix = normNewEmail ? normalize(normNewEmail.split("@")[0]) : normNewName;
 
     for (const m of known.values()) {
+      if (m.id === curUser?.id || (curUser?.email && m.email && m.email.toLowerCase().trim() === curUser.email.toLowerCase().trim())) {
+        continue;
+      }
       const mEmail = (m.email || "").toLowerCase().trim();
       const mName = normalize(m.displayName || m.name || "");
       const mPrefix = mEmail ? normalize(mEmail.split("@")[0]) : "";
 
       const matchId = Boolean(newMember.id && m.id && newMember.id === m.id);
       const matchEmail = Boolean(normNewEmail && mEmail && normNewEmail === mEmail);
-      const matchName = Boolean(normNewName && mName && normNewName === mName);
+      const matchName = Boolean(normNewName && mName && !isGenericName(mName) && !isGenericName(normNewName) && normNewName === mName);
       const matchPrefix = Boolean(
         (newPrefix && mPrefix && newPrefix === mPrefix) ||
         (normNewName && mPrefix && normNewName === mPrefix) ||
-        (normNewEmail && mName && (mName.includes(normNewName) || normNewName.includes(mName)))
+        (normNewEmail && mName && !isGenericName(mName) && (mName.includes(normNewName) || normNewName.includes(mName)))
       );
 
       if (matchId || matchEmail || matchName || matchPrefix) {
@@ -22076,8 +22196,11 @@ async function addCoCreator(projectId, identityOrString, role = "Editor") {
 
   syncSharedCollaborations();
   try {
-    await persistState();
-    void pushProjectToCollaboratorWorkspaces(project);
+    await persistState({ syncCloud: true });
+    if (getCloudSession()) {
+      await storeRemoteWorkspace().catch(err => console.warn("Direct cloud push notice:", err));
+    }
+    await pushProjectToCollaboratorWorkspaces(project);
     render();
     if ($("#detail-dialog")?.open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
@@ -22132,8 +22255,11 @@ async function passCreatorStatus(projectId, targetId) {
 
   syncSharedCollaborations();
   try {
-    await persistState();
-    void pushProjectToCollaboratorWorkspaces(project);
+    await persistState({ syncCloud: true });
+    if (getCloudSession()) {
+      await storeRemoteWorkspace().catch(err => console.warn("Direct cloud push notice:", err));
+    }
+    await pushProjectToCollaboratorWorkspaces(project);
     render();
     if ($("#detail-dialog")?.open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
@@ -22158,8 +22284,11 @@ async function toggleCoCreatorRole(projectId, targetId) {
 
   syncSharedCollaborations();
   try {
-    await persistState();
-    void pushProjectToCollaboratorWorkspaces(project);
+    await persistState({ syncCloud: true });
+    if (getCloudSession()) {
+      await storeRemoteWorkspace().catch(err => console.warn("Direct cloud push notice:", err));
+    }
+    await pushProjectToCollaboratorWorkspaces(project);
     await renderCollaboratorsDialog(project);
     showToast(`Updated role for ${target.name} to ${target.role}.`);
   } catch (err) {
@@ -22199,8 +22328,11 @@ async function removeCoCreator(projectId, targetId) {
   }
 
   try {
-    await persistState();
-    void pushProjectToCollaboratorWorkspaces(project);
+    await persistState({ syncCloud: true });
+    if (getCloudSession()) {
+      await storeRemoteWorkspace().catch(err => console.warn("Direct cloud push notice:", err));
+    }
+    await pushProjectToCollaboratorWorkspaces(project);
     render();
     if ($("#detail-dialog")?.open && activeProjectId === project.id) {
       renderProjectDetail(project.id);
