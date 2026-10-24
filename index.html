@@ -101,6 +101,9 @@
               <button class="nav-link" data-view="horology" data-keywords="watchmaking watch timegrapher beat error balance amplitude lift angle regulation jewel moebius water resist"><span class="nav-icon">⏱️</span>Watchmaking &amp; Horology</button>
               <button class="nav-link" data-view="robotics" data-keywords="robotics motors stepper microstepping nema kinematics 2-dof reach torque driver steps per mm lipo"><span class="nav-icon">🤖</span>Robotics &amp; Motors</button>
               <button class="nav-link" data-view="bicycle" data-keywords="framebuilding bicycle bike spoke erdmann wheel dish trail fork rake miter fishmouth lug brazing"><span class="nav-icon">🚲</span>Bicycle &amp; Framebuilding</button>
+              <button class="nav-link" data-view="candle" data-keywords="candle wax soy beeswax fragrance wick container melt pour scent paraffin gel cure thermometer"><span class="nav-icon">🕯️</span>Candle Making</button>
+              <button class="nav-link" data-view="perfume" data-keywords="perfume scent fragrance cologne aroma olfactory pyramid top heart base notes alcohol dilution edp edt ifra"><span class="nav-icon">🌸</span>Perfume &amp; Fragrance</button>
+              <button class="nav-link" data-view="letter" data-keywords="letter wax seal paper envelope calligraphy fountain pen stationery stamp gsm deckle epistolary wedding nib"><span class="nav-icon">✉️</span>Letter &amp; Wax Seal</button>
             </div>
           </div>
 
@@ -3809,6 +3812,114 @@
               </div>
 
               <!-- 🛡️ Silicone Mold Release & Cure Inhibition Matrix -->
+              <!-- 🔥 Thermal Exotherm Runaway Monitor & Staged Pour Watchdog -->
+              <div class="panel" id="panel-resin-thermal" style="grid-column: 1 / -1">
+                <div class="eyebrow">THERMAL ACCUMULATION &amp; MAXIMUM POUR DEPTH</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🔥 Thermal Exotherm Runaway Monitor &amp; Staged Pour Scheduler</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-resin-thermal" title="Minimize panel">− Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Predict peak core exothermic temperature, spontaneous yellow boil-over hazards, and calculate multi-layer pour schedules for deep river tables and thick castings.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Resin System Formulation
+                    <select id="resin-thermal-type">
+                      <option value="tabletop" selected>Tabletop Epoxy (Max 0.25" / 6mm - High Heat)</option>
+                      <option value="deep_pour">2:1 Deep Pour Epoxy (Max 2.0" / 50mm - Low Heat)</option>
+                      <option value="deep_casting">3:1 Deep Casting Epoxy (Max 3.0" / 75mm - Ultra-Slow)</option>
+                      <option value="uv_resin">UV Photopolymer Resin (Max 3mm per layer)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Total Target Depth (inches)
+                    <input type="number" id="resin-thermal-depth" value="1.75" min="0.1" max="6.0" step="0.1">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Estimated Total Volume (ml)
+                    <input type="number" id="resin-thermal-volume" value="1800" min="50" step="100">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Shop Ambient Temp (°F)
+                    <input type="number" id="resin-thermal-ambient" value="72" min="50" max="95" step="1">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="resin-thermal-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🧊 Silicone Mold Box & Master Displacement Volume Calculator -->
+              <div class="panel" id="panel-silicone-mold-calc">
+                <div class="eyebrow">SILICONE RUBBER DISPLACEMENT &amp; MOLD BOX MATH</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧊 Silicone Mold Box &amp; Net Volume Calculator</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact silicone Part A + Part B weight needed to cover a master pattern with safe 0.5" (13mm) wall thickness.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Mold Box Length (in)
+                    <input type="number" id="silicone-box-l" value="6.0" min="1.0" step="0.25">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Mold Box Width (in)
+                    <input type="number" id="silicone-box-w" value="4.0" min="1.0" step="0.25">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Mold Box Depth (in)
+                    <input type="number" id="silicone-box-d" value="2.5" min="0.5" step="0.25">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Master Displacement (ml)
+                    <input type="number" id="silicone-master-vol" value="120" min="0" step="10">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Silicone Type
+                    <select id="silicone-mix-type">
+                      <option value="plat_1_1" selected>1:1 Platinum Silicone (by weight)</option>
+                      <option value="tin_10_1">10:1 Tin-Cure Silicone (by weight)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="silicone-mold-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🛡️ Silicone Shore A Hardness & 2-Part Mold Registration -->
+              <div class="panel" id="panel-silicone-hardness">
+                <div class="eyebrow">SHORE HARDNESS &amp; 2-PART MOLD ENGINEERING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🛡️ Shore A Hardness &amp; 2-Part Mold Registration Keys</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Select the ideal rubber durometer and learn precise 2-part mold registration keys and release barrier protocol.</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Casting Project Type
+                    <select id="silicone-shore-picker">
+                      <option value="miniatures" selected>Miniatures with delicate undercuts / fingers</option>
+                      <option value="dice">Sharp edge gaming dice / jewelry charms</option>
+                      <option value="candles">Candle pillars &amp; botanical soaps</option>
+                      <option value="production">Rigid 2-part production mold / resin parts</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Mold Architecture
+                    <select id="silicone-arch-type">
+                      <option value="one_part" selected>1-Part Block Mold (Cut seam with scalpel)</option>
+                      <option value="two_part">2-Part Mold (Clay bed &amp; registration keys)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="silicone-shore-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🌿 Embed Encapsulation & Wood Moisture Guide -->
+              <div class="panel" id="panel-resin-moisture" style="grid-column: 1 / -1">
+                <div class="eyebrow">EMBED INCLUSIONS &amp; BOTANICAL DRYING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🌿 Live Edge Wood Moisture &amp; Botanical Embed Protocol</h3>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Embed Material Class
+                    <select id="resin-embed-mat">
+                      <option value="wood" selected>Live Edge Slab Wood (River Tables)</option>
+                      <option value="flowers">Botanical Flowers / Greenery</option>
+                      <option value="porous">Porous Bone / Antler / Pinecone</option>
+                      <option value="metals">Machined Metal / Coins / Carbon Fiber</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Measured Moisture Content (% MC)
+                    <input type="number" id="resin-wood-mc" value="9" min="0" max="30" step="0.5">
+                  </label>
+                </div>
+                <div class="tool-result-box" id="resin-embed-result" style="margin-top:10px"></div>
+              </div>
+
               <div class="panel" id="panel-resin-inhibition" style="grid-column: 1 / -1">
                 <div class="eyebrow">MOLD RUBBER COMPATIBILITY</div>
                 <h3 style="font-size:16px;margin:2px 0 8px">🛡️ Silicone Mold Release &amp; Cure Inhibition Safeguards</h3>
@@ -5643,6 +5754,95 @@
               </div>
 
               <!-- 🔥 Soldering Steps, Torch & Pickle Matrix -->
+              <!-- 📐 Wire Gauge (AWG / B&S) & Temper Selector Matrix -->
+              <div class="panel" id="panel-jewelry-wire" style="grid-column: 1 / -1">
+                <div class="eyebrow">METRIC WIRE SIZING, AREA &amp; METAL TEMPER</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">📐 Wire Gauge (AWG / B&amp;S), Millimeters &amp; Temper Matrix</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-jewelry-wire" title="Minimize panel">− Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Convert American Wire Gauge (AWG / Brown &amp; Sharpe) to exact metric and imperial diameters, cross-sectional area, and bench annealing temperatures.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Wire Gauge (AWG / B&amp;S)
+                    <select id="jewelry-wire-gauge">
+                      <option value="12">12 AWG (2.05 mm / 0.081" − Heavy bangle armature)</option>
+                      <option value="14">14 AWG (1.63 mm / 0.064" − Heavy ring shank / cuff)</option>
+                      <option value="16">16 AWG (1.29 mm / 0.051" − Sturdy stacking band / neckwire)</option>
+                      <option value="18">18 AWG (1.02 mm / 0.040" − Heavy jump rings / clasps)</option>
+                      <option value="20" selected>20 AWG (0.81 mm / 0.032" − Standard ear wires / French hooks)</option>
+                      <option value="22">22 AWG (0.64 mm / 0.025" − Headpins / wire wrapping stones)</option>
+                      <option value="24">24 AWG (0.51 mm / 0.020" − Delicate wire weaving / briolette)</option>
+                      <option value="26">26 AWG (0.40 mm / 0.016" − Fine bezel wire / wire crochet)</option>
+                      <option value="28">28 AWG (0.32 mm / 0.013" − Micro-filigree ribbons)</option>
+                      <option value="30">30 AWG (0.25 mm / 0.010" − Ultra-fine filigree / knitting)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Metal Temper State
+                    <select id="jewelry-wire-temper">
+                      <option value="dead_soft" selected>Dead Soft (Fully annealed − Bends easily, 0 spring)</option>
+                      <option value="half_hard">Half Hard (Springs slightly − Holds structural shape)</option>
+                      <option value="full_hard">Full Hard (High spring − Earwire tension &amp; pin stems)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Precious Alloy Material
+                    <select id="jewelry-wire-alloy">
+                      <option value="sterling" selected>Sterling Silver (.925 Ag)</option>
+                      <option value="fine_silver">Fine Silver (.999 Ag)</option>
+                      <option value="gold_14k">14K Gold (Au-Ag-Cu)</option>
+                      <option value="copper">Raw Pure Copper (Cu)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="jewelry-wire-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 💎 Gemstone Mohs Hardness & Bench Safety Guide -->
+              <div class="panel" id="panel-jewelry-mohs">
+                <div class="eyebrow">GEMSTONE DURABILITY &amp; THERMAL SAFETY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">💎 Gemstone Mohs Hardness &amp; Bench Safety Guide</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Check scratch hardness, heat sensitivity, ultrasonic bath tolerance, and pickle acid vulnerabilities before torch work or cleaning.</p>
+
+                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+                  <input type="search" id="jewelry-mohs-search" placeholder="🔍 Search gemstone (e.g. Opal, Emerald, Pearl, Diamond)..." style="flex:1;min-width:180px;font-size:12px;padding:6px 10px;border-radius:6px">
+                  <select id="jewelry-mohs-filter" style="font-size:12px;padding:6px 8px;border-radius:6px">
+                    <option value="all" selected>All Gemstones</option>
+                    <option value="soft">Fragile / Soft (Mohs 1−5)</option>
+                    <option value="moderate">Moderate Durability (Mohs 5.5−7.5)</option>
+                    <option value="tough">Tough / Precious (Mohs 8−10)</option>
+                  </select>
+                </div>
+
+                <div class="tool-result-box" id="jewelry-mohs-result" style="margin-top:8px;max-height:280px;overflow-y:auto"></div>
+              </div>
+
+              <!-- ✨ Jeweler's Polishing Compounds & Finishing Progression -->
+              <div class="panel" id="panel-jewelry-polishing">
+                <div class="eyebrow">BUFFING PROGRESSION &amp; MIRROR FINISH</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">✨ Rotary Buffing Compounds &amp; Finishing Hierarchy</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Follow the step-by-step compound sequence from Tripoli cut to Red Rouge mirror luster without dragging soft metals or rounding crisp edges.</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Starting Metal Condition
+                    <select id="jewelry-polish-start">
+                      <option value="raw_cast" selected>Raw Cast / 400-Grit Sandpaper Marks</option>
+                      <option value="fine_sand">600 to 1200-Grit Pre-Polished Surface</option>
+                      <option value="antique_patina">Liver of Sulfur Highlighting (Relief Polish)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Metal Base
+                    <select id="jewelry-polish-metal">
+                      <option value="silver_gold" selected>Sterling Silver &amp; Yellow Gold</option>
+                      <option value="platinum">Platinum / White Gold</option>
+                      <option value="brass_copper">Brass, Bronze &amp; Copper</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="jewelry-polish-result" style="margin-top:10px"></div>
+              </div>
+
               <div class="panel" id="panel-jewelry-soldering" style="grid-column: 1 / -1">
                 <div class="eyebrow">MULTI-STAGE SOLDERING &amp; PICKLE NEUTRALIZATION</div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
@@ -6794,6 +6994,481 @@
             </div>
           </section>
 
+          <!-- 🕯️ Candle Making & Wax Formulation Studio View -->
+          <section class="view-section" id="candle-view" aria-labelledby="candle-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> CANDLE CRAFTING, SOY WAX &amp; FRAGRANCE DYNAMICS</div>
+                <h1 id="candle-title">Candle Making Studio<span class="heading-period">.</span></h1>
+                <p>Formulate soy, beeswax, coconut, and paraffin candles with precise wax-to-fragrance ratios, wick gauge sizing by vessel diameter, thermal pour curves, and ASTM safety caution tags.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-candle-recipe">📋 Copy Candle Recipe</button>
+                <button type="button" class="button button-outline" data-action="print-candle-label">🏷️ Print ASTM Caution Label</button>
+                <button type="button" class="button button-primary" data-action="add-candle-to-materials">📦 Add Wax &amp; Wicks to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🕯️ Wax & Fragrance Load Calculator -->
+              <div class="panel" id="panel-candle-calc" style="grid-column: 1 / -1">
+                <div class="eyebrow">WAX DENSITY, VESSEL VOLUME &amp; SCENT THROW</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🕯️ Candle Wax Weight &amp; Fragrance Load Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-candle-calc" title="Minimize panel">− Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact wax flakes and fragrance oil by weight (using 0.86 wax-to-water density shrinkage), scent throw percentages, and melting/pouring thermal targets.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Wax Type / Formulation
+                    <select id="candle-wax-type">
+                      <option value="soy_464" selected>Golden Wax 464 (Soy − Max 10% FO − Pour @ 135°F)</option>
+                      <option value="soy_444">Golden Wax 444 (Soy − High Melt 120°F − Pour @ 140°F)</option>
+                      <option value="coconut_soy">Coconut / Soy Blend (Ultra-smooth − Max 12% FO − Pour @ 125°F)</option>
+                      <option value="beeswax">100% Pure Beeswax (Natural − Max 8% FO − Pour @ 160°F)</option>
+                      <option value="paraffin">Paraffin Container IGI 4630 (High hot throw − Pour @ 165°F)</option>
+                      <option value="gel">Penreco Gel Wax (Translucent − Max 6% FO − Pour @ 190°F)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Vessel Calculation Mode
+                    <select id="candle-vessel-mode">
+                      <option value="volume" selected>Direct Liquid Volume (Water weight / fl oz)</option>
+                      <option value="dimensions">Vessel Dimensions (Diameter × Height)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px" id="candle-lbl-vol">
+                    <span>Liquid Container Water Weight / Vol</span>
+                    <div style="display:flex;gap:4px">
+                      <input type="number" id="candle-vessel-vol" value="240" min="10" step="10" style="flex:1">
+                      <select id="candle-vol-unit" style="width:70px">
+                        <option value="ml" selected>ml / g</option>
+                        <option value="oz">fl oz</option>
+                      </select>
+                    </div>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px;display:none" id="candle-lbl-dim1">
+                    <span>Vessel Inside Diameter (in)</span>
+                    <input type="number" id="candle-dim-dia" value="3.0" min="1.0" max="8.0" step="0.25">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px;display:none" id="candle-lbl-dim2">
+                    <span>Vessel Inside Height (in)</span>
+                    <input type="number" id="candle-dim-hgt" value="3.5" min="1.0" max="10.0" step="0.25">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Number of Candles in Batch
+                    <input type="number" id="candle-count" value="2" min="1" max="100" step="1">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Fragrance Oil Load (%)
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <input type="range" id="candle-fragrance-range" min="4" max="12" step="0.5" value="9" style="flex:1">
+                      <input type="number" id="candle-fragrance-pct" min="4" max="15" step="0.5" value="9" style="width:65px">
+                      <span>%</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="candle-calc-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🧵 Wick Sizing & Vessel Diameter Matcher -->
+              <div class="panel" id="panel-candle-wick">
+                <div class="eyebrow">BURN POOL GEOMETRY &amp; MULTI-WICKING</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🧵 Wick Sizing &amp; Diameter Matcher</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Match cotton braided or wood wicks to your vessel diameter to guarantee a clean 1/4" to 1/2" melt pool depth and eliminate tunneling.</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Vessel Inside Diameter
+                    <select id="candle-wick-dia">
+                      <option value="small">Small (2.0" − 2.5" / 50 − 64 mm − Votives &amp; Mason 4oz)</option>
+                      <option value="medium" selected>Medium (2.5" − 3.0" / 64 − 76 mm − Standard 8oz Rocks Jar)</option>
+                      <option value="large">Large (3.0" − 3.5" / 76 − 89 mm − 12oz Tumbler / Libbey)</option>
+                      <option value="extra_large">Extra Large (3.5" − 4.5" / 89 − 114 mm − 3-Wick Dough Bowl)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Wick Material Family
+                    <select id="candle-wick-family">
+                      <option value="cd" selected>CD Series (Stabilo flat-braided cotton with paper filament)</option>
+                      <option value="eco">ECO Series (Pure cotton coreless with paper filaments)</option>
+                      <option value="cotton">Cotton Premier / HTP (Low smoke, zinc-free)</option>
+                      <option value="wood">Natural Wood Wicks (Crackling booster strip)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="candle-wick-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ⏱️ Cure Time & 4-Hour Burn Test Protocol -->
+              <div class="panel" id="panel-candle-cure">
+                <div class="eyebrow">CRYSTAL LATTICE &amp; BURN TEST BENCHMARK</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">⏱️ Cure Time &amp; 4-Hour Burn Test Protocol</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Track crystal lattice curing times to lock fragrance oil bonds before lighting, and conduct safety burn evaluations.</p>
+
+                <div style="display:grid;grid-template-columns:1fr;gap:8px">
+                  <div class="candle-cure-grid" id="candle-cure-benchmark"></div>
+                </div>
+
+                <div class="tool-result-box" id="candle-burn-test-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ⚠️ ASTM Compliant Candle Caution Label Generator -->
+              <div class="panel" id="panel-candle-safety" style="grid-column: 1 / -1">
+                <div class="eyebrow">ASTM F2058 CONSUMER SAFETY WARNINGS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">⚠️ ASTM Caution Label &amp; Fire Safety Tag Generator</h3>
+                  <button type="button" class="button button-outline button-small" data-action="print-candle-label">🏷️ Print / Copy Safety Tag</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Standardized caution warnings for jar bases. Required for product liability protection and customer safety compliance.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Brand / Maker Name
+                    <input type="text" id="candle-label-brand" value="Artisan Studio Workshop" placeholder="Your Brand Name">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Candle Scent Name
+                    <input type="text" id="candle-label-scent" value="Amber Woods &amp; Lavender" placeholder="Scent Name">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Net Fill Weight (oz / g)
+                    <input type="text" id="candle-label-net" value="8.0 oz (226 g)" placeholder="Net Wt">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="candle-label-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🌸 Perfume Formulation & Olfactory Studio View -->
+          <section class="view-section" id="perfume-view" aria-labelledby="perfume-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> BESPOKE PERFUMERY, ESSENCES &amp; MACERATION</div>
+                <h1 id="perfume-title">Perfume &amp; Fragrance Studio<span class="heading-period">.</span></h1>
+                <p>Design bespoke fragrances using classic olfactory pyramids (Top, Heart, Base), concentration dilutions (Extrait, EdP, EdT, EdC), IFRA skin safety checks, and maceration logs.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-perfume-formula">📋 Copy Formula Card</button>
+                <button type="button" class="button button-primary" data-action="add-perfume-to-materials">🌸 Add Fragrance Oils to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- 🌸 Concentration & Carrier Dilution Calculator -->
+              <div class="panel" id="panel-perfume-dilution" style="grid-column: 1 / -1">
+                <div class="eyebrow">AROMATIC CONCENTRATION &amp; CARRIER PROPORTIONS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🌸 Concentration &amp; Alcohol/Oil Dilution Calculator</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-perfume-dilution" title="Minimize panel">− Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Calculate exact volume (ml), drops, and scale grams for pure fragrance concentrate vs. carrier base across standard perfumery strength classifications.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Target Bottle Size (ml)
+                    <select id="perfume-bottle-size">
+                      <option value="10">10 ml (Pocket Travel / Rollerball)</option>
+                      <option value="15">15 ml (Sample Flacon)</option>
+                      <option value="30">30 ml (1.0 fl oz Atomizer)</option>
+                      <option value="50" selected>50 ml (1.7 fl oz Classic Spray)</option>
+                      <option value="100">100 ml (3.4 fl oz Full Flacon)</option>
+                      <option value="custom">Custom Size (ml)...</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px;display:none" id="perfume-lbl-custom-size">
+                    <span>Custom Bottle Size (ml)</span>
+                    <input type="number" id="perfume-custom-size" value="60" min="5" max="1000" step="5">
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Concentration Strength
+                    <select id="perfume-conc-category">
+                      <option value="extrait">Extrait / Parfum (25% aromatic oil − Longevity: 10−14 hrs)</option>
+                      <option value="edp" selected>Eau de Parfum / EdP (18% aromatic oil − Longevity: 6−8 hrs)</option>
+                      <option value="edt">Eau de Toilette / EdT (10% aromatic oil − Longevity: 3−5 hrs)</option>
+                      <option value="edc">Eau de Cologne / EdC (4% aromatic oil − Longevity: 2 hrs)</option>
+                      <option value="fraiche">Eau Fraîche (2% aromatic oil − Longevity: 1 hr)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Carrier Solvent Type
+                    <select id="perfume-carrier-type">
+                      <option value="alcohol" selected>Perfumer's Alcohol (SDA 40-B 190/200 Proof Ethanol)</option>
+                      <option value="oil">Oil Rollerball (Fractionated Coconut / Jojoba Oil)</option>
+                      <option value="hydro">Hydroalcoholic (95% Ethanol + 5% Distilled Water)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="perfume-dilution-result" style="margin-top:12px"></div>
+              </div>
+
+              <!-- 🔺 Interactive Olfactory Pyramid Formulator -->
+              <div class="panel" id="panel-perfume-pyramid">
+                <div class="eyebrow">HEAD, HEART &amp; BASE NOTE HARMONY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🔺 Olfactory Notes Pyramid &amp; Ratio Tuner</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Tune the evaporation curve from bright fleeting top notes to lingering balsamic base fixatives.</p>
+
+                <div style="display:grid;grid-template-columns:1fr;gap:12px">
+                  <div class="perfume-pyramid-sliders">
+                    <label class="field-label" style="font-size:11px">
+                      <span style="display:flex;justify-content:space-between">
+                        <strong>Top / Head Notes (15−30%)</strong>
+                        <span id="perfume-val-top">25%</span>
+                      </span>
+                      <input type="range" id="perfume-range-top" min="10" max="40" value="25" step="1">
+                      <span style="font-size:10px;color:var(--muted)">Bergamot, Lemon, Grapefruit, Pink Pepper, Mint, Lavender (0−30 min)</span>
+                    </label>
+
+                    <label class="field-label" style="font-size:11px;margin-top:6px">
+                      <span style="display:flex;justify-content:space-between">
+                        <strong>Heart / Mid Notes (30−50%)</strong>
+                        <span id="perfume-val-heart">45%</span>
+                      </span>
+                      <input type="range" id="perfume-range-heart" min="20" max="60" value="45" step="1">
+                      <span style="font-size:10px;color:var(--muted)">Rose, Jasmine, Neroli, Cardamom, Nutmeg, Geranium (30 min − 4 hrs)</span>
+                    </label>
+
+                    <label class="field-label" style="font-size:11px;margin-top:6px">
+                      <span style="display:flex;justify-content:space-between">
+                        <strong>Base / Drydown Notes (20−35%)</strong>
+                        <span id="perfume-val-base">30%</span>
+                      </span>
+                      <input type="range" id="perfume-range-base" min="15" max="45" value="30" step="1">
+                      <span style="font-size:10px;color:var(--muted)">Sandalwood, Cedar, Amber, Vanilla, Vetiver, Patchouli, Musk (4 − 24+ hrs)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="tool-result-box" id="perfume-pyramid-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🛡️ IFRA Dermal Safety & Phototoxic Guide -->
+              <div class="panel" id="panel-perfume-ifra">
+                <div class="eyebrow">IFRA CATEGORY 4 STANDARDS &amp; DERMAL LIMITS</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">🛡️ IFRA Dermal Limits &amp; Phototoxicity Alerts</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Standard safety limits to avoid contact dermatitis, chemical phototoxicity, and allergen sensitization.</p>
+
+                <div style="display:grid;grid-template-columns:1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Inspect Sensitive Ingredient
+                    <select id="perfume-ifra-ing">
+                      <option value="bergamot" selected>Bergamot Essential Oil (Cold Pressed − Bergapten Phototoxicity)</option>
+                      <option value="oakmoss">Oakmoss Absolute (Evernia prunastri − Atranol Sensitizer)</option>
+                      <option value="cinnamon">Cinnamon Bark Oil (Cinnamaldehyde − Skin Irritant)</option>
+                      <option value="clove">Clove Bud Oil (Eugenol − Max 0.5% in leave-on)</option>
+                      <option value="rose_otto">Rose Otto / Rose Damascena (Methyleugenol restriction)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="perfume-ifra-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📜 Maceration Log & Aging Journal -->
+              <div class="panel" id="panel-perfume-maceration" style="grid-column: 1 / -1">
+                <div class="eyebrow">MATURATION SCHEDULE &amp; OLFACTORY EVALUATIONS</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">📜 Maceration Aging Schedule &amp; Formulation Journal</h3>
+                  <button type="button" class="button button-outline button-small" data-action="save-perfume-log">💾 Save Blend to Log</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Ethanol esterification requires 4 to 6 weeks in cool dark storage to round out sharp chemical edges and integrate balsamic fixatives.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Formula Name
+                    <input type="text" id="perfume-log-name" value="Nocturne Amber &amp; Bergamot" placeholder="Formula Name">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Compounding Date
+                    <input type="date" id="perfume-log-date">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Key Aromatic Ingredients
+                    <input type="text" id="perfume-log-notes" value="Bergamot FCF, Bulgarian Rose, Mysore Sandalwood, Tonka" placeholder="Ingredients">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="perfume-maceration-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ✉️ Letter Planning & Epistolary Studio View -->
+          <section class="view-section" id="letter-view" aria-labelledby="letter-title">
+            <div class="section-heading">
+              <div>
+                <div class="eyebrow"><span class="eyebrow-line"></span> EPISTOLARY ART, FINE STATIONERY &amp; WAX SEALS</div>
+                <h1 id="letter-title">Letter Planning &amp; Wax Seal Studio<span class="heading-period">.</span></h1>
+                <p>Craft heirloom letters, wedding suites, and correspondence with fine paper GSM calibration, fountain pen &amp; ink synergy, envelope sizing, and interactive wax seal designing.</p>
+              </div>
+              <div class="sync-actions">
+                <button type="button" class="button button-outline" data-action="copy-letter-draft">📋 Copy Letter Text</button>
+                <button type="button" class="button button-outline" data-action="print-letter-sheet">🖨️ Print Letter Template</button>
+                <button type="button" class="button button-primary" data-action="add-letter-to-materials">✉️ Add Stationery &amp; Wax to Shopping</button>
+              </div>
+            </div>
+
+            <div class="studio-grid">
+              <!-- ✍️ Epistolary Drafting & Layout Assistant -->
+              <div class="panel" id="panel-letter-draft" style="grid-column: 1 / -1">
+                <div class="eyebrow">LETTER DRAFTING &amp; HANDWRITING TIME</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">✍️ Epistolary Drafting &amp; Layout Assistant</h3>
+                  <button type="button" class="panel-collapse-btn" data-action="toggle-panel-collapse" data-panel="panel-letter-draft" title="Minimize panel">− Minimize</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Draft your letter text with live word counting, estimated handwriting duration, page count estimation, and traditional formal layout templates.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Correspondence Tone
+                    <select id="letter-tone-select">
+                      <option value="personal" selected>Personal &amp; Warm (Friends &amp; Family)</option>
+                      <option value="poetic">Vintage &amp; Poetic (Keepsake &amp; Heirloom)</option>
+                      <option value="formal">Formal &amp; Diplomatic (Official &amp; Professional)</option>
+                      <option value="wedding">Wedding &amp; Invitation Suite</option>
+                      <option value="gift">Handwritten Gift Note / Thank You</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Recipient Name
+                    <input type="text" id="letter-recipient" value="Dearest Friend" placeholder="Recipient Name">
+                  </label>
+                  <label class="field-label" style="font-size:11px">Date &amp; Place
+                    <input type="text" id="letter-dateline" value="October 24, 2026 • The Workshop">
+                  </label>
+                </div>
+
+                <div style="margin-top:8px">
+                  <label class="field-label" style="font-size:11px">Letter Body Text
+                    <textarea id="letter-body-text" rows="6" style="width:100%;font-family:Georgia,serif;font-size:14px;line-height:1.6;padding:10px;border-radius:6px" placeholder="Write your letter here...">I hope this letter finds you well and in good spirits.
+
+As the afternoon sun filters through the workshop windows, I found myself thinking of our recent conversations and wanted to take pen in hand to write to you. There is an enduring intimacy in the stroke of pen on paper that digital screens can never quite replicate—the texture of the cotton fibers, the slow drying of the ink, and the seal pressed with care.
+
+May your days ahead be filled with creative joy, meaningful work, and quiet peace.
+
+With warm regards and friendship,</textarea>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="letter-draft-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 📜 Fine Paper Selection & GSM Caliper Guide -->
+              <div class="panel" id="panel-letter-paper">
+                <div class="eyebrow">PAPER WEIGHT, CALIPER &amp; ENVELOPE FIT</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">📜 Paper Weight (GSM), Caliper &amp; Envelopes</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Choose paper GSM thickness, match envelopes (A2, A6, A7, C5, C6), and prevent grain direction cracking.</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Paper Stock &amp; Weight
+                    <select id="letter-paper-gsm">
+                      <option value="80">80 GSM Laid Paper (Light, translucent watermarked)</option>
+                      <option value="100" selected>100 GSM Cotton Rag (Fountain pen champion − Zero ghosting)</option>
+                      <option value="120">120 GSM Smooth Heavy Vellum (Rich handfeel)</option>
+                      <option value="180">180 GSM Handmade Deckle-Edge Cotton (Artisan texture)</option>
+                      <option value="250">250 GSM Correspondence Cardstock (Heavy note card)</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Envelope Standard &amp; Fold
+                    <select id="letter-envelope-type">
+                      <option value="a7" selected>A7 Envelope (5.25" × 7.25" − Fits 5" × 7" flat / half-fold)</option>
+                      <option value="a2">A2 Envelope (4.375" × 5.75" − Fits quarter-folded letter)</option>
+                      <option value="a6">A6 Envelope (4.75" × 6.5" − Fits 4.5" × 6.25" card)</option>
+                      <option value="c5">C5 Envelope (162 × 229 mm − Fits half-folded A4 sheet)</option>
+                      <option value="c6">C6 Envelope (114 × 162 mm − Fits quarter-folded A4 sheet)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="letter-paper-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- ✒️ Pen Nib & Ink Compatibility Engine -->
+              <div class="panel" id="panel-letter-pen">
+                <div class="eyebrow">FOUNTAIN PEN, NIB SIZE &amp; INK CHEMISTRY</div>
+                <h3 style="font-size:16px;margin:2px 0 8px">✒️ Pen Nib &amp; Ink Compatibility Engine</h3>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Check line width, feathering risks, drying times, and critical warnings against using dip-pen shellac inks in fountain pens.</p>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <label class="field-label" style="font-size:11px">Pen Nib Type
+                    <select id="letter-pen-nib">
+                      <option value="ef">Extra Fine (EF − ~0.3 mm) − Crisp tight script</option>
+                      <option value="f" selected>Fine (F − ~0.5 mm) − Everyday versatile balance</option>
+                      <option value="m">Medium (M − ~0.7 mm) − Rich wet ink line</option>
+                      <option value="stub">1.1 mm Stub / Italic − Calligraphic flourish</option>
+                      <option value="dip">Flex Dip Nib (Nikko G / Brause) − Copperplate</option>
+                    </select>
+                  </label>
+                  <label class="field-label" style="font-size:11px">Ink Chemistry Formulation
+                    <select id="letter-ink-type">
+                      <option value="dye" selected>Standard Dye-Based Ink (Water-soluble − Smooth flow)</option>
+                      <option value="pigment">Pigment / Nano Carbon Ink (100% Archival waterproof)</option>
+                      <option value="iron_gall">Iron Gall Ink (Acidic archival − Darkens with air)</option>
+                      <option value="shimmer">Shimmer / Sheen Ink (Suspended micro-mica glitter)</option>
+                      <option value="india">India / Shellac Ink (DIP PEN ONLY − NEVER fountain pen!)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="letter-pen-result" style="margin-top:10px"></div>
+              </div>
+
+              <!-- 🏵️ Interactive Wax Seal Designer & Calculator -->
+              <div class="panel" id="panel-letter-wax" style="grid-column: 1 / -1">
+                <div class="eyebrow">WAX SEAL MATRIX, MARBLE BLENDS &amp; BEAD COUNT</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+                  <h3 style="font-size:16px;margin:0">🏵️ Interactive Wax Seal Designer &amp; Bead Calculator</h3>
+                  <button type="button" class="button button-outline button-small" data-action="copy-seal-recipe">📋 Copy Seal Recipe</button>
+                </div>
+                <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Design custom marbled wax seals, calculate melting bead counts, and ensure postal sorting machine flexibility.</p>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));gap:8px">
+                  <label class="field-label" style="font-size:11px">Seal Stamp Diameter
+                    <select id="wax-stamp-dia">
+                      <option value="20">20 mm (Small delicate accent)</option>
+                      <option value="25" selected>25 mm (Standard 1" − Most popular)</option>
+                      <option value="30">30 mm (Large heraldic / ornate monogram)</option>
+                      <option value="35">35 mm (Oversized medallion / crest)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Primary Base Color
+                    <select id="wax-color-primary">
+                      <option value="#7f1d1d" selected>Burgundy Wine (#7f1d1d)</option>
+                      <option value="#1e3a8a">Royal Navy (#1e3a8a)</option>
+                      <option value="#14532d">Forest Olive (#14532d)</option>
+                      <option value="#b45309">Antique Bronze (#b45309)</option>
+                      <option value="#0f172a">Midnight Obsidian (#0f172a)</option>
+                      <option value="#e2e8f0">Pearl Ivory (#e2e8f0)</option>
+                      <option value="#f43f5e">Rose Petal (#f43f5e)</option>
+                      <option value="#6b21a8">Regal Purple (#6b21a8)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Secondary Marble Accent
+                    <select id="wax-color-accent">
+                      <option value="#eab308" selected>Liquid Gold Metallic (#eab308)</option>
+                      <option value="#cbd5e1">Sterling Silver Shimmer (#cbd5e1)</option>
+                      <option value="#d97706">Copper Leaf (#d97706)</option>
+                      <option value="#ffffff">Pure Pearl White (#ffffff)</option>
+                      <option value="none">None (Solid Monochromatic)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Wax Flexibility Grade
+                    <select id="wax-flex-grade">
+                      <option value="flexible" selected>Modern Flexible Polymer Wax (USPS Mailable − Won't crack)</option>
+                      <option value="brittle">Traditional Shellac Wax (Brittle snap − Requires outer envelope)</option>
+                    </select>
+                  </label>
+
+                  <label class="field-label" style="font-size:11px">Seals to Make (Batch Count)
+                    <input type="number" id="wax-seal-batch" value="25" min="1" max="500" step="1">
+                  </label>
+                </div>
+
+                <div class="tool-result-box" id="wax-seal-result" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </section>
+
         </div>
 
         <!-- 🏷️ Workshop Site Footer -->
@@ -7409,6 +8084,9 @@
           <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="horology">⏱️ Watchmaking &amp; Horology</button>
           <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="robotics">🤖 Robotics &amp; Motors</button>
           <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="bicycle">🚲 Bicycle &amp; Framebuilding</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="candle">🕯️ Candle Making</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="perfume">🌸 Perfume &amp; Fragrance</button>
+          <button type="button" class="button button-small button-outline tool-switch-btn" data-action="switch-studio-from-tools" data-studio="letter">✉️ Letter &amp; Wax Seal</button>
         </div>
       </div>
     </dialog>
@@ -8752,6 +9430,21 @@
           <span class="mobile-studio-icon" aria-hidden="true">🚲</span>
           <strong>Bicycle Framebuilding</strong>
           <span class="mobile-studio-desc">Spoke lengths, wheel dish balance, trail &amp; tube miters</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="candle" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🕯️</span>
+          <strong>Candle Making</strong>
+          <span class="mobile-studio-desc">Wax, fragrance load, wick sizing &amp; cure</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="perfume" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">🌸</span>
+          <strong>Perfume &amp; Scent</strong>
+          <span class="mobile-studio-desc">Pyramid notes, EdP/EdT dilution &amp; maceration</span>
+        </button>
+        <button type="button" class="mobile-studio-card" data-view="letter" data-action="select-mobile-studio">
+          <span class="mobile-studio-icon" aria-hidden="true">✉️</span>
+          <strong>Letter &amp; Wax Seal</strong>
+          <span class="mobile-studio-desc">Epistolary text, paper GSM, ink &amp; wax seal designer</span>
         </button>
       </div>
     </dialog>

@@ -12656,13 +12656,315 @@ body.theme-dark .idea-card {
   }
 }
 
+/* ============================================================
+   🕯️ Candle Making Studio
+   ============================================================ */
+.candle-cure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+.candle-cure-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+.candle-cure-card.active-cure {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb, 59, 130, 246), 0.08);
+}
+.candle-cure-days {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--primary);
+  margin: 4px 0 2px;
+}
+.candle-cure-wax {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.candle-cure-hint {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+.candle-caution-preview {
+  background: #ffffff;
+  color: #111827;
+  border: 2px dashed #9ca3af;
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 420px;
+  margin: 0 auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+[data-theme="dark"] .candle-caution-preview,
+body.theme-dark .candle-caution-preview {
+  background: #1f2937;
+  color: #f3f4f6;
+  border-color: #4b5563;
+}
+.candle-caution-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.candle-caution-icon {
+  font-size: 24px;
+}
+.candle-caution-title {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #dc2626;
+}
+[data-theme="dark"] .candle-caution-title,
+body.theme-dark .candle-caution-title {
+  color: #f87171;
+}
+.candle-caution-rules {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 8px 0;
+  padding-left: 18px;
+}
+.candle-caution-brand {
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  margin-top: 8px;
+}
 
+/* ============================================================
+   🌸 Perfume Formulation & Olfactory Studio
+   ============================================================ */
+.perfume-pyramid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0;
+}
+.perfume-tier {
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.perfume-tier:hover {
+  transform: translateY(-1px);
+}
+.perfume-tier-top {
+  background: linear-gradient(135deg, rgba(254, 240, 138, 0.35), rgba(253, 224, 71, 0.15));
+  border: 1px solid #eab308;
+}
+.perfume-tier-heart {
+  background: linear-gradient(135deg, rgba(244, 114, 182, 0.3), rgba(236, 72, 153, 0.12));
+  border: 1px solid #ec4899;
+}
+.perfume-tier-base {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.3), rgba(180, 83, 9, 0.15));
+  border: 1px solid #d97706;
+}
+[data-theme="dark"] .perfume-tier-top,
+body.theme-dark .perfume-tier-top {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(161, 98, 7, 0.1));
+  border-color: #ca8a04;
+}
+[data-theme="dark"] .perfume-tier-heart,
+body.theme-dark .perfume-tier-heart {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.2), rgba(190, 24, 93, 0.1));
+  border-color: #db2777;
+}
+[data-theme="dark"] .perfume-tier-base,
+body.theme-dark .perfume-tier-base {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.2), rgba(146, 64, 14, 0.1));
+  border-color: #b45309;
+}
+.perfume-tier-name {
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.perfume-tier-meta {
+  font-size: 11px;
+  color: var(--ink-secondary);
+}
+.perfume-tier-stats {
+  text-align: right;
+}
+.perfume-tier-drops {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
 
+/* ============================================================
+   ✉️ Letter Planning & Wax Seal Studio
+   ============================================================ */
+.letter-stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin-top: 8px;
+  align-items: center;
+}
+.letter-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-secondary);
+}
+.letter-stat-item strong {
+  color: var(--primary);
+  font-size: 14px;
+}
+.wax-seal-designer-wrap {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  align-items: center;
+}
+@media (max-width: 600px) {
+  .wax-seal-designer-wrap {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+}
+.wax-seal-preview-disk {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), inset 0 2px 4px rgba(255, 255, 255, 0.4), inset 0 -4px 6px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+.wax-seal-preview-disk::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+.wax-seal-inner-emblem {
+  font-size: 38px;
+  line-height: 1;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 -1px 1px rgba(255, 255, 255, 0.3);
+  user-select: none;
+}
 
-
-
-
-
-
-
-
+/* ============================================================
+   💎 Jewelry & Metalsmithing Expansion Styles
+   ============================================================ */
+.mohs-stone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.mohs-stone-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mohs-stone-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mohs-stone-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.mohs-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+.mohs-badge-tough {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  border: 1px solid #10b981;
+}
+.mohs-badge-mod {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  border: 1px solid #f59e0b;
+}
+.mohs-badge-fragile {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid #ef4444;
+}
+[data-theme="dark"] .mohs-badge-tough,
+body.theme-dark .mohs-badge-tough {
+  color: #34d399;
+}
+[data-theme="dark"] .mohs-badge-mod,
+body.theme-dark .mohs-badge-mod {
+  color: #fbbf24;
+}
+[data-theme="dark"] .mohs-badge-fragile,
+body.theme-dark .mohs-badge-fragile {
+  color: #f87171;
+}
+.mohs-stone-rule {
+  font-size: 11px;
+  color: var(--ink-secondary);
+  line-height: 1.35;
+}
+.polishing-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.polishing-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.polishing-step-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-top: 3px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,0.2);
+}

@@ -5017,14 +5017,14 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "ideas", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle"]);
+const VALID_APP_VIEWS = new Set(["overview", "projects", "ideas", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle", "candle", "perfume", "letter"]);
 
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
   $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === targetView));
 
-  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle"]);
+  const studioViews = new Set(["woodworking", "textiles", "music", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle", "candle", "perfume", "letter"]);
   $$(".mobile-nav-btn").forEach(btn => {
     if (btn.dataset.view) {
       btn.classList.toggle("active", btn.dataset.view === targetView);
@@ -5087,7 +5087,10 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
     composites: "Composites & Carbon Fiber Fabrication Studio",
     horology: "Watchmaking & Horology Studio",
     robotics: "Robotics & Mechatronics Studio",
-    bicycle: "Bicycle Framebuilding & Wheel Studio"
+    bicycle: "Bicycle Framebuilding & Wheel Studio",
+    candle: "Candle Making Studio",
+    perfume: "Perfume & Fragrance Studio",
+    letter: "Letter Planning & Wax Seal Studio"
   }[targetView] || "Overview";
   const crumb = $("#page-crumb");
   if (crumb) crumb.textContent = title;
@@ -5136,6 +5139,9 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   if (targetView === "horology") renderHorologyView();
   if (targetView === "robotics") renderRoboticsView();
   if (targetView === "bicycle") renderBicycleView();
+  if (targetView === "candle") renderCandleView();
+  if (targetView === "perfume") renderPerfumeView();
+  if (targetView === "letter") renderLetterView();
 
   // Safely stop background media streams & audio when navigating away from studios
   if (targetView !== "art") {
@@ -12054,6 +12060,53 @@ async function handleAction(action, target) {
     if (hex) {
       void navigator.clipboard.writeText(hex).then(() => showToast(`Copied ${hex} to clipboard!`));
     }
+    return;
+  }
+  if (action === "copy-candle-recipe") {
+    const text = $("#candle-calc-result")?.innerText || "";
+    if (text) void navigator.clipboard.writeText(text).then(() => showToast("Copied Candle Recipe to clipboard!"));
+    return;
+  }
+  if (action === "print-candle-label") {
+    const text = $("#candle-label-result")?.innerText || "";
+    if (text) void navigator.clipboard.writeText(text).then(() => showToast("Copied ASTM Caution Label to clipboard!"));
+    return;
+  }
+  if (action === "add-candle-to-materials") {
+    await addMaterialToProjectShopping("Golden Wax 464 Soy Wax (5 lb bag) & Cotton Wicks", "1 kit", 24.50, "Candle Studio & Scents");
+    return;
+  }
+  if (action === "copy-perfume-formula") {
+    const dil = $("#perfume-dilution-result")?.innerText || "";
+    const pyr = $("#perfume-pyramid-result")?.innerText || "";
+    const text = `🌸 PERFUME FORMULATION SPEC SHEET\n\n${dil}\n\n${pyr}`;
+    void navigator.clipboard.writeText(text).then(() => showToast("Copied Perfume Formula to clipboard!"));
+    return;
+  }
+  if (action === "add-perfume-to-materials") {
+    await addMaterialToProjectShopping("Perfumer's Alcohol SDA 40-B & Aromatic Accord Set", "1 set", 38.00, "Perfumery & Scents");
+    return;
+  }
+  if (action === "save-perfume-log") {
+    showToast("Formula saved to your Local Perfume Compounding Journal!");
+    return;
+  }
+  if (action === "copy-letter-draft") {
+    const text = $("#letter-body-text")?.value || "";
+    if (text) void navigator.clipboard.writeText(text).then(() => showToast("Copied Letter Text to clipboard!"));
+    return;
+  }
+  if (action === "print-letter-sheet") {
+    window.print();
+    return;
+  }
+  if (action === "copy-seal-recipe") {
+    const text = $("#wax-seal-result")?.innerText || "";
+    if (text) void navigator.clipboard.writeText(text).then(() => showToast("Copied Wax Seal Recipe!"));
+    return;
+  }
+  if (action === "add-letter-to-materials") {
+    await addMaterialToProjectShopping("Handmade Cotton Rag Paper & Flexible Sealing Wax Set", "1 set", 22.50, "Letter Studio & Wax Seals");
     return;
   }
   if (action === "copy-resin-mix") {
@@ -34514,6 +34567,9 @@ function renderJewelryView() {
   updateJewelryBezel();
   updateJewelryCasting();
   updateJewelrySoldering();
+  updateJewelryWireGauge();
+  updateJewelryMohs();
+  updateJewelryPolishing();
 }
 
 // ============================================================
@@ -36475,6 +36531,1035 @@ function renderBicycleView() {
   updateBicycleMiter();
 }
 
+// scratch/studio_code.js
+// Standalone JavaScript functions for Candle, Perfume, Letter, Epoxy, Silicone, and Jewelry Studios
+
+// ============================================================
+// 🕯️ Candle Making Studio Calculations & Handlers
+// ============================================================
+function updateCandleCalc() {
+  const waxType = $("#candle-wax-type")?.value || "soy_464";
+  const vesselMode = $("#candle-vessel-mode")?.value || "volume";
+  const volUnit = $("#candle-vol-unit")?.value || "ml";
+  const count = Math.max(1, parseInt($("#candle-count")?.value, 10) || 1);
+  const fragPct = parseFloat($("#candle-fragrance-pct")?.value) || 9.0;
+  const res = $("#candle-calc-result");
+  if (!res) return;
+
+  const lblVol = $("#candle-lbl-vol");
+  const lblDim1 = $("#candle-lbl-dim1");
+  const lblDim2 = $("#candle-lbl-dim2");
+
+  if (vesselMode === "dimensions") {
+    if (lblVol) lblVol.style.display = "none";
+    if (lblDim1) lblDim1.style.display = "block";
+    if (lblDim2) lblDim2.style.display = "block";
+  } else {
+    if (lblVol) lblVol.style.display = "block";
+    if (lblDim1) lblDim1.style.display = "none";
+    if (lblDim2) lblDim2.style.display = "none";
+  }
+
+  let waterMl = 240;
+  let diaIn = 3.0;
+  if (vesselMode === "dimensions") {
+    diaIn = Math.max(1.0, parseFloat($("#candle-dim-dia")?.value) || 3.0);
+    const hgtIn = Math.max(1.0, parseFloat($("#candle-dim-hgt")?.value) || 3.5);
+    const rIn = diaIn / 2;
+    // Fill to 88% to leave 1/2 inch headspace
+    waterMl = Math.PI * Math.pow(rIn, 2) * (hgtIn * 0.88) * 16.3871;
+  } else {
+    const rawVal = Math.max(10, parseFloat($("#candle-vessel-vol")?.value) || 240);
+    waterMl = volUnit === "oz" ? rawVal * 29.5735 : rawVal;
+    diaIn = (Math.sqrt(waterMl / (Math.PI * 3.5 * 16.3871)) * 2) || 2.8;
+  }
+
+  const waxDensity = (waxType === "gel") ? 0.90 : (waxType === "beeswax") ? 0.88 : 0.86;
+  const singleWaxG = waterMl * waxDensity;
+  const totalWaxG = singleWaxG * count;
+  const fragranceG = totalWaxG * (fragPct / 100);
+  const totalBatchG = totalWaxG + fragranceG;
+
+  const waxOz = (totalWaxG / 28.3495).toFixed(2);
+  const fragranceOz = (fragranceG / 28.3495).toFixed(2);
+  const totalBatchOz = (totalBatchG / 28.3495).toFixed(2);
+
+  const guide = {
+    soy_464: { meltF: "185°F (85°C)", foF: "180°F − 185°F (82°C − 85°C)", pourF: "135°F (57°C)", maxFo: 10, cureDays: 14, name: "Golden Wax 464 Soy", desc: "Pour slushy/cloudy at 135°F to ensure smooth tops and prevent frosting." },
+    soy_444: { meltF: "185°F (85°C)", foF: "180°F (82°C)", pourF: "140°F (60°C)", maxFo: 10, cureDays: 14, name: "Golden Wax 444 Soy", desc: "Higher melt point for warm climates; pour at 140°F." },
+    coconut_soy: { meltF: "175°F (79°C)", foF: "170°F (77°C)", pourF: "125°F − 130°F (52°C − 54°C)", maxFo: 12, cureDays: 10, name: "Coconut / Soy Blend", desc: "Superior glass adhesion and single-pour mirror smooth finish." },
+    beeswax: { meltF: "165°F (74°C)", foF: "160°F (71°C)", pourF: "155°F − 160°F (68°C − 71°C)", maxFo: 8, cureDays: 7, name: "100% Pure Beeswax", desc: "Pre-heat glass containers to 100°F before pouring to prevent deep crack sinkholes." },
+    paraffin: { meltF: "190°F (88°C)", foF: "185°F (85°C)", pourF: "165°F − 170°F (74°C − 77°C)", maxFo: 10, cureDays: 3, name: "Paraffin Container IGI 4630", desc: "Maximum scent throw; cool slowly at room temperature away from drafts." },
+    gel: { meltF: "215°F (102°C)", foF: "200°F (93°C)", pourF: "190°F (88°C)", maxFo: 6, cureDays: 1, name: "Penreco Gel Wax", desc: "Use only dense non-polar fragrance oils with flash point >170°F." }
+  }[waxType] || { meltF: "185°F", foF: "180°F", pourF: "135°F", maxFo: 10, cureDays: 14, name: "Soy Wax", desc: "" };
+
+  const isOverload = fragPct > guide.maxFo;
+  const loadAlert = isOverload ? `
+    <div class="resin-exotherm-alert resin-alert-warn" style="margin-top:8px">
+      <span>⚠️</span>
+      <div>
+        <strong>FRAGRANCE SATURATION WARNING:</strong> ${fragPct}% exceeds the maximum recommended load (${guide.maxFo}%) for ${guide.name}. Excess fragrance will weep, sweat to the top surface, and create flare-up fire hazards!
+      </div>
+    </div>
+  ` : "";
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:8px">
+      <div class="jewelry-stat-card">
+        <span class="label">Total Wax Flakes</span>
+        <span class="value" style="color:var(--primary)">${Math.round(totalWaxG)} g</span>
+        <div class="hint">${waxOz} oz (${Math.round(singleWaxG)}g per jar)</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Fragrance Oil (${fragPct}%)</span>
+        <span class="value" style="color:#d97706">${fragranceG.toFixed(1)} g</span>
+        <div class="hint">${fragranceOz} oz total oil weight</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Total Batch Weight</span>
+        <span class="value">${Math.round(totalBatchG)} g</span>
+        <div class="hint">${totalBatchOz} oz for ${count} candle${count > 1 ? "s" : ""}</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Target Pour Temp</span>
+        <span class="value" style="color:#059669">${guide.pourF}</span>
+        <div class="hint">Melt to ${guide.meltF}</div>
+      </div>
+    </div>
+
+    ${loadAlert}
+
+    <div style="margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;line-height:1.5">
+      <strong>🔥 Thermal Process Milestones for ${guide.name}:</strong><br>
+      • <strong>Melt Step:</strong> Heat wax flakes slowly in double boiler up to <strong>${guide.meltF}</strong>.<br>
+      • <strong>Fragrance Addition:</strong> Remove from heat and stir in fragrance oil at <strong>${guide.foF}</strong>. Stir gently and continuously for <strong>2 full minutes</strong> to chemically bond oil with wax molecules.<br>
+      • <strong>Pouring:</strong> Allow wax to cool undisturbed until it reaches <strong>${guide.pourF}</strong>, then pour into pre-wicked containers in a smooth, steady stream.<br>
+      • <em>Tip: ${guide.desc}</em>
+    </div>
+  `;
+}
+
+function updateCandleWick() {
+  const diaKey = $("#candle-wick-dia")?.value || "medium";
+  const family = $("#candle-wick-family")?.value || "cd";
+  const res = $("#candle-wick-result");
+  if (!res) return;
+
+  const wickData = {
+    small: {
+      cd: { rec: "CD 3 − CD 4", pool: "2.0\" − 2.4\"", burn: "25 − 30 hrs", note: "Curled flame structure prevents carbon ball mushrooming." },
+      eco: { rec: "ECO 1 − ECO 2", pool: "2.0\" − 2.3\"", burn: "26 − 32 hrs", note: "Self-trimming braided cotton with paper core." },
+      cotton: { rec: "Premier 710 / HTP 41", pool: "2.1\" − 2.5\"", burn: "24 − 28 hrs", note: "Consistent flame with low sooting." },
+      wood: { rec: "Single Wood 0.02\" × 0.375\"", pool: "2.2\" − 2.5\"", burn: "20 − 25 hrs", note: "Soft ambient crackle; trim char to 1/8\" before each burn." }
+    },
+    medium: {
+      cd: { rec: "CD 12 − CD 14", pool: "2.6\" − 3.0\"", burn: "40 − 50 hrs", note: "Ideal standard for 8 oz amber glass jars and rocks tumblers." },
+      eco: { rec: "ECO 6 − ECO 8", pool: "2.7\" − 3.0\"", burn: "42 − 52 hrs", note: "Burns cleanly with heavy fragrance loads up to 10%." },
+      cotton: { rec: "Premier 755 / HTP 83", pool: "2.6\" − 2.9\"", burn: "40 − 48 hrs", note: "Stable round melt pool without smoking." },
+      wood: { rec: "Booster Wood Wick 0.03\" × 0.50\"", pool: "2.8\" − 3.1\"", burn: "35 − 42 hrs", note: "Booster strip maintains steady flame in viscous soy waxes." }
+    },
+    large: {
+      cd: { rec: "CD 18 − CD 20 (or Double CD 4 × 2)", pool: "3.1\" − 3.5\"", burn: "55 − 65 hrs", note: "For containers >3.25\", double-wicking provides a far more uniform melt pool." },
+      eco: { rec: "ECO 10 − ECO 12 (or Double ECO 2 × 2)", pool: "3.1\" − 3.5\"", burn: "55 − 68 hrs", note: "Single large wick may flicker; dual wicks prevent off-center tunneling." },
+      cotton: { rec: "HTP 105 (or Double HTP 52 × 2)", pool: "3.2\" − 3.5\"", burn: "50 − 60 hrs", note: "High-temperature paper filament resists high FO drag." },
+      wood: { rec: "Dual Wood Wicks 0.03\" × 0.375\" (spaced 1.5\" apart)", pool: "3.2\" − 3.6\"", burn: "45 − 55 hrs", note: "Spaced dual wood wicks prevent cool zones at container edge." }
+    },
+    extra_large: {
+      cd: { rec: "Double-Wick CD 6-8 × 2 or Triple-Wick CD 4 × 3", pool: "3.6\" − 4.5\"", burn: "70 − 90 hrs", note: "CRITICAL: A single wick CANNOT pool a 4\" bowl without burning the center too deep!" },
+      eco: { rec: "Triple-Wick ECO 2 × 3 (Equilateral triangle layout)", pool: "3.8\" − 4.5\"", burn: "75 − 95 hrs", note: "Space wicks 1.25\" from edges and 1.5\" apart from each other." },
+      cotton: { rec: "Triple HTP 41 × 3", pool: "3.7\" − 4.4\"", burn: "70 − 90 hrs", note: "Prevents glass thermal fracture by distributing heat load evenly." },
+      wood: { rec: "Triple Wood Wicks 0.02\" × 0.50\" × 3", pool: "3.8\" − 4.5\"", burn: "60 − 75 hrs", note: "Creates an expansive multi-crackling hearth glow." }
+    }
+  };
+
+  const item = wickData[diaKey]?.[family] || wickData.medium.cd;
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Recommended Wick Model</span>
+        <span class="value" style="color:var(--primary);font-size:14px">${item.rec}</span>
+        <div class="hint">${family.toUpperCase()} Wick Family</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Target Melt Pool</span>
+        <span class="value">${item.pool}</span>
+        <div class="hint">1/4" to 1/2" depth in 2−3 hrs</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Estimated Burn Life</span>
+        <span class="value">${item.burn}</span>
+        <div class="hint">Based on 4-hour burn cycles</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Wick Placement Tip</span>
+        <span class="value" style="font-size:12px">Centered &amp; Taut</span>
+        <div class="hint">Use wick centering collar</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ℹ️ <strong>Wick Science:</strong> ${item.note}<br>
+      📏 <strong>Pre-Trim Rule:</strong> Always trim cotton wicks to <strong>1/4" (6 mm)</strong> and wood wicks to <strong>1/8" (3 mm)</strong> before every lighting. An untrimmed wick creates flame flare and carbon soot.
+    </div>
+  `;
+}
+
+function updateCandleCure() {
+  const container = $("#candle-cure-benchmark");
+  const testRes = $("#candle-burn-test-result");
+  if (!container) return;
+
+  const currentWax = $("#candle-wax-type")?.value || "soy_464";
+
+  const cureProfiles = [
+    { id: "soy_464", name: "Soy Wax (464/444)", days: "10 − 14 Days", icon: "🌱", hint: "Locks polymorphic crystal matrix for max hot throw." },
+    { id: "coconut_soy", name: "Coconut / Soy", days: "7 − 10 Days", icon: "🥥", hint: "Faster maturation; smooth tops with high scent release." },
+    { id: "beeswax", name: "Pure Beeswax", days: "7 Days", icon: "🐝", hint: "Settles natural honey aroma and hardens contraction." },
+    { id: "paraffin", name: "Paraffin (4630)", days: "2 − 3 Days", icon: "⚡", hint: "Rapid crystalline structure; quick turnaround for markets." }
+  ];
+
+  container.innerHTML = cureProfiles.map(p => `
+    <div class="candle-cure-card ${currentWax === p.id || (currentWax.includes('soy') && p.id.includes('soy')) ? 'active-cure' : ''}">
+      <span style="font-size:18px">${p.icon}</span>
+      <div class="candle-cure-wax">${p.name}</div>
+      <div class="candle-cure-days">${p.days}</div>
+      <div class="candle-cure-hint">${p.hint}</div>
+    </div>
+  `).join("");
+
+  if (testRes) {
+    testRes.innerHTML = `
+      <div style="font-size:12px;font-weight:700;color:var(--ink);margin-bottom:6px">🧪 4-Hour Test Burn Evaluation Checklist:</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:6px;font-size:11px;color:var(--ink-secondary)">
+        <div>✅ <strong>Hour 2:</strong> Melt pool reaches rim edge (no tunneling ring).</div>
+        <div>✅ <strong>Hour 3:</strong> Melt pool depth is between 1/4" and 1/2".</div>
+        <div>✅ <strong>Hour 4:</strong> Steady flame (1" tall), no mushrooming or black smoke.</div>
+        <div>✅ <strong>Exterior:</strong> Jar glass touch safe (&lt;140°F / 60°C).</div>
+      </div>
+    `;
+  }
+}
+
+function updateCandleSafety() {
+  const brand = $("#candle-label-brand")?.value || "Artisan Studio Workshop";
+  const scent = $("#candle-label-scent")?.value || "Amber Woods & Lavender";
+  const net = $("#candle-label-net")?.value || "8.0 oz (226 g)";
+  const res = $("#candle-label-result");
+  if (!res) return;
+
+  res.innerHTML = `
+    <div class="candle-caution-preview">
+      <div class="candle-caution-header">
+        <span class="candle-caution-icon">🔥</span>
+        <span class="candle-caution-icon">🚸</span>
+        <span class="candle-caution-icon">🛡️</span>
+      </div>
+      <div class="candle-caution-title" style="text-align:center">WARNING / ATTENTION</div>
+      <div style="font-size:11px;font-weight:700;text-align:center;color:#dc2626;margin-bottom:6px">
+        BURN WITHIN SIGHT • KEEP AWAY FROM FLAMMABLE OBJECTS • KEEP OUT OF REACH OF CHILDREN &amp; PETS
+      </div>
+      <ul class="candle-caution-rules">
+        <li><strong>Trim wick to 1/4 inch (6 mm)</strong> before each lighting.</li>
+        <li>Burn candle only on a flat, level, heat-resistant surface.</li>
+        <li>Do not burn for more than <strong>4 hours</strong> at a time.</li>
+        <li>Keep wax pool free of wick trimmings, matches, and debris.</li>
+        <li>Discontinue use when only <strong>1/2 inch (12 mm)</strong> of wax remains at the bottom.</li>
+      </ul>
+      <div class="candle-caution-brand">
+        <strong>${escapeHTML(scent)}</strong> • ${escapeHTML(net)}<br>
+        Handcrafted by ${escapeHTML(brand)}
+      </div>
+    </div>
+  `;
+}
+
+function renderCandleView() {
+  updateCandleCalc();
+  updateCandleWick();
+  updateCandleCure();
+  updateCandleSafety();
+}
+
+// ============================================================
+// 🌸 Perfume Making Studio Calculations & Handlers
+// ============================================================
+function updatePerfumeDilution() {
+  const bottleSizeVal = $("#perfume-bottle-size")?.value || "50";
+  const customInput = $("#perfume-lbl-custom-size");
+  let bottleMl = 50;
+  if (bottleSizeVal === "custom") {
+    if (customInput) customInput.style.display = "block";
+    bottleMl = Math.max(5, parseFloat($("#perfume-custom-size")?.value) || 50);
+  } else {
+    if (customInput) customInput.style.display = "none";
+    bottleMl = parseFloat(bottleSizeVal) || 50;
+  }
+
+  const concCat = $("#perfume-conc-category")?.value || "edp";
+  const carrier = $("#perfume-carrier-type")?.value || "alcohol";
+  const res = $("#perfume-dilution-result");
+  if (!res) return;
+
+  const concRates = {
+    extrait: { pct: 25, label: "Extrait de Parfum", wear: "10 − 14+ hrs", oilDesc: "Pure Parfum" },
+    edp: { pct: 18, label: "Eau de Parfum (EdP)", wear: "6 − 8 hrs", oilDesc: "Classic Standard" },
+    edt: { pct: 10, label: "Eau de Toilette (EdT)", wear: "3 − 5 hrs", oilDesc: "Daywear Spray" },
+    edc: { pct: 4, label: "Eau de Cologne (EdC)", wear: "2 hrs", oilDesc: "Light Citrus Splash" },
+    fraiche: { pct: 2, label: "Eau Fraîche", wear: "1 hr", oilDesc: "Subtle Skin Mist" }
+  };
+
+  const item = concRates[concCat] || concRates.edp;
+  const concentrateMl = (bottleMl * item.pct) / 100;
+  const carrierMl = bottleMl - concentrateMl;
+
+  // Drops approx 28 drops per ml
+  const concDrops = Math.round(concentrateMl * 28);
+  const carrierDrops = Math.round(carrierMl * 28);
+
+  // Density: Essential Oil ~0.90 g/ml, Alcohol ~0.81 g/ml, Carrier oil ~0.92 g/ml
+  const carrierDensity = carrier === "oil" ? 0.92 : 0.81;
+  const concG = (concentrateMl * 0.90).toFixed(1);
+  const carrierG = (carrierMl * carrierDensity).toFixed(1);
+  const totalG = (parseFloat(concG) + parseFloat(carrierG)).toFixed(1);
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:8px">
+      <div class="jewelry-stat-card">
+        <span class="label">Fragrance Concentrate (${item.pct}%)</span>
+        <span class="value" style="color:#d97706">${concentrateMl.toFixed(1)} ml</span>
+        <div class="hint">${concG} g (~ ${concDrops} drops)</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Carrier Solvent (${100 - item.pct}%)</span>
+        <span class="value" style="color:var(--primary)">${carrierMl.toFixed(1)} ml</span>
+        <div class="hint">${carrierG} g (${carrier === "oil" ? "Jojoba/FCO" : "SDA 40-B Alcohol"})</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Total Net Weight</span>
+        <span class="value">${totalG} g</span>
+        <div class="hint">Bottle Vol: ${bottleMl} ml</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Expected Longevity</span>
+        <span class="value" style="color:#059669">${item.wear}</span>
+        <div class="hint">${item.label}</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.45;margin-top:10px">
+      🧪 <strong>Blending Guidance:</strong> Weigh materials with a 0.01g precision scale rather than volumetric pipettes for laboratory repeatability. Always dissolve pure aromatic oils into alcohol first before adding any distilled water (if blending hydroalcoholic formulations), to prevent clouding/louching.
+    </div>
+  `;
+
+  updatePerfumePyramid();
+}
+
+function updatePerfumePyramid() {
+  const topRange = parseInt($("#perfume-range-top")?.value, 10) || 25;
+  const heartRange = parseInt($("#perfume-range-heart")?.value, 10) || 45;
+  const baseRange = parseInt($("#perfume-range-base")?.value, 10) || 30;
+
+  $("#perfume-val-top") && ($("#perfume-val-top").textContent = `${topRange}%`);
+  $("#perfume-val-heart") && ($("#perfume-val-heart").textContent = `${heartRange}%`);
+  $("#perfume-val-base") && ($("#perfume-val-base").textContent = `${baseRange}%`);
+
+  const res = $("#perfume-pyramid-result");
+  if (!res) return;
+
+  // Concentrate volume from dilution panel
+  const bottleSizeVal = $("#perfume-bottle-size")?.value || "50";
+  const bottleMl = bottleSizeVal === "custom" ? (parseFloat($("#perfume-custom-size")?.value) || 50) : (parseFloat(bottleSizeVal) || 50);
+  const concCat = $("#perfume-conc-category")?.value || "edp";
+  const concPct = { extrait: 25, edp: 18, edt: 10, edc: 4, fraiche: 2 }[concCat] || 18;
+  const totalConcMl = (bottleMl * concPct) / 100;
+
+  const sumPct = topRange + heartRange + baseRange || 100;
+  const normTop = topRange / sumPct;
+  const normHeart = heartRange / sumPct;
+  const normBase = baseRange / sumPct;
+
+  const topMl = totalConcMl * normTop;
+  const heartMl = totalConcMl * normHeart;
+  const baseMl = totalConcMl * normBase;
+
+  const topDrops = Math.round(topMl * 28);
+  const heartDrops = Math.round(heartMl * 28);
+  const baseDrops = Math.round(baseMl * 28);
+
+  res.innerHTML = `
+    <div class="perfume-pyramid-container">
+      <div class="perfume-tier perfume-tier-top">
+        <div>
+          <div class="perfume-tier-name">🍋 TOP NOTES (HEAD) • ${Math.round(normTop * 100)}%</div>
+          <div class="perfume-tier-meta">First Impression: 0 − 30 min • Citrus, Herbs, Light Aromatics</div>
+        </div>
+        <div class="perfume-tier-stats">
+          <div class="perfume-tier-drops">${topMl.toFixed(2)} ml (${topDrops} drops)</div>
+          <div style="font-size:10px;color:var(--ink-secondary)">${(topMl * 0.90).toFixed(2)} g</div>
+        </div>
+      </div>
+
+      <div class="perfume-tier perfume-tier-heart">
+        <div>
+          <div class="perfume-tier-name">🌹 HEART NOTES (MID) • ${Math.round(normHeart * 100)}%</div>
+          <div class="perfume-tier-meta">The Scent Identity: 30 min − 4 hrs • Florals, Spices, Green Leaves</div>
+        </div>
+        <div class="perfume-tier-stats">
+          <div class="perfume-tier-drops">${heartMl.toFixed(2)} ml (${heartDrops} drops)</div>
+          <div style="font-size:10px;color:var(--ink-secondary)">${(heartMl * 0.90).toFixed(2)} g</div>
+        </div>
+      </div>
+
+      <div class="perfume-tier perfume-tier-base">
+        <div>
+          <div class="perfume-tier-name">🪵 BASE NOTES (DRYDOWN) • ${Math.round(normBase * 100)}%</div>
+          <div class="perfume-tier-meta">The Fixative Anchor: 4 − 24+ hrs • Resins, Woods, Ambers, Vanillas</div>
+        </div>
+        <div class="perfume-tier-stats">
+          <div class="perfume-tier-drops">${baseMl.toFixed(2)} ml (${baseDrops} drops)</div>
+          <div style="font-size:10px;color:var(--ink-secondary)">${(baseMl * 0.90).toFixed(2)} g</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updatePerfumeIfra() {
+  const ing = $("#perfume-ifra-ing")?.value || "bergamot";
+  const res = $("#perfume-ifra-result");
+  if (!res) return;
+
+  const data = {
+    bergamot: {
+      status: "PHOTOTOXIC DERMAL RISK",
+      limit: "Max 0.4% in finished cosmetics",
+      safe: "Use Bergapten-Free FCF (Furanocoumarin-Free) Bergamot",
+      desc: "Cold-pressed natural bergamot contains bergapten which chemically sensitizes skin to UV light, causing severe sunburn blisters and dark permanent hyperpigmentation. Always source steam-distilled or FCF grade."
+    },
+    oakmoss: {
+      status: "SKIN ALLERGEN SENSITIZER",
+      limit: "Max 0.1% (IFRA 49th Amendment)",
+      safe: "Use Low-Atranol Oakmoss or Evernyl Synthetic substitute",
+      desc: "Natural oakmoss (Evernia prunastri) absolute contains atranol and chloroatranol, known potent contact allergens. Modern compliance requires low-atranol treated absolute or molecular synthesis."
+    },
+    cinnamon: {
+      status: "SEVERE DERMAL IRRITANT",
+      limit: "Max 0.05% leave-on concentration",
+      safe: "Use Cinnamon Leaf instead of Bark, or trace drops only",
+      desc: "Cinnamic aldehyde in cinnamon bark causes burning flare-ups and chemical contact redness on sensitive skin. Keep below 0.05% in all perfumes."
+    },
+    clove: {
+      status: "DERMAL SENSITIZER",
+      limit: "Max 0.5% in leave-on fine fragrance",
+      safe: "Dilute thoroughly into sandalwood/vanilla base fixative",
+      desc: "Eugenol content can provoke contact allergies. Essential in spicy carnation and oriental accords but must be strictly metered."
+    },
+    rose_otto: {
+      status: "METHYLEUGENOL RESTRICTION",
+      limit: "Max 0.012% Methyleugenol exposure",
+      safe: "Use Rose Damascena Absolute or high-grade Geraniol",
+      desc: "Natural pure rose contains trace methyleugenol, regulated under international carcinogen safety limits. Meter total usage accordingly."
+    }
+  }[ing] || {};
+
+  res.innerHTML = `
+    <div class="resin-exotherm-alert resin-alert-warn">
+      <span style="font-size:20px">🛡️</span>
+      <div>
+        <strong>${data.status}:</strong> ${data.limit}<br>
+        • <strong>Remedy / Safer Option:</strong> ${data.safe}<br>
+        • <em>${data.desc}</em>
+      </div>
+    </div>
+  `;
+}
+
+function updatePerfumeMaceration() {
+  const name = $("#perfume-log-name")?.value || "Artisan Bespoke Blend";
+  const dateInput = $("#perfume-log-date");
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toISOString().split("T")[0];
+  }
+  const date = dateInput?.value || new Date().toISOString().split("T")[0];
+  const notes = $("#perfume-log-notes")?.value || "Bergamot, Rose, Sandalwood";
+  const res = $("#perfume-maceration-result");
+  if (!res) return;
+
+  const start = new Date(date);
+  const day14 = new Date(start.getTime() + (14 * 86400000)).toLocaleDateString();
+  const day30 = new Date(start.getTime() + (30 * 86400000)).toLocaleDateString();
+  const day45 = new Date(start.getTime() + (45 * 86400000)).toLocaleDateString();
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px">
+      <div class="jewelry-stat-card">
+        <span class="label">Stage 1: Initial Compounding</span>
+        <span class="value" style="font-size:13px">${date}</span>
+        <div class="hint">Sharp ethanol aroma; keep in dark cool closet (15°C / 60°F)</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Stage 2: Esterification</span>
+        <span class="value" style="font-size:13px">${day14}</span>
+        <div class="hint">Molecules cross-link; alcohol burn softens noticeably</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Stage 3: Full Maturation</span>
+        <span class="value" style="font-size:13px;color:var(--primary)">${day30}</span>
+        <div class="hint">Bouquet harmonizes into unified scent profile</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Stage 4: Chill Filter &amp; Bottle</span>
+        <span class="value" style="font-size:13px;color:#059669">${day45}</span>
+        <div class="hint">Chill to 32°F (0°C) for 24h, filter waxes, bottle for use</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPerfumeView() {
+  updatePerfumeDilution();
+  updatePerfumePyramid();
+  updatePerfumeIfra();
+  updatePerfumeMaceration();
+}
+
+// ============================================================
+// ✉️ Letter Planning & Epistolary Studio Calculations & Handlers
+// ============================================================
+function updateLetterDraft() {
+  const text = $("#letter-body-text")?.value || "";
+  const recipient = $("#letter-recipient")?.value || "Friend";
+  const tone = $("#letter-tone-select")?.value || "personal";
+  const res = $("#letter-draft-result");
+  if (!res) return;
+
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const chars = text.length;
+
+  // Handwriting speed ~22 words per minute
+  const handwriteMins = Math.max(1, Math.ceil(words / 22));
+
+  // A4 / A5 handwriting capacity ~180-220 words per page
+  const estPages = Math.max(1, Math.ceil(words / 190));
+
+  res.innerHTML = `
+    <div class="letter-stats-bar">
+      <div class="letter-stat-item">📝 <strong>${words}</strong> words</div>
+      <div class="letter-stat-item">🔤 <strong>${chars}</strong> characters</div>
+      <div class="letter-stat-item">⏱️ ~<strong>${handwriteMins}</strong> min handwriting time</div>
+      <div class="letter-stat-item">📄 ~<strong>${estPages}</strong> page${estPages > 1 ? "s" : ""} (Handwritten)</div>
+      <div class="letter-stat-item" style="margin-left:auto">
+        <span class="badge" style="background:var(--surface);border:1px solid var(--border);padding:2px 8px;border-radius:12px;font-size:11px">
+          Tone: ${tone.toUpperCase()}
+        </span>
+      </div>
+    </div>
+  `;
+}
+
+function updateLetterPaper() {
+  const gsm = $("#letter-paper-gsm")?.value || "100";
+  const env = $("#letter-envelope-type")?.value || "a7";
+  const res = $("#letter-paper-result");
+  if (!res) return;
+
+  const paperData = {
+    "80": { name: "80 GSM Laid Paper", caliper: "0.10 mm", feel: "Light & Crisp", ghost: "Moderate show-through with wet fountain pens", envRec: "Ideal for multi-page lightweight international postage." },
+    "100": { name: "100 GSM Cotton Rag", caliper: "0.14 mm", feel: "Smooth Silky Tooth", ghost: "Zero show-through / zero feathering (Champion fountain pen paper)", envRec: "Standard heirloom stationery weight." },
+    "120": { name: "120 GSM Smooth Heavy Vellum", caliper: "0.17 mm", feel: "Substantial & Luxurious", ghost: "Zero bleed with Broad and Italic nibs", envRec: "Perfect for formal invitations and diplomatic notes." },
+    "180": { name: "180 GSM Handmade Deckle-Edge", caliper: "0.26 mm", feel: "Tactile Organic Fiber", ghost: "Ultra-heavy; feathering depends on gelatin sizing", envRec: "Requires scored fold to prevent fiber splitting." },
+    "250": { name: "250 GSM Heavy Cardstock", caliper: "0.34 mm", feel: "Rigid Board Note", ghost: "Completely opaque postcard thickness", envRec: "Flat correspondence cards (do not fold)." }
+  }[gsm] || {};
+
+  const envData = {
+    a7: { dims: "5.25\" × 7.25\" (133 × 184 mm)", fit: "Fits 5\" × 7\" flat card or half-folded 7\" × 10\" sheet", postage: "Standard 1-oz letter stamp (if < 1/4\" thick)" },
+    a2: { dims: "4.375\" × 5.75\" (111 × 146 mm)", fit: "Fits quarter-folded letter sheet or 4.25\" × 5.5\" card", postage: "Standard 1-oz letter stamp" },
+    a6: { dims: "4.75\" × 6.5\" (121 × 165 mm)", fit: "Fits 4.5\" × 6.25\" flat card or half-folded A5", postage: "Standard 1-oz letter stamp" },
+    c5: { dims: "162 × 229 mm (6.4\" × 9.0\")", fit: "Fits half-folded European A4 sheet", postage: "Standard European letter rate" },
+    c6: { dims: "114 × 162 mm (4.5\" × 6.4\")", fit: "Fits quarter-folded European A4 sheet", postage: "Standard European small letter" }
+  }[env] || {};
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">${paperData.name}</span>
+        <span class="value" style="color:var(--primary)">${paperData.caliper}</span>
+        <div class="hint">${paperData.feel}</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Envelope Sizing</span>
+        <span class="value" style="font-size:13px">${envData.dims}</span>
+        <div class="hint">${envData.fit}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📜 <strong>Paper Handling:</strong> ${paperData.ghost}<br>
+      📐 <strong>Paper Grain Direction Rule:</strong> Always fold your letter sheet <em>parallel</em> to the paper grain direction. Folding against the grain causes unsightly cracked fibers and buckled edges.
+    </div>
+  `;
+}
+
+function updateLetterPen() {
+  const nib = $("#letter-pen-nib")?.value || "f";
+  const ink = $("#letter-ink-type")?.value || "dye";
+  const res = $("#letter-pen-result");
+  if (!res) return;
+
+  const nibInfo = {
+    ef: { width: "0.3 mm", flow: "Controlled / Dry", best: "Small script, pocket notebooks, thin laid papers." },
+    f: { width: "0.5 mm", flow: "Balanced", best: "Everyday correspondence and clean cursive letters." },
+    m: { width: "0.7 mm", flow: "Wet / Rich", best: "Displays ink shading and sheen on 100+ GSM cotton papers." },
+    stub: { width: "1.1 mm", flow: "Very Wet / Broad", best: "Italic calligraphy, line variation, and shimmer inks." },
+    dip: { width: "Hairline to 2.0 mm", flow: "Variable Flex", best: "Copperplate, Spencerian, and historic quill styles." }
+  }[nib] || {};
+
+  const isIndiaWarn = ink === "india";
+  const inkInfo = {
+    dye: { perm: "Water-Soluble", dryTime: "12 − 20 sec", safe: "100% Safe in all fountain pens", warn: "" },
+    pigment: { perm: "100% Waterproof", dryTime: "15 − 25 sec", safe: "Fountain pen safe with monthly flushing", warn: "Do not let dry in feed" },
+    iron_gall: { perm: "Archival Permanent", dryTime: "10 − 15 sec", safe: "Safe in modern pens; darkens over time", warn: "Clean pen every 2-3 weeks" },
+    shimmer: { perm: "Decorative Glitter", dryTime: "25 − 40 sec", safe: "Best in Medium, Broad, or Stub nibs", warn: "Mica can settle in tight feeds" },
+    india: { perm: "Waterproof Lacquer", dryTime: "30 − 60 sec", safe: "DIP PEN & BRUSH ONLY!", warn: "NEVER PUT IN FOUNTAIN PEN! Shellac binder will harden permanently and destroy the feed!" }
+  }[ink] || {};
+
+  const alertHtml = isIndiaWarn ? `
+    <div class="resin-exotherm-alert resin-alert-warn" style="margin-top:8px">
+      <span>🚫</span>
+      <div>
+        <strong>CRITICAL FOUNTAIN PEN WARNING:</strong> India Ink, Acrylic Ink, and Chinese Calligraphy Inks contain shellac/gum binders. If placed into a fountain pen, they will dry rock-hard inside the capillary feed channels, permanently ruining the pen! Use only with dip nibs.
+      </div>
+    </div>
+  ` : "";
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Nib Stroke Width</span>
+        <span class="value" style="color:var(--primary)">${nibInfo.width}</span>
+        <div class="hint">${nibInfo.flow} flow</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Ink Permanence</span>
+        <span class="value" style="font-size:13px">${inkInfo.perm}</span>
+        <div class="hint">Dry time: ${inkInfo.dryTime}</div>
+      </div>
+    </div>
+    ${alertHtml}
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ✒️ <strong>Nib Synergy:</strong> ${nibInfo.best}<br>
+      🛡️ <strong>Ink Care:</strong> ${inkInfo.safe}. ${inkInfo.warn ? "(" + inkInfo.warn + ")" : ""}
+    </div>
+  `;
+}
+
+function updateWaxSealDesigner() {
+  const diaMm = parseInt($("#wax-stamp-dia")?.value, 10) || 25;
+  const primaryColor = $("#wax-color-primary")?.value || "#7f1d1d";
+  const accentColor = $("#wax-color-accent")?.value || "#eab308";
+  const flex = $("#wax-flex-grade")?.value || "flexible";
+  const count = Math.max(1, parseInt($("#wax-seal-batch")?.value, 10) || 25);
+  const res = $("#wax-seal-result");
+  if (!res) return;
+
+  let beadsPerSeal = 3.5;
+  let gramsPerSeal = 1.2;
+  if (diaMm <= 20) { beadsPerSeal = 2.5; gramsPerSeal = 0.85; }
+  else if (diaMm <= 25) { beadsPerSeal = 3.5; gramsPerSeal = 1.2; }
+  else if (diaMm <= 30) { beadsPerSeal = 5.0; gramsPerSeal = 1.7; }
+  else { beadsPerSeal = 6.5; gramsPerSeal = 2.3; }
+
+  const totalBeads = Math.ceil(beadsPerSeal * count);
+  const totalGrams = Math.round(gramsPerSeal * count * 10) / 10;
+  const sticksCount = Math.ceil(totalGrams / 11);
+
+  // Background gradient for wax seal
+  let sealBg = primaryColor;
+  if (accentColor !== "none") {
+    sealBg = `radial-gradient(circle at 35% 35%, ${accentColor} 0%, ${primaryColor} 65%, #000000 120%)`;
+  } else {
+    sealBg = `radial-gradient(circle at 35% 35%, ${primaryColor} 0%, #000000 130%)`;
+  }
+
+  const mailableNote = flex === "flexible" ?
+    "✅ <strong>USPS / Postal Machine Safe:</strong> Flexible resin wax can bend without shattering in automated mail sorting belts." :
+    "⚠️ <strong>Brittle Historical Wax:</strong> Snaps cleanly with a tactile crack when opened, but WILL shatter in postal sorting machines unless enclosed in an outer protective envelope.";
+
+  res.innerHTML = `
+    <div class="wax-seal-designer-wrap">
+      <div class="wax-seal-preview-disk" style="background:${sealBg}" title="Wax Seal Preview (${diaMm}mm)">
+        <div class="wax-seal-inner-emblem">⚜️</div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">BATCH WAX MELTING REQUIREMENT (${count} SEALS)</div>
+        <div style="font-size:22px;font-weight:900;color:var(--ink);margin:2px 0 6px">
+          ${totalBeads} Wax Beads (~ ${totalGrams} g)
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px">
+            <div style="font-size:10px;font-weight:700;color:var(--muted)">OCTAGON BEADS</div>
+            <div style="font-size:14px;font-weight:800;color:var(--ink)">${beadsPerSeal} beads / seal</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px">
+            <div style="font-size:10px;font-weight:700;color:var(--muted)">GLUE GUN STICKS</div>
+            <div style="font-size:14px;font-weight:800;color:var(--ink)">~ ${sticksCount} standard sticks</div>
+          </div>
+        </div>
+
+        <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+          ${mailableNote}<br>
+          ❄️ <strong>Pro Ice Technique:</strong> Rest your brass seal matrix on an ice pack or damp cloth between seals. A cold metal stamp sets the hot wax in <strong>10 seconds</strong> and releases cleanly without dragging!
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderLetterView() {
+  updateLetterDraft();
+  updateLetterPaper();
+  updateLetterPen();
+  updateWaxSealDesigner();
+}
+
+// ============================================================
+// 🔥 Epoxy & Silicone Studio Expansion Functions
+// ============================================================
+function updateResinThermalWatchdog() {
+  const type = $("#resin-thermal-type")?.value || "tabletop";
+  const depthIn = parseFloat($("#resin-thermal-depth")?.value) || 1.75;
+  const volMl = parseFloat($("#resin-thermal-volume")?.value) || 1800;
+  const ambientF = parseFloat($("#resin-thermal-ambient")?.value) || 72;
+  const res = $("#resin-thermal-result");
+  if (!res) return;
+
+  const specs = {
+    tabletop: { maxDepth: 0.25, maxVol: 500, exothermCoeff: 1.8, name: "Tabletop Epoxy" },
+    deep_pour: { maxDepth: 2.0, maxVol: 5000, exothermCoeff: 0.6, name: "2:1 Deep Pour Epoxy" },
+    deep_casting: { maxDepth: 3.0, maxVol: 10000, exothermCoeff: 0.35, name: "3:1 Deep Casting Epoxy" },
+    uv_resin: { maxDepth: 0.12, maxVol: 50, exothermCoeff: 2.2, name: "UV Photopolymer Resin" }
+  }[type] || { maxDepth: 0.25, maxVol: 500, exothermCoeff: 1.8, name: "Epoxy" };
+
+  // Calculate estimated peak core temperature
+  const tempRise = (depthIn * 35) + ((volMl / 1000) * 20 * specs.exothermCoeff);
+  const peakTempF = Math.round(ambientF + tempRise);
+  const peakTempC = Math.round((peakTempF - 32) * (5 / 9));
+
+  const isDanger = depthIn > specs.maxDepth || peakTempF > 240;
+  const stagedLayers = Math.ceil(depthIn / specs.maxDepth);
+
+  if (isDanger) {
+    res.innerHTML = `
+      <div class="resin-exotherm-alert resin-alert-warn">
+        <span style="font-size:24px">⚠️</span>
+        <div>
+          <strong>CRITICAL THERMAL RUNAWAY HAZARD!</strong><br>
+          Target depth of <strong>${depthIn.toFixed(2)}"</strong> exceeds the safe dissipation limit (<strong>${specs.maxDepth}"</strong>) for ${specs.name}.<br>
+          • <strong>Predicted Peak Core Temp:</strong> <span style="font-size:15px;color:#dc2626;font-weight:800">${peakTempF}°F (${peakTempC}°C)</span><br>
+          • <strong>Consequences:</strong> Spontaneous resin boiling, violent smoke, toxic outgassing, yellow scorching, and severe shrinkage stress cracks.<br>
+          • <strong>Required Solution:</strong> Pour in <strong>${stagedLayers} staged layers</strong> (approx ${(depthIn / stagedLayers).toFixed(2)}" each) spaced <strong>24 to 36 hours apart</strong> once the previous layer reaches a firm tacky gel state!
+        </div>
+      </div>
+    `;
+  } else {
+    res.innerHTML = `
+      <div class="resin-exotherm-alert resin-alert-safe">
+        <span style="font-size:20px">✅</span>
+        <div>
+          <strong>Thermal Dissipation Safe:</strong> Predicted peak temperature of <strong>${peakTempF}°F (${peakTempC}°C)</strong> is within safe thresholds (&lt;200°F). Heat will dissipate steadily without boiling or yellow discoloration.
+        </div>
+      </div>
+    `;
+  }
+}
+
+function updateSiliconeMoldCalc() {
+  const boxL = Math.max(0.5, parseFloat($("#silicone-box-l")?.value) || 6.0);
+  const boxW = Math.max(0.5, parseFloat($("#silicone-box-w")?.value) || 4.0);
+  const boxD = Math.max(0.5, parseFloat($("#silicone-box-d")?.value) || 2.5);
+  const masterVol = Math.max(0, parseFloat($("#silicone-master-vol")?.value) || 120);
+  const mixType = $("#silicone-mix-type")?.value || "plat_1_1";
+  const res = $("#silicone-mold-result");
+  if (!res) return;
+
+  const boxVolIn3 = boxL * boxW * boxD;
+  const boxVolMl = boxVolIn3 * 16.3871;
+  const netSiliconeMl = Math.max(20, (boxVolMl - masterVol) * 1.10); // 10% safety margin
+
+  // Silicone density ~1.12 g/ml
+  const totalGrams = Math.round(netSiliconeMl * 1.12);
+
+  let partAG = 0, partBG = 0;
+  if (mixType === "plat_1_1") {
+    partAG = Math.round(totalGrams / 2);
+    partBG = totalGrams - partAG;
+  } else {
+    partAG = Math.round((totalGrams / 11) * 10);
+    partBG = totalGrams - partAG;
+  }
+
+  res.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px">
+      <div class="jewelry-stat-card">
+        <span class="label">Total Silicone Needed</span>
+        <span class="value" style="color:var(--primary)">${totalGrams} g</span>
+        <div class="hint">${Math.round(netSiliconeMl)} ml (incl. 10% safety)</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Part A (Base Rubber)</span>
+        <span class="value" style="color:#2563eb">${partAG} g</span>
+        <div class="hint">${mixType === "plat_1_1" ? "50% by weight" : "90.9% by weight"}</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Part B (Catalyst)</span>
+        <span class="value" style="color:#0891b2">${partBG} g</span>
+        <div class="hint">${mixType === "plat_1_1" ? "50% by weight" : "9.1% by weight"}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📏 <strong>Wall Margin:</strong> Ensure at least <strong>0.5" (13 mm)</strong> of rubber between the master object and all mold box walls to prevent mold wall bulging under the hydraulic pressure of poured casting resin.
+    </div>
+  `;
+}
+
+function updateSiliconeShore() {
+  const picker = $("#silicone-shore-picker")?.value || "miniatures";
+  const arch = $("#silicone-arch-type")?.value || "one_part";
+  const res = $("#silicone-shore-result");
+  if (!res) return;
+
+  const data = {
+    miniatures: { shore: "Shore 10A − 15A (Super Soft)", tear: "High elongation (&gt;600%)", desc: "Easily stretches over delicate thin miniature fingers and antennas without snapping details upon demolding." },
+    dice: { shore: "Shore 25A − 30A (Medium Firm)", tear: "Crisp edge retention", desc: "Maintains razor-sharp vertex geometry on polyhedral gaming dice without convex wall distortion." },
+    candles: { shore: "Shore 15A − 20A (Flexible)", tear: "Deep peel flexibility", desc: "Allows tubular candle pillars to be pulled out cleanly without tearing mold cavities." },
+    production: { shore: "Shore 40A − 50A (Rigid Split Mold)", tear: "Long life dimensional stability", desc: "Stiff rubber resists deflection under heavy polyurethane injection or rotocasting machines." }
+  }[picker] || {};
+
+  const archDesc = arch === "two_part" ?
+    "🧩 <strong>2-Part Registration Keys:</strong> Embed half of the master into sulfur-free clay (Monster Clay). Use marble hemispheres or a 45° keying tool around the border to create interlocking keys. <em>CRITICAL: Apply 2 coats of Mann Ease Release or Vaseline thinned with mineral spirits to the cured silicone before pouring the second half, or both halves will fuse into a solid block!</em>" :
+    "✂️ <strong>1-Part Cut Block Mold:</strong> Pour silicone completely over master. After full cure, cut a single parting seam down the side with a sharp scalpel in a zig-zag wavy keyway. The zig-zag shape self-aligns tightly when wrapped with rubber bands for casting.";
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Recommended Durometer</span>
+        <span class="value" style="color:var(--primary);font-size:14px">${data.shore}</span>
+        <div class="hint">${data.tear}</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ℹ️ <strong>Rubber Behavior:</strong> ${data.desc}<br>
+      ${archDesc}
+    </div>
+  `;
+}
+
+function updateResinEmbed() {
+  const mat = $("#resin-embed-mat")?.value || "wood";
+  const mc = parseFloat($("#resin-wood-mc")?.value) || 9.0;
+  const res = $("#resin-embed-result");
+  if (!res) return;
+
+  let advice = "";
+  if (mat === "wood") {
+    if (mc > 12.0) {
+      advice = `
+        <div class="resin-exotherm-alert resin-alert-warn">
+          <span>⚠️</span>
+          <div>
+            <strong>HIGH WOOD MOISTURE WARNING (${mc}% MC):</strong> Wood with &gt;12% moisture content will steam and outgas during exothermic cure, releasing clouds of micro-bubbles and causing resin delamination! Kiln-dry or desiccate slab below 10% MC before pouring.
+          </div>
+        </div>
+      `;
+    } else {
+      advice = `
+        <div class="resin-exotherm-alert resin-alert-safe">
+          <span>✅</span>
+          <div>
+            <strong>Moisture Content Safe (${mc}% MC):</strong> Slab is adequately dry. Pre-seal all raw live edges with a brushed coat of thin tabletop epoxy 4 hours before the river pour to prevent wood pores from outgassing.
+          </div>
+        </div>
+      `;
+    }
+  } else if (mat === "flowers") {
+    advice = `
+      <div style="font-size:11px;line-height:1.45;color:var(--ink)">
+        🌸 <strong>Botanical Encapsulation Protocol:</strong> Fresh flowers contain 80−90% water which turns brown and rots inside cured resin. Submerge whole blooms in <strong>silica gel desiccant crystals</strong> for 4 to 6 days until paper-dry before resin encapsulation. Spray with clear matte acrylic to prevent petal bleeding.
+      </div>
+    `;
+  } else if (mat === "porous") {
+    advice = `
+      <div style="font-size:11px;line-height:1.45;color:var(--ink)">
+        🦴 <strong>Porous Stabilization:</strong> Bones, antlers, and pinecones have microscopic air pockets. Degas in a vacuum chamber submerged in Cactus Juice stabilizing resin, then bake at 200°F before final epoxy casting to eliminate bubble weeping.
+      </div>
+    `;
+  } else {
+    advice = `
+      <div style="font-size:11px;line-height:1.45;color:var(--ink)">
+        ⚙️ <strong>Metals &amp; Non-Porous:</strong> Wipe thoroughly with 99% isopropyl alcohol or acetone to remove machining cutting oils. Scuff surface with 220-grit sandpaper for mechanical tooth adhesion.
+      </div>
+    `;
+  }
+
+  res.innerHTML = advice;
+}
+
+// ============================================================
+// 💎 Jewelry Making Studio Expansion Functions
+// ============================================================
+function updateJewelryWireGauge() {
+  const gauge = $("#jewelry-wire-gauge")?.value || "20";
+  const temper = $("#jewelry-wire-temper")?.value || "dead_soft";
+  const alloy = $("#jewelry-wire-alloy")?.value || "sterling";
+  const res = $("#jewelry-wire-result");
+  if (!res) return;
+
+  const awgTable = {
+    "12": { mm: "2.05 mm", in: "0.081\"", area: "3.31 mm²", use: "Heavy forged bangles and cuff bracelet frames" },
+    "14": { mm: "1.63 mm", in: "0.064\"", area: "2.08 mm²", use: "Heavy signet ring shanks and collar armatures" },
+    "16": { mm: "1.29 mm", in: "0.051\"", area: "1.31 mm²", use: "Classic ring bands and heavy duty neckwires" },
+    "18": { mm: "1.02 mm", in: "0.040\"", area: "0.82 mm²", use: "Sturdy jump rings, hook & eye clasps, ring shanks" },
+    "20": { mm: "0.81 mm", in: "0.032\"", area: "0.52 mm²", use: "Standard ear wires, French hooks, and headpins" },
+    "22": { mm: "0.64 mm", in: "0.025\"", area: "0.32 mm²", use: "Delicate ear wires, briolette wrapping, wire links" },
+    "24": { mm: "0.51 mm", in: "0.020\"", area: "0.20 mm²", use: "Intricate wire wrapping, bails, small gemstone loops" },
+    "26": { mm: "0.40 mm", in: "0.016\"", area: "0.13 mm²", use: "Bezel wall tape, wire crochet, micro weaving" },
+    "28": { mm: "0.32 mm", in: "0.013\"", area: "0.08 mm²", use: "Fine filigree wire, intricate wire crochet" },
+    "30": { mm: "0.25 mm", in: "0.010\"", area: "0.05 mm²", use: "Ultra-fine filigree granules and wire knitting" }
+  }[gauge] || { mm: "0.81 mm", in: "0.032\"", area: "0.52 mm²", use: "Ear wires" };
+
+  const temperInfo = {
+    dead_soft: "Bends easily with fingers, zero spring-back. Ideal for bezel rolling, wire weaving, and shaping around mandrels before work-hardening.",
+    half_hard: "Holds structural geometry while retaining moderate spring. Perfect for earwires, jump rings, clasps, and fabricated pin stems.",
+    full_hard: "Rigid with high elastic spring-back. Essential for locking brooch pins, safety catches, and high-tension wire chokers."
+  }[temper] || "";
+
+  const annealInfo = {
+    sterling: "Heat with soft bushy torch flame in dim light to a dull red glow (1100°F / 600°C). Hold for 5 seconds, then quench immediately in water. Follow with Sparex pickle bath.",
+    fine_silver: "Fine silver (.999) does not firescale or work-harden rapidly. Anneals easily at 1000°F; quench immediately.",
+    gold_14k: "Heat to dull red (1250°F / 675°C). Let cool until red color fades completely in dark, then quench in water.",
+    copper: "Heat to dull cherry red (1200°F / 650°C) and quench immediately in water for complete dead-soft reset."
+  }[alloy] || "";
+
+  res.innerHTML = `
+    <div class="jewelry-spec-grid">
+      <div class="jewelry-stat-card">
+        <span class="label">Metric Diameter</span>
+        <span class="value" style="color:var(--primary)">${awgTable.mm}</span>
+        <div class="hint">${awgTable.in} inches</div>
+      </div>
+      <div class="jewelry-stat-card">
+        <span class="label">Cross-Sectional Area</span>
+        <span class="value">${awgTable.area}</span>
+        <div class="hint">AWG ${gauge} Gauge</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      📐 <strong>Bench Application:</strong> ${awgTable.use}.<br>
+      ⚡ <strong>Temper Physics:</strong> ${temperInfo}<br>
+      🔥 <strong>Annealing Guide:</strong> ${annealInfo}
+    </div>
+  `;
+}
+
+function updateJewelryMohs() {
+  const query = ($("#jewelry-mohs-search")?.value || "").toLowerCase().trim();
+  const filter = $("#jewelry-mohs-filter")?.value || "all";
+  const res = $("#jewelry-mohs-result");
+  if (!res) return;
+
+  const stones = [
+    { name: "Diamond", mohs: 10, cat: "tough", notes: "Ultimate hardness. Heat & ultrasonic safe with boric acid firecoat." },
+    { name: "Moissanite", mohs: 9.25, cat: "tough", notes: "Exceptional thermal stability; survives direct torch soldering." },
+    { name: "Sapphire / Ruby (Corundum)", mohs: 9.0, cat: "tough", notes: "High thermal & chemical resistance. Ultrasonic and steam safe." },
+    { name: "Spinel", mohs: 8.0, cat: "tough", notes: "Durable daily wear. Protect from direct rapid flame quenching." },
+    { name: "Topaz", mohs: 8.0, cat: "tough", notes: "Basal cleavage: vulnerable to hard hammer blows on prong tips." },
+    { name: "Emerald (Beryl)", mohs: 7.5, cat: "moderate", notes: "Fragile inclusions: NO ultrasonic, NO steam, NO torch heat! Cold-set only." },
+    { name: "Quartz / Amethyst / Citrine", mohs: 7.0, cat: "moderate", notes: "Moderate durability. Avoid sudden temperature thermal shock." },
+    { name: "Garnet", mohs: 6.5, cat: "moderate", notes: "Good bench durability; shield from direct flame to prevent fracturing." },
+    { name: "Tanzanite", mohs: 6.5, cat: "moderate", notes: "Thermal shock sensitive. Avoid ultrasonic bath and high heat." },
+    { name: "Opal", mohs: 5.5, cat: "soft", notes: "CRITICAL: 5-10% water content. NO HEAT, NO PICKLE, NO ULTRASONIC! Will craze and shatter." },
+    { name: "Turquoise", mohs: 5.5, cat: "soft", notes: "CRITICAL: Porous. Absorbs pickle acid and chemicals; burns black under torch." },
+    { name: "Lapis Lazuli", mohs: 5.0, cat: "soft", notes: "Calcite veins dissolve in acids. Keep strictly out of pickle bath." },
+    { name: "Malachite", mohs: 4.0, cat: "soft", notes: "Copper carbonate. Highly sensitive to acids, heat, and ultrasonic vibrations." },
+    { name: "Pearl / Coral", mohs: 3.0, cat: "soft", notes: "Organic calcium carbonate. Mount with epoxy post AFTER all polishing is complete!" }
+  ];
+
+  const filtered = stones.filter(s => {
+    const matchQ = !query || s.name.toLowerCase().includes(query) || s.notes.toLowerCase().includes(query);
+    const matchF = filter === "all" || s.cat === filter;
+    return matchQ && matchF;
+  });
+
+  if (filtered.length === 0) {
+    res.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px">No gemstones match "${escapeHTML(query)}".</div>`;
+    return;
+  }
+
+  res.innerHTML = `
+    <div class="mohs-stone-grid">
+      ${filtered.map(s => {
+        const badgeClass = s.cat === "tough" ? "mohs-badge-tough" : s.cat === "moderate" ? "mohs-badge-mod" : "mohs-badge-fragile";
+        return `
+          <div class="mohs-stone-card">
+            <div class="mohs-stone-top">
+              <span class="mohs-stone-name">${s.name}</span>
+              <span class="mohs-badge ${badgeClass}">Mohs ${s.mohs}</span>
+            </div>
+            <div class="mohs-stone-rule">${s.notes}</div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function updateJewelryPolishing() {
+  const start = $("#jewelry-polish-start")?.value || "raw_cast";
+  const metal = $("#jewelry-polish-metal")?.value || "silver_gold";
+  const res = $("#jewelry-polish-result");
+  if (!res) return;
+
+  res.innerHTML = `
+    <div class="polishing-step-list">
+      <div class="polishing-step-item">
+        <div class="polishing-step-dot" style="background:#78350f" title="Brown Tripoli"></div>
+        <div>
+          <strong style="font-size:12px">Step 1: Tripoli / Bobbing Compound (Brown)</strong>
+          <div style="font-size:11px;color:var(--ink-secondary)">Coarse cutting compound on stitched muslin wheel (3,500 RPM). Removes 400−600 grit file marks. Keep workpiece moving constantly to avoid flat-spotting curves.</div>
+        </div>
+      </div>
+
+      <div class="polishing-step-item">
+        <div class="polishing-step-dot" style="background:#e2e8f0;border-color:#94a3b8" title="White Diamond"></div>
+        <div>
+          <strong style="font-size:12px">Step 2: White Diamond Compound</strong>
+          <div style="font-size:11px;color:var(--ink-secondary)">Intermediate smoothing on unstitched cotton buff. Removes greasy Tripoli haze and prepares metal for optical mirror clarity.</div>
+        </div>
+      </div>
+
+      <div class="polishing-step-item">
+        <div class="polishing-step-dot" style="background:#dc2626" title="Red Jeweler's Rouge"></div>
+        <div>
+          <strong style="font-size:12px">Step 3: Red Jeweler's Rouge (Ferric Oxide)</strong>
+          <div style="font-size:11px;color:var(--ink-secondary)">Final ultra-high luster on soft flannel or wool buff (2,500 RPM) with whisper-light pressure. Burnishes precious Gold and Silver to deep liquid mirror reflection.</div>
+        </div>
+      </div>
+
+      <div class="polishing-step-item">
+        <div class="polishing-step-dot" style="background:#059669" title="Fabulustre / Zam"></div>
+        <div>
+          <strong style="font-size:12px">Step 4 (Alternative): Fabulustre / Zam All-in-One</strong>
+          <div style="font-size:11px;color:var(--ink-secondary)">Safe for delicate set stones (Turquoise, Lapis, Coral) without scratching soft gems or leaving clinging residues.</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-secondary);line-height:1.4;margin-top:8px">
+      ⚠️ <strong>Polishing Lathe Safety:</strong> Never hold chains, rings, or rags directly with bare fingers on a spinning arbor! Chains will catch and wrap instantly. Always mount rings onto a wooden split ring clamp.
+    </div>
+  `;
+}
+
 // --- 📐 Universal Automatic Unit Value Conversion Engine ---
 function setupAutoUnitConversions() {
   const configs = [
@@ -36981,6 +38066,10 @@ function initCraftStudios() {
   updateResinDegas();
   updateResinPigment();
   updateResinInhibition();
+  updateResinThermalWatchdog();
+  updateSiliconeMoldCalc();
+  updateSiliconeShore();
+  updateResinEmbed();
   ["#resin-type-preset", "#resin-shape", "#resin-measure-mode", "#resin-units", "#resin-waste"].forEach(s => $(s)?.addEventListener("change", updateResinCalc));
   ["#resin-dim1", "#resin-dim2", "#resin-dim3"].forEach(s => $(s)?.addEventListener("input", updateResinCalc));
   ["#resin-degas-method", "#resin-viscosity"].forEach(s => $(s)?.addEventListener("change", updateResinDegas));
@@ -37375,7 +38464,59 @@ function initCraftStudios() {
     $(sel)?.addEventListener("change", renderIdeasView);
   });
 
-  // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
+
+  // Expanded Resin & Silicone Studio Listeners
+  ["#resin-thermal-type", "#resin-thermal-depth", "#resin-thermal-volume", "#resin-thermal-ambient"].forEach(s => $(s)?.addEventListener("input", updateResinThermalWatchdog));
+  ["#resin-thermal-type", "#resin-thermal-depth"].forEach(s => $(s)?.addEventListener("change", updateResinThermalWatchdog));
+  ["#silicone-box-l", "#silicone-box-w", "#silicone-box-d", "#silicone-master-vol"].forEach(s => $(s)?.addEventListener("input", updateSiliconeMoldCalc));
+  $("#silicone-mix-type")?.addEventListener("change", updateSiliconeMoldCalc);
+  ["#silicone-shore-picker", "#silicone-arch-type"].forEach(s => $(s)?.addEventListener("change", updateSiliconeShore));
+  $("#resin-embed-mat")?.addEventListener("change", updateResinEmbed);
+  $("#resin-wood-mc")?.addEventListener("input", updateResinEmbed);
+
+  // Expanded Jewelry Studio Listeners
+  ["#jewelry-wire-gauge", "#jewelry-wire-temper", "#jewelry-wire-alloy"].forEach(s => $(s)?.addEventListener("change", updateJewelryWireGauge));
+  $("#jewelry-mohs-search")?.addEventListener("input", updateJewelryMohs);
+  $("#jewelry-mohs-filter")?.addEventListener("change", updateJewelryMohs);
+  ["#jewelry-polish-start", "#jewelry-polish-metal"].forEach(s => $(s)?.addEventListener("change", updateJewelryPolishing));
+
+  // 🕯️ Candle Making Studio Listeners
+  renderCandleView();
+  ["#candle-wax-type", "#candle-vessel-mode", "#candle-vol-unit"].forEach(s => $(s)?.addEventListener("change", updateCandleCalc));
+  ["#candle-vessel-vol", "#candle-dim-dia", "#candle-dim-hgt", "#candle-count"].forEach(s => $(s)?.addEventListener("input", updateCandleCalc));
+  $("#candle-fragrance-range")?.addEventListener("input", (e) => {
+    const valInput = $("#candle-fragrance-pct");
+    if (valInput) valInput.value = e.target.value;
+    updateCandleCalc();
+  });
+  $("#candle-fragrance-pct")?.addEventListener("input", (e) => {
+    const rangeInput = $("#candle-fragrance-range");
+    if (rangeInput) rangeInput.value = e.target.value;
+    updateCandleCalc();
+  });
+  ["#candle-wick-dia", "#candle-wick-family"].forEach(s => $(s)?.addEventListener("change", updateCandleWick));
+  $("#candle-wax-type")?.addEventListener("change", updateCandleCure);
+  ["#candle-label-brand", "#candle-label-scent", "#candle-label-net"].forEach(s => $(s)?.addEventListener("input", updateCandleSafety));
+
+  // 🌸 Perfume & Fragrance Studio Listeners
+  renderPerfumeView();
+  ["#perfume-bottle-size", "#perfume-conc-category", "#perfume-carrier-type"].forEach(s => $(s)?.addEventListener("change", updatePerfumeDilution));
+  $("#perfume-custom-size")?.addEventListener("input", updatePerfumeDilution);
+  ["#perfume-range-top", "#perfume-range-heart", "#perfume-range-base"].forEach(s => $(s)?.addEventListener("input", updatePerfumePyramid));
+  $("#perfume-ifra-ing")?.addEventListener("change", updatePerfumeIfra);
+  ["#perfume-log-name", "#perfume-log-date", "#perfume-log-notes"].forEach(s => $(s)?.addEventListener("input", updatePerfumeMaceration));
+
+  // ✉️ Letter Planning & Wax Seal Studio Listeners
+  renderLetterView();
+  ["#letter-tone-select", "#letter-recipient", "#letter-dateline"].forEach(s => $(s)?.addEventListener("input", updateLetterDraft));
+  $("#letter-tone-select")?.addEventListener("change", updateLetterDraft);
+  $("#letter-body-text")?.addEventListener("input", updateLetterDraft);
+  ["#letter-paper-gsm", "#letter-envelope-type"].forEach(s => $(s)?.addEventListener("change", updateLetterPaper));
+  ["#letter-pen-nib", "#letter-ink-type"].forEach(s => $(s)?.addEventListener("change", updateLetterPen));
+  ["#wax-stamp-dia", "#wax-color-primary", "#wax-color-accent", "#wax-flex-grade"].forEach(s => $(s)?.addEventListener("change", updateWaxSealDesigner));
+  $("#wax-seal-batch")?.addEventListener("input", updateWaxSealDesigner);
+
+    // Restore Collapsible Sidebar Groups (Your Space & Craft Studios)
   restoreSidebarSections();
 
   // Client Quote & Estimate Form Listeners
