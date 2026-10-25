@@ -2520,7 +2520,7 @@ function writeSyncMarker(userId, remoteUpdatedAt) {
 }
 
 function hasWorkspaceContent() {
-  return state.hasUserChanges || state.projects.length > 0 || state.skills.length > 0 || (state.practiceLog || []).length > 0;
+  return state.hasUserChanges || state.projects.length > 0 || state.skills.length > 0 || (state.practiceLog || []).length > 0 || (state.ideas || []).length > 0 || (state.inventory || []).length > 0;
 }
 
 function cloudWorkspacePayload() {
@@ -3485,51 +3485,92 @@ function openIdeaDialog(ideaId = null) {
 
   form.reset();
   const deleteBtn = $("#delete-idea-btn");
-  const el = form.elements;
+  const el = form.elements || {};
+
+  const setVal = (name, val) => {
+    const field = el.namedItem ? el.namedItem(name) : el[name];
+    if (field) {
+      field.value = val;
+    } else {
+      const input = form.querySelector(`[name="${name}"]`);
+      if (input) input.value = val;
+    }
+  };
+  const setChecked = (name, val) => {
+    const field = el.namedItem ? el.namedItem(name) : el[name];
+    if (field) {
+      field.checked = Boolean(val);
+    } else {
+      const input = form.querySelector(`[name="${name}"]`);
+      if (input) input.checked = Boolean(val);
+    }
+  };
 
   if (ideaId) {
     const idea = (state.ideas || []).find(i => i.id === ideaId);
     if (!idea) return;
-    $("#idea-dialog-title").textContent = "Edit Project Idea";
-    if (el.namedItem("id")) el.namedItem("id").value = idea.id;
-    if (el.namedItem("title")) el.namedItem("title").value = idea.title || "";
-    if (el.namedItem("category")) el.namedItem("category").value = idea.category || "woodworking";
-    if (el.namedItem("priority")) el.namedItem("priority").value = idea.priority || "normal";
-    if (el.namedItem("effort")) el.namedItem("effort").value = idea.effort || "weekend";
-    if (el.namedItem("cost")) el.namedItem("cost").value = idea.cost || "";
-    if (el.namedItem("supplies")) el.namedItem("supplies").value = idea.supplies || "";
-    if (el.namedItem("notes")) el.namedItem("notes").value = idea.notes || "";
-    if (el.namedItem("status")) el.namedItem("status").value = idea.status || "brainstorming";
-    if (el.namedItem("isGift")) el.namedItem("isGift").checked = Boolean(idea.isGift);
-    if (el.namedItem("giftRecipient")) el.namedItem("giftRecipient").value = idea.giftRecipient || "";
+    const titleEl = $("#idea-dialog-title");
+    if (titleEl) titleEl.textContent = "Edit Project Idea";
+    setVal("id", idea.id);
+    setVal("title", idea.title || "");
+    setVal("category", idea.category || "woodworking");
+    setVal("priority", idea.priority || "normal");
+    setVal("effort", idea.effort || "weekend");
+    setVal("cost", idea.cost || "");
+    setVal("supplies", idea.supplies || "");
+    setVal("notes", idea.notes || "");
+    setVal("status", idea.status || "brainstorming");
+    setChecked("isGift", Boolean(idea.isGift));
+    setVal("giftRecipient", idea.giftRecipient || "");
     if (deleteBtn) {
       deleteBtn.classList.remove("hidden");
       deleteBtn.dataset.ideaId = idea.id;
     }
   } else {
-    $("#idea-dialog-title").textContent = "New Project Idea";
-    if (el.namedItem("id")) el.namedItem("id").value = "";
-    if (el.namedItem("title")) el.namedItem("title").value = "";
-    if (el.namedItem("category")) el.namedItem("category").value = "woodworking";
-    if (el.namedItem("priority")) el.namedItem("priority").value = "normal";
-    if (el.namedItem("effort")) el.namedItem("effort").value = "weekend";
-    if (el.namedItem("cost")) el.namedItem("cost").value = "";
-    if (el.namedItem("supplies")) el.namedItem("supplies").value = "";
-    if (el.namedItem("notes")) el.namedItem("notes").value = "";
-    if (el.namedItem("status")) el.namedItem("status").value = "brainstorming";
-    if (el.namedItem("isGift")) el.namedItem("isGift").checked = false;
-    if (el.namedItem("giftRecipient")) el.namedItem("giftRecipient").value = "";
+    const titleEl = $("#idea-dialog-title");
+    if (titleEl) titleEl.textContent = "New Project Idea";
+    setVal("id", "");
+    setVal("title", "");
+    setVal("category", "woodworking");
+    setVal("priority", "normal");
+    setVal("effort", "weekend");
+    setVal("cost", "");
+    setVal("supplies", "");
+    setVal("notes", "");
+    setVal("status", "brainstorming");
+    setChecked("isGift", false);
+    setVal("giftRecipient", "");
     if (deleteBtn) deleteBtn.classList.add("hidden");
   }
 
-  dialog.showModal();
+  if (typeof dialog.showModal === "function") {
+    dialog.showModal();
+  } else {
+    dialog.setAttribute("open", "");
+  }
 }
 
 async function saveIdeaFromForm(form) {
-  if (!form) return;
-  const el = form.elements;
-  const id = el.namedItem("id")?.value || uid();
-  const title = (el.namedItem("title")?.value || "").trim();
+  const targetForm = (form && form.elements) ? form : $("#idea-form");
+  if (!targetForm) return;
+  const el = targetForm.elements || {};
+  const getVal = (name) => {
+    let field = null;
+    if (el) {
+      field = el.namedItem ? el.namedItem(name) : el[name];
+    }
+    return (field?.value || (typeof targetForm.querySelector === "function" ? targetForm.querySelector(`[name="${name}"]`)?.value : "") || "").trim();
+  };
+  const getChecked = (name) => {
+    let field = null;
+    if (el) {
+      field = el.namedItem ? el.namedItem(name) : el[name];
+    }
+    return Boolean(field?.checked ?? (typeof targetForm.querySelector === "function" ? targetForm.querySelector(`[name="${name}"]`)?.checked : false));
+  };
+
+  const id = getVal("id") || uid();
+  const title = (el.namedItem ? el.namedItem("title")?.value : "") || getVal("title");
   if (!title) {
     showToast("Please enter an idea title.");
     return;
@@ -3541,15 +3582,15 @@ async function saveIdeaFromForm(form) {
   const ideaData = {
     id,
     title,
-    category: el.namedItem("category")?.value || "general",
-    priority: el.namedItem("priority")?.value || "normal",
-    effort: el.namedItem("effort")?.value || "weekend",
-    cost: el.namedItem("cost")?.value ? String(el.namedItem("cost").value) : "",
-    supplies: (el.namedItem("supplies")?.value || "").trim(),
-    notes: (el.namedItem("notes")?.value || "").trim(),
-    isGift: Boolean(el.namedItem("isGift")?.checked),
-    giftRecipient: (el.namedItem("giftRecipient")?.value || "").trim(),
-    status: el.namedItem("status")?.value || "brainstorming",
+    category: getVal("category") || "general",
+    priority: getVal("priority") || "normal",
+    effort: getVal("effort") || "weekend",
+    cost: getVal("cost") ? String(getVal("cost")) : "",
+    supplies: getVal("supplies"),
+    notes: getVal("notes"),
+    isGift: getChecked("isGift"),
+    giftRecipient: getVal("giftRecipient"),
+    status: getVal("status") || "brainstorming",
     updatedAt: new Date().toISOString()
   };
 
@@ -3563,16 +3604,18 @@ async function saveIdeaFromForm(form) {
     showToast(`Saved idea "${title}" to your queue! 💡`);
   }
 
-  await persistState();
+  await persistState({ syncCloud: true });
   renderNavigation();
   renderIdeasView();
   $("#idea-dialog")?.close();
 }
 
 async function handleIdeaSubmit(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  const form = event.currentTarget || event.target.closest("form") || $("#idea-form");
+  if (event) {
+    if (typeof event.preventDefault === "function") event.preventDefault();
+    if (typeof event.stopPropagation === "function") event.stopPropagation();
+  }
+  const form = $("#idea-form") || (event?.target?.closest ? event.target.closest("form") : null);
   if (form) {
     await saveIdeaFromForm(form);
   }
@@ -3616,7 +3659,7 @@ async function promoteIdeaToProject(ideaId) {
     materials: (idea.supplies || "").split(",").map(s => s.trim()).filter(Boolean).map(name => ({
       id: uid(),
       name,
-      status: "needed",
+      status: "need",
       cost: 0
     })),
     createdAt: new Date().toISOString(),
@@ -3627,7 +3670,7 @@ async function promoteIdeaToProject(ideaId) {
   idea.promotedProjectId = project.id;
   state.projects.unshift(project);
   makeActivity("project", `Promoted idea "${idea.title}" into an active workshop project!`);
-  await persistState();
+  await persistState({ syncCloud: true });
   renderNavigation();
   renderIdeasView();
   renderProjects();
@@ -11697,6 +11740,10 @@ async function handleAction(action, target) {
   if (action === "close-mobile-sidebar") {
     $(".sidebar")?.classList.remove("open");
     $("#sidebar-backdrop")?.classList.remove("visible");
+    return;
+  }
+  if (action === "save-idea-btn") {
+    void handleIdeaSubmit(null);
     return;
   }
   if (action === "new-idea") {
