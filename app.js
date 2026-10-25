@@ -2222,9 +2222,18 @@ function sanitizeCollaboratorWorkspace(user = null) {
 
 async function loadUserScopedState() {
   const saved = await readSavedState();
+  const backupIdeas = readIdeasBackup();
   if (saved) {
     state.projects = Array.isArray(saved.projects) ? saved.projects : [];
-    state.ideas = Array.isArray(saved.ideas) ? saved.ideas : (saved.ideas === undefined ? [...STARTER_IDEAS] : []);
+    let loadedIdeas = Array.isArray(saved.ideas) ? saved.ideas : [];
+    if (backupIdeas && backupIdeas.length > 0) {
+      loadedIdeas = mergeIdeas(loadedIdeas, backupIdeas);
+    }
+    if (loadedIdeas.length === 0) {
+      loadedIdeas = [...STARTER_IDEAS];
+    }
+    state.ideas = loadedIdeas;
+    saveIdeasBackup(state.ideas);
     state.skills = Array.isArray(saved.skills) ? saved.skills : [];
     state.activity = Array.isArray(saved.activity) ? saved.activity : [];
     state.practiceLog = Array.isArray(saved.practiceLog) ? saved.practiceLog : [];
@@ -2248,7 +2257,12 @@ async function loadUserScopedState() {
     updateTopbarUnitsPill();
   } else {
     resetWorkspaceStateToDefault();
-    state.ideas = [...STARTER_IDEAS];
+    if (backupIdeas && backupIdeas.length > 0) {
+      state.ideas = backupIdeas;
+    } else {
+      state.ideas = [...STARTER_IDEAS];
+    }
+    saveIdeasBackup(state.ideas);
     loadSharedCollaborationsIntoState();
     updateTopbarUnitsPill();
     await persistState({ syncCloud: false });
@@ -2648,24 +2662,18 @@ async function loadRemoteWorkspace(remote) {
   }
   remoteState.projects = Array.from(mergedProjectMap.values());
 
-  // Merge remote ideas with local ideas so idea brainstorms are never lost
-  if (Array.isArray(remoteState.ideas)) {
-    const ideaMap = new Map();
-    for (const i of (state.ideas || [])) {
-      if (i?.id) ideaMap.set(i.id, i);
-    }
-    for (const ri of remoteState.ideas) {
-      if (ri?.id) {
-        const existing = ideaMap.get(ri.id);
-        if (!existing || new Date(ri.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
-          ideaMap.set(ri.id, ri);
-        }
-      }
-    }
-    remoteState.ideas = Array.from(ideaMap.values());
-  } else {
-    remoteState.ideas = Array.isArray(state.ideas) && state.ideas.length ? state.ideas : [...STARTER_IDEAS];
+  // Merge remote ideas with local ideas and backup ideas so idea brainstorms are never lost
+  const backupIdeas = readIdeasBackup();
+  let baseIdeas = state.ideas || [];
+  if (backupIdeas && backupIdeas.length > 0) {
+    baseIdeas = mergeIdeas(baseIdeas, backupIdeas);
   }
+  if (Array.isArray(remoteState.ideas)) {
+    remoteState.ideas = mergeIdeas(baseIdeas, remoteState.ideas);
+  } else {
+    remoteState.ideas = baseIdeas.length ? baseIdeas : [...STARTER_IDEAS];
+  }
+  saveIdeasBackup(remoteState.ideas);
 
   Object.assign(state, remoteState, { updatedAt: remote.updated_at });
   state.starterSkillsAdded = true;
@@ -2757,8 +2765,12 @@ async function syncCloudWorkspace(choice = "automatic") {
       return;
     }
     if (!marker) {
-      cloudConflict = remote;
-      cloudMessage("There is already a cloud workspace. Choose which copy to keep.", "conflict");
+      // First sync with existing remote: seamlessly merge remote workspace into local workspace
+      await loadRemoteWorkspace(remote);
+      await storeRemoteWorkspace();
+      cloudMessage("Cloud and browser workspaces synchronized.", "connected");
+      await syncCloudCollaborations().catch(() => {});
+      await reconcileProjectOwnership().catch(() => {});
       return;
     }
     const localChanged = state.updatedAt !== marker.localUpdatedAt;
@@ -3357,6 +3369,58 @@ const CURATED_SPARKS = [
   }
 ];
 
+function saveIdeasBackup(ideas) {
+  if (!Array.isArray(ideas)) return;
+  try {
+    const json = JSON.stringify(ideas);
+    localStorage.setItem("workbench_saved_ideas", json);
+    const key = typeof getActiveStateKey === "function" ? getActiveStateKey() : "main";
+    localStorage.setItem(`workbench_saved_ideas_${key}`, json);
+  } catch (e) {
+    console.warn("Could not save ideas backup to localStorage:", e);
+  }
+}
+
+function readIdeasBackup() {
+  try {
+    const key = typeof getActiveStateKey === "function" ? getActiveStateKey() : "main";
+    const userRaw = localStorage.getItem(`workbench_saved_ideas_${key}`);
+    if (userRaw) {
+      const parsed = JSON.parse(userRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+    const globalRaw = localStorage.getItem("workbench_saved_ideas");
+    if (globalRaw) {
+      const parsed = JSON.parse(globalRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.warn("Could not read ideas backup from localStorage:", e);
+  }
+  return null;
+}
+
+function mergeIdeas(existingIdeas, newIdeas) {
+  const map = new Map();
+  for (const item of (Array.isArray(existingIdeas) ? existingIdeas : [])) {
+    if (item?.id) map.set(item.id, item);
+  }
+  for (const item of (Array.isArray(newIdeas) ? newIdeas : [])) {
+    if (!item?.id) continue;
+    const existing = map.get(item.id);
+    if (!existing) {
+      map.set(item.id, item);
+    } else {
+      const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+      const newTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+      if (newTime >= existingTime) {
+        map.set(item.id, { ...existing, ...item });
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
 function renderIdeasView() {
   const container = $("#ideas-grid");
   if (!container) return;
@@ -3615,7 +3679,11 @@ async function saveIdeaFromForm(form) {
       showToast(`Saved idea "${title}" to your queue! 💡`);
     }
 
+    saveIdeasBackup(state.ideas);
     await persistState({ syncCloud: true });
+    if (getCloudConfig() && getCloudSession() && !cloudWorking) {
+      void storeRemoteWorkspace().catch(err => console.warn("Direct idea cloud push notice:", err));
+    }
     renderNavigation();
     renderIdeasView();
     $("#idea-dialog")?.close();
@@ -3647,7 +3715,11 @@ async function deleteIdea(ideaId) {
   if (!confirm(`Delete project idea "${idea.title}"?`)) return;
 
   state.ideas = (state.ideas || []).filter(i => i.id !== ideaId);
-  await persistState();
+  saveIdeasBackup(state.ideas);
+  await persistState({ syncCloud: true });
+  if (getCloudConfig() && getCloudSession() && !cloudWorking) {
+    void storeRemoteWorkspace().catch(err => console.warn("Direct idea delete cloud push notice:", err));
+  }
   renderNavigation();
   renderIdeasView();
   $("#idea-dialog")?.close();
@@ -3688,6 +3760,8 @@ async function promoteIdeaToProject(ideaId) {
 
   idea.status = "promoted";
   idea.promotedProjectId = project.id;
+  idea.updatedAt = new Date().toISOString();
+  saveIdeasBackup(state.ideas);
   state.projects.unshift(project);
   makeActivity("project", `Promoted idea "${idea.title}" into an active workshop project!`);
   await persistState({ syncCloud: true });
@@ -3718,8 +3792,9 @@ async function adoptSparkIdea(sparkId) {
   };
 
   state.ideas.unshift(newIdea);
+  saveIdeasBackup(state.ideas);
   makeActivity("idea", `Adopted spark idea: ${spark.title}`);
-  await persistState();
+  await persistState({ syncCloud: true });
   renderNavigation();
   renderIdeasView();
   showToast(`Adopted spark "${spark.title}" into your ideas!`);
@@ -14189,9 +14264,18 @@ async function initialize() {
   try {
     database = await openDatabase();
     const saved = await readSavedState();
+    const backupIdeas = readIdeasBackup();
     if (saved) {
       state.projects = Array.isArray(saved.projects) ? saved.projects : [];
-      state.ideas = Array.isArray(saved.ideas) ? saved.ideas : (saved.ideas === undefined ? [...STARTER_IDEAS] : []);
+      let loadedIdeas = Array.isArray(saved.ideas) ? saved.ideas : [];
+      if (backupIdeas && backupIdeas.length > 0) {
+        loadedIdeas = mergeIdeas(loadedIdeas, backupIdeas);
+      }
+      if (loadedIdeas.length === 0) {
+        loadedIdeas = [...STARTER_IDEAS];
+      }
+      state.ideas = loadedIdeas;
+      saveIdeasBackup(state.ideas);
       state.skills = Array.isArray(saved.skills) ? saved.skills : [];
       state.activity = Array.isArray(saved.activity) ? saved.activity : [];
       state.practiceLog = Array.isArray(saved.practiceLog)
@@ -14211,7 +14295,12 @@ async function initialize() {
       state.skills.forEach(skill => { skill.xp = Number.isFinite(skill.xp) ? skill.xp : 0; });
       state.hasUserChanges = saved.hasUserChanges === true || state.projects.length > 0 || state.skills.some(skill => skill.xp > 0) || (state.ideas || []).length > 0;
     } else {
-      state.ideas = [...STARTER_IDEAS];
+      if (backupIdeas && backupIdeas.length > 0) {
+        state.ideas = backupIdeas;
+      } else {
+        state.ideas = [...STARTER_IDEAS];
+      }
+      saveIdeasBackup(state.ideas);
     }
     state.projects.forEach(project => {
       project.tasks = Array.isArray(project.tasks) ? project.tasks : [];
@@ -14220,7 +14309,14 @@ async function initialize() {
       project.pinned = Boolean(project.pinned);
       project.timeSpent = Number.isFinite(project.timeSpent) ? project.timeSpent : 0;
     });
-    state.ideas = Array.isArray(state.ideas) ? state.ideas : (Array.isArray(saved?.ideas) ? saved.ideas : (saved?.ideas === undefined ? [...STARTER_IDEAS] : []));
+    state.ideas = (Array.isArray(state.ideas) && state.ideas.length > 0)
+      ? state.ideas
+      : ((backupIdeas && backupIdeas.length > 0)
+        ? backupIdeas
+        : (Array.isArray(saved?.ideas) && saved.ideas.length > 0
+          ? saved.ideas
+          : [...STARTER_IDEAS]));
+    saveIdeasBackup(state.ideas);
     state.inventory = Array.isArray(saved?.inventory) ? saved.inventory : [];
     state.customTemplates = Array.isArray(saved?.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved?.makerGoals) ? saved.makerGoals : [];

@@ -1,4 +1,4 @@
-const CACHE_NAME = "workbench-cache-v4";
+const CACHE_NAME = "workbench-cache-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -29,6 +29,22 @@ self.addEventListener("fetch", event => {
   // Only handle same-origin static requests, never cloud or external API requests
   if (url.origin !== self.location.origin) return;
 
+  // Network-first for code and markup so refreshes always fetch the latest updates immediately
+  const isCodeOrDoc = url.pathname.endsWith("index.html") || url.pathname.endsWith("app.js") || url.pathname.endsWith("styles.css") || url.pathname === "/" || url.pathname.endsWith("/");
+  if (isCodeOrDoc) {
+    event.respondWith(
+      fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
+        }
+        return networkResponse;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for other static media and assets
   event.respondWith(
     caches.match(event.request).then(cached => {
       const fetchPromise = fetch(event.request).then(networkResponse => {
