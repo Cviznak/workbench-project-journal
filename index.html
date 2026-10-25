@@ -122,6 +122,16 @@
           <button class="nav-link" type="button" data-action="open-print-diagnostics"><span class="nav-icon">🖨️</span>3D Print Diagnostician</button>
           <button class="nav-link" type="button" data-action="open-wood-distortion"><span class="nav-icon">🪵</span>Wood Movement Sim</button>
           <button class="nav-link" type="button" data-action="open-sds-locker"><span class="nav-icon">☣️</span>Chemical SDS Locker</button>
+          <button class="nav-link" type="button" data-action="open-box-generator"><span class="nav-icon">📦</span>Parametric Box CAD</button>
+          <button class="nav-link" type="button" data-action="open-gcode-backplotter"><span class="nav-icon">📊</span>G-Code Toolpath Sim</button>
+          <button class="nav-link" type="button" data-action="open-stock-weight"><span class="nav-icon">⚖️</span>Stock Billet &amp; Weight</button>
+          <button class="nav-link" type="button" data-action="open-electrical-panel"><span class="nav-icon">⚡</span>Shop Electrical Breakers</button>
+          <button class="nav-link" type="button" data-action="open-noise-dosimeter"><span class="nav-icon">🎧</span>Audio Dosimeter &amp; NRR</button>
+          <button class="nav-link" type="button" data-action="open-bom-consolidator"><span class="nav-icon">🔩</span>BOM &amp; Fastener Matrix</button>
+          <button class="nav-link" type="button" data-action="open-resin-mold"><span class="nav-icon">🧪</span>Resin &amp; Silicone Mold</button>
+          <button class="nav-link" type="button" data-action="open-river-table"><span class="nav-icon">🪵</span>River Table &amp; Slab Sim</button>
+          <button class="nav-link" type="button" data-action="open-photo-watermark"><span class="nav-icon">🖼️</span>Photo Watermark &amp; Stamp</button>
+          <button class="nav-link" type="button" data-action="open-undo-history"><span class="nav-icon">↺</span>Undo / Redo Timeline</button>
           <button class="nav-link" type="button" data-action="open-assembly-manual"><span class="nav-icon">📖</span>Assembly Manuals</button>
           <button class="nav-link" type="button" data-action="open-pigment-blender"><span class="nav-icon">🎨</span>Pigment &amp; Stains</button>
           <button class="nav-link" type="button" data-action="open-maintenance-engine"><span class="nav-icon">🛠️</span>Tool Care &amp; Costs</button>
@@ -8151,6 +8161,16 @@ With warm regards and friendship,</textarea>
         <button type="button" class="tool-tab-btn" id="tool-tab-print-diag-trigger" data-action="open-print-diagnostics">🖨️ 3D Print Doctor</button>
         <button type="button" class="tool-tab-btn" id="tool-tab-wood-dist-trigger" data-action="open-wood-distortion">🪵 Wood Movement</button>
         <button type="button" class="tool-tab-btn" id="tool-tab-sds-trigger" data-action="open-sds-locker">☣️ Chemical SDS</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-box-trigger" data-action="open-box-generator">📦 Box CAD</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-gcode-trigger" data-action="open-gcode-backplotter">📊 G-Code Sim</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-stock-trigger" data-action="open-stock-weight">⚖️ Stock Weight</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-elec-trigger" data-action="open-electrical-panel">⚡ Breaker Panel</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-noise-trigger" data-action="open-noise-dosimeter">🎧 Noise Dosimeter</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-bom-trigger" data-action="open-bom-consolidator">🔩 BOM Matrix</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-resin-trigger" data-action="open-resin-mold">🧪 Resin Mold</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-river-trigger" data-action="open-river-table">🪵 River Table</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-watermark-trigger" data-action="open-photo-watermark">🖼️ Watermark</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-undo-trigger" data-action="open-undo-history">↺ Undo Timeline</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -11481,5 +11501,639 @@ With warm regards and friendship,</textarea>
         </div>
       </div>
     </dialog>
+
+    <!-- 📦 22. Parametric Box & Enclosure CAD Generator Dialog -->
+    <dialog class="app-dialog box-generator-dialog" id="box-generator-dialog" aria-label="Parametric Box & Enclosure CAD Generator">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">CNC &amp; LASER KERF JOINERY</div>
+          <h2>Parametric Box &amp; Enclosure CAD Generator</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-primary" id="box-download-svg-btn">📥 Download SVG</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="box-gen-layout">
+        <!-- Configuration Controls Column -->
+        <div class="panel box-gen-sidebar">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">Enclosure Geometry (mm)</h3>
+          
+          <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+            <label class="field-label">Length (X):
+              <input type="number" id="box-dim-length" class="calc-input" value="120" min="20" max="1000" step="5">
+            </label>
+            <label class="field-label">Width (Y):
+              <input type="number" id="box-dim-width" class="calc-input" value="80" min="20" max="1000" step="5">
+            </label>
+            <label class="field-label">Height (Z):
+              <input type="number" id="box-dim-height" class="calc-input" value="60" min="20" max="1000" step="5">
+            </label>
+          </div>
+
+          <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+            <label class="field-label">Material Thick ($T$):
+              <input type="number" id="box-dim-thick" class="calc-input" value="3.0" min="0.5" max="30" step="0.5">
+            </label>
+            <label class="field-label">Laser Kerf / Bit:
+              <input type="number" id="box-dim-kerf" class="calc-input" value="0.15" min="0" max="6.35" step="0.05" title="Kerf offset expands tabs and shrinks slots">
+            </label>
+          </div>
+
+          <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+            <label class="field-label">Finger Width:
+              <input type="number" id="box-tab-width" class="calc-input" value="12" min="4" max="100" step="1">
+            </label>
+            <label class="field-label">Style:
+              <select id="box-style-select" class="calc-input">
+                <option value="closed" selected>6-Sided Enclosure</option>
+                <option value="open">Open-Top Tray (5-Sided)</option>
+                <option value="sliding_lid">Sliding Lid (with Notch)</option>
+                <option value="tslot">T-Slot Captive Nut (M3)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="panel" style="background:var(--surface);padding:8px 10px;font-size:11.5px;margin-top:10px;border-left:3px solid var(--primary)">
+            <div id="box-summary-text">Total Panels: 6 · Flat Sheet Area: 0.052 m² · Tabs per Edge: 5</div>
+          </div>
+        </div>
+
+        <!-- 2D Cut Layout Canvas / SVG Viewport -->
+        <div class="panel box-gen-viewport">
+          <div class="box-viewport-toolbar">
+            <span style="font-size:11px;font-weight:700;color:var(--muted)">UNROLLED NESTED PANELS (RED = CUT, BLUE = KERF OFFSET)</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button type="button" class="button button-small button-outline" id="box-zoom-fit-btn">Zoom Fit</button>
+            </div>
+          </div>
+          <div class="box-canvas-container" id="box-canvas-container">
+            <canvas id="box-preview-canvas" width="820" height="480"></canvas>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 📊 23. G-Code Backplotter & Machine Safety Checker Dialog -->
+    <dialog class="app-dialog gcode-backplotter-dialog" id="gcode-backplotter-dialog" aria-label="G-Code Backplotter &amp; Safety Checker">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">CNC &amp; 3D PRINT TOOLPATH SIMULATOR</div>
+          <h2>G-Code Toolpath Backplotter &amp; Safety Checker</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="gcode-load-sample-btn">Sample Toolpath</button>
+          <button type="button" class="button button-small button-primary" id="gcode-browse-btn">Open G-Code</button>
+          <input type="file" id="gcode-file-input" accept=".gcode,.nc,.tap,.ngc" style="display:none">
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="gcode-layout">
+        <!-- Canvas Toolpath Viewport -->
+        <div class="panel gcode-viewport-panel">
+          <div class="gcode-canvas-wrap">
+            <canvas id="gcode-canvas" width="800" height="460"></canvas>
+            <div class="gcode-overlay-legend">
+              <span style="color:#10b981;font-weight:700">■ G01/G02 Feed</span>
+              <span style="color:#ef4444;font-weight:700">■ G00 Rapid</span>
+              <span style="color:#3b82f6;font-weight:700">■ Plunge Entry</span>
+            </div>
+          </div>
+          
+          <div class="gcode-playback-bar">
+            <button type="button" class="button button-small button-outline" id="gcode-play-btn">▶ Play Sim</button>
+            <input type="range" id="gcode-slider" min="0" max="100" value="100" style="flex:1">
+            <span id="gcode-line-counter" style="font-family:monospace;font-size:11px;width:110px;text-align:right">Line 0 / 0</span>
+          </div>
+        </div>
+
+        <!-- Metrics & Machine Travel Envelope -->
+        <div class="panel gcode-metrics-panel">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">Toolpath Analytics</h3>
+          
+          <div class="gcode-metric-row">
+            <span>Estimated Runtime:</span>
+            <strong id="gcode-stat-time">00:00:00</strong>
+          </div>
+          <div class="gcode-metric-row">
+            <span>Cutting Distance:</span>
+            <strong id="gcode-stat-feed-dist">0.0 m</strong>
+          </div>
+          <div class="gcode-metric-row">
+            <span>Rapid Travel:</span>
+            <strong id="gcode-stat-rapid-dist">0.0 m</strong>
+          </div>
+          <div class="gcode-metric-row">
+            <span>Min / Max Depth:</span>
+            <strong id="gcode-stat-z-bounds">Z 0.0 to 0.0 mm</strong>
+          </div>
+          
+          <h4 style="margin:12px 0 6px;font-size:12px">Machine Travel Envelope:</h4>
+          <div class="panel" style="font-family:monospace;font-size:11px;background:var(--surface);padding:8px">
+            <div>X: <span id="gcode-env-x">0.0 to 0.0 mm</span></div>
+            <div>Y: <span id="gcode-env-y">0.0 to 0.0 mm</span></div>
+            <div>Z: <span id="gcode-env-z">0.0 to 0.0 mm</span></div>
+          </div>
+
+          <h4 style="margin:12px 0 6px;font-size:12px">⚠️ Machine Safety Checks:</h4>
+          <div id="gcode-safety-flags" style="font-size:11px;line-height:1.4">
+            <div style="color:var(--green)">✓ No G-Code loaded yet.</div>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- ⚖️ 24. Raw Stock Billet & Center-of-Mass (CoM) Estimator Dialog -->
+    <dialog class="app-dialog stock-weight-dialog" id="stock-weight-dialog" aria-label="Raw Stock Billet &amp; Center-of-Mass Estimator">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">PHYSICAL PROPERTIES &amp; FREIGHT LOGISTICS</div>
+          <h2>Raw Stock Billet &amp; Center-of-Mass (CoM) Estimator</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="stock-weight-layout">
+        <div class="panel stock-inputs-col">
+          <label class="field-label">Stock Shape:
+            <select id="stock-shape-select" class="calc-input">
+              <option value="rect" selected>Rectangular Prism / Flat Bar / Billet</option>
+              <option value="round">Solid Round Rod / Cylinder</option>
+              <option value="tube">Round Tube / Hollow Pipe</option>
+              <option value="lumber">Board Lumber (Board-Feet)</option>
+            </select>
+          </label>
+
+          <label class="field-label">Material &amp; Density:
+            <select id="stock-mat-select" class="calc-input">
+              <!-- Populated dynamically with 35+ woods, metals, and plastics -->
+            </select>
+          </label>
+
+          <div id="stock-dim-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+            <label class="field-label">Length (mm):
+              <input type="number" id="stock-dim-l" class="calc-input" value="300" min="1">
+            </label>
+            <label class="field-label">Width (mm):
+              <input type="number" id="stock-dim-w" class="calc-input" value="150" min="1">
+            </label>
+            <label class="field-label">Height / Thickness (mm):
+              <input type="number" id="stock-dim-h" class="calc-input" value="50" min="1">
+            </label>
+            <label class="field-label">Machined Scrap %:
+              <input type="number" id="stock-scrap-pct" class="calc-input" value="35" min="0" max="95" title="% of billet machined away into chips">
+            </label>
+          </div>
+        </div>
+
+        <div class="panel stock-results-col">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">Mass &amp; Weight Analysis</h3>
+          <div class="stock-stat-grid">
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Raw Billet Weight:</span>
+              <strong class="stock-stat-val" id="stock-raw-weight">6.08 kg (13.4 lbs)</strong>
+            </div>
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Finished Part Weight:</span>
+              <strong class="stock-stat-val" id="stock-part-weight">3.95 kg (8.7 lbs)</strong>
+            </div>
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Billet Volume &amp; BF:</span>
+              <strong class="stock-stat-val" id="stock-vol-bf">2,250 cm³ (0.95 BF)</strong>
+            </div>
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Center of Mass (X,Y,Z):</span>
+              <strong class="stock-stat-val" id="stock-com-coords">150.0, 75.0, 25.0 mm</strong>
+            </div>
+          </div>
+
+          <div class="panel" style="background:var(--surface);margin-top:12px;font-size:12px;border-left:3px solid var(--green)">
+            <strong>Freight &amp; Handling:</strong> <span id="stock-freight-note">Standard parcel carrier acceptable (&lt;50 lbs). Center of mass is balanced on billet centroid.</span>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- ⚡ 25. Workshop Electrical Panel & Breaker Balancing Dialog -->
+    <dialog class="app-dialog electrical-panel-dialog" id="electrical-panel-dialog" aria-label="Workshop Electrical Panel &amp; Breaker Balancing">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">NATIONAL ELECTRICAL CODE (NEC) 80% RULE</div>
+          <h2>Workshop Electrical Panel &amp; Breaker Balancing</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="elec-layout">
+        <!-- Subpanel configuration -->
+        <div class="panel elec-config-panel">
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <label class="field-label" style="flex:1">Panel Mains Amps:
+              <select id="elec-panel-mains" class="calc-input">
+                <option value="60">60 Amp Subpanel</option>
+                <option value="100" selected>100 Amp Workshop Subpanel</option>
+                <option value="125">125 Amp Panel</option>
+                <option value="200">200 Amp Master Panel</option>
+              </select>
+            </label>
+            <label class="field-label" style="flex:1">Phase Voltage:
+              <select id="elec-panel-volts" class="calc-input">
+                <option value="split" selected>120V / 240V Split-Phase (US/CA)</option>
+                <option value="euro">230V Single-Phase (EU/UK/AU)</option>
+              </select>
+            </label>
+          </div>
+
+          <h4 style="margin:8px 0;font-size:12px">Connected Machines &amp; Circuits:</h4>
+          <div class="elec-circuit-list" id="elec-circuit-list">
+            <!-- Dynamic circuit rows with on/off checkboxes -->
+          </div>
+        </div>
+
+        <!-- Visual Circuit Breaker Panel & Balance Analytics -->
+        <div class="panel elec-balance-panel">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">Phase Current Distribution</h3>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="panel" style="background:var(--surface);padding:10px;text-align:center">
+              <span style="font-size:11px;color:var(--muted);font-weight:700">PHASE A (BUS 1)</span>
+              <div style="font-size:24px;font-weight:800;color:var(--primary)" id="elec-phase-a-amps">27.0 A</div>
+              <div style="font-size:10px;color:var(--muted)" id="elec-phase-a-pct">27% of 100A</div>
+            </div>
+            <div class="panel" style="background:var(--surface);padding:10px;text-align:center">
+              <span style="font-size:11px;color:var(--muted);font-weight:700">PHASE B (BUS 2)</span>
+              <div style="font-size:24px;font-weight:800;color:var(--primary)" id="elec-phase-b-amps">29.0 A</div>
+              <div style="font-size:10px;color:var(--muted)" id="elec-phase-b-pct">29% of 100A</div>
+            </div>
+          </div>
+
+          <!-- Neutral Current & Balance Bar -->
+          <div style="font-size:11.5px;margin-bottom:6px;display:flex;justify-content:space-between">
+            <span>Phase Imbalance (Neutral Current):</span>
+            <strong id="elec-neutral-amps">2.0 A (Balanced ✓)</strong>
+          </div>
+          <div style="height:12px;width:100%;background:var(--surface);border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:14px">
+            <div id="elec-imbalance-bar" style="height:100%;width:95%;background:var(--green);transition:width 0.3s"></div>
+          </div>
+
+          <!-- Inrush & Continuous Alerts -->
+          <div class="panel" id="elec-panel-alert" style="padding:10px;border-radius:6px;font-size:12px;background:rgba(16,185,129,0.1);color:var(--green)">
+            ✓ Panel is safely within NEC continuous 80% duty rating. No tripping risk.
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🎧 26. Workshop Acoustic Noise Dosimeter & NRR Hearing Advisor Dialog -->
+    <dialog class="app-dialog noise-dosimeter-dialog" id="noise-dosimeter-dialog" aria-label="Workshop Acoustic Noise Dosimeter &amp; NRR Hearing Advisor">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">OSHA 1910.95 &amp; NIOSH AUDIOLOGY SAFETY</div>
+          <h2>Workshop Noise Dosimeter &amp; Hearing Protection (NRR)</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="dosimeter-layout">
+        <!-- Live Meter Column -->
+        <div class="panel dosimeter-meter-col">
+          <div class="dosimeter-hero-display" id="dosimeter-hero-display">
+            <div class="dosimeter-dba" id="dosimeter-live-dba">68.5<span style="font-size:20px;color:var(--muted)"> dBA</span></div>
+            <div class="dosimeter-status-tag" id="dosimeter-status-tag">Safe Background Level</div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button type="button" class="button button-small button-primary" id="dosimeter-mic-btn" style="flex:1">🎙️ Start Mic Meter</button>
+            <button type="button" class="button button-small button-outline" id="dosimeter-reset-btn">Reset Dose</button>
+          </div>
+
+          <div style="margin-top:12px;font-size:11px;color:var(--muted)">
+            <span>Simulate Tool Noise:</span>
+            <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap">
+              <button type="button" class="button button-small button-outline dosimeter-sim-btn" data-dba="72">Sander (72 dB)</button>
+              <button type="button" class="button button-small button-outline dosimeter-sim-btn" data-dba="88">Table Saw (88 dB)</button>
+              <button type="button" class="button button-small button-outline dosimeter-sim-btn" data-dba="97">Wood Router (97 dB)</button>
+              <button type="button" class="button button-small button-outline dosimeter-sim-btn" data-dba="104">Planer (104 dB)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cumulative Dose & Hearing Protection Advisor -->
+        <div class="panel dosimeter-advisor-col">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">Daily Noise Dose &amp; NRR Protection</h3>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+            <div class="panel" style="background:var(--surface);padding:8px;font-size:11.5px">
+              <div style="color:var(--muted)">OSHA 90 dBA Dose:</div>
+              <strong style="font-size:18px;color:var(--primary)" id="dosimeter-osha-dose">12.4%</strong>
+            </div>
+            <div class="panel" style="background:var(--surface);padding:8px;font-size:11.5px">
+              <div style="color:var(--muted)">Safe Time Remaining:</div>
+              <strong style="font-size:18px;color:var(--green)" id="dosimeter-time-remain">&gt; 7 hrs</strong>
+            </div>
+          </div>
+
+          <label class="field-label">My Hearing Protection:
+            <select id="dosimeter-nrr-select" class="calc-input">
+              <option value="0">No Hearing Protection (0 NRR)</option>
+              <option value="22">Light Foam Earplugs (NRR 22)</option>
+              <option value="26">Standard Over-Ear Earmuffs (NRR 26)</option>
+              <option value="33" selected>High-Attenuation Foam Plugs (NRR 33)</option>
+              <option value="36">Double Protection (Plugs + Muffs NRR 36)</option>
+            </select>
+          </label>
+
+          <div class="panel" id="dosimeter-protection-result" style="margin-top:10px;padding:10px;font-size:12px;background:rgba(16,185,129,0.1);color:var(--green);border-left:3px solid var(--green)">
+            <!-- Dynamic NRR calculation -->
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🔩 27. Hierarchical BOM & Fastener Consolidation Matrix Dialog -->
+    <dialog class="app-dialog bom-consolidator-dialog" id="bom-consolidator-dialog" aria-label="Hierarchical BOM &amp; Fastener Consolidation Matrix">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">MULTI-LEVEL ASSEMBLY TREE</div>
+          <h2>Hierarchical BOM &amp; Fastener Consolidation Matrix</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="bom-export-csv-btn">📥 Export CSV</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="bom-layout">
+        <!-- Subassembly Tree Column -->
+        <div class="panel bom-tree-col">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <h3 style="margin:0;font-size:13px">Assembly Tree</h3>
+            <button type="button" class="button button-small button-outline" id="bom-add-subasm-btn">+ Subassembly</button>
+          </div>
+          <div class="bom-tree-container" id="bom-tree-container">
+            <!-- Dynamic Subassembly nodes -->
+          </div>
+        </div>
+
+        <!-- Master Consolidated Fastener Matrix -->
+        <div class="panel bom-matrix-col">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div>
+              <h3 style="margin:0;font-size:13px">Consolidated Hardware Procurement</h3>
+              <span style="font-size:11px;color:var(--muted)">Aggregates identical screws, bearings, and pins across all subassemblies</span>
+            </div>
+            <label style="font-size:11px;display:flex;align-items:center;gap:4px">
+              Spare Allowance:
+              <select id="bom-spare-allowance" class="calc-input" style="font-size:11px;padding:2px 6px">
+                <option value="0">+0% Exact</option>
+                <option value="10" selected>+10% Floor Drops</option>
+                <option value="20">+20% Prototype Reserve</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="overflow-x:auto">
+            <table class="data-table" id="bom-consolidated-table" style="width:100%;font-size:12px">
+              <thead>
+                <tr>
+                  <th>Fastener / Spec</th>
+                  <th>Total Count</th>
+                  <th>+Spare Req</th>
+                  <th>Commercial Pack</th>
+                  <th>Used In</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Dynamic consolidated hardware rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🧪 28. Resin Casting & Silicone Jacket Mold Solver Dialog -->
+    <dialog class="app-dialog resin-mold-dialog" id="resin-mold-dialog" aria-label="Resin Casting &amp; Silicone Jacket Mold Solver">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">POLYMER CHEMISTRY &amp; MOLD MAKING</div>
+          <h2>Resin Casting &amp; Silicone Jacket Mold Solver</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="resin-mold-layout">
+        <div class="panel resin-inputs-col">
+          <label class="field-label">Target Cavity Part Volume:
+            <div style="display:flex;gap:6px">
+              <input type="number" id="resin-part-vol" class="calc-input" value="450" min="5" step="10">
+              <select id="resin-vol-unit" class="calc-input" style="width:90px">
+                <option value="ml" selected>mL / cm³</option>
+                <option value="floz">Fluid Oz</option>
+              </select>
+            </div>
+          </label>
+
+          <label class="field-label">Resin Chemistry:
+            <select id="resin-chem-select" class="calc-input">
+              <option value="epoxy_deep" data-ratio="100:43" data-exotherm="low" selected>Deep Pour Epoxy (100:43 wt / 2:1 vol)</option>
+              <option value="epoxy_fast" data-ratio="1:1" data-exotherm="high">Fast Tabletop Epoxy (1:1 vol)</option>
+              <option value="polyurethane" data-ratio="1:1" data-exotherm="very_high">Polyurethane Casting Resin (1:1)</option>
+              <option value="polyester" data-ratio="100:2" data-exotherm="extreme">Polyester Clear Resin (MEKP catalyst)</option>
+            </select>
+          </label>
+
+          <label class="field-label">Silicone Mold Wall Margin:
+            <input type="number" id="resin-mold-wall" class="calc-input" value="15" min="6" max="50" step="1" title="Minimum wall thickness of silicone around model">
+          </label>
+
+          <div style="margin-top:10px;padding:8px 10px;background:var(--surface);border-radius:6px;font-size:11.5px">
+            <strong>Exotherm Physics Note:</strong> Pouring fast tabletop epoxy deeper than 12mm can cause thermal runaway boiling and smoke.
+          </div>
+        </div>
+
+        <div class="panel resin-results-col">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">Mix Weights &amp; Silicone Schedule</h3>
+          
+          <div class="resin-mix-cards">
+            <div class="panel" style="background:var(--surface);padding:10px">
+              <span style="font-size:11px;color:var(--muted)">PART A (RESIN):</span>
+              <strong style="display:block;font-size:20px;color:var(--primary)" id="resin-part-a-weight">342 g (12.1 oz)</strong>
+            </div>
+            <div class="panel" style="background:var(--surface);padding:10px">
+              <span style="font-size:11px;color:var(--muted)">PART B (HARDENER):</span>
+              <strong style="display:block;font-size:20px;color:var(--primary)" id="resin-part-b-weight">147 g (5.2 oz)</strong>
+            </div>
+          </div>
+
+          <div class="stock-stat-grid" style="margin-top:10px">
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Silicone Required:</span>
+              <strong class="stock-stat-val" id="resin-silicone-weight">1.15 kg (Plat 1:1)</strong>
+            </div>
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Max Pour Depth:</span>
+              <strong class="stock-stat-val" id="resin-max-depth">50 mm (2.0 in)</strong>
+            </div>
+          </div>
+
+          <div class="panel" id="resin-exotherm-status" style="margin-top:12px;padding:10px;font-size:12px;background:rgba(16,185,129,0.1);color:var(--green)">
+            ✓ Safe Thermal Profile: Deep-pour formulation generates gentle exotherm peak (&lt;45°C).
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🪵 29. Epoxy River Table & Timber Slab Moisture Solver Dialog -->
+    <dialog class="app-dialog river-table-dialog" id="river-table-dialog" aria-label="Epoxy River Table &amp; Timber Slab Moisture Solver">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">HYBRID WOODWORKING &amp; LIVE EDGE VOID ANALYSIS</div>
+          <h2>Epoxy River Table &amp; Timber Slab Moisture Solver</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="river-layout">
+        <div class="panel river-inputs-col">
+          <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+            <label class="field-label">Table Length:
+              <input type="number" id="river-table-l" class="calc-input" value="1800" min="200" step="50">
+            </label>
+            <label class="field-label">Table Width:
+              <input type="number" id="river-table-w" class="calc-input" value="900" min="100" step="50">
+            </label>
+            <label class="field-label">Thickness:
+              <input type="number" id="river-table-t" class="calc-input" value="45" min="10" step="5">
+            </label>
+          </div>
+
+          <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+            <label class="field-label">Avg River Width (mm):
+              <input type="number" id="river-channel-w" class="calc-input" value="220" min="20" step="10">
+            </label>
+            <label class="field-label">Void Knots &amp; Voids %:
+              <input type="number" id="river-void-pct" class="calc-input" value="12" min="0" max="40" step="1">
+            </label>
+          </div>
+
+          <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px">
+            <label class="field-label">Timber Core MC %:
+              <input type="number" id="river-core-mc" class="calc-input" value="8.5" min="4" max="25" step="0.5">
+            </label>
+            <label class="field-label">Timber Surface MC %:
+              <input type="number" id="river-surf-mc" class="calc-input" value="8.0" min="4" max="25" step="0.5">
+            </label>
+          </div>
+        </div>
+
+        <div class="panel river-results-col">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">Resin Volume &amp; Moisture Integrity</h3>
+
+          <div class="stock-stat-grid">
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Total River Epoxy:</span>
+              <strong class="stock-stat-val" id="river-res-liters">19.9 Liters (5.25 Gal)</strong>
+            </div>
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Epoxy Mass:</span>
+              <strong class="stock-stat-val" id="river-res-weight">21.9 kg (48.3 lbs)</strong>
+            </div>
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Seal Coat Volume:</span>
+              <strong class="stock-stat-val" id="river-seal-vol">1.2 Liters (Base Coat)</strong>
+            </div>
+            <div class="stock-stat-card">
+              <span class="stock-stat-label">Recommended Pours:</span>
+              <strong class="stock-stat-val" id="river-pour-count">2 Pours (22.5 mm ea)</strong>
+            </div>
+          </div>
+
+          <div class="panel" id="river-moisture-alert" style="margin-top:12px;padding:10px;font-size:12px;background:rgba(16,185,129,0.1);color:var(--green)">
+            ✓ Core-to-surface moisture gradient is 0.5% (&lt;2%). Minimal risk of post-cure slab cupping or edge delamination.
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🖼️ 30. Batch Photo Watermarker & Dimension Stamp Dialog -->
+    <dialog class="app-dialog photo-watermark-dialog" id="photo-watermark-dialog" aria-label="Batch Photo Watermarker &amp; Dimension Stamp">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">PORTFOLIO &amp; CLIENT PROOF PROTECTION</div>
+          <h2>Batch Photo Watermarker &amp; Dimension Stamp</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-primary" id="watermark-export-btn">📥 Download Watermarked</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="watermark-layout">
+        <div class="panel watermark-controls-col">
+          <label class="field-label">Select Photo:
+            <input type="file" id="watermark-file-input" accept="image/*" class="calc-input">
+          </label>
+
+          <label class="field-label">Maker / Studio Brand Name:
+            <input type="text" id="watermark-brand-text" class="calc-input" value="CVIZNAK WORKBENCH CRAFTS">
+          </label>
+
+          <label class="field-label">Status Stamp:
+            <select id="watermark-status-select" class="calc-input">
+              <option value="CLIENT PROOF" selected>CLIENT PROOF — NOT FINAL</option>
+              <option value="PROTOTYPE BUILD">PROTOTYPE BUILD #1</option>
+              <option value="HANDMADE ORIGINAL">HANDMADE ORIGINAL PIECE</option>
+              <option value="CONFIDENTIAL">CONFIDENTIAL FABRICATION</option>
+            </select>
+          </label>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <label class="field-label">Watermark Position:
+              <select id="watermark-pos-select" class="calc-input">
+                <option value="bottom-right" selected>Bottom Right</option>
+                <option value="bottom-left">Bottom Left</option>
+                <option value="top-right">Top Right</option>
+                <option value="center">Center Stamp</option>
+              </select>
+            </label>
+            <label class="field-label">Opacity:
+              <input type="range" id="watermark-opacity-slider" min="20" max="100" value="75">
+            </label>
+          </div>
+        </div>
+
+        <div class="panel watermark-preview-col">
+          <div class="watermark-canvas-wrap">
+            <canvas id="watermark-canvas" width="760" height="460"></canvas>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- ↺ 31. Undo / Redo History Timeline Drawer Dialog -->
+    <dialog class="app-dialog undo-history-dialog" id="undo-history-dialog" aria-label="Undo / Redo History Timeline">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">COMMAND PATTERN &amp; STATE SNAPSHOTS</div>
+          <h2>Workshop Action Timeline (Undo / Redo History)</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="undo-step-back-btn">↺ Undo (Ctrl+Z)</button>
+          <button type="button" class="button button-small button-outline" id="redo-step-fwd-btn">↻ Redo (Ctrl+Y)</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="undo-drawer-layout">
+        <p class="form-hint">Every project addition, task edit, inventory deduction, and cutlist optimization step is snapshotted. Jump to any point in time.</p>
+        <div class="undo-timeline-list" id="undo-timeline-list">
+          <!-- Dynamic snapshot cards -->
+        </div>
+      </div>
+    </dialog>
+
   </body>
 </html>

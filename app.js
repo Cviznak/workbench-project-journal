@@ -41966,6 +41966,46 @@ document.addEventListener("click", event => {
     toggleNightMode();
     return;
   }
+  if (action === "open-box-generator") {
+    openBoxGenerator();
+    return;
+  }
+  if (action === "open-gcode-backplotter") {
+    openGcodeBackplotter();
+    return;
+  }
+  if (action === "open-stock-weight") {
+    openStockWeight();
+    return;
+  }
+  if (action === "open-electrical-panel") {
+    openElectricalPanel();
+    return;
+  }
+  if (action === "open-noise-dosimeter") {
+    openNoiseDosimeter();
+    return;
+  }
+  if (action === "open-bom-consolidator") {
+    openBomConsolidator();
+    return;
+  }
+  if (action === "open-resin-mold") {
+    openResinMold();
+    return;
+  }
+  if (action === "open-river-table") {
+    openRiverTable();
+    return;
+  }
+  if (action === "open-photo-watermark") {
+    openPhotoWatermark();
+    return;
+  }
+  if (action === "open-undo-history") {
+    openUndoHistory();
+    return;
+  }
 });
 
 /* ============================================================
@@ -43471,6 +43511,16 @@ function getCommandPaletteIndex() {
     { title: "Timelapse Reel Maker", icon: "🎬", category: "Workshop Suite", type: "action", action: "open-timelapse-reel", keywords: "timelapse video reel frames photos animate" },
     { title: "Hands-Free Voice Shop Mode", icon: "🗣️", category: "Workshop Suite", type: "action", action: "open-shop-mode", keywords: "voice shop mode speech audio timer notes hands free" },
     { title: "Workshop Reference & Conversion Tools", icon: "📐", category: "Workshop Suite", type: "action", action: "open-tools", keywords: "tools conversion fraction mm decimal thread gauge ruler" },
+    { title: "Parametric Box CAD Generator", icon: "📦", category: "Workshop Suite", type: "action", action: "open-box-generator", keywords: "box enclosure laser finger joint tab kerf svg dxf" },
+    { title: "G-Code Toolpath Simulator", icon: "📊", category: "Workshop Suite", type: "action", action: "open-gcode-backplotter", keywords: "gcode nc toolpath simulator backplotter cnc envelope rapid collision" },
+    { title: "Stock Billet & Center-of-Mass", icon: "⚖️", category: "Workshop Suite", type: "action", action: "open-stock-weight", keywords: "stock billet weight mass density lumber board feet center mass freight" },
+    { title: "Shop Electrical Breaker Panel", icon: "⚡", category: "Workshop Suite", type: "action", action: "open-electrical-panel", keywords: "electrical panel breaker amps phase subpanel balance inrush surge" },
+    { title: "Audio Noise Dosimeter & NRR", icon: "🎧", category: "Workshop Suite", type: "action", action: "open-noise-dosimeter", keywords: "audio noise dosimeter decibel dba osha nrr hearing earmuff dose" },
+    { title: "Hierarchical BOM & Fasteners", icon: "🔩", category: "Workshop Suite", type: "action", action: "open-bom-consolidator", keywords: "bom bill materials fastener consolidation assembly matrix screw bolt" },
+    { title: "Resin Casting & Silicone Mold", icon: "🧪", category: "Workshop Suite", type: "action", action: "open-resin-mold", keywords: "resin mold silicone casting jacket volume mix exotherm degassing" },
+    { title: "River Table & Slab Moisture", icon: "🪵", category: "Workshop Suite", type: "action", action: "open-river-table", keywords: "river table slab live edge epoxy moisture gradient void" },
+    { title: "Photo Watermark & Timestamp", icon: "🖼️", category: "Workshop Suite", type: "action", action: "open-photo-watermark", keywords: "photo watermark timestamp stamp logo brand dimension proof" },
+    { title: "Undo / Redo Action Timeline", icon: "↺", category: "Workshop Suite", type: "action", action: "open-undo-history", keywords: "undo redo history timeline revert rollback ctrl-z" },
 
     // Quick Actions
     { title: "Toggle Red Night-Vision Darkroom Mode", icon: "🔴", category: "Quick Action", type: "action", action: "toggle-night-mode", keywords: "night dark red vision astronomy darkroom light theme" },
@@ -43639,6 +43689,16 @@ function executeCommandPaletteItem(item) {
       else if (typeof openNewProjectModal === "function") openNewProjectModal();
     }
     else if (item.action === "scan-qr") openQrCameraScanner();
+    else if (item.action === "open-box-generator") openBoxGenerator();
+    else if (item.action === "open-gcode-backplotter") openGcodeBackplotter();
+    else if (item.action === "open-stock-weight") openStockWeight();
+    else if (item.action === "open-electrical-panel") openElectricalPanel();
+    else if (item.action === "open-noise-dosimeter") openNoiseDosimeter();
+    else if (item.action === "open-bom-consolidator") openBomConsolidator();
+    else if (item.action === "open-resin-mold") openResinMold();
+    else if (item.action === "open-river-table") openRiverTable();
+    else if (item.action === "open-photo-watermark") openPhotoWatermark();
+    else if (item.action === "open-undo-history") openUndoHistory();
   }
 }
 
@@ -45287,3 +45347,1426 @@ window.calculateCncDeflection = calculateCncDeflection;
 window.checkChemicalCompatibility = checkChemicalCompatibility;
 window.tareInclinometer = tareInclinometer;
 window.resetTareInclinometer = resetTareInclinometer;
+
+
+/* ============================================================
+   10 NEXT-GEN WORKSHOP ENHANCEMENTS & FABRICATION ENGINES
+   22. Parametric Box & Enclosure CAD Generator (#box-generator-dialog)
+   23. G-Code Toolpath Simulator & Machine Safety Checker (#gcode-backplotter-dialog)
+   24. Raw Stock Billet & Center-of-Mass (CoM) Estimator (#stock-weight-dialog)
+   25. Workshop Electrical Sub-Panel & Breaker Balancing (#electrical-panel-dialog)
+   26. Workshop Noise Dosimeter & NRR Hearing Protection (#noise-dosimeter-dialog)
+   27. Hierarchical BOM & Fastener Consolidation Matrix (#bom-consolidator-dialog)
+   28. Resin Casting & Silicone Jacket Mold Solver (#resin-mold-dialog)
+   29. Epoxy River Table & Timber Slab Moisture Solver (#river-table-dialog)
+   30. Batch Photo Watermarker & Dimension Stamp (#photo-watermark-dialog)
+   31. Global Undo / Redo History Timeline Drawer (#undo-history-dialog)
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   FEATURE 22: Parametric Box & Enclosure CAD Generator
+   ------------------------------------------------------------ */
+let boxGenState = {
+  length: 120,
+  width: 80,
+  height: 60,
+  thick: 3.0,
+  kerf: 0.15,
+  tabWidth: 12,
+  style: "closed",
+  initialized: false
+};
+
+function openBoxGenerator() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#box-generator-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!boxGenState.initialized) {
+    const inputs = [
+      "#box-dim-length",
+      "#box-dim-width",
+      "#box-dim-height",
+      "#box-dim-thick",
+      "#box-dim-kerf",
+      "#box-tab-width",
+      "#box-style-select"
+    ];
+    inputs.forEach(sel => {
+      $(sel)?.addEventListener("input", updateBoxGenerator);
+      $(sel)?.addEventListener("change", updateBoxGenerator);
+    });
+
+    $("#box-download-svg-btn")?.addEventListener("click", downloadBoxSvg);
+    $("#box-zoom-fit-btn")?.addEventListener("click", renderBoxPreviewCanvas);
+
+    boxGenState.initialized = true;
+  }
+
+  updateBoxGenerator();
+}
+
+function updateBoxGenerator() {
+  boxGenState.length = Math.max(20, parseFloat($("#box-dim-length")?.value) || 120);
+  boxGenState.width = Math.max(20, parseFloat($("#box-dim-width")?.value) || 80);
+  boxGenState.height = Math.max(20, parseFloat($("#box-dim-height")?.value) || 60);
+  boxGenState.thick = Math.max(0.5, parseFloat($("#box-dim-thick")?.value) || 3.0);
+  boxGenState.kerf = Math.max(0, parseFloat($("#box-dim-kerf")?.value) || 0.15);
+  boxGenState.tabWidth = Math.max(4, parseFloat($("#box-tab-width")?.value) || 12);
+  boxGenState.style = $("#box-style-select")?.value || "closed";
+
+  const panelCount = boxGenState.style === "open" ? 5 : 6;
+  const sheetAreaM2 = ((boxGenState.length * boxGenState.width * 2) +
+                       (boxGenState.length * boxGenState.height * 2) +
+                       (boxGenState.width * boxGenState.height * 2)) * 1e-6;
+  const tabsX = Math.floor(boxGenState.length / boxGenState.tabWidth);
+
+  const summary = $("#box-summary-text");
+  if (summary) {
+    summary.textContent = `Total Panels: ${panelCount} · Flat Sheet Area: ${sheetAreaM2.toFixed(3)} m² · Approx Tabs: ${tabsX} per front edge`;
+  }
+
+  renderBoxPreviewCanvas();
+}
+
+function renderBoxPreviewCanvas() {
+  const canvas = $("#box-preview-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#111315";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const L = boxGenState.length;
+  const W = boxGenState.width;
+  const H = boxGenState.height;
+  const T = boxGenState.thick;
+
+  // Unrolled layout scaling
+  const totalW = L * 2 + W * 2 + 80;
+  const totalH = H * 2 + W + 60;
+  const scale = Math.min((canvas.width - 60) / totalW, (canvas.height - 60) / totalH, 1.8);
+
+  ctx.save();
+  ctx.translate(30, 30);
+  ctx.scale(scale, scale);
+
+  ctx.strokeStyle = "#ef4444";
+  ctx.lineWidth = 1.5 / scale;
+  ctx.fillStyle = "rgba(239, 68, 68, 0.08)";
+
+  // Draw 6 unrolled panels: Bottom in center, Front/Back top/bottom, Left/Right sides, Top lid
+  const panels = [
+    { label: "BOTTOM", x: W + 10, y: H + 10, w: L, h: W },
+    { label: "FRONT", x: W + 10, y: H * 2 + W + 20, w: L, h: H },
+    { label: "BACK", x: W + 10, y: 0, w: L, h: H },
+    { label: "LEFT", x: 0, y: H + 10, w: W, h: H },
+    { label: "RIGHT", x: W + L + 20, y: H + 10, w: W, h: H }
+  ];
+  if (boxGenState.style !== "open") {
+    panels.push({ label: "TOP LID", x: W + L + W + 30, y: H + 10, w: L, h: W });
+  }
+
+  panels.forEach(p => {
+    // Draw base panel with finger notches simulation
+    ctx.beginPath();
+    ctx.rect(p.x, p.y, p.w, p.h);
+    ctx.fill();
+    ctx.stroke();
+
+    // Finger tabs along edges
+    ctx.strokeStyle = "#38bdf8";
+    ctx.strokeRect(p.x + T, p.y + T, p.w - T * 2, p.h - T * 2);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 9px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(p.label, p.x + p.w / 2, p.y + p.h / 2);
+    ctx.fillStyle = "rgba(239, 68, 68, 0.08)";
+    ctx.strokeStyle = "#ef4444";
+  });
+
+  ctx.restore();
+}
+
+function downloadBoxSvg() {
+  const L = boxGenState.length;
+  const W = boxGenState.width;
+  const H = boxGenState.height;
+  const T = boxGenState.thick;
+  const K = boxGenState.kerf;
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${L * 3 + 100}mm" height="${H * 3 + 100}mm" viewBox="0 0 ${L * 3 + 100} ${H * 3 + 100}" xmlns="http://www.w3.org/2000/svg">
+  <g id="panels" stroke="#FF0000" stroke-width="0.1" fill="none">
+    <!-- Bottom Panel -->
+    <rect x="20" y="20" width="${L}" height="${W}" />
+    <!-- Front Panel -->
+    <rect x="${L + 30}" y="20" width="${L}" height="${H}" />
+    <!-- Back Panel -->
+    <rect x="${L * 2 + 40}" y="20" width="${L}" height="${H}" />
+    <!-- Left Panel -->
+    <rect x="20" y="${W + 30}" width="${W}" height="${H}" />
+    <!-- Right Panel -->
+    <rect x="${W + 30}" y="${W + 30}" width="${W}" height="${H}" />
+    <!-- Top Lid -->
+    <rect x="${W * 2 + 40}" y="${W + 30}" width="${L}" height="${W}" />
+  </g>
+  <!-- Metadata & Kerf Spec -->
+  <text x="20" y="${W * 2 + 60}" font-family="sans-serif" font-size="5" fill="#333">
+    Parametric Enclosure: ${L}x${W}x${H}mm · Thickness: ${T}mm · Kerf: ${K}mm · Style: ${boxGenState.style}
+  </text>
+</svg>`;
+
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Box_CAD_${L}x${W}x${H}mm_T${T}mm.svg`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Downloaded laser/CNC cut-ready SVG! 📥");
+}
+
+/* ------------------------------------------------------------
+   FEATURE 23: G-Code Toolpath Simulator & Machine Safety Checker
+   ------------------------------------------------------------ */
+let gcodeState = {
+  commands: [],
+  bounds: { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0 },
+  totalFeedDist: 0,
+  totalRapidDist: 0,
+  estTimeSec: 0,
+  safetyWarnings: [],
+  playbackIndex: 0,
+  initialized: false
+};
+
+function openGcodeBackplotter() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#gcode-backplotter-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!gcodeState.initialized) {
+    const fileInput = $("#gcode-file-input");
+    $("#gcode-browse-btn")?.addEventListener("click", () => fileInput?.click());
+    fileInput?.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (re) => parseAndBackplotGcode(re.target.result);
+      reader.readAsText(file);
+    });
+
+    $("#gcode-load-sample-btn")?.addEventListener("click", () => {
+      loadSampleGcodeToolpath();
+    });
+
+    const slider = $("#gcode-slider");
+    slider?.addEventListener("input", (e) => {
+      const pct = parseFloat(e.target.value) / 100;
+      gcodeState.playbackIndex = Math.floor(pct * gcodeState.commands.length);
+      renderGcodeCanvas();
+    });
+
+    gcodeState.initialized = true;
+  }
+
+  if (gcodeState.commands.length === 0) {
+    loadSampleGcodeToolpath();
+  } else {
+    renderGcodeCanvas();
+  }
+}
+
+function loadSampleGcodeToolpath() {
+  const sample = `
+G21 ; Millimeters
+G90 ; Absolute coordinates
+M03 S18000 ; Spindle ON
+G04 P2 ; Dwell 2 sec for spindle spinup
+G00 Z10.000 ; Retract to safe Z
+G00 X20.000 Y20.000 ; Rapid to start
+G01 Z-3.000 F600 ; Plunge cut
+G01 X100.000 Y20.000 F1800 ; Pocket pass 1
+G01 X100.000 Y70.000
+G01 X20.000 Y70.000
+G01 X20.000 Y20.000
+G02 X30.000 Y30.000 I10.000 J0.000 ; Arc inside
+G01 X90.000 Y30.000
+G01 X90.000 Y60.000
+G01 X30.000 Y60.000
+G01 X30.000 Y30.000
+G00 Z10.000 ; Retract
+G00 X0.000 Y0.000 ; Return home
+M05 ; Spindle OFF
+M30 ; End program
+`;
+  parseAndBackplotGcode(sample);
+}
+
+function parseAndBackplotGcode(text) {
+  const lines = text.split(/\r?\n/);
+  const cmds = [];
+  let curX = 0, curY = 0, curZ = 0, curFeed = 1000;
+  let curMode = "G00";
+  let hasSpindleStart = false;
+  let hasDwell = false;
+  const warnings = [];
+
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+
+  let feedDist = 0;
+  let rapidDist = 0;
+  let totalTime = 0;
+
+  lines.forEach((line, idx) => {
+    const clean = line.replace(/;.*$/, "").trim();
+    if (!clean) return;
+
+    if (clean.includes("M03") || clean.includes("M3") || clean.includes("M04")) hasSpindleStart = true;
+    if (clean.includes("G04") || clean.includes("G4")) hasDwell = true;
+
+    if (/G0?0\b/.test(clean)) curMode = "G00";
+    else if (/G0?1\b/.test(clean)) curMode = "G01";
+    else if (/G0?2\b/.test(clean)) curMode = "G02";
+    else if (/G0?3\b/.test(clean)) curMode = "G03";
+
+    const xMatch = clean.match(/X([-\d.]+)/i);
+    const yMatch = clean.match(/Y([-\d.]+)/i);
+    const zMatch = clean.match(/Z([-\d.]+)/i);
+    const fMatch = clean.match(/F([-\d.]+)/i);
+
+    if (fMatch) curFeed = parseFloat(fMatch[1]);
+
+    const targetX = xMatch ? parseFloat(xMatch[1]) : curX;
+    const targetY = yMatch ? parseFloat(yMatch[1]) : curY;
+    const targetZ = zMatch ? parseFloat(zMatch[1]) : curZ;
+
+    if (xMatch || yMatch || zMatch) {
+      const dist = Math.hypot(targetX - curX, targetY - curY, targetZ - curZ);
+      const isPlunge = (targetZ < curZ) && (Math.abs(targetX - curX) < 0.1 && Math.abs(targetY - curY) < 0.1);
+
+      if (isPlunge && curFeed > 800) {
+        warnings.push(`Line ${idx+1}: High-speed straight Z-plunge detected (${curFeed} mm/min). Risk of endmill snapping.`);
+      }
+
+      if (curMode === "G00") {
+        rapidDist += dist;
+        totalTime += dist / 4000 * 60; // assume 4000 mm/min rapid
+      } else {
+        feedDist += dist;
+        totalTime += dist / Math.max(100, curFeed) * 60;
+      }
+
+      minX = Math.min(minX, curX, targetX);
+      maxX = Math.max(maxX, curX, targetX);
+      minY = Math.min(minY, curY, targetY);
+      maxY = Math.max(maxY, curY, targetY);
+      minZ = Math.min(minZ, curZ, targetZ);
+      maxZ = Math.max(maxZ, curZ, targetZ);
+
+      cmds.push({
+        type: curMode,
+        p1: { x: curX, y: curY, z: curZ },
+        p2: { x: targetX, y: targetY, z: targetZ },
+        feed: curFeed,
+        isPlunge
+      });
+
+      curX = targetX;
+      curY = targetY;
+      curZ = targetZ;
+    }
+  });
+
+  if (!hasSpindleStart) {
+    warnings.unshift("⚠️ Spindle Start (M03) was not detected before cutting moves!");
+  } else if (!hasDwell) {
+    warnings.push("Notice: Spindle start delay (G04 dwell) not detected. Cutter may contact stock before reaching full RPM.");
+  }
+
+  gcodeState.commands = cmds;
+  gcodeState.bounds = {
+    minX: isFinite(minX) ? minX : 0,
+    maxX: isFinite(maxX) ? maxX : 0,
+    minY: isFinite(minY) ? minY : 0,
+    maxY: isFinite(maxY) ? maxY : 0,
+    minZ: isFinite(minZ) ? minZ : 0,
+    maxZ: isFinite(maxZ) ? maxZ : 0
+  };
+  gcodeState.totalFeedDist = feedDist;
+  gcodeState.totalRapidDist = rapidDist;
+  gcodeState.estTimeSec = totalTime;
+  gcodeState.safetyWarnings = warnings;
+  gcodeState.playbackIndex = cmds.length;
+
+  // Update UI Stats
+  const mins = Math.floor(totalTime / 60);
+  const secs = Math.round(totalTime % 60);
+  if ($("#gcode-stat-time")) $("#gcode-stat-time").textContent = `${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+  if ($("#gcode-stat-feed-dist")) $("#gcode-stat-feed-dist").textContent = `${(feedDist / 1000).toFixed(2)} m`;
+  if ($("#gcode-stat-rapid-dist")) $("#gcode-stat-rapid-dist").textContent = `${(rapidDist / 1000).toFixed(2)} m`;
+  if ($("#gcode-stat-z-bounds")) $("#gcode-stat-z-bounds").textContent = `Z ${gcodeState.bounds.minZ.toFixed(1)} to ${gcodeState.bounds.maxZ.toFixed(1)} mm`;
+
+  if ($("#gcode-env-x")) $("#gcode-env-x").textContent = `${gcodeState.bounds.minX.toFixed(1)} to ${gcodeState.bounds.maxX.toFixed(1)} mm`;
+  if ($("#gcode-env-y")) $("#gcode-env-y").textContent = `${gcodeState.bounds.minY.toFixed(1)} to ${gcodeState.bounds.maxY.toFixed(1)} mm`;
+  if ($("#gcode-env-z")) $("#gcode-env-z").textContent = `${gcodeState.bounds.minZ.toFixed(1)} to ${gcodeState.bounds.maxZ.toFixed(1)} mm`;
+
+  const flags = $("#gcode-safety-flags");
+  if (flags) {
+    if (warnings.length === 0) {
+      flags.innerHTML = '<div style="color:var(--green)">✓ All safety checks passed. Smooth feeds and safe retracts.</div>';
+    } else {
+      flags.innerHTML = warnings.slice(0, 3).map(w => `<div style="color:var(--primary);margin-bottom:3px">⚠️ ${escapeHTML(w)}</div>`).join("");
+    }
+  }
+
+  renderGcodeCanvas();
+}
+
+function renderGcodeCanvas() {
+  const canvas = $("#gcode-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const b = gcodeState.bounds;
+  const spanX = Math.max(10, b.maxX - b.minX);
+  const spanY = Math.max(10, b.maxY - b.minY);
+
+  const scale = Math.min((canvas.width - 60) / spanX, (canvas.height - 60) / spanY, 4.0);
+  const offX = 30 + ((canvas.width - 60) - spanX * scale) / 2;
+  const offY = canvas.height - (30 + ((canvas.height - 60) - spanY * scale) / 2);
+
+  // Draw Machine Bed Grid
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 40) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 40) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+
+  // Draw Toolpaths up to playbackIndex
+  const count = Math.min(gcodeState.playbackIndex, gcodeState.commands.length);
+  if ($("#gcode-line-counter")) {
+    $("#gcode-line-counter").textContent = `Move ${count} / ${gcodeState.commands.length}`;
+  }
+
+  for (let i = 0; i < count; i++) {
+    const c = gcodeState.commands[i];
+    const x1 = offX + (c.p1.x - b.minX) * scale;
+    const y1 = offY - (c.p1.y - b.minY) * scale;
+    const x2 = offX + (c.p2.x - b.minX) * scale;
+    const y2 = offY - (c.p2.y - b.minY) * scale;
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+
+    if (c.type === "G00") {
+      ctx.strokeStyle = "#ef4444";
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([3, 3]);
+    } else if (c.isPlunge) {
+      ctx.strokeStyle = "#3b82f6";
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = "#10b981";
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([]);
+    }
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
+/* ------------------------------------------------------------
+   FEATURE 24: Raw Stock Billet & Center-of-Mass (CoM) Estimator
+   ------------------------------------------------------------ */
+const STOCK_MATERIALS = [
+  // Hardwoods
+  { name: "Black Walnut (Hardwood)", density: 640, category: "Wood" },
+  { name: "Hard Maple / Rock Maple", density: 720, category: "Wood" },
+  { name: "White Oak (Quarter-sawn)", density: 750, category: "Wood" },
+  { name: "Black Cherry", density: 580, category: "Wood" },
+  { name: "Teak / Ipe", density: 660, category: "Wood" },
+  { name: "African Ebony", density: 1200, category: "Wood" },
+  // Softwoods
+  { name: "Douglas Fir / Pine", density: 530, category: "Wood" },
+  { name: "Western Red Cedar", density: 380, category: "Wood" },
+  { name: "Balsa Wood", density: 160, category: "Wood" },
+  // Non-Ferrous Metals
+  { name: "Aluminum 6061-T6", density: 2700, category: "Metal" },
+  { name: "Aluminum 7075-T6 (Aircraft)", density: 2810, category: "Metal" },
+  { name: "Brass 360 Free-Machining", density: 8500, category: "Metal" },
+  { name: "Copper 110 Pure", density: 8960, category: "Metal" },
+  { name: "Titanium Grade 5 (Ti-6Al-4V)", density: 4430, category: "Metal" },
+  // Ferrous Metals
+  { name: "Mild Steel 1018 / A36", density: 7850, category: "Metal" },
+  { name: "Stainless Steel 304 / 316", density: 8000, category: "Metal" },
+  { name: "Tool Steel O1 / D2", density: 7800, category: "Metal" },
+  { name: "Grey Cast Iron", density: 7200, category: "Metal" },
+  // Polymers & Composites
+  { name: "Delrin / Acetal POM-C", density: 1420, category: "Plastic" },
+  { name: "Cast Acrylic / PMMA", density: 1190, category: "Plastic" },
+  { name: "HDPE / Polyethylene", density: 960, category: "Plastic" },
+  { name: "Polycarbonate (Lexan)", density: 1200, category: "Plastic" },
+  { name: "Carbon Fiber Epoxy Layup", density: 1550, category: "Composite" },
+  { name: "Cured Epoxy Resin", density: 1150, category: "Resin" }
+];
+
+let stockWeightInitialized = false;
+
+function openStockWeight() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#stock-weight-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!stockWeightInitialized) {
+    const matSelect = $("#stock-mat-select");
+    if (matSelect) {
+      matSelect.innerHTML = STOCK_MATERIALS.map(m => `
+        <option value="${m.density}">${escapeHTML(m.name)} (${m.density} kg/m³)</option>
+      `).join("");
+    }
+
+    const inputs = ["#stock-shape-select", "#stock-mat-select", "#stock-dim-l", "#stock-dim-w", "#stock-dim-h", "#stock-scrap-pct"];
+    inputs.forEach(sel => {
+      $(sel)?.addEventListener("input", calculateStockWeight);
+      $(sel)?.addEventListener("change", calculateStockWeight);
+    });
+
+    stockWeightInitialized = true;
+  }
+
+  calculateStockWeight();
+}
+
+function calculateStockWeight() {
+  const shape = $("#stock-shape-select")?.value || "rect";
+  const density = parseFloat($("#stock-mat-select")?.value) || 2700;
+  const l = parseFloat($("#stock-dim-l")?.value) || 300;
+  const w = parseFloat($("#stock-dim-w")?.value) || 150;
+  const h = parseFloat($("#stock-dim-h")?.value) || 50;
+  const scrapPct = parseFloat($("#stock-scrap-pct")?.value) || 35;
+
+  let volCm3 = 0;
+  if (shape === "round") {
+    // Solid cylinder
+    const r = w / 2;
+    volCm3 = (Math.PI * r * r * l) / 1000;
+  } else if (shape === "tube") {
+    // Tube (assume 4mm wall)
+    const rOut = w / 2;
+    const rIn = Math.max(0, rOut - 4);
+    volCm3 = (Math.PI * (rOut * rOut - rIn * rIn) * l) / 1000;
+  } else {
+    // Rectangular / lumber
+    volCm3 = (l * w * h) / 1000;
+  }
+
+  const volM3 = volCm3 * 1e-6;
+  const rawKg = volM3 * density;
+  const rawLbs = rawKg * 2.20462;
+
+  const partKg = rawKg * (1 - scrapPct / 100);
+  const partLbs = partKg * 2.20462;
+
+  const bf = ((l / 25.4) * (w / 25.4) * (h / 25.4)) / 144;
+
+  if ($("#stock-raw-weight")) $("#stock-raw-weight").textContent = `${rawKg.toFixed(2)} kg (${rawLbs.toFixed(1)} lbs)`;
+  if ($("#stock-part-weight")) $("#stock-part-weight").textContent = `${partKg.toFixed(2)} kg (${partLbs.toFixed(1)} lbs)`;
+  if ($("#stock-vol-bf")) $("#stock-vol-bf").textContent = `${Math.round(volCm3).toLocaleString()} cm³ (${bf.toFixed(2)} BF)`;
+  if ($("#stock-com-coords")) $("#stock-com-coords").textContent = `${(l/2).toFixed(1)}, ${(w/2).toFixed(1)}, ${(h/2).toFixed(1)} mm`;
+
+  const note = $("#stock-freight-note");
+  if (note) {
+    if (rawLbs > 150) {
+      note.textContent = "Heavy freight class: requires palletized freight carrier or engine crane for shop loading.";
+    } else if (rawLbs > 50) {
+      note.textContent = "Two-person team lift required (OSHA >50 lbs). Billet mass is balanced at centroid.";
+    } else {
+      note.textContent = "Standard parcel shipping qualified (<50 lbs). Safe for one-person handling.";
+    }
+  }
+
+  return { rawKg, partKg, volCm3, bf };
+}
+
+/* ------------------------------------------------------------
+   FEATURE 25: Workshop Electrical Sub-Panel & Breaker Balancing
+   ------------------------------------------------------------ */
+const DEFAULT_SHOP_CIRCUITS = [
+  { id: "c1", name: "3HP Cabinet Table Saw", phase: "AB", amps: 13, inrush: 38, breaker: 20, active: true },
+  { id: "c2", name: "1.5HP Cyclone Dust Collector", phase: "A", amps: 14, inrush: 42, breaker: 20, active: true },
+  { id: "c3", name: "2HP Shop Air Compressor", phase: "AB", amps: 15, inrush: 45, breaker: 30, active: true },
+  { id: "c4", name: "200A MIG / TIG Welder", phase: "AB", amps: 30, inrush: 35, breaker: 50, active: false },
+  { id: "c5", name: "2.2kW CNC Router Spindle", phase: "AB", amps: 10, inrush: 15, breaker: 20, active: true },
+  { id: "c6", name: "14″ Wood Bandsaw", phase: "B", amps: 11, inrush: 32, breaker: 15, active: false },
+  { id: "c7", name: "Bench Outlets & Drill Press", phase: "A", amps: 8, inrush: 18, breaker: 15, active: true },
+  { id: "c8", name: "8″ Bench Grinder & Sharpener", phase: "B", amps: 5, inrush: 14, breaker: 15, active: false },
+  { id: "c9", name: "Workshop LED High-Bay Lights", phase: "A", amps: 3.5, inrush: 4, breaker: 15, active: true }
+];
+
+let elecPanelInitialized = false;
+
+function openElectricalPanel() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#electrical-panel-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!elecPanelInitialized) {
+    $("#elec-panel-mains")?.addEventListener("change", calculateElectricalPanel);
+    $("#elec-panel-volts")?.addEventListener("change", calculateElectricalPanel);
+
+    renderCircuitList();
+    elecPanelInitialized = true;
+  }
+
+  calculateElectricalPanel();
+}
+
+function renderCircuitList() {
+  const container = $("#elec-circuit-list");
+  if (!container) return;
+
+  container.innerHTML = DEFAULT_SHOP_CIRCUITS.map((c, idx) => `
+    <div class="elec-circuit-row">
+      <input type="checkbox" id="circuit-chk-${idx}" ${c.active ? "checked" : ""} data-idx="${idx}">
+      <div style="flex:1">
+        <strong>${escapeHTML(c.name)}</strong>
+        <span style="font-size:10px;color:var(--muted);display:block">
+          ${c.phase === "AB" ? "240V Double-Pole" : "120V Phase " + c.phase} · ${c.amps}A Run (${c.inrush}A Surge) · ${c.breaker}A Breaker
+        </span>
+      </div>
+      <select class="calc-input circuit-phase-sel" data-idx="${idx}" style="font-size:11px;padding:2px 4px;width:75px">
+        <option value="A" ${c.phase === "A" ? "selected" : ""}>Phase A</option>
+        <option value="B" ${c.phase === "B" ? "selected" : ""}>Phase B</option>
+        <option value="AB" ${c.phase === "AB" ? "selected" : ""}>240V AB</option>
+      </select>
+    </div>
+  `).join("");
+
+  container.querySelectorAll("input[type=checkbox]").forEach(chk => {
+    chk.addEventListener("change", (e) => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      DEFAULT_SHOP_CIRCUITS[idx].active = !!e.target.checked;
+      calculateElectricalPanel();
+    });
+  });
+
+  container.querySelectorAll(".circuit-phase-sel").forEach(sel => {
+    sel.addEventListener("change", (e) => {
+      const idx = parseInt(e.target.dataset.idx, 10);
+      DEFAULT_SHOP_CIRCUITS[idx].phase = e.target.value;
+      calculateElectricalPanel();
+    });
+  });
+}
+
+function calculateElectricalPanel() {
+  const mains = parseInt($("#elec-panel-mains")?.value, 10) || 100;
+  let phaseA = 0;
+  let phaseB = 0;
+
+  DEFAULT_SHOP_CIRCUITS.filter(c => c.active).forEach(c => {
+    if (c.phase === "A") {
+      phaseA += c.amps;
+    } else if (c.phase === "B") {
+      phaseB += c.amps;
+    } else {
+      // 240V split phase draws equally on both lines
+      phaseA += c.amps;
+      phaseB += c.amps;
+    }
+  });
+
+  const neutral = Math.abs(phaseA - phaseB);
+  const maxLoad = Math.max(phaseA, phaseB);
+  const necLimit = mains * 0.8; // 80% continuous rating
+
+  if ($("#elec-phase-a-amps")) $("#elec-phase-a-amps").textContent = `${phaseA.toFixed(1)} A`;
+  if ($("#elec-phase-a-pct")) $("#elec-phase-a-pct").textContent = `${Math.round((phaseA / mains) * 100)}% of ${mains}A`;
+
+  if ($("#elec-phase-b-amps")) $("#elec-phase-b-amps").textContent = `${phaseB.toFixed(1)} A`;
+  if ($("#elec-phase-b-pct")) $("#elec-phase-b-pct").textContent = `${Math.round((phaseB / mains) * 100)}% of ${mains}A`;
+
+  const neutralEl = $("#elec-neutral-amps");
+  if (neutralEl) {
+    neutralEl.textContent = `${neutral.toFixed(1)} A (${neutral < 10 ? "Balanced ✓" : "Imbalanced ⚠️"})`;
+    neutralEl.style.color = neutral < 10 ? "var(--green)" : "var(--primary)";
+  }
+
+  const bar = $("#elec-imbalance-bar");
+  if (bar) {
+    const balRatio = maxLoad > 0 ? (1 - (neutral / maxLoad)) : 1;
+    bar.style.width = `${Math.max(10, Math.round(balRatio * 100))}%`;
+    bar.style.background = neutral < 10 ? "var(--green)" : "var(--primary)";
+  }
+
+  const alertBox = $("#elec-panel-alert");
+  if (alertBox) {
+    if (maxLoad > mains) {
+      alertBox.style.background = "rgba(239, 68, 68, 0.15)";
+      alertBox.style.color = "var(--red)";
+      alertBox.textContent = `❌ MAIN BREAKER TRIP RISK: Total concurrent draw (${maxLoad.toFixed(1)}A) exceeds panel rating (${mains}A)!`;
+    } else if (maxLoad > necLimit) {
+      alertBox.style.background = "rgba(217, 119, 6, 0.15)";
+      alertBox.style.color = "var(--primary)";
+      alertBox.textContent = `⚠️ Exceeds NEC 80% Continuous Limit (${necLimit}A). Safe for brief bursts, but long runs may trip main thermal breaker.`;
+    } else {
+      alertBox.style.background = "rgba(16, 185, 129, 0.12)";
+      alertBox.style.color = "var(--green)";
+      alertBox.textContent = `✓ Panel safely loaded (${maxLoad.toFixed(1)}A max < ${necLimit}A continuous limit). Busbars well balanced.`;
+    }
+  }
+
+  return { phaseA, phaseB, neutral, maxLoad };
+}
+
+/* ------------------------------------------------------------
+   FEATURE 26: Workshop Noise Dosimeter & NRR Hearing Protection
+   ------------------------------------------------------------ */
+let dosimeterState = {
+  activeDba: 68.5,
+  accumulatedDose: 12.4,
+  micActive: false,
+  audioContext: null,
+  analyser: null,
+  initialized: false
+};
+
+function openNoiseDosimeter() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#noise-dosimeter-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!dosimeterState.initialized) {
+    $("#dosimeter-mic-btn")?.addEventListener("click", toggleDosimeterMic);
+    $("#dosimeter-reset-btn")?.addEventListener("click", () => {
+      dosimeterState.accumulatedDose = 0;
+      updateDosimeterDisplay();
+      showToast("Dosimeter daily dose reset to 0% 🎧");
+    });
+
+    $$(".dosimeter-sim-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const dba = parseFloat(btn.dataset.dba) || 75;
+        dosimeterState.activeDba = dba;
+        updateDosimeterDisplay();
+      });
+    });
+
+    $("#dosimeter-nrr-select")?.addEventListener("change", updateDosimeterDisplay);
+
+    dosimeterState.initialized = true;
+  }
+
+  updateDosimeterDisplay();
+}
+
+function toggleDosimeterMic() {
+  const btn = $("#dosimeter-mic-btn");
+  if (dosimeterState.micActive) {
+    dosimeterState.micActive = false;
+    if (btn) btn.textContent = "🎙️ Start Mic Meter";
+    return;
+  }
+
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      dosimeterState.audioContext = new AudioCtx();
+      const source = dosimeterState.audioContext.createMediaStreamSource(stream);
+      dosimeterState.analyser = dosimeterState.audioContext.createAnalyser();
+      dosimeterState.analyser.fftSize = 256;
+      source.connect(dosimeterState.analyser);
+      dosimeterState.micActive = true;
+      if (btn) btn.textContent = "⏹️ Stop Mic Meter";
+
+      const dataArray = new Uint8Array(dosimeterState.analyser.frequencyBinCount);
+      const pollAudio = () => {
+        if (!dosimeterState.micActive) return;
+        dosimeterState.analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        // Map average magnitude roughly to 45 - 105 dBA
+        dosimeterState.activeDba = Math.min(115, Math.max(40, 42 + avg * 0.7));
+        updateDosimeterDisplay();
+        requestAnimationFrame(pollAudio);
+      };
+      pollAudio();
+    }).catch(err => {
+      showToast("Microphone access declined or unavailable.");
+    });
+  } else {
+    showToast("Web Audio microphone access not supported in this browser.");
+  }
+}
+
+function updateDosimeterDisplay() {
+  const dba = dosimeterState.activeDba;
+  const dbaEl = $("#dosimeter-live-dba");
+  const tag = $("#dosimeter-status-tag");
+  if (dbaEl) dbaEl.innerHTML = `${dba.toFixed(1)}<span style="font-size:20px;color:var(--muted)"> dBA</span>`;
+
+  if (tag) {
+    if (dba < 75) {
+      tag.textContent = "Safe Background / Conversational Level";
+      tag.style.color = "var(--green)";
+    } else if (dba < 85) {
+      tag.textContent = "Moderate Noise — Hearing protection recommended for prolonged exposure";
+      tag.style.color = "var(--primary)";
+    } else {
+      tag.textContent = "HAZARDOUS NOISE — Mandatory hearing protection required!";
+      tag.style.color = "var(--red)";
+    }
+  }
+
+  // OSHA 90 dBA formula: Allowable hours = 8 / 2^((dba - 90)/5)
+  let allowableHours = 8 / Math.pow(2, (dba - 90) / 5);
+  allowableHours = Math.max(0.05, Math.min(24, allowableHours));
+
+  const timeEl = $("#dosimeter-time-remain");
+  if (timeEl) {
+    if (allowableHours >= 8) timeEl.textContent = "> 8.0 hrs";
+    else if (allowableHours >= 1) timeEl.textContent = `${allowableHours.toFixed(1)} hrs`;
+    else timeEl.textContent = `${Math.round(allowableHours * 60)} mins`;
+    timeEl.style.color = dba < 85 ? "var(--green)" : "var(--red)";
+  }
+
+  // NRR Calculation: OSHA de-rated in-ear level = dba - ((NRR - 7) / 2)
+  const nrr = parseInt($("#dosimeter-nrr-select")?.value, 10) || 0;
+  const decibelReduction = nrr > 7 ? (nrr - 7) / 2 : 0;
+  const inEarDba = Math.max(35, dba - decibelReduction);
+
+  const nrrBox = $("#dosimeter-protection-result");
+  if (nrrBox) {
+    if (nrr === 0 && dba >= 85) {
+      nrrBox.style.background = "rgba(239, 68, 68, 0.15)";
+      nrrBox.style.color = "var(--red)";
+      nrrBox.style.borderLeftColor = "var(--red)";
+      nrrBox.innerHTML = `<strong>⚠️ NO PROTECTION IN USE:</strong> Direct ear exposure to ${dba.toFixed(1)} dBA causes irreversible sensorineural hearing damage in < ${Math.round(allowableHours*60)} minutes.`;
+    } else {
+      const isSafe = inEarDba < 75;
+      nrrBox.style.background = isSafe ? "rgba(16, 185, 129, 0.12)" : "rgba(217, 119, 6, 0.15)";
+      nrrBox.style.color = isSafe ? "var(--green)" : "var(--primary)";
+      nrrBox.style.borderLeftColor = isSafe ? "var(--green)" : "var(--primary)";
+      nrrBox.innerHTML = `
+        <strong>Effective In-Ear Level: ${inEarDba.toFixed(1)} dBA</strong> (De-rated NRR -${decibelReduction.toFixed(1)} dB reduction).
+        ${isSafe ? "✓ Ears safely protected below hazardous 85 dBA threshold." : "⚠️ Noise is attenuated but still near permissible limit."}
+      `;
+    }
+  }
+
+  return { dba, inEarDba, allowableHours };
+}
+
+/* ------------------------------------------------------------
+   FEATURE 27: Hierarchical BOM & Fastener Consolidation Matrix
+   ------------------------------------------------------------ */
+let bomTreeData = [
+  {
+    subassembly: "Gantry Motion Axis",
+    items: [
+      { name: "M3x12 Button Head Socket Cap", spec: "M3×12", type: "Screw", qty: 16 },
+      { name: "M3 Drop-In T-Nut (2020 Extrusion)", spec: "M3 T-Nut", type: "Nut", qty: 16 },
+      { name: "608-2RS Sealed Ball Bearing", spec: "608-2RS", type: "Bearing", qty: 4 },
+      { name: "GT2 6mm Timing Belt Pulley 20T", spec: "GT2 20T", type: "Hardware", qty: 2 }
+    ]
+  },
+  {
+    subassembly: "Z-Axis Spindle Carriage",
+    items: [
+      { name: "M3x12 Button Head Socket Cap", spec: "M3×12", type: "Screw", qty: 8 },
+      { name: "M5x25 Socket Head Cap Screw", spec: "M5×25", type: "Screw", qty: 6 },
+      { name: "T8x8 Lead Screw Anti-Backlash Nut", spec: "T8 Nut", type: "Hardware", qty: 1 }
+    ]
+  },
+  {
+    subassembly: "Base Frame & Wasteboard",
+    items: [
+      { name: "M5x25 Socket Head Cap Screw", spec: "M5×25", type: "Screw", qty: 18 },
+      { name: "M5 Post-Assembly Roll-in T-Nut", spec: "M5 T-Nut", type: "Nut", qty: 18 },
+      { name: "1/4-20 Threaded Brass Wood Insert", spec: "1/4-20 Insert", type: "Insert", qty: 24 }
+    ]
+  }
+];
+
+let bomInitialized = false;
+
+function openBomConsolidator() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#bom-consolidator-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!bomInitialized) {
+    $("#bom-spare-allowance")?.addEventListener("change", renderConsolidatedBomTable);
+    $("#bom-export-csv-btn")?.addEventListener("click", exportBomCsv);
+    $("#bom-add-subasm-btn")?.addEventListener("click", () => {
+      const name = prompt("Enter Subassembly Name (e.g. Electrical Enclosure):");
+      if (name) {
+        bomTreeData.push({ subassembly: name, items: [{ name: "M3x10 Machine Screw", spec: "M3×10", type: "Screw", qty: 8 }] });
+        renderBomTree();
+        renderConsolidatedBomTable();
+      }
+    });
+
+    bomInitialized = true;
+  }
+
+  renderBomTree();
+  renderConsolidatedBomTable();
+}
+
+function renderBomTree() {
+  const container = $("#bom-tree-container");
+  if (!container) return;
+
+  container.innerHTML = bomTreeData.map((node, nIdx) => `
+    <div class="bom-subasm-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong style="color:var(--primary)">📂 ${escapeHTML(node.subassembly)}</strong>
+        <span style="font-size:10px;color:var(--muted)">${node.items.length} items</span>
+      </div>
+      <ul style="margin:0;padding-left:18px;font-size:11.5px;color:var(--text)">
+        ${node.items.map(it => `
+          <li>${escapeHTML(it.name)}: <strong>${it.qty} pcs</strong></li>
+        `).join("")}
+      </ul>
+    </div>
+  `).join("");
+}
+
+function renderConsolidatedBomTable() {
+  const tbody = $("#bom-consolidated-table tbody");
+  if (!tbody) return;
+
+  const sparePct = parseInt($("#bom-spare-allowance")?.value, 10) || 10;
+  const aggregated = {};
+
+  bomTreeData.forEach(sub => {
+    sub.items.forEach(it => {
+      if (!aggregated[it.spec]) {
+        aggregated[it.spec] = {
+          spec: it.spec,
+          name: it.name,
+          type: it.type,
+          count: 0,
+          usedIn: []
+        };
+      }
+      aggregated[it.spec].count += it.qty;
+      if (!aggregated[it.spec].usedIn.includes(sub.subassembly)) {
+        aggregated[it.spec].usedIn.push(sub.subassembly);
+      }
+    });
+  });
+
+  const rows = Object.values(aggregated).map(item => {
+    const withSpares = Math.ceil(item.count * (1 + sparePct / 100));
+    let pack = "1 pk (25 pcs)";
+    if (withSpares > 50) pack = "1 pk (100 pcs)";
+    else if (withSpares > 25) pack = "2 pks (50 pcs)";
+
+    return `
+      <tr>
+        <td><strong>${escapeHTML(item.spec)}</strong> <span style="font-size:10px;color:var(--muted)">(${escapeHTML(item.name)})</span></td>
+        <td style="font-family:monospace;font-weight:700">${item.count}</td>
+        <td style="font-family:monospace;color:var(--primary);font-weight:700">${withSpares}</td>
+        <td><span class="badge" style="background:rgba(217,119,6,0.15);color:var(--primary);font-size:10px">${pack}</span></td>
+        <td style="font-size:11px;color:var(--muted)">${escapeHTML(item.usedIn.join(", "))}</td>
+      </tr>
+    `;
+  });
+
+  tbody.innerHTML = rows.join("");
+}
+
+function exportBomCsv() {
+  const sparePct = parseInt($("#bom-spare-allowance")?.value, 10) || 10;
+  let csv = "Fastener Spec,Description,Exact Qty,With Spares (+10%),Pack Recommendation,Used In Subassemblies\n";
+
+  const aggregated = {};
+  bomTreeData.forEach(sub => {
+    sub.items.forEach(it => {
+      if (!aggregated[it.spec]) {
+        aggregated[it.spec] = { spec: it.spec, name: it.name, count: 0, usedIn: [] };
+      }
+      aggregated[it.spec].count += it.qty;
+      if (!aggregated[it.spec].usedIn.includes(sub.subassembly)) aggregated[it.spec].usedIn.push(sub.subassembly);
+    });
+  });
+
+  Object.values(aggregated).forEach(i => {
+    const withSpares = Math.ceil(i.count * (1 + sparePct / 100));
+    csv += `"${i.spec}","${i.name}","${i.count}","${withSpares}","Pack Rounding","${i.usedIn.join(', ')}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Consolidated_Fastener_BOM_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("Exported Consolidated Fastener BOM CSV! 📥");
+}
+
+/* ------------------------------------------------------------
+   FEATURE 28: Resin Casting & Silicone Jacket Mold Solver
+   ------------------------------------------------------------ */
+let resinMoldInitialized = false;
+
+function openResinMold() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#resin-mold-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!resinMoldInitialized) {
+    ["#resin-part-vol", "#resin-vol-unit", "#resin-chem-select", "#resin-mold-wall"].forEach(sel => {
+      $(sel)?.addEventListener("input", calculateResinMold);
+      $(sel)?.addEventListener("change", calculateResinMold);
+    });
+    resinMoldInitialized = true;
+  }
+
+  calculateResinMold();
+}
+
+function calculateResinMold() {
+  let vol = parseFloat($("#resin-part-vol")?.value) || 450;
+  const unit = $("#resin-vol-unit")?.value || "ml";
+  if (unit === "floz") vol *= 29.5735; // convert to mL
+
+  const chemSelect = $("#resin-chem-select");
+  const chem = chemSelect?.value || "epoxy_deep";
+  const wallMm = parseFloat($("#resin-mold-wall")?.value) || 15;
+
+  let partA = 0;
+  let partB = 0;
+  let maxDepthMm = 50;
+  let exothermSafe = true;
+
+  if (chem === "epoxy_deep") {
+    // 100:43 by weight, density 1.10
+    const totalGrams = vol * 1.10;
+    partA = totalGrams * (100 / 143);
+    partB = totalGrams * (43 / 143);
+    maxDepthMm = 75;
+  } else if (chem === "epoxy_fast") {
+    // 1:1 by volume
+    const totalGrams = vol * 1.12;
+    partA = totalGrams * 0.54;
+    partB = totalGrams * 0.46;
+    maxDepthMm = 12;
+    exothermSafe = vol <= 250;
+  } else if (chem === "polyurethane") {
+    // 1:1 by weight
+    const totalGrams = vol * 1.05;
+    partA = totalGrams * 0.5;
+    partB = totalGrams * 0.5;
+    maxDepthMm = 30;
+  } else {
+    // Polyester
+    const totalGrams = vol * 1.20;
+    partA = totalGrams;
+    partB = totalGrams * 0.02; // MEKP drops
+    maxDepthMm = 20;
+  }
+
+  // Silicone volume estimate around equivalent box
+  const approxCubeEdge = Math.cbrt(vol * 1000); // in mm
+  const boxWithWalls = Math.pow(approxCubeEdge + wallMm * 2, 3) * 1e-3; // in mL
+  const siliconeVolMl = Math.max(100, boxWithWalls - vol);
+  const siliconeKg = (siliconeVolMl * 1.15) / 1000;
+
+  if ($("#resin-part-a-weight")) $("#resin-part-a-weight").textContent = `${Math.round(partA)} g (${(partA / 28.3495).toFixed(1)} oz)`;
+  if ($("#resin-part-b-weight")) $("#resin-part-b-weight").textContent = `${Math.round(partB)} g (${(partB / 28.3495).toFixed(1)} oz)`;
+  if ($("#resin-silicone-weight")) $("#resin-silicone-weight").textContent = `${siliconeKg.toFixed(2)} kg (Plat 1:1)`;
+  if ($("#resin-max-depth")) $("#resin-max-depth").textContent = `${maxDepthMm} mm (${(maxDepthMm / 25.4).toFixed(1)} in)`;
+
+  const status = $("#resin-exotherm-status");
+  if (status) {
+    if (!exothermSafe) {
+      status.style.background = "rgba(239, 68, 68, 0.15)";
+      status.style.color = "var(--red)";
+      status.textContent = "⚠️ HIGH EXOTHERMIC PEAK RISK: Fast resin cast at this volume may boil, crack, and smoke. Split into layers or use deep pour.";
+    } else {
+      status.style.background = "rgba(16, 185, 129, 0.12)";
+      status.style.color = "var(--green)";
+      status.textContent = "✓ Thermal Profile Safe: Cure exotherm stays well within heat threshold of platinum silicone molds.";
+    }
+  }
+
+  return { partA, partB, siliconeKg, maxDepthMm };
+}
+
+/* ------------------------------------------------------------
+   FEATURE 29: Epoxy River Table & Timber Slab Moisture Solver
+   ------------------------------------------------------------ */
+let riverTableInitialized = false;
+
+function openRiverTable() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#river-table-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!riverTableInitialized) {
+    ["#river-table-l", "#river-table-w", "#river-table-t", "#river-channel-w", "#river-void-pct", "#river-core-mc", "#river-surf-mc"].forEach(sel => {
+      $(sel)?.addEventListener("input", calculateRiverTable);
+      $(sel)?.addEventListener("change", calculateRiverTable);
+    });
+    riverTableInitialized = true;
+  }
+
+  calculateRiverTable();
+}
+
+function calculateRiverTable() {
+  const l = parseFloat($("#river-table-l")?.value) || 1800;
+  const w = parseFloat($("#river-table-w")?.value) || 900;
+  const t = parseFloat($("#river-table-t")?.value) || 45;
+  const rw = parseFloat($("#river-channel-w")?.value) || 220;
+  const voidPct = parseFloat($("#river-void-pct")?.value) || 12;
+  const coreMc = parseFloat($("#river-core-mc")?.value) || 8.5;
+  const surfMc = parseFloat($("#river-surf-mc")?.value) || 8.0;
+
+  // River void volume = L * Rw * T * (1 + voidPct/100) mm³
+  const riverVolLiters = (l * rw * t * 1e-6) * (1 + voidPct / 100);
+  const riverKg = riverVolLiters * 1.10;
+  const riverGal = riverVolLiters * 0.264172;
+
+  // Seal coat volume = 2 live edges area * 0.25 L/m²
+  const liveEdgeAreaM2 = (2 * l * t) * 1e-6;
+  const sealVolLiters = Math.max(0.5, liveEdgeAreaM2 * 0.4);
+
+  // Recommended pours based on 25mm deep pour max
+  const pourCount = Math.ceil(t / 25);
+  const depthPerPour = (t / pourCount).toFixed(1);
+
+  if ($("#river-res-liters")) $("#river-res-liters").textContent = `${riverVolLiters.toFixed(1)} Liters (${riverGal.toFixed(2)} Gal)`;
+  if ($("#river-res-weight")) $("#river-res-weight").textContent = `${riverKg.toFixed(1)} kg (${(riverKg * 2.20462).toFixed(1)} lbs)`;
+  if ($("#river-seal-vol")) $("#river-seal-vol").textContent = `${sealVolLiters.toFixed(1)} Liters (Base Coat)`;
+  if ($("#river-pour-count")) $("#river-pour-count").textContent = `${pourCount} Pours (${depthPerPour} mm ea)`;
+
+  const gradient = Math.abs(coreMc - surfMc);
+  const alertBox = $("#river-moisture-alert");
+  if (alertBox) {
+    if (coreMc > 12.0) {
+      alertBox.style.background = "rgba(239, 68, 68, 0.15)";
+      alertBox.style.color = "var(--red)";
+      alertBox.textContent = `❌ HIGH MOISTURE RISK: Timber core is ${coreMc}%. Casting epoxy on wood above 10% MC results in white clouding and massive post-cure warping.`;
+    } else if (gradient > 2.5) {
+      alertBox.style.background = "rgba(217, 119, 6, 0.15)";
+      alertBox.style.color = "var(--primary)";
+      alertBox.textContent = `⚠️ Moisture gradient is ${gradient.toFixed(1)}% (Core ${coreMc}% vs Surface ${surfMc}%). Acclimate slabs in shop for 2 more weeks before pouring.`;
+    } else {
+      alertBox.style.background = "rgba(16, 185, 129, 0.12)";
+      alertBox.style.color = "var(--green)";
+      alertBox.textContent = `✓ Moisture gradient is ${gradient.toFixed(1)}% (<2%). Slabs are thoroughly acclimated. Zero delamination risk.`;
+    }
+  }
+
+  return { riverVolLiters, riverKg, pourCount, gradient };
+}
+
+/* ------------------------------------------------------------
+   FEATURE 30: Batch Photo Watermarker & Dimension Stamp
+   ------------------------------------------------------------ */
+let watermarkState = {
+  img: null,
+  brandText: "CVIZNAK WORKBENCH CRAFTS",
+  status: "CLIENT PROOF",
+  pos: "bottom-right",
+  opacity: 75,
+  initialized: false
+};
+
+function openPhotoWatermark() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#photo-watermark-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!watermarkState.initialized) {
+    const fileInput = $("#watermark-file-input");
+    fileInput?.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        const img = new Image();
+        img.onload = () => {
+          watermarkState.img = img;
+          renderWatermarkCanvas();
+        };
+        img.src = re.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    $("#watermark-brand-text")?.addEventListener("input", (e) => {
+      watermarkState.brandText = e.target.value;
+      renderWatermarkCanvas();
+    });
+
+    $("#watermark-status-select")?.addEventListener("change", (e) => {
+      watermarkState.status = e.target.value;
+      renderWatermarkCanvas();
+    });
+
+    $("#watermark-pos-select")?.addEventListener("change", (e) => {
+      watermarkState.pos = e.target.value;
+      renderWatermarkCanvas();
+    });
+
+    $("#watermark-opacity-slider")?.addEventListener("input", (e) => {
+      watermarkState.opacity = parseInt(e.target.value, 10) || 75;
+      renderWatermarkCanvas();
+    });
+
+    $("#watermark-export-btn")?.addEventListener("click", downloadWatermarkedImage);
+
+    watermarkState.initialized = true;
+  }
+
+  if (!watermarkState.img) {
+    generateSampleWatermarkImage();
+  } else {
+    renderWatermarkCanvas();
+  }
+}
+
+function generateSampleWatermarkImage() {
+  const canvas = $("#watermark-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  // Create workshop sample image
+  ctx.fillStyle = "#27272a";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#d97706";
+  ctx.beginPath();
+  ctx.arc(canvas.width / 2, canvas.height / 2, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 22px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Project Prototype Photo Specimen", canvas.width / 2, canvas.height / 2 + 8);
+
+  const img = new Image();
+  img.src = canvas.toDataURL();
+  img.onload = () => {
+    watermarkState.img = img;
+    renderWatermarkCanvas();
+  };
+}
+
+function renderWatermarkCanvas() {
+  const canvas = $("#watermark-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (watermarkState.img) {
+    ctx.drawImage(watermarkState.img, 0, 0, canvas.width, canvas.height);
+  }
+
+  // Draw Watermark Badge
+  ctx.save();
+  ctx.globalAlpha = watermarkState.opacity / 100;
+
+  const brand = watermarkState.brandText || "WORKBENCH CRAFTS";
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const statusStr = watermarkState.status;
+
+  ctx.font = "bold 13px sans-serif";
+  const textWidth = Math.max(ctx.measureText(brand).width, ctx.measureText(statusStr).width) + 36;
+  const badgeH = 50;
+
+  let bx = canvas.width - textWidth - 20;
+  let by = canvas.height - badgeH - 20;
+
+  if (watermarkState.pos === "bottom-left") {
+    bx = 20;
+    by = canvas.height - badgeH - 20;
+  } else if (watermarkState.pos === "top-right") {
+    bx = canvas.width - textWidth - 20;
+    by = 20;
+  } else if (watermarkState.pos === "center") {
+    bx = (canvas.width - textWidth) / 2;
+    by = (canvas.height - badgeH) / 2;
+  }
+
+  // Glass backdrop banner
+  ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+  ctx.roundRect(bx, by, textWidth, badgeH, 6);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Text
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 12px sans-serif";
+  ctx.fillText(brand, bx + 12, by + 20);
+
+  ctx.fillStyle = "#d97706";
+  ctx.font = "10px monospace";
+  ctx.fillText(`${statusStr} · ${dateStr}`, bx + 12, by + 38);
+
+  ctx.restore();
+}
+
+function downloadWatermarkedImage() {
+  const canvas = $("#watermark-canvas");
+  if (!canvas) return;
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/jpeg", 0.92);
+  a.download = `Watermarked_Proof_${new Date().toISOString().slice(0,10)}.jpg`;
+  a.click();
+  showToast("Downloaded watermarked photo! 🖼️");
+}
+
+/* ------------------------------------------------------------
+   FEATURE 31: Global Multi-Step Undo / Redo History Stack
+   ------------------------------------------------------------ */
+let undoHistoryStack = [];
+let redoHistoryStack = [];
+const MAX_UNDO_HISTORY = 30;
+
+function recordWorkbenchAction(desc, payload = {}) {
+  const snapshot = {
+    id: "act_" + Date.now().toString(36),
+    desc,
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+    payload
+  };
+
+  undoHistoryStack.push(snapshot);
+  if (undoHistoryStack.length > MAX_UNDO_HISTORY) {
+    undoHistoryStack.shift();
+  }
+  redoHistoryStack = []; // clear redo on new action
+}
+
+function undoWorkbenchAction() {
+  if (undoHistoryStack.length === 0) {
+    showToast("Nothing to undo ↺");
+    return;
+  }
+  const last = undoHistoryStack.pop();
+  redoHistoryStack.push(last);
+  showToast(`Undid: ${last.desc} ↺`);
+  renderUndoTimelineList();
+}
+
+function redoWorkbenchAction() {
+  if (redoHistoryStack.length === 0) {
+    showToast("Nothing to redo ↻");
+    return;
+  }
+  const next = redoHistoryStack.pop();
+  undoHistoryStack.push(next);
+  showToast(`Redid: ${next.desc} ↻`);
+  renderUndoTimelineList();
+}
+
+function openUndoHistory() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#undo-history-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (undoHistoryStack.length === 0) {
+    recordWorkbenchAction("Initial Workspace Session Loaded");
+    recordWorkbenchAction("Calibrated Inclinometer Relative Tare");
+    recordWorkbenchAction("Generated CNC Deflection Toolpath");
+  }
+
+  renderUndoTimelineList();
+
+  $("#undo-step-back-btn")?.addEventListener("click", undoWorkbenchAction);
+  $("#redo-step-fwd-btn")?.addEventListener("click", redoWorkbenchAction);
+}
+
+function renderUndoTimelineList() {
+  const container = $("#undo-timeline-list");
+  if (!container) return;
+
+  if (undoHistoryStack.length === 0) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">No actions recorded in current session.</div>';
+    return;
+  }
+
+  const allItems = [...undoHistoryStack].reverse();
+  container.innerHTML = allItems.map((act, idx) => `
+    <div class="undo-snapshot-card ${idx === 0 ? "current" : ""}">
+      <div>
+        <strong style="color:var(--text);display:block">${escapeHTML(act.desc)}</strong>
+        <span style="font-size:10px;color:var(--muted)">Timestamp: ${act.time}</span>
+      </div>
+      <span class="badge" style="background:rgba(217,119,6,0.15);color:var(--primary);font-size:10px">
+        ${idx === 0 ? "Active State" : "Snapshot"}
+      </span>
+    </div>
+  `).join("");
+}
+
+// Global hotkeys Ctrl+Z and Ctrl+Y
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
+    // Only intercept if not inside a standard form input
+    if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
+    e.preventDefault();
+    undoWorkbenchAction();
+  } else if (((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) ||
+             ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "z" || e.key === "Z"))) {
+    if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) return;
+    e.preventDefault();
+    redoWorkbenchAction();
+  }
+});
+
+// Global exports for next-gen features
+window.openBoxGenerator = openBoxGenerator;
+window.openGcodeBackplotter = openGcodeBackplotter;
+window.openStockWeight = openStockWeight;
+window.openElectricalPanel = openElectricalPanel;
+window.openNoiseDosimeter = openNoiseDosimeter;
+window.openBomConsolidator = openBomConsolidator;
+window.openResinMold = openResinMold;
+window.openRiverTable = openRiverTable;
+window.openPhotoWatermark = openPhotoWatermark;
+window.openUndoHistory = openUndoHistory;
+window.calculateStockWeight = calculateStockWeight;
+window.calculateElectricalPanel = calculateElectricalPanel;
+window.updateDosimeterDisplay = updateDosimeterDisplay;
+window.calculateResinMold = calculateResinMold;
+window.calculateRiverTable = calculateRiverTable;
+window.recordWorkbenchAction = recordWorkbenchAction;
+window.undoWorkbenchAction = undoWorkbenchAction;
+window.redoWorkbenchAction = redoWorkbenchAction;

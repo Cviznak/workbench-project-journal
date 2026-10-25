@@ -14867,3 +14867,362 @@ body.theme-night .app-dialog {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   10 NEXT-GEN WORKSHOP ENHANCEMENTS & FABRICATION SUITES
+   ============================================================ */
+
+/* 📦 22. Parametric Box CAD Generator */
+.box-generator-dialog {
+  max-width: 1100px;
+  width: 95vw;
+}
+.box-gen-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.box-gen-sidebar {
+  padding: 14px;
+}
+.box-gen-viewport {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+.box-viewport-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.box-canvas-container {
+  width: 100%;
+  height: 480px;
+  background: #111315;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#box-preview-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+/* 📊 23. G-Code Backplotter & Machine Safety Checker */
+.gcode-backplotter-dialog {
+  max-width: 1120px;
+  width: 95vw;
+}
+.gcode-layout {
+  display: grid;
+  grid-template-columns: 1fr 310px;
+  gap: 16px;
+  margin-top: 10px;
+}
+.gcode-viewport-panel {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+.gcode-canvas-wrap {
+  width: 100%;
+  height: 460px;
+  background: #0f172a;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+#gcode-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.gcode-overlay-legend {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  display: flex;
+  gap: 12px;
+  backdrop-filter: blur(4px);
+}
+.gcode-playback-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+.gcode-metrics-panel {
+  padding: 14px;
+}
+.gcode-metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+/* ⚖️ 24. Raw Stock Billet & Center-of-Mass (CoM) Estimator */
+.stock-weight-dialog {
+  max-width: 860px;
+  width: 92vw;
+}
+.stock-weight-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.stock-inputs-col,
+.stock-results-col {
+  padding: 14px;
+}
+.stock-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.stock-stat-card {
+  padding: 10px;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.stock-stat-label {
+  font-size: 10.5px;
+  color: var(--muted);
+  display: block;
+}
+.stock-stat-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary);
+  display: block;
+  margin-top: 2px;
+  font-family: monospace;
+}
+
+/* ⚡ 25. Workshop Electrical Sub-Panel & Breaker Balancing */
+.electrical-panel-dialog {
+  max-width: 940px;
+  width: 92vw;
+}
+.elec-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.elec-config-panel,
+.elec-balance-panel {
+  padding: 14px;
+}
+.elec-circuit-list {
+  max-height: 380px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.elec-circuit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+/* 🎧 26. Workshop Noise Dosimeter & NRR Hearing Protection */
+.noise-dosimeter-dialog {
+  max-width: 860px;
+  width: 92vw;
+}
+.dosimeter-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.dosimeter-meter-col,
+.dosimeter-advisor-col {
+  padding: 14px;
+}
+.dosimeter-hero-display {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 16px;
+  text-align: center;
+}
+.dosimeter-dba {
+  font-size: 48px;
+  font-weight: 800;
+  font-family: monospace;
+  color: var(--primary);
+}
+.dosimeter-status-tag {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* 🔩 27. Hierarchical BOM & Fastener Consolidation Matrix */
+.bom-consolidator-dialog {
+  max-width: 1060px;
+  width: 95vw;
+}
+.bom-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.bom-tree-col,
+.bom-matrix-col {
+  padding: 14px;
+}
+.bom-tree-container {
+  max-height: 440px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bom-subasm-card {
+  padding: 10px;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+/* 🧪 28. Resin Casting & Silicone Jacket Mold Solver */
+.resin-mold-dialog {
+  max-width: 860px;
+  width: 92vw;
+}
+.resin-mold-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.resin-inputs-col,
+.resin-results-col {
+  padding: 14px;
+}
+.resin-mix-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* 🪵 29. Epoxy River Table & Timber Slab Moisture Solver */
+.river-table-dialog {
+  max-width: 860px;
+  width: 92vw;
+}
+.river-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.river-inputs-col,
+.river-results-col {
+  padding: 14px;
+}
+
+/* 🖼️ 30. Batch Photo Watermarker & Dimension Stamp */
+.photo-watermark-dialog {
+  max-width: 980px;
+  width: 94vw;
+}
+.watermark-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.watermark-controls-col,
+.watermark-preview-col {
+  padding: 14px;
+}
+.watermark-canvas-wrap {
+  width: 100%;
+  height: 460px;
+  background: #1e2124;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#watermark-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+/* ↺ 31. Undo / Redo History Timeline Drawer */
+.undo-history-dialog {
+  max-width: 700px;
+  width: 90vw;
+}
+.undo-drawer-layout {
+  padding: 14px;
+}
+.undo-timeline-list {
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.undo-snapshot-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.undo-snapshot-card.current {
+  border-left: 4px solid var(--primary);
+  background: rgba(217, 119, 6, 0.08);
+}
+
+@media (max-width: 820px) {
+  .box-gen-layout,
+  .gcode-layout,
+  .stock-weight-layout,
+  .elec-layout,
+  .dosimeter-layout,
+  .bom-layout,
+  .resin-mold-layout,
+  .river-layout,
+  .watermark-layout {
+    grid-template-columns: 1fr;
+  }
+}
