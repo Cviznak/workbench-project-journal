@@ -14300,3 +14300,570 @@ body.theme-dark .distill-hydrosol-glow {
     page-break-inside: avoid;
   }
 }
+
+/* ============================================================
+   POWER-USER WORKSHOP EXTENSIONS & SENSORS
+   ============================================================ */
+
+/* 🔍 Universal Command Palette (Ctrl+K) */
+.command-palette-dialog {
+  border: none;
+  background: transparent;
+  padding: 0;
+  max-width: 620px;
+  width: 90vw;
+  margin: 12vh auto auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
+.command-palette-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(6px);
+}
+.cmd-palette-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.cmd-palette-input-wrap {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  background: var(--surface);
+}
+.cmd-palette-search-icon {
+  font-size: 18px;
+  opacity: 0.6;
+}
+.cmd-palette-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  color: var(--text);
+}
+.cmd-palette-esc {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 4px;
+  color: var(--muted);
+}
+.cmd-palette-results {
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 8px;
+}
+.cmd-palette-group-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 8px 8px 4px;
+}
+.cmd-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.1s;
+}
+.cmd-palette-item:hover,
+.cmd-palette-item.active {
+  background: rgba(217, 119, 6, 0.15);
+  color: var(--primary);
+}
+.cmd-palette-item-icon {
+  font-size: 16px;
+  width: 22px;
+  text-align: center;
+}
+.cmd-palette-item-text {
+  flex: 1;
+}
+.cmd-palette-item-meta {
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(0,0,0,0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.cmd-palette-footer {
+  display: flex;
+  gap: 16px;
+  padding: 8px 16px;
+  background: rgba(0,0,0,0.02);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+}
+.cmd-palette-footer kbd {
+  background: rgba(0,0,0,0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* 📐 15. Digital Inclinometer & Angle Level */
+.inclinometer-dialog {
+  max-width: 580px;
+  width: 95vw;
+}
+.inclinometer-hero-display {
+  text-align: center;
+  padding: 24px 16px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 14px;
+  transition: all 0.15s;
+}
+.inclinometer-hero-display.target-locked,
+.inclinometer-hero-display.inclinometer-locked {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--green);
+}
+.inclinometer-degrees {
+  font-size: 64px;
+  font-weight: 800;
+  font-family: monospace;
+  letter-spacing: -2px;
+  line-height: 1;
+}
+.inclinometer-target-status {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 8px;
+  color: var(--muted);
+}
+.inclinometer-tube-wrap {
+  position: relative;
+  width: 100%;
+  height: 38px;
+  background: #0f172a;
+  border: 2px solid #334155;
+  border-radius: 19px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
+}
+.inclinometer-tube-target-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: #f59e0b;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.inclinometer-bubble {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 48px;
+  background: radial-gradient(circle at 35% 35%, #86efac, #22c55e);
+  border-radius: 20px;
+  transform: translateX(-50%);
+  transition: left 0.05s linear;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.6);
+}
+.inclinometer-targets-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.inclinometer-target-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.inclinometer-target-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* 📏 16. 1:1 Screen Bolt & Drill Pitch Gauge */
+.screen-gauge-dialog {
+  max-width: 900px;
+  width: 95vw;
+}
+.screen-gauge-calibration-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+.screen-gauge-tabs {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+.screen-gauge-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.screen-gauge-tab.active {
+  background: rgba(217, 119, 6, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.screen-gauge-viewport {
+  background: #fdfdfd;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 20px;
+  min-height: 380px;
+  overflow-x: auto;
+}
+.gauge-rings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 16px;
+  align-items: center;
+  justify-items: center;
+}
+.gauge-ring-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.gauge-ring-circle {
+  border: 2px solid #0f172a;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.05);
+}
+.gauge-comb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.gauge-comb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gauge-comb-teeth {
+  height: 24px;
+  background: repeating-linear-gradient(90deg, #0f172a 0px, #0f172a 2px, transparent 2px, transparent var(--pitch-step));
+  border-bottom: 2px solid #0f172a;
+}
+
+/* 📷 17. Visual Caliper & Reference Dimensioning */
+.visual-caliper-dialog {
+  max-width: 950px;
+  width: 95vw;
+}
+.caliper-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.caliper-canvas-container {
+  background: #090d16;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#caliper-canvas {
+  width: 100%;
+  height: auto;
+  max-height: 520px;
+  display: block;
+  cursor: crosshair;
+}
+.caliper-instructions-bar {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ⚙️ 18. Dynamic CNC Feeds & Deflection Engine */
+.cnc-deflection-dialog {
+  max-width: 1050px;
+  width: 95vw;
+}
+.cnc-deflect-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.cnc-stat-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.cnc-stat-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.cnc-stat-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.cnc-stat-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--primary);
+  margin-top: 4px;
+}
+.cnc-deflection-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+.cnc-deflect-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+/* 🖨️ 19. 3D Print Diagnostician & Solver */
+.print-diagnostics-dialog {
+  max-width: 1080px;
+  width: 95vw;
+}
+.print-diag-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.print-symptoms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+.print-symptom-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.print-symptom-card:hover,
+.print-symptom-card.active {
+  border-color: var(--primary);
+  background: rgba(217, 119, 6, 0.12);
+}
+.print-solution-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 440px;
+}
+
+/* 🪵 20. Wood Movement Simulator */
+.wood-distortion-dialog {
+  max-width: 860px;
+  width: 95vw;
+}
+.wood-dist-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.wood-dist-canvas-wrap {
+  background: #fdfbf7;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+#wood-distortion-canvas {
+  width: 100%;
+  height: 340px;
+  display: block;
+}
+.wood-dist-explanation {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ☣️ 21. Chemical SDS Locker */
+.sds-locker-dialog {
+  max-width: 1050px;
+  width: 95vw;
+}
+.sds-layout-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  margin-top: 10px;
+}
+.sds-chemical-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+.sds-chem-item {
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+.sds-chem-item:hover,
+.sds-chem-item.active {
+  border-color: var(--primary);
+  background: rgba(217, 119, 6, 0.12);
+}
+.sds-details-panel {
+  padding: 18px;
+}
+.sds-nfpa-diamond {
+  width: 60px;
+  height: 60px;
+  position: relative;
+  transform: rotate(45deg);
+  margin: 10px auto;
+}
+.nfpa-box {
+  width: 28px;
+  height: 28px;
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+}
+.nfpa-box span { transform: rotate(-45deg); }
+.nfpa-health { top: 0; left: 0; background: #2563eb; }
+.nfpa-fire { top: 0; right: 0; background: #dc2626; }
+.nfpa-react { bottom: 0; left: 0; background: #eab308; color: #000; }
+.nfpa-spec { bottom: 0; right: 0; background: #ffffff; color: #000; border: 1px solid #cbd5e1; }
+
+/* 🏷️ Thermal Roll Print Rules (Zebra 4x6, Brother 2x1) */
+@media print {
+  body.printing-thermal-roll {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body.printing-thermal-roll .app-shell,
+  body.printing-thermal-roll .topbar,
+  body.printing-thermal-roll .sidebar,
+  body.printing-thermal-roll .no-print {
+    display: none !important;
+  }
+  .qr-label-sheet.thermal-4x6 {
+    width: 4in !important;
+    height: 6in !important;
+    padding: 0.1in !important;
+    page-break-after: always;
+  }
+  .qr-label-sheet.thermal-2x1 {
+    width: 2in !important;
+    height: 1in !important;
+    padding: 0.05in !important;
+    page-break-after: always;
+  }
+}
+
+/* 🔴 Red Night-Vision Mode */
+[data-theme="night"],
+body.theme-night {
+  --bg: #000000 !important;
+  --surface: #0a0000 !important;
+  --surface-alt: #140000 !important;
+  --border: #4d0000 !important;
+  --text: #ff3333 !important;
+  --muted: #b32424 !important;
+  --primary: #ff1a1a !important;
+  --primary-hover: #cc0000 !important;
+  --green: #ff4d4d !important;
+  background-color: #000000 !important;
+  color: #ff3333 !important;
+}
+body.theme-night .topbar,
+body.theme-night .sidebar,
+body.theme-night .app-dialog {
+  background: #050000 !important;
+  border-color: #4d0000 !important;
+  color: #ff3333 !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .cnc-deflect-grid,
+  .print-diag-layout,
+  .sds-layout-grid {
+    grid-template-columns: 1fr;
+  }
+}

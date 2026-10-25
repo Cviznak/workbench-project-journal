@@ -115,6 +115,13 @@
           <button class="nav-link" type="button" data-action="open-cutlist-optimizer"><span class="nav-icon">✂️</span>Sheet Cutlist &amp; Vault</button>
           <button class="nav-link" type="button" data-action="open-climate-advisor"><span class="nav-icon">🌡️</span>Climate &amp; Curing</button>
           <button class="nav-link" type="button" data-action="open-audio-tuner"><span class="nav-icon">🎙️</span>Audio Tachometer &amp; dB</button>
+          <button class="nav-link" type="button" data-action="open-inclinometer"><span class="nav-icon">📐</span>Digital Level &amp; Angle</button>
+          <button class="nav-link" type="button" data-action="open-screen-gauge"><span class="nav-icon">📏</span>1:1 Screen Bolt Gauge</button>
+          <button class="nav-link" type="button" data-action="open-visual-caliper"><span class="nav-icon">📷</span>Visual Photo Caliper</button>
+          <button class="nav-link" type="button" data-action="open-cnc-deflection"><span class="nav-icon">⚙️</span>CNC Feeds &amp; Deflection</button>
+          <button class="nav-link" type="button" data-action="open-print-diagnostics"><span class="nav-icon">🖨️</span>3D Print Diagnostician</button>
+          <button class="nav-link" type="button" data-action="open-wood-distortion"><span class="nav-icon">🪵</span>Wood Movement Sim</button>
+          <button class="nav-link" type="button" data-action="open-sds-locker"><span class="nav-icon">☣️</span>Chemical SDS Locker</button>
           <button class="nav-link" type="button" data-action="open-assembly-manual"><span class="nav-icon">📖</span>Assembly Manuals</button>
           <button class="nav-link" type="button" data-action="open-pigment-blender"><span class="nav-icon">🎨</span>Pigment &amp; Stains</button>
           <button class="nav-link" type="button" data-action="open-maintenance-engine"><span class="nav-icon">🛠️</span>Tool Care &amp; Costs</button>
@@ -149,6 +156,7 @@
           </button>
           <div class="breadcrumbs"><span id="topbar-space-label">My workshop</span><span class="crumb-divider">/</span><strong id="page-crumb">Overview</strong></div>
           <div class="topbar-actions">
+            <button type="button" class="button button-outline button-small command-palette-trigger-btn" id="topbar-cmd-btn" data-action="open-command-palette" title="Quick Command Palette (Ctrl+K)"><span aria-hidden="true">🔍</span> <span class="cmd-k-text">Find</span> <kbd style="font-size:9px;opacity:0.75;padding:1px 4px;background:rgba(0,0,0,0.06);border-radius:3px;margin-left:2px">⌘K</kbd></button>
             <button type="button" class="button button-outline button-small user-top-btn" id="top-auth-btn" data-action="open-auth-modal">Sign in</button>
             <button type="button" class="button button-outline button-small" data-action="open-invite-modal" title="Invite makers to your shop">👥 Invite</button>
             <button type="button" class="button button-outline button-small" data-action="open-tools" title="Workshop Reference &amp; Conversion Tools">📐 Tools</button>
@@ -8136,6 +8144,13 @@ With warm regards and friendship,</textarea>
         <button type="button" class="tool-tab-btn" id="tool-tab-manual-trigger" data-action="open-assembly-manual">📖 Assembly Manual</button>
         <button type="button" class="tool-tab-btn" id="tool-tab-pigment-trigger" data-action="open-pigment-blender">🎨 Pigment &amp; Stains</button>
         <button type="button" class="tool-tab-btn" id="tool-tab-vendor-trigger" data-action="open-vendor-export">📦 Vendor PO / Cart</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-inclinometer-trigger" data-action="open-inclinometer">📐 Digital Angle Level</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-gauge-trigger" data-action="open-screen-gauge">📏 1:1 Bolt Gauge</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-caliper-trigger" data-action="open-visual-caliper">📷 Photo Caliper</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-cnc-trigger" data-action="open-cnc-deflection">⚙️ CNC Deflection</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-print-diag-trigger" data-action="open-print-diagnostics">🖨️ 3D Print Doctor</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-wood-dist-trigger" data-action="open-wood-distortion">🪵 Wood Movement</button>
+        <button type="button" class="tool-tab-btn" id="tool-tab-sds-trigger" data-action="open-sds-locker">☣️ Chemical SDS</button>
       </div>
 
       <!-- Tab 1: Fractions / Dec / mm -->
@@ -10347,6 +10362,8 @@ With warm regards and friendship,</textarea>
             <select id="qr-template-preset" class="calc-input">
               <option value="drawer_card">Drawer Face Bin Card (2.5″ × 1.25″)</option>
               <option value="avery_5160">Avery 5160 / 30-per-sheet (2.625″ × 1″)</option>
+              <option value="thermal_4x6">Zebra / Dymo 4″ × 6″ Thermal Shipping &amp; Bin</option>
+              <option value="thermal_2x1">Brother / Dymo 2″ × 1″ (54×25mm) Continuous Roll</option>
               <option value="spool_ring">Filament Spool Hub Label (Round/Hex 2.25″)</option>
               <option value="lumber_tag">Lumber / Raw Stock Hanging Tag</option>
             </select>
@@ -11092,6 +11109,375 @@ With warm regards and friendship,</textarea>
               <!-- Rendered dynamically -->
             </tbody>
           </table>
+        </div>
+      </div>
+    </dialog>
+    <!-- 🔍 Universal Command Palette Dialog (Ctrl+K) -->
+    <dialog class="command-palette-dialog" id="command-palette-dialog" aria-label="Universal Command Palette">
+      <div class="cmd-palette-box">
+        <div class="cmd-palette-input-wrap">
+          <span class="cmd-palette-search-icon" aria-hidden="true">🔍</span>
+          <input type="text" id="command-palette-input" class="cmd-palette-input" placeholder="Type a craft studio, tool, project, or command..." autocomplete="off" spellcheck="false">
+          <kbd class="cmd-palette-esc">Esc</kbd>
+        </div>
+        <div class="cmd-palette-results" id="command-palette-results">
+          <!-- Dynamic results -->
+        </div>
+        <div class="cmd-palette-footer">
+          <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+          <span><kbd>↵</kbd> Select</span>
+          <span><kbd>Esc</kbd> Dismiss</span>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 📐 15. Workshop Digital Inclinometer & Precision Angle Level Dialog -->
+    <dialog class="app-dialog inclinometer-dialog" id="inclinometer-dialog" aria-label="Workshop Digital Inclinometer &amp; Precision Angle Level">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">DIGITAL INCLINOMETRY &amp; TILT PHYSICS</div>
+          <h2>Digital Inclinometer &amp; Angle Finder</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="button button-small button-outline" id="inclinometer-tare-btn" title="Zero angle on current surface">🎯 Relative Zero (Tare)</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="inclinometer-body">
+        <div class="inclinometer-hero-display" id="inclinometer-hero-display">
+          <div class="inclinometer-degrees" id="inclinometer-degrees">0.0<span style="font-size:24px;color:var(--muted)">°</span></div>
+          <div class="inclinometer-target-status" id="inclinometer-target-status">Level (0.0°)</div>
+        </div>
+
+        <!-- Spirit Bubble Tube -->
+        <div class="inclinometer-tube-wrap">
+          <div class="inclinometer-tube-target-line"></div>
+          <div class="inclinometer-bubble" id="inclinometer-bubble" style="left:50%"></div>
+        </div>
+
+        <!-- Common Target Angle Snaps -->
+        <div class="inclinometer-targets-strip">
+          <span style="font-size:11px;color:var(--muted);margin-right:4px">Target Angle:</span>
+          <button type="button" class="inclinometer-target-btn active" data-angle="0">0.0° (Level)</button>
+          <button type="button" class="inclinometer-target-btn" data-angle="22.5">22.5° (Octagon)</button>
+          <button type="button" class="inclinometer-target-btn" data-angle="30">30.0°</button>
+          <button type="button" class="inclinometer-target-btn" data-angle="45">45.0° (Miter)</button>
+          <button type="button" class="inclinometer-target-btn" data-angle="60">60.0°</button>
+          <button type="button" class="inclinometer-target-btn" data-angle="90">90.0° (Plumb)</button>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:10px;border-top:1px solid var(--border);font-size:11.5px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="inclinometer-beep-toggle" checked>
+            <span>Audible Target Alignment Beep</span>
+          </label>
+          <button type="button" class="button button-small button-outline" id="inclinometer-reset-tare-btn">Reset Absolute Zero</button>
+        </div>
+
+        <!-- Manual simulation controls for desktop / non-accelerometer devices -->
+        <div id="inclinometer-sim-controls" style="margin-top:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;font-size:11px">
+          <label style="display:flex;align-items:center;gap:8px">
+            <span style="color:var(--muted)">Desktop Angle Slider:</span>
+            <input type="range" id="inclinometer-sim-slider" min="-90" max="90" value="0" step="0.1" style="flex:1">
+            <span id="inclinometer-sim-val" style="font-family:monospace;width:45px">0.0°</span>
+          </label>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 📏 16. 1:1 Real-Scale Screen Bolt & Drill Pitch Gauge Dialog -->
+    <dialog class="app-dialog screen-gauge-dialog" id="screen-gauge-dialog" aria-label="1:1 Real-Scale Screen Bolt &amp; Drill Pitch Gauge">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">PHYSICAL SCREEN-CALIBRATED HARDWARE SIZER</div>
+          <h2>1:1 Real-Scale Screen Bolt &amp; Pitch Gauge</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <!-- Credit Card Calibration Panel -->
+      <div class="screen-gauge-calibration-card" id="screen-gauge-calib-box">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:700;font-size:12px">💳 Screen Calibration (1:1 PPI Matching):</span>
+          <button type="button" class="button button-small button-outline" id="screen-gauge-toggle-calib-btn" style="padding:2px 8px;font-size:10px">Hide Calibrator</button>
+        </div>
+        <p class="form-hint" style="margin:4px 0 8px">Hold a standard Credit Card / ID (85.6 mm wide) against this box and adjust the slider until it matches exactly:</p>
+        <div id="screen-gauge-credit-card-target" style="width:320px;height:54px;background:rgba(217,119,6,0.15);border:2px dashed var(--primary);border-radius:6px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">
+          Standard Card Width (85.6 mm)
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px">
+          <span>DPI / PPI Zoom:</span>
+          <input type="range" id="screen-gauge-zoom-slider" min="60" max="140" value="100" style="flex:1">
+          <span id="screen-gauge-zoom-val" style="font-family:monospace;width:40px">100%</span>
+        </label>
+      </div>
+
+      <div class="screen-gauge-tabs">
+        <button type="button" class="screen-gauge-tab active" data-gauge="metric">Metric Bolts (M2–M16)</button>
+        <button type="button" class="screen-gauge-tab" data-gauge="imperial">Imperial (#4 to 1/2″)</button>
+        <button type="button" class="screen-gauge-tab" data-gauge="pitches">Thread Pitch Combs</button>
+        <button type="button" class="screen-gauge-tab" data-gauge="drills">Drill Bit Index</button>
+      </div>
+
+      <div class="screen-gauge-viewport" id="screen-gauge-viewport">
+        <!-- Rendered dynamically scaled to exact mm/pixels -->
+      </div>
+    </dialog>
+
+    <!-- 📷 17. Visual Caliper & Reference Dimensioning Dialog -->
+    <dialog class="app-dialog visual-caliper-dialog" id="visual-caliper-dialog" aria-label="Visual Caliper &amp; Reference Dimensioning">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">PHOTOGRAMMETRIC REFERENCE CALIPERS</div>
+          <h2>Visual Photo Caliper &amp; Part Dimensioner</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label class="button button-small button-primary" style="margin:0;cursor:pointer">
+            📷 Open Photo
+            <input type="file" id="caliper-file-input" accept="image/*" style="display:none">
+          </label>
+          <button type="button" class="button button-small button-outline" id="caliper-sample-btn">Sample Bolt Photo</button>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+      </div>
+
+      <div class="caliper-toolbar">
+        <div style="display:flex;align-items:center;gap:6px">
+          <button type="button" class="button button-small button-primary caliper-mode-btn active" id="caliper-mode-ref" data-mode="calibrate">1. Calibrate Reference Line</button>
+          <button type="button" class="button button-small button-outline caliper-mode-btn" id="caliper-mode-meas" data-mode="measure">2. Measure Parts</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+          <label class="field-label" style="margin:0;display:flex;align-items:center;gap:4px">
+            Reference Known Size:
+            <select id="caliper-ref-preset" class="calc-input" style="font-size:11px;padding:2px 6px">
+              <option value="85.6">Credit Card Width (85.6 mm)</option>
+              <option value="53.98">Credit Card Height (54.0 mm)</option>
+              <option value="24.26">US Quarter Coin (24.3 mm)</option>
+              <option value="100.0">100 mm Ruler Mark</option>
+              <option value="custom">Custom Dimension...</option>
+            </select>
+          </label>
+          <span id="caliper-scale-ratio" style="font-family:monospace;font-weight:700;color:var(--primary)">— px/mm</span>
+          <button type="button" class="button button-small button-outline" id="caliper-clear-btn" style="padding:2px 8px;font-size:11px">Clear Measurements</button>
+        </div>
+      </div>
+
+      <div class="caliper-canvas-container" id="caliper-canvas-container">
+        <canvas id="caliper-canvas" width="840" height="520"></canvas>
+      </div>
+
+      <div class="caliper-instructions-bar" id="caliper-status-text">
+        Click point 1 and point 2 on your known reference object (e.g. credit card edge) to calibrate scale.
+      </div>
+    </dialog>
+
+    <!-- ⚙️ 18. Dynamic CNC Feeds, Speeds & Endmill Deflection Dialog -->
+    <dialog class="app-dialog cnc-deflection-dialog" id="cnc-deflection-dialog" aria-label="Dynamic CNC Feeds, Speeds &amp; Endmill Deflection">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">CHIP LOAD &amp; TOOL DEFLECTION MECHANICS</div>
+          <h2>Dynamic CNC Feeds, Speeds &amp; Endmill Deflection</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="cnc-deflect-grid">
+        <div class="panel cnc-inputs-panel">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">⚙️ Machining Setup &amp; Tool Geometry</h3>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label class="field-label">Target Workpiece Material:
+              <select id="cnc-mat-select" class="calc-input">
+                <option value="al6061" data-kc="800" data-sfm="180">Aluminum 6061-T6 (Soft Metal)</option>
+                <option value="brass360" data-kc="700" data-sfm="150">Brass 360 Free-Cutting</option>
+                <option value="steel1018" data-kc="1800" data-sfm="75">Mild Steel 1018 (Ferrous)</option>
+                <option value="acrylic" data-kc="350" data-sfm="250">Cast Acrylic / Plexiglass</option>
+                <option value="hardwood" data-kc="250" data-sfm="350" selected>Hardwood / Baltic Birch</option>
+                <option value="softwood" data-kc="180" data-sfm="450">Pine / Softwood / MDF</option>
+                <option value="delrin" data-kc="300" data-sfm="300">Delrin / Acetal Plastic</option>
+              </select>
+            </label>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <label class="field-label">Endmill Diam D (mm):
+                <input type="number" id="cnc-tool-dia" class="calc-input" value="6.35" min="1" max="25" step="0.5">
+              </label>
+              <label class="field-label">Flutes Z:
+                <select id="cnc-tool-flutes" class="calc-input">
+                  <option value="1">1 Flute (O-Flute Plastic/Alu)</option>
+                  <option value="2" selected>2 Flutes (General Wood/Alu)</option>
+                  <option value="3">3 Flutes (Aluminum)</option>
+                  <option value="4">4 Flutes (Steel/Finish)</option>
+                </select>
+              </label>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <label class="field-label">Stickout L (mm):
+                <input type="number" id="cnc-tool-stickout" class="calc-input" value="22" min="5" max="100" step="1" title="Length of endmill sticking out of collet">
+              </label>
+              <label class="field-label">Endmill Material:
+                <select id="cnc-tool-mat" class="calc-input">
+                  <option value="carbide" selected>Solid Carbide (E = 600 GPa)</option>
+                  <option value="hss">HSS High Speed Steel (E = 200 GPa)</option>
+                </select>
+              </label>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <label class="field-label">Axial Depth DOC ap (mm):
+                <input type="number" id="cnc-doc" class="calc-input" value="3.175" min="0.1" max="50" step="0.5">
+              </label>
+              <label class="field-label">Radial Width WOC ae (mm):
+                <input type="number" id="cnc-woc" class="calc-input" value="6.35" min="0.1" max="25" step="0.5">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel cnc-results-panel">
+          <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">📊 Feeds, Speeds &amp; Deflection Report</h3>
+          
+          <div class="cnc-stat-cards">
+            <div class="cnc-stat-box">
+              <span class="cnc-stat-label">Spindle Speed</span>
+              <strong class="cnc-stat-val" id="cnc-res-rpm">17,550 RPM</strong>
+            </div>
+            <div class="cnc-stat-box">
+              <span class="cnc-stat-label">Feed Rate</span>
+              <strong class="cnc-stat-val" id="cnc-res-feed">2,450 mm/min</strong>
+            </div>
+            <div class="cnc-stat-box">
+              <span class="cnc-stat-label">Chip Thinning Load</span>
+              <strong class="cnc-stat-val" id="cnc-res-chipload">0.070 mm/tooth</strong>
+            </div>
+            <div class="cnc-stat-box">
+              <span class="cnc-stat-label">Removal Rate (MRR)</span>
+              <strong class="cnc-stat-val" id="cnc-res-mrr">49.4 cm³/min</strong>
+            </div>
+          </div>
+
+          <!-- Tool Deflection Gauge -->
+          <div class="cnc-deflection-card" id="cnc-deflection-card">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <span style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Endmill Cantilever Deflection (δ):</span>
+                <div style="font-size:26px;font-weight:800;font-family:monospace" id="cnc-res-deflect">6.4 µm</div>
+              </div>
+              <div class="cnc-deflect-badge" id="cnc-deflect-status" style="background:rgba(16,185,129,0.15);color:var(--green)">✓ Optimal Stiffness (&lt;10 µm)</div>
+            </div>
+            <p id="cnc-deflect-advice" style="margin:8px 0 0;font-size:11.5px;color:var(--muted);line-height:1.5">
+              Tool deflection is safely under the 10 µm threshold. Minimal chatter and clean dimensional accuracy expected.
+            </p>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🖨️ 19. 3D Print Visual Failure Diagnostician & Slicer Solver Dialog -->
+    <dialog class="app-dialog print-diagnostics-dialog" id="print-diagnostics-dialog" aria-label="3D Print Visual Failure Diagnostician &amp; Slicer Solver">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">ADDITIVE MANUFACTURING TROUBLESHOOTING</div>
+          <h2>3D Print Visual Failure Doctor &amp; Slicer Solver</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="print-diag-layout">
+        <!-- Visual Symptom Selector Grid -->
+        <div class="print-symptoms-column">
+          <span style="font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">SELECT PRINT DEFECT SYMPTOM:</span>
+          <div class="print-symptoms-list" id="print-symptoms-list">
+            <!-- Dynamic symptom cards -->
+          </div>
+        </div>
+
+        <!-- Detailed Slicer & Hardware Prescription -->
+        <div class="print-solution-column">
+          <div class="panel print-solution-card" id="print-solution-card">
+            <!-- Rendered dynamically on symptom click -->
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- 🪵 20. Wood Grain Movement & Distortion Simulator Dialog -->
+    <dialog class="app-dialog wood-distortion-dialog" id="wood-distortion-dialog" aria-label="Wood Grain Movement &amp; Distortion Simulator">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">WOOD ANISOTROPIC SHRINKAGE PHYSICS</div>
+          <h2>Wood Grain Movement &amp; Distortion Simulator</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="wood-dist-toolbar">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;font-weight:700;color:var(--muted)">Lumber Cut Type:</span>
+          <button type="button" class="button button-small button-primary wood-cut-btn active" data-cut="plain">Plain / Flat-Sawn</button>
+          <button type="button" class="button button-small button-outline wood-cut-btn" data-cut="quarter">Quarter-Sawn</button>
+          <button type="button" class="button button-small button-outline wood-cut-btn" data-cut="rift">Rift-Sawn</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;flex:1;max-width:340px">
+          <span style="font-size:11px;font-weight:700">Moisture:</span>
+          <input type="range" id="wood-mc-slider" min="4" max="28" value="8" style="flex:1">
+          <span id="wood-mc-display" style="font-family:monospace;font-weight:700;color:var(--primary);width:65px">8% (Dry)</span>
+        </div>
+      </div>
+
+      <div class="wood-dist-canvas-wrap">
+        <canvas id="wood-distortion-canvas" width="760" height="340"></canvas>
+      </div>
+
+      <div class="wood-dist-explanation" id="wood-dist-explanation">
+        <!-- Dynamic explanation -->
+      </div>
+    </dialog>
+
+    <!-- ☣️ 21. Workshop Chemical SDS & Safety Compatibility Locker Dialog -->
+    <dialog class="app-dialog sds-locker-dialog" id="sds-locker-dialog" aria-label="Workshop Chemical SDS &amp; Safety Compatibility Locker">
+      <div class="dialog-heading">
+        <div>
+          <div class="eyebrow">OSHA HAZCOM &amp; CHEMICAL COMPATIBILITY</div>
+          <h2>Workshop Chemical Safety &amp; SDS Locker</h2>
+        </div>
+        <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="sds-layout-grid">
+        <div class="sds-sidebar-column">
+          <input type="search" id="sds-search" placeholder="Search acetone, epoxy, acids, oils..." style="width:100%;font-size:12px;margin-bottom:8px">
+          <div class="sds-chemical-list" id="sds-chemical-list">
+            <!-- Dynamic chemical items -->
+          </div>
+        </div>
+
+        <div class="sds-details-column">
+          <div class="panel sds-details-panel" id="sds-details-panel">
+            <!-- Dynamic chemical datasheet -->
+          </div>
+
+          <!-- Mixing Incompatibility Checker -->
+          <div class="panel sds-compat-panel" style="margin-top:12px">
+            <h3 style="margin-top:0;font-size:13px;border-bottom:1px solid var(--border);padding-bottom:6px">⚠️ Chemical Incompatibility &amp; Cross-Reaction Checker</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <label class="field-label">Chemical A:
+                <select id="sds-mix-a" class="calc-input">
+                  <!-- dynamic options -->
+                </select>
+              </label>
+              <label class="field-label">Chemical B:
+                <select id="sds-mix-b" class="calc-input">
+                  <!-- dynamic options -->
+                </select>
+              </label>
+            </div>
+            <div id="sds-mix-result" style="padding:10px;border-radius:6px;font-size:12px;background:rgba(16,185,129,0.1);color:var(--green)">
+              Select two chemicals above to verify safe coexistence and handling.
+            </div>
+          </div>
         </div>
       </div>
     </dialog>

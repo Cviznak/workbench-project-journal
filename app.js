@@ -8225,7 +8225,7 @@ function exportInventoryCSV() {
     ].join(",");
   });
 
-  const csv = [headers.join(","), ...rows].join("\r\n");
+  const csv = [headers.join(","), ...rows].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -40976,7 +40976,17 @@ function openQrLabelStudio(preset = "inventory") {
   $("#qr-source-select")?.addEventListener("change", () => renderQrLabelSheet());
   $("#qr-template-preset")?.addEventListener("change", () => renderQrLabelSheet());
   $("#qr-include-human-id")?.addEventListener("change", () => renderQrLabelSheet());
-  $("#qr-print-sheet-btn")?.addEventListener("click", () => window.print());
+  $("#qr-print-sheet-btn")?.addEventListener("click", () => {
+    const template = $("#qr-template-preset")?.value || "";
+    const isThermal = template.startsWith("thermal");
+    if (isThermal) {
+      document.body.classList.add("printing-thermal-roll");
+      window.print();
+      setTimeout(() => document.body.classList.remove("printing-thermal-roll"), 1000);
+    } else {
+      window.print();
+    }
+  });
   $("#qr-open-camera-scanner-btn")?.addEventListener("click", () => {
     dlg.close();
     openQrCameraScanner();
@@ -41028,7 +41038,7 @@ function renderQrLabelSheet() {
     return;
   }
 
-  sheet.className = `qr-printable-sheet template-${template}`;
+  sheet.className = `qr-printable-sheet template-${template} ${template.replace(/_/g, '-')}`;
   sheet.innerHTML = itemsToLabel.map(item => {
     const qrSvg = generateCompactQR(item.url);
     return `
@@ -41918,6 +41928,42 @@ document.addEventListener("click", event => {
   }
   if (action === "open-vendor-export") {
     openVendorExport();
+    return;
+  }
+  if (action === "open-command-palette") {
+    openCommandPalette();
+    return;
+  }
+  if (action === "open-inclinometer") {
+    openInclinometer();
+    return;
+  }
+  if (action === "open-screen-gauge") {
+    openScreenGauge();
+    return;
+  }
+  if (action === "open-visual-caliper") {
+    openVisualCaliper();
+    return;
+  }
+  if (action === "open-cnc-deflection") {
+    openCncDeflection();
+    return;
+  }
+  if (action === "open-print-diagnostics") {
+    openPrintDiagnostics();
+    return;
+  }
+  if (action === "open-wood-distortion") {
+    openWoodDistortion();
+    return;
+  }
+  if (action === "open-sds-locker") {
+    openSdsLocker();
+    return;
+  }
+  if (action === "toggle-night-mode") {
+    toggleNightMode();
     return;
   }
 });
@@ -43323,3 +43369,1921 @@ function downloadVendorPoCsv() {
 window.removeCutlistPartRow = removeCutlistPartRow;
 window.deleteScrapVaultPiece = deleteScrapVaultPiece;
 
+
+/* ============================================================
+   WORKSHOP SUITES: 10 ULTIMATE ADVANCED WORKSHOP ENHANCEMENTS
+   1. Universal Command Palette (Ctrl+K / Cmd+K Spotlight Switcher)
+   2. Digital Inclinometer & Precision Angle Level (#inclinometer-dialog)
+   3. 1:1 Real-Scale Screen Bolt & Drill Pitch Gauge (#screen-gauge-dialog)
+   4. Visual Caliper & Reference Dimensioning (#visual-caliper-dialog)
+   5. Dynamic CNC Feeds, Speeds & Endmill Deflection Engine (#cnc-deflection-dialog)
+   6. 3D Print Visual Failure Diagnostician & Slicer Solver (#print-diagnostics-dialog)
+   7. Wood Grain Movement & Distortion Simulator (#wood-distortion-dialog)
+   8. Workshop Chemical Safety SDS Locker & Incompatible Mixing Checker (#sds-locker-dialog)
+   9. Thermal Roll Label Printer Support (Zebra 4x6 & Brother 2x1)
+   10. Red Night-Vision Darkroom Mode (theme-night)
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   FEATURE 10: Red Night-Vision Darkroom Mode
+   ------------------------------------------------------------ */
+function toggleNightMode(force) {
+  const isNight = typeof force === "boolean"
+    ? document.body.classList.toggle("theme-night", force)
+    : document.body.classList.toggle("theme-night");
+  try {
+    localStorage.setItem("workbench_theme_night", isNight ? "true" : "false");
+  } catch (e) {}
+  showToast(isNight ? "Red Night-Vision Mode Activated 🔴" : "Standard Lighting Restored 💡");
+  return isNight;
+}
+
+function restoreNightModeState() {
+  try {
+    if (localStorage.getItem("workbench_theme_night") === "true") {
+      document.body.classList.add("theme-night");
+    }
+  } catch (e) {}
+}
+
+/* ------------------------------------------------------------
+   FEATURE 1: Universal Command Palette (Ctrl+K / Cmd+K)
+   ------------------------------------------------------------ */
+let commandPaletteState = {
+  initialized: false,
+  selectedIndex: 0,
+  results: []
+};
+
+function getCommandPaletteIndex() {
+  const items = [
+    // 29 Craft Studios
+    { title: "Woodworking Studio", icon: "🪵", category: "Craft Studio", type: "view", target: "woodworking", keywords: "wood lumber cutlist joinery timber saw planer router table sanding miter dowel pocket screw" },
+    { title: "Textiles & Yarn Studio", icon: "🧶", category: "Craft Studio", type: "view", target: "textiles", keywords: "yarn fabric weave knit crochet stitch thread embroidery pixel sewing loom gauge needle" },
+    { title: "Music & Audio Studio", icon: "🎵", category: "Craft Studio", type: "view", target: "music", keywords: "audio sound metronome piano chords drum beat bpm synth keys scale sequencer bpm tempo" },
+    { title: "Electronics Studio", icon: "⚡", category: "Craft Studio", type: "view", target: "electronics", keywords: "circuits ohm led resistor capacitor timer 555 voltage arduino breadboard soldering wire smd sensor" },
+    { title: "Programming Studio", icon: "💻", category: "Craft Studio", type: "view", target: "programming", keywords: "code hex binary ascii mcu microcontroller base converter regex snippets python c cpp rust" },
+    { title: "Art & Design Studio", icon: "🎨", category: "Craft Studio", type: "view", target: "art", keywords: "design color palette contrast framing ratio canvas oil watercolor drawing sketch golden" },
+    { title: "Epoxy & Silicone Studio", icon: "🧪", category: "Craft Studio", type: "view", target: "resin", keywords: "epoxy silicone mix ratio casting degassing exotherm watch pot life hardener polyurethane mold" },
+    { title: "3D Printing Studio", icon: "🖨️", category: "Craft Studio", type: "view", target: "printing", keywords: "3d print fdm filament flow rate spool nozzle bed adhesion layers infill pla petg abs" },
+    { title: "Origami & Paper Craft", icon: "🦢", category: "Craft Studio", type: "view", target: "origami", keywords: "paper folding crease pattern miura tessellation crane sonobe modular washi" },
+    { title: "Laser Cutting Studio", icon: "🔥", category: "Craft Studio", type: "view", target: "laser", keywords: "laser cutting kerf engraving co2 diode acrylic vector box joint power speed pulse" },
+    { title: "Leathercraft Studio", icon: "🪡", category: "Craft Studio", type: "view", target: "leather", keywords: "leathercraft saddle stitch belt sizing oz mm pricking awl edge bevel burnish dye veg tan" },
+    { title: "Ceramics & Pottery Studio", icon: "🏺", category: "Craft Studio", type: "view", target: "ceramics", keywords: "pottery clay shrinkage glaze umf chemistry kiln pyrometric cone bisque slip wheel stoneware" },
+    { title: "Welding & Metal Studio", icon: "⚡", category: "Craft Studio", type: "view", target: "welding", keywords: "mig tig arc metal fabrication bend deduction heat input sheet metal steel aluminum weld" },
+    { title: "CNC Machining Studio", icon: "⚙️", category: "Craft Studio", type: "view", target: "cnc", keywords: "machining gcode feed speed router mill chip load scallop cusp endmill spindle aluminum" },
+    { title: "Blacksmithing & Blades", icon: "⚒️", category: "Craft Studio", type: "view", target: "blacksmith", keywords: "forging bladesmithing heat treat anvil quench temper hrc damascus steel hammer tongs blade" },
+    { title: "Fasteners & Tap Drills", icon: "🔩", category: "Craft Studio", type: "view", target: "fasteners", keywords: "bolts screws taps drills thread pitch clearance hole torque tension preload metric unc unf" },
+    { title: "Stained Glass Studio", icon: "🪟", category: "Craft Studio", type: "view", target: "glass", keywords: "stained glass copper foil 60/40 solder patina flux came grinder glass cutter lead leaded" },
+    { title: "Jewelry & Metalsmithing", icon: "💍", category: "Craft Studio", type: "view", target: "jewelry", keywords: "metalsmithing ring blank bezel wire wax casting gold silver soldering torch mandrel pickle" },
+    { title: "Bookbinding & Printmaking", icon: "📖", category: "Craft Studio", type: "view", target: "bookbinding", keywords: "book printmaking signature spine swell french link coptic folios grain direction endpaper kettle" },
+    { title: "Resin 3D Print (SLA)", icon: "🧪", category: "Craft Studio", type: "view", target: "sla", keywords: "sla msla resin uv 405nm cure time tsmc lift speed vat drain hollow wash cure photopolymer" },
+    { title: "Luthier & Instruments", icon: "🎸", category: "Craft Studio", type: "view", target: "luthier", keywords: "instruments guitar fret scale length 17.817 compound camber fretboard neck string tension intonation truss" },
+    { title: "Composites & Carbon Fiber", icon: "🌀", category: "Craft Studio", type: "view", target: "composites", keywords: "carbon fiber fiberglass resin stoichiometry fiber volume fraction vacuum compaction infusion layup core" },
+    { title: "Watchmaking & Horology", icon: "⏱️", category: "Craft Studio", type: "view", target: "horology", keywords: "watchmaking watch timegrapher beat error balance amplitude lift angle regulation jewel moebius water resist" },
+    { title: "Robotics & Actuators", icon: "🤖", category: "Craft Studio", type: "view", target: "robotics", keywords: "robotics motors stepper microstepping nema kinematics 2-dof reach torque driver steps per mm lipo" },
+    { title: "Bicycle & Framebuilding", icon: "🚲", category: "Craft Studio", type: "view", target: "bicycle", keywords: "framebuilding bicycle bike spoke erdmann wheel dish trail fork rake miter fishmouth lug brazing" },
+    { title: "Candle & Wax Studio", icon: "🕯️", category: "Craft Studio", type: "view", target: "candle", keywords: "candle wax soy beeswax fragrance wick container melt pour scent paraffin gel cure thermometer" },
+    { title: "Perfume & Fragrance", icon: "🌸", category: "Craft Studio", type: "view", target: "perfume", keywords: "perfume scent fragrance cologne aroma olfactory pyramid top heart base notes alcohol dilution edp edt ifra" },
+    { title: "Letter & Wax Seal", icon: "✉️", category: "Craft Studio", type: "view", target: "letter", keywords: "letter wax seal paper envelope calligraphy fountain pen stationery stamp gsm deckle epistolary wedding nib" },
+    { title: "Botanical Distillation", icon: "🌿", category: "Craft Studio", type: "view", target: "distillation", keywords: "distillation essential oil hydrosol extract steam alembic tincture herbal solvent alcohol maceration clevenger aroma" },
+
+    // Workshop Suites
+    { title: "Digital Inclinometer & Angle Level", icon: "📐", category: "Workshop Suite", type: "action", action: "open-inclinometer", keywords: "inclinometer angle tilt level spirit tare bevel plumb miter" },
+    { title: "1:1 Real-Scale Screen Bolt Gauge", icon: "📏", category: "Workshop Suite", type: "action", action: "open-screen-gauge", keywords: "bolt gauge pitch screen 1:1 ruler caliper screw metric imperial thread comb" },
+    { title: "Visual Photo Caliper Dimensioning", icon: "📷", category: "Workshop Suite", type: "action", action: "open-visual-caliper", keywords: "photo caliper visual camera dimension measure pixel scale reference" },
+    { title: "CNC Feeds, Speeds & Deflection Engine", icon: "⚙️", category: "Workshop Suite", type: "action", action: "open-cnc-deflection", keywords: "cnc speeds feeds endmill deflection chip load chip thinning mrr rpm" },
+    { title: "3D Print Visual Failure Diagnostician", icon: "🖨️", category: "Workshop Suite", type: "action", action: "open-print-diagnostics", keywords: "3d print diagnose defect stringing warping delamination clogs slicer fix" },
+    { title: "Wood Movement & Distortion Simulator", icon: "🪵", category: "Workshop Suite", type: "action", action: "open-wood-distortion", keywords: "wood grain movement cup warp twist moisture content plain quarter rift shrinkage" },
+    { title: "Chemical SDS Locker & Mixing Safety", icon: "☣️", category: "Workshop Suite", type: "action", action: "open-sds-locker", keywords: "sds chemical hazcom osha safety hazard incompatibility mix reaction bleach acid" },
+    { title: "2D Sheet Cutlist & Guillotine Nesting", icon: "✂️", category: "Workshop Suite", type: "action", action: "open-cutlist-optimizer", keywords: "cutlist sheet plywood guillotine nesting scrap vault kerf waste" },
+    { title: "Workshop Climate & Curing Advisor", icon: "🌡️", category: "Workshop Suite", type: "action", action: "open-climate-advisor", keywords: "climate temperature humidity dew point curing glue finish epoxy dry" },
+    { title: "Audio Tachometer & Sound Meter", icon: "🎙️", category: "Workshop Suite", type: "action", action: "open-audio-tuner", keywords: "audio sound db decibel tachometer rpm frequency mic tuner" },
+    { title: "Interactive Assembly Manual Generator", icon: "📖", category: "Workshop Suite", type: "action", action: "open-assembly-manual", keywords: "manual assembly step instruction exploded steps guide" },
+    { title: "Color Pigment & Wood Stain Blender", icon: "🎨", category: "Workshop Suite", type: "action", action: "open-pigment-blender", keywords: "pigment stain dye color mix formula cmyk recipe match" },
+    { title: "Vendor Purchase Order & Cart Aggregator", icon: "📦", category: "Workshop Suite", type: "action", action: "open-vendor-export", keywords: "vendor po purchase cart mcmaster digikey woodcraft amazon export csv" },
+    { title: "3D CAD & STL / G-Code Viewer", icon: "🧊", category: "Workshop Suite", type: "action", action: "open-cad-viewer", keywords: "cad stl 3d mesh gcode viewer slice" },
+    { title: "Workshop Floorplan Planner", icon: "🗺️", category: "Workshop Suite", type: "action", action: "open-floorplan", keywords: "floorplan layout shop bench saw planner machines grid" },
+    { title: "Equipment Maintenance & Machine Hours", icon: "🛠️", category: "Workshop Suite", type: "action", action: "open-maintenance-engine", keywords: "maintenance machine hours service lubrication belt blade lube" },
+    { title: "QR Label Studio & Bin Inventory", icon: "🏷️", category: "Workshop Suite", type: "action", action: "open-qr-studio", keywords: "qr label thermal bin drawer sticker zebra print barcode" },
+    { title: "Client Approval Portal & Spec Sheet", icon: "🤝", category: "Workshop Suite", type: "action", action: "open-client-portal", keywords: "client customer portal proof sign quote spec" },
+    { title: "Community Recipe & Material Share Hub", icon: "🌐", category: "Workshop Suite", type: "action", action: "open-community-hub", keywords: "community recipes cloud share formulas presets" },
+    { title: "Timelapse Reel Maker", icon: "🎬", category: "Workshop Suite", type: "action", action: "open-timelapse-reel", keywords: "timelapse video reel frames photos animate" },
+    { title: "Hands-Free Voice Shop Mode", icon: "🗣️", category: "Workshop Suite", type: "action", action: "open-shop-mode", keywords: "voice shop mode speech audio timer notes hands free" },
+    { title: "Workshop Reference & Conversion Tools", icon: "📐", category: "Workshop Suite", type: "action", action: "open-tools", keywords: "tools conversion fraction mm decimal thread gauge ruler" },
+
+    // Quick Actions
+    { title: "Toggle Red Night-Vision Darkroom Mode", icon: "🔴", category: "Quick Action", type: "action", action: "toggle-night-mode", keywords: "night dark red vision astronomy darkroom light theme" },
+    { title: "Start New Workshop Project", icon: "➕", category: "Quick Action", type: "action", action: "new-project", keywords: "new project create start add make" },
+    { title: "Scan QR Label with Camera", icon: "📷", category: "Quick Action", type: "action", action: "scan-qr", keywords: "scan qr camera bin code find item" },
+    { title: "Open Sync & Data Backup", icon: "⇄", category: "Quick Action", type: "view", target: "sync", keywords: "backup export json cloud sync restore download" }
+  ];
+
+  // Dynamic projects from state
+  if (state.projects && state.projects.length) {
+    state.projects.slice(0, 15).forEach(p => {
+      items.push({
+        title: `Project: ${p.title}`,
+        icon: "📋",
+        category: "Project",
+        type: "project",
+        target: p.id,
+        keywords: `${p.title} ${p.category || ""} ${p.tags ? p.tags.join(" ") : ""}`
+      });
+    });
+  }
+
+  return items;
+}
+
+function openCommandPalette() {
+  const dlg = $("#command-palette-dialog");
+  if (!dlg) return;
+
+  if (!commandPaletteState.initialized) {
+    const input = $("#command-palette-input");
+    const resultsContainer = $("#command-palette-results");
+
+    input?.addEventListener("input", () => {
+      filterCommandPalette(input.value);
+    });
+
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (commandPaletteState.results.length > 0) {
+          commandPaletteState.selectedIndex = (commandPaletteState.selectedIndex + 1) % commandPaletteState.results.length;
+          renderCommandPaletteItems();
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (commandPaletteState.results.length > 0) {
+          commandPaletteState.selectedIndex = (commandPaletteState.selectedIndex - 1 + commandPaletteState.results.length) % commandPaletteState.results.length;
+          renderCommandPaletteItems();
+        }
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const active = commandPaletteState.results[commandPaletteState.selectedIndex];
+        if (active) executeCommandPaletteItem(active);
+      } else if (e.key === "Escape") {
+        dlg.close();
+      }
+    });
+
+    resultsContainer?.addEventListener("click", (e) => {
+      const itemEl = e.target.closest(".cmd-palette-item");
+      if (!itemEl) return;
+      const idx = parseInt(itemEl.dataset.index, 10);
+      const item = commandPaletteState.results[idx];
+      if (item) executeCommandPaletteItem(item);
+    });
+
+    commandPaletteState.initialized = true;
+  }
+
+  const input = $("#command-palette-input");
+  if (input) input.value = "";
+  filterCommandPalette("");
+  dlg.showModal();
+  input?.focus();
+}
+
+function filterCommandPalette(query) {
+  const cleanQ = (query || "").trim().toLowerCase();
+  const allItems = getCommandPaletteIndex();
+
+  if (!cleanQ) {
+    // Show top suites and studios by default
+    commandPaletteState.results = allItems.slice(0, 14);
+  } else {
+    const terms = cleanQ.split(/\s+/);
+    commandPaletteState.results = allItems.filter(item => {
+      const corpus = `${item.title} ${item.category} ${item.keywords || ""}`.toLowerCase();
+      return terms.every(t => corpus.includes(t));
+    }).slice(0, 16);
+  }
+
+  commandPaletteState.selectedIndex = 0;
+  renderCommandPaletteItems();
+}
+
+function renderCommandPaletteItems() {
+  const container = $("#command-palette-results");
+  if (!container) return;
+
+  if (commandPaletteState.results.length === 0) {
+    container.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No craft studio, suite, or project matches your query.</div>';
+    return;
+  }
+
+  container.innerHTML = commandPaletteState.results.map((item, idx) => {
+    const isSelected = idx === commandPaletteState.selectedIndex;
+    return `
+      <div class="cmd-palette-item ${isSelected ? "active" : ""}" data-index="${idx}" role="button" tabindex="0">
+        <span class="cmd-palette-item-icon">${item.icon || "🔍"}</span>
+        <div class="cmd-palette-item-info">
+          <div class="cmd-palette-item-title">${escapeHTML(item.title)}</div>
+        </div>
+        <span class="cmd-palette-item-badge">${escapeHTML(item.category)}</span>
+      </div>
+    `;
+  }).join("");
+
+  const activeEl = container.querySelector(".cmd-palette-item.active");
+  if (activeEl) {
+    activeEl.scrollIntoView({ block: "nearest" });
+  }
+}
+
+function executeCommandPaletteItem(item) {
+  const dlg = $("#command-palette-dialog");
+  if (dlg?.open) dlg.close();
+
+  if (item.type === "view") {
+    switchView(item.target);
+  } else if (item.type === "project") {
+    if (typeof openProjectDetail === "function") {
+      openProjectDetail(item.target);
+    } else {
+      switchView("projects");
+    }
+  } else if (item.type === "action") {
+    if (item.action === "open-inclinometer") openInclinometer();
+    else if (item.action === "open-screen-gauge") openScreenGauge();
+    else if (item.action === "open-visual-caliper") openVisualCaliper();
+    else if (item.action === "open-cnc-deflection") openCncDeflection();
+    else if (item.action === "open-print-diagnostics") openPrintDiagnostics();
+    else if (item.action === "open-wood-distortion") openWoodDistortion();
+    else if (item.action === "open-sds-locker") openSdsLocker();
+    else if (item.action === "open-cutlist-optimizer") openCutlistOptimizer();
+    else if (item.action === "open-climate-advisor") openClimateAdvisor();
+    else if (item.action === "open-audio-tuner") openAudioTuner();
+    else if (item.action === "open-assembly-manual") openAssemblyManual();
+    else if (item.action === "open-pigment-blender") openPigmentBlender();
+    else if (item.action === "open-vendor-export") openVendorExport();
+    else if (item.action === "open-cad-viewer") openCadViewer();
+    else if (item.action === "open-floorplan") openFloorplanPlanner();
+    else if (item.action === "open-maintenance-engine") openEquipmentMaintenance();
+    else if (item.action === "open-qr-studio") openQrLabelStudio();
+    else if (item.action === "open-client-portal") openClientPortal();
+    else if (item.action === "open-community-hub") openCommunityHub();
+    else if (item.action === "open-timelapse-reel") openTimelapseReel();
+    else if (item.action === "open-shop-mode") openShopMode();
+    else if (item.action === "open-tools") {
+      const td = $("#tools-dialog");
+      if (td) td.showModal();
+    }
+    else if (item.action === "toggle-night-mode") toggleNightMode();
+    else if (item.action === "new-project") {
+      if (typeof openProjectForm === "function") openProjectForm();
+      else if (typeof openNewProjectModal === "function") openNewProjectModal();
+    }
+    else if (item.action === "scan-qr") openQrCameraScanner();
+  }
+}
+
+// Global hotkey Ctrl+K / Cmd+K
+document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+    e.preventDefault();
+    openCommandPalette();
+  }
+});
+
+/* ------------------------------------------------------------
+   FEATURE 2: Digital Inclinometer & Precision Angle Level
+   ------------------------------------------------------------ */
+let inclinometerState = {
+  rawAngle: 0,
+  tareOffset: 0,
+  targetAngle: 0,
+  beepEnabled: true,
+  lastBeep: 0,
+  initialized: false
+};
+
+let inclinometerAudioCtx = null;
+function playInclinometerBeepTone() {
+  if (!inclinometerState.beepEnabled) return;
+  const now = Date.now();
+  if (now - inclinometerState.lastBeep < 350) return;
+  inclinometerState.lastBeep = now;
+
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!inclinometerAudioCtx) inclinometerAudioCtx = new AudioContextClass();
+    if (inclinometerAudioCtx.state === "suspended") inclinometerAudioCtx.resume();
+
+    const osc = inclinometerAudioCtx.createOscillator();
+    const gain = inclinometerAudioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(1050, inclinometerAudioCtx.currentTime);
+    gain.gain.setValueAtTime(0.08, inclinometerAudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, inclinometerAudioCtx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(inclinometerAudioCtx.destination);
+    osc.start();
+    osc.stop(inclinometerAudioCtx.currentTime + 0.12);
+  } catch (e) {}
+}
+
+function openInclinometer() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#inclinometer-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!inclinometerState.initialized) {
+    $("#inclinometer-tare-btn")?.addEventListener("click", tareInclinometer);
+    $("#inclinometer-reset-tare-btn")?.addEventListener("click", resetTareInclinometer);
+    $("#inclinometer-beep-toggle")?.addEventListener("change", (e) => {
+      inclinometerState.beepEnabled = !!e.target.checked;
+    });
+
+    // Angle presets
+    $$(".inclinometer-target-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        $$(".inclinometer-target-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        inclinometerState.targetAngle = parseFloat(btn.dataset.angle) || 0;
+        updateInclinometer(inclinometerState.rawAngle);
+      });
+    });
+
+    // Simulation slider
+    const simSlider = $("#inclinometer-sim-slider");
+    simSlider?.addEventListener("input", (e) => {
+      const val = parseFloat(e.target.value) || 0;
+      if ($("#inclinometer-sim-val")) $("#inclinometer-sim-val").textContent = val.toFixed(1) + "°";
+      updateInclinometer(val);
+    });
+
+    // Sensor support (accelerometer / gyro)
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener("deviceorientation", (e) => {
+        if (!dlg.open) return;
+        // gamma: left-to-right tilt in degrees (-90 to 90)
+        // beta: front-to-back tilt in degrees (-180 to 180)
+        let angle = e.gamma;
+        if (typeof angle === "number" && !isNaN(angle)) {
+          if (simSlider) simSlider.value = angle.toFixed(1);
+          if ($("#inclinometer-sim-val")) $("#inclinometer-sim-val").textContent = angle.toFixed(1) + "°";
+          updateInclinometer(angle);
+        }
+      });
+    }
+
+    inclinometerState.initialized = true;
+  }
+
+  updateInclinometer(inclinometerState.rawAngle);
+}
+
+function updateInclinometer(angle) {
+  inclinometerState.rawAngle = angle;
+  const net = angle - inclinometerState.tareOffset;
+
+  const degEl = $("#inclinometer-degrees");
+  if (degEl) {
+    degEl.innerHTML = `${net.toFixed(1)}<span style="font-size:24px;color:var(--muted)">°</span>`;
+  }
+
+  // Spirit level bubble (maps -45 deg to 45 deg across 5% to 95%)
+  const bubble = $("#inclinometer-bubble");
+  if (bubble) {
+    let pct = 50 + (net / 45) * 45;
+    pct = Math.max(5, Math.min(95, pct));
+    bubble.style.left = `${pct}%`;
+  }
+
+  const hero = $("#inclinometer-hero-display");
+  const status = $("#inclinometer-target-status");
+  const diff = Math.abs(net - inclinometerState.targetAngle);
+
+  if (diff <= 0.2) {
+    hero?.classList.add("inclinometer-locked");
+    if (status) {
+      status.textContent = `Target Locked (${inclinometerState.targetAngle.toFixed(1)}°) ✓`;
+      status.style.color = "var(--green)";
+    }
+    playInclinometerBeepTone();
+  } else {
+    hero?.classList.remove("inclinometer-locked");
+    if (status) {
+      status.style.color = "";
+      if (inclinometerState.targetAngle !== 0) {
+        const offset = net - inclinometerState.targetAngle;
+        status.textContent = `${offset > 0 ? "+" : ""}${offset.toFixed(1)}° from ${inclinometerState.targetAngle.toFixed(1)}° target`;
+      } else {
+        status.textContent = Math.abs(net) < 0.3 ? "Level (0.0°)" : `${net > 0 ? "+" : ""}${net.toFixed(1)}°`;
+      }
+    }
+  }
+}
+
+function tareInclinometer() {
+  inclinometerState.tareOffset = inclinometerState.rawAngle;
+  updateInclinometer(inclinometerState.rawAngle);
+  showToast("Relative zero (tare) set! 📐");
+}
+
+function resetTareInclinometer() {
+  inclinometerState.tareOffset = 0;
+  updateInclinometer(inclinometerState.rawAngle);
+  showToast("Absolute zero restored! 📐");
+}
+
+/* ------------------------------------------------------------
+   FEATURE 3: 1:1 Real-Scale Screen Bolt & Drill Pitch Gauge
+   ------------------------------------------------------------ */
+let screenGaugeState = {
+  zoom: 100,
+  activeTab: "metric",
+  calibVisible: true,
+  initialized: false
+};
+
+const METRIC_BOLTS = [
+  { name: "M2", dia: 2.0, pitch: 0.4, tapDrill: 1.6, hexHead: 4.0 },
+  { name: "M2.5", dia: 2.5, pitch: 0.45, tapDrill: 2.05, hexHead: 5.0 },
+  { name: "M3", dia: 3.0, pitch: 0.5, tapDrill: 2.5, hexHead: 5.5 },
+  { name: "M4", dia: 4.0, pitch: 0.7, tapDrill: 3.3, hexHead: 7.0 },
+  { name: "M5", dia: 5.0, pitch: 0.8, tapDrill: 4.2, hexHead: 8.0 },
+  { name: "M6", dia: 6.0, pitch: 1.0, tapDrill: 5.0, hexHead: 10.0 },
+  { name: "M8", dia: 8.0, pitch: 1.25, tapDrill: 6.8, hexHead: 13.0 },
+  { name: "M10", dia: 10.0, pitch: 1.5, tapDrill: 8.5, hexHead: 17.0 },
+  { name: "M12", dia: 12.0, pitch: 1.75, tapDrill: 10.2, hexHead: 19.0 },
+  { name: "M16", dia: 16.0, pitch: 2.0, tapDrill: 14.0, hexHead: 24.0 }
+];
+
+const IMPERIAL_BOLTS = [
+  { name: "#4", dia: 2.84, dec: '0.112"', pitch: "40 TPI", tapDrill: "#43 (2.26mm)" },
+  { name: "#6", dia: 3.51, dec: '0.138"', pitch: "32 TPI", tapDrill: "#36 (2.79mm)" },
+  { name: "#8", dia: 4.17, dec: '0.164"', pitch: "32 TPI", tapDrill: "#29 (3.45mm)" },
+  { name: "#10", dia: 4.83, dec: '0.190"', pitch: "24/32 TPI", tapDrill: "#25 / #21" },
+  { name: '1/4"', dia: 6.35, dec: '0.250"', pitch: "20 / 28 TPI", tapDrill: '#7 (5.1mm)' },
+  { name: '5/16"', dia: 7.94, dec: '0.312"', pitch: "18 / 24 TPI", tapDrill: 'F (6.5mm)' },
+  { name: '3/8"', dia: 9.53, dec: '0.375"', pitch: "16 / 24 TPI", tapDrill: '5/16" (7.9mm)' },
+  { name: '1/2"', dia: 12.70, dec: '0.500"', pitch: "13 / 20 TPI", tapDrill: '27/64" (10.7mm)' }
+];
+
+const THREAD_PITCHES = [
+  { label: "0.40 mm", valMm: 0.40, std: "M2 Coarse" },
+  { label: "0.50 mm", valMm: 0.50, std: "M3 Coarse" },
+  { label: "0.70 mm", valMm: 0.70, std: "M4 Coarse" },
+  { label: "0.80 mm", valMm: 0.80, std: "M5 Coarse" },
+  { label: "1.00 mm", valMm: 1.00, std: "M6 Coarse" },
+  { label: "1.25 mm", valMm: 1.25, std: "M8 Coarse" },
+  { label: "1.50 mm", valMm: 1.50, std: "M10 Coarse" },
+  { label: "1.75 mm", valMm: 1.75, std: "M12 Coarse" },
+  { label: "2.00 mm", valMm: 2.00, std: "M16 Coarse" },
+  { label: "32 TPI", valMm: 25.4 / 32, std: '#6-32, #8-32' },
+  { label: "24 TPI", valMm: 25.4 / 24, std: '#10-24 UNC' },
+  { label: "20 TPI", valMm: 25.4 / 20, std: '1/4"-20 UNC' },
+  { label: "18 TPI", valMm: 25.4 / 18, std: '5/16"-18 UNC' },
+  { label: "16 TPI", valMm: 25.4 / 16, std: '3/8"-16 UNC' },
+  { label: "13 TPI", valMm: 25.4 / 13, std: '1/2"-13 UNC' }
+];
+
+function openScreenGauge() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#screen-gauge-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!screenGaugeState.initialized) {
+    const zoomSlider = $("#screen-gauge-zoom-slider");
+    zoomSlider?.addEventListener("input", (e) => {
+      screenGaugeState.zoom = parseFloat(e.target.value) || 100;
+      if ($("#screen-gauge-zoom-val")) $("#screen-gauge-zoom-val").textContent = screenGaugeState.zoom + "%";
+      updateScreenGaugeCalibrationTarget();
+      renderScreenGaugeTab();
+    });
+
+    $("#screen-gauge-toggle-calib-btn")?.addEventListener("click", () => {
+      screenGaugeState.calibVisible = !screenGaugeState.calibVisible;
+      const target = $("#screen-gauge-credit-card-target");
+      const zoomWrap = $("#screen-gauge-zoom-slider")?.parentElement;
+      const btn = $("#screen-gauge-toggle-calib-btn");
+      if (target) target.style.display = screenGaugeState.calibVisible ? "flex" : "none";
+      if (zoomWrap) zoomWrap.style.display = screenGaugeState.calibVisible ? "flex" : "none";
+      if (btn) btn.textContent = screenGaugeState.calibVisible ? "Hide Calibrator" : "Show Calibrator";
+    });
+
+    $$(".screen-gauge-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        $$(".screen-gauge-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        screenGaugeState.activeTab = tab.dataset.gauge;
+        renderScreenGaugeTab();
+      });
+    });
+
+    screenGaugeState.initialized = true;
+  }
+
+  updateScreenGaugeCalibrationTarget();
+  renderScreenGaugeTab();
+}
+
+function updateScreenGaugeCalibrationTarget() {
+  // ISO/IEC 7810 ID-1 standard credit card: 85.60 mm wide x 53.98 mm high
+  // CSS 1mm = 3.779527559 px at 96 DPI
+  const scale = 3.779527559 * (screenGaugeState.zoom / 100);
+  const target = $("#screen-gauge-credit-card-target");
+  if (target) {
+    target.style.width = `${(85.60 * scale).toFixed(1)}px`;
+    target.style.height = `${(53.98 * scale).toFixed(1)}px`;
+  }
+}
+
+function renderScreenGaugeTab() {
+  const vp = $("#screen-gauge-viewport");
+  if (!vp) return;
+
+  const pxPerMm = 3.779527559 * (screenGaugeState.zoom / 100);
+
+  if (screenGaugeState.activeTab === "metric") {
+    vp.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px;text-align:center">
+        HOLD BOLT OR DRILL DIRECTLY OVER SCREEN CIRCLE TO MATCH DIAMETER 1:1
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(135px, 1fr));gap:16px">
+        ${METRIC_BOLTS.map(b => {
+          const dPx = (b.dia * pxPerMm).toFixed(1);
+          const tapPx = (b.tapDrill * pxPerMm).toFixed(1);
+          return `
+            <div class="panel" style="display:flex;flex-direction:column;align-items:center;padding:12px;text-align:center;background:var(--surface)">
+              <div style="width:70px;height:70px;display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:8px">
+                <!-- Outer Hole Circle -->
+                <div style="width:${dPx}px;height:${dPx}px;border-radius:50%;border:2px solid var(--primary);box-shadow:inset 0 0 4px rgba(217,119,6,0.3);background:rgba(217,119,6,0.06)"></div>
+                <!-- Inner Tap Drill Outline -->
+                <div style="position:absolute;width:${tapPx}px;height:${tapPx}px;border-radius:50%;border:1px dashed var(--muted);opacity:0.6;pointer-events:none"></div>
+              </div>
+              <strong style="font-size:14px;color:var(--primary)">${b.name}</strong>
+              <div style="font-size:11px;color:var(--muted);font-family:monospace">${b.dia.toFixed(1)} mm</div>
+              <div style="font-size:10px;color:var(--text);margin-top:4px">Tap: ${b.tapDrill}mm (P: ${b.pitch})</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  } else if (screenGaugeState.activeTab === "imperial") {
+    vp.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px;text-align:center">
+        HOLD INCH FASTENERS DIRECTLY OVER CIRCLE TO MATCH 1:1 REAL DIAMETER
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(135px, 1fr));gap:16px">
+        ${IMPERIAL_BOLTS.map(b => {
+          const dPx = (b.dia * pxPerMm).toFixed(1);
+          return `
+            <div class="panel" style="display:flex;flex-direction:column;align-items:center;padding:12px;text-align:center;background:var(--surface)">
+              <div style="width:70px;height:70px;display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:8px">
+                <div style="width:${dPx}px;height:${dPx}px;border-radius:50%;border:2px solid var(--primary);box-shadow:inset 0 0 4px rgba(217,119,6,0.3);background:rgba(217,119,6,0.06)"></div>
+              </div>
+              <strong style="font-size:14px;color:var(--primary)">${b.name}</strong>
+              <div style="font-size:11px;color:var(--muted);font-family:monospace">${b.dec} (${b.dia.toFixed(2)} mm)</div>
+              <div style="font-size:10px;color:var(--text);margin-top:4px">Tap: ${b.tapDrill}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  } else if (screenGaugeState.activeTab === "pitches") {
+    vp.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px;text-align:center">
+        REST THREAD CRESTS DIRECTLY AGAINST SERRATED COMB TEETH BELOW
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px">
+        ${THREAD_PITCHES.map(p => {
+          const pitchPx = p.valMm * pxPerMm;
+          return `
+            <div class="panel" style="padding:10px 14px;background:var(--surface)">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <strong style="font-size:13px;color:var(--primary)">${p.label}</strong>
+                <span style="font-size:10px;color:var(--muted)">${p.std}</span>
+              </div>
+              <!-- Serrated repeating SVG comb -->
+              <div style="height:28px;width:100%;overflow:hidden;border:1px solid var(--border);border-radius:4px;background:#18181b">
+                <svg width="100%" height="28" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <pattern id="comb-${p.label.replace(/[^a-z0-9]/gi, '')}" width="${pitchPx}" height="28" patternUnits="userSpaceOnUse">
+                      <polygon points="0,28 ${pitchPx / 2},10 ${pitchPx},28" fill="#d97706" />
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="28" fill="url(#comb-${p.label.replace(/[^a-z0-9]/gi, '')})" />
+                </svg>
+              </div>
+              <div style="font-size:9.5px;color:var(--muted);margin-top:4px;text-align:right">Tooth Spacing: ${p.valMm.toFixed(2)} mm</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  } else {
+    // Drill Bit Index
+    vp.innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px;text-align:center">
+        DRILL BIT APERTURE GAUGE (1:1 PHYSICAL CLEARANCE FIT)
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(80px, 1fr));gap:10px">
+        ${[1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0].map(d => {
+          const dPx = (d * pxPerMm).toFixed(1);
+          return `
+            <div class="panel" style="padding:8px 4px;display:flex;flex-direction:column;align-items:center;background:var(--surface)">
+              <div style="width:50px;height:50px;display:flex;align-items:center;justify-content:center">
+                <div style="width:${dPx}px;height:${dPx}px;border-radius:50%;background:#d97706;border:1px solid #b45309"></div>
+              </div>
+              <strong style="font-size:12px;margin-top:4px">${d.toFixed(1)}</strong>
+              <span style="font-size:9px;color:var(--muted)">mm</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+}
+
+/* ------------------------------------------------------------
+   FEATURE 4: Visual Caliper & Reference Dimensioning
+   ------------------------------------------------------------ */
+let caliperState = {
+  img: null,
+  mode: "calibrate", // "calibrate" | "measure"
+  refMm: 85.6, // default credit card width
+  pxPerMm: null,
+  points: [],
+  measurements: [],
+  initialized: false
+};
+
+function openVisualCaliper() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#visual-caliper-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!caliperState.initialized) {
+    const fileInput = $("#caliper-file-input");
+    const canvas = $("#caliper-canvas");
+
+    $("#caliper-sample-btn")?.addEventListener("click", () => {
+      loadCaliperSampleImage();
+    });
+
+    fileInput?.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        const img = new Image();
+        img.onload = () => {
+          caliperState.img = img;
+          caliperState.measurements = [];
+          caliperState.points = [];
+          caliperState.pxPerMm = null;
+          if ($("#caliper-scale-ratio")) $("#caliper-scale-ratio").textContent = "— px/mm";
+          renderCaliperCanvas();
+          updateCaliperStatus();
+        };
+        img.src = re.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    $("#caliper-mode-ref")?.addEventListener("click", () => {
+      caliperState.mode = "calibrate";
+      caliperState.points = [];
+      updateCaliperModeButtons();
+      updateCaliperStatus();
+      renderCaliperCanvas();
+    });
+
+    $("#caliper-mode-meas")?.addEventListener("click", () => {
+      if (!caliperState.pxPerMm) {
+        showToast("Please calibrate a reference line first! 📷");
+        return;
+      }
+      caliperState.mode = "measure";
+      caliperState.points = [];
+      updateCaliperModeButtons();
+      updateCaliperStatus();
+      renderCaliperCanvas();
+    });
+
+    $("#caliper-ref-preset")?.addEventListener("change", (e) => {
+      caliperState.refMm = parseFloat(e.target.value) || 85.6;
+    });
+
+    $("#caliper-clear-btn")?.addEventListener("click", () => {
+      caliperState.measurements = [];
+      caliperState.points = [];
+      renderCaliperCanvas();
+      showToast("Measurements cleared 🗑️");
+    });
+
+    // Canvas click dispatcher
+    canvas?.addEventListener("click", (e) => {
+      handleCaliperCanvasClick(e);
+    });
+
+    caliperState.initialized = true;
+  }
+
+  if (!caliperState.img) {
+    loadCaliperSampleImage();
+  } else {
+    renderCaliperCanvas();
+  }
+}
+
+function updateCaliperModeButtons() {
+  const refBtn = $("#caliper-mode-ref");
+  const measBtn = $("#caliper-mode-meas");
+  if (caliperState.mode === "calibrate") {
+    refBtn?.classList.add("button-primary", "active");
+    refBtn?.classList.remove("button-outline");
+    measBtn?.classList.add("button-outline");
+    measBtn?.classList.remove("button-primary", "active");
+  } else {
+    measBtn?.classList.add("button-primary", "active");
+    measBtn?.classList.remove("button-outline");
+    refBtn?.classList.add("button-outline");
+    refBtn?.classList.remove("button-primary", "active");
+  }
+}
+
+function updateCaliperStatus() {
+  const status = $("#caliper-status-text");
+  if (!status) return;
+
+  if (caliperState.mode === "calibrate") {
+    if (caliperState.points.length === 0) {
+      status.textContent = "Click POINT 1 at the start of your known reference object (e.g. credit card edge or coin).";
+    } else {
+      status.textContent = "Click POINT 2 at the opposite edge of the reference object.";
+    }
+  } else {
+    if (caliperState.points.length === 0) {
+      status.textContent = "Click POINT 1 on the part or feature you wish to dimension.";
+    } else {
+      status.textContent = "Click POINT 2 to finish dimension line.";
+    }
+  }
+}
+
+function loadCaliperSampleImage() {
+  const canvas = $("#caliper-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  // Generate high-contrast photo workbench calibration sample
+  ctx.fillStyle = "#1e2124";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Grid
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 30) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 30) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+
+  // Reference standard card (width = 340px => 3.97 px/mm)
+  ctx.fillStyle = "#2563eb";
+  ctx.roundRect(80, 140, 340, 214, 12);
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 16px sans-serif";
+  ctx.fillText("STANDARD ID CARD / CREDIT CARD", 100, 190);
+  ctx.font = "13px monospace";
+  ctx.fillText("Exact Width = 85.60 mm", 100, 220);
+  ctx.fillText("Height = 53.98 mm", 100, 244);
+
+  // Sample hardware to measure
+  // Bolt
+  ctx.fillStyle = "#94a3b8";
+  ctx.fillRect(520, 200, 180, 48); // shaft (length = 180px, dia = 48px)
+  // Bolt head
+  ctx.fillStyle = "#cbd5e1";
+  ctx.fillRect(480, 184, 40, 80);
+
+  // Hex socket
+  ctx.fillStyle = "#475569";
+  ctx.fillRect(490, 208, 20, 32);
+
+  ctx.fillStyle = "#f59e0b";
+  ctx.font = "bold 13px sans-serif";
+  ctx.fillText("Sample Hex Bolt to Dimension", 500, 160);
+
+  const img = new Image();
+  img.src = canvas.toDataURL();
+  img.onload = () => {
+    caliperState.img = img;
+    caliperState.measurements = [];
+    caliperState.points = [];
+    caliperState.pxPerMm = null;
+    if ($("#caliper-scale-ratio")) $("#caliper-scale-ratio").textContent = "— px/mm";
+    updateCaliperStatus();
+    renderCaliperCanvas();
+  };
+}
+
+function handleCaliperCanvasClick(e) {
+  const canvas = $("#caliper-canvas");
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+
+  caliperState.points.push({ x, y });
+
+  if (caliperState.points.length === 2) {
+    const p1 = caliperState.points[0];
+    const p2 = caliperState.points[1];
+    const distPx = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+    if (caliperState.mode === "calibrate") {
+      caliperState.pxPerMm = distPx / caliperState.refMm;
+      if ($("#caliper-scale-ratio")) {
+        $("#caliper-scale-ratio").textContent = `${caliperState.pxPerMm.toFixed(2)} px/mm`;
+      }
+      showToast(`Calibrated: ${caliperState.pxPerMm.toFixed(2)} px/mm! Now click part points to measure. 🎯`);
+      caliperState.mode = "measure";
+      caliperState.points = [];
+      updateCaliperModeButtons();
+    } else {
+      // Measurement mode
+      const mm = distPx / caliperState.pxPerMm;
+      const inch = mm / 25.4;
+      caliperState.measurements.push({ p1, p2, mm, inch });
+      caliperState.points = [];
+    }
+  }
+
+  updateCaliperStatus();
+  renderCaliperCanvas();
+}
+
+function renderCaliperCanvas() {
+  const canvas = $("#caliper-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (caliperState.img) {
+    ctx.drawImage(caliperState.img, 0, 0, canvas.width, canvas.height);
+  }
+
+  // Draw active point
+  if (caliperState.points.length === 1) {
+    const p = caliperState.points[0];
+    ctx.fillStyle = "#ef4444";
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Draw stored measurements
+  caliperState.measurements.forEach((m, idx) => {
+    drawCaliperDimensionLine(ctx, m.p1, m.p2, `${m.mm.toFixed(1)} mm (${m.inch.toFixed(2)}")`, "#10b981");
+  });
+}
+
+function drawCaliperDimensionLine(ctx, p1, p2, label, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2.5;
+
+  // Main line
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.stroke();
+
+  // End circles / cross-ticks
+  ctx.beginPath(); ctx.arc(p1.x, p1.y, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(p2.x, p2.y, 4, 0, Math.PI * 2); ctx.fill();
+
+  // Dimension label box in center
+  const midX = (p1.x + p2.x) / 2;
+  const midY = (p1.y + p2.y) / 2;
+
+  ctx.font = "bold 13px monospace";
+  const textWidth = ctx.measureText(label).width;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+  ctx.fillRect(midX - textWidth / 2 - 6, midY - 12, textWidth + 12, 22);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(midX - textWidth / 2 - 6, midY - 12, textWidth + 12, 22);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, midX, midY);
+  ctx.restore();
+}
+
+/* ------------------------------------------------------------
+   FEATURE 5: Dynamic CNC Feeds, Speeds & Endmill Deflection Engine
+   ------------------------------------------------------------ */
+let cncDeflectionInitialized = false;
+
+function openCncDeflection() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#cnc-deflection-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!cncDeflectionInitialized) {
+    const inputs = [
+      "#cnc-mat-select",
+      "#cnc-tool-dia",
+      "#cnc-tool-flutes",
+      "#cnc-tool-stickout",
+      "#cnc-tool-mat",
+      "#cnc-doc",
+      "#cnc-woc"
+    ];
+    inputs.forEach(sel => {
+      $(sel)?.addEventListener("input", calculateCncDeflection);
+      $(sel)?.addEventListener("change", calculateCncDeflection);
+    });
+    cncDeflectionInitialized = true;
+  }
+
+  calculateCncDeflection();
+}
+
+function calculateCncDeflection() {
+  const matSelect = $("#cnc-mat-select");
+  const toolDia = parseFloat($("#cnc-tool-dia")?.value) || 6.35;
+  const toolFlutes = parseInt($("#cnc-tool-flutes")?.value, 10) || 2;
+  const stickout = parseFloat($("#cnc-tool-stickout")?.value) || 22;
+  const toolMat = $("#cnc-tool-mat")?.value || "carbide";
+  const doc = parseFloat($("#cnc-doc")?.value) || 3.175;
+  const woc = parseFloat($("#cnc-woc")?.value) || 6.35;
+
+  const opt = matSelect?.selectedOptions?.[0];
+  const kc = parseFloat(opt?.dataset?.kc) || 250;
+  const sfm = parseFloat(opt?.dataset?.sfm) || 350;
+
+  // Surface speed Vc in m/min = SFM * 0.3048
+  const vc = sfm * 0.3048;
+
+  // Spindle RPM = (Vc * 1000) / (pi * D)
+  let rpm = (vc * 1000) / (Math.PI * toolDia);
+  rpm = Math.max(1200, Math.min(24000, Math.round(rpm)));
+
+  // Base nominal chip load fz0
+  let fz0 = 0.05;
+  if (toolDia > 10) fz0 = 0.09;
+  else if (toolDia > 5) fz0 = 0.06;
+  else if (toolDia < 3) fz0 = 0.025;
+
+  // Chip thinning factor CTF = 1 / sqrt( (ae/D) * (2 - (ae/D)) ) when ae < D/2
+  let ctf = 1.0;
+  if (woc < toolDia / 2 && woc > 0.01) {
+    const ratio = woc / toolDia;
+    ctf = 1.0 / Math.sqrt(ratio * (2.0 - ratio));
+    ctf = Math.min(ctf, 3.2);
+  }
+  const fzPrime = fz0 * ctf;
+
+  // Feed rate Vf = RPM * Z * fzPrime (mm/min)
+  const vf = Math.round(rpm * toolFlutes * fzPrime);
+
+  // MRR = (doc * woc * vf) / 1000 in cm3/min
+  const mrr = (doc * woc * vf) / 1000;
+
+  // Tangential cutting force Fc = kc * doc * fz0 * sqrt(woc / toolDia) in Newtons
+  const fc = kc * doc * fz0 * Math.sqrt(Math.min(1.0, woc / toolDia));
+
+  // Young's modulus E in Pa: Carbide = 600 GPa, HSS = 210 GPa
+  const E = (toolMat === "carbide" ? 600 : 210) * 1e9;
+
+  // Second moment of area I = (pi * D^4) / 64 (in meters^4)
+  const Dm = toolDia * 1e-3;
+  const I = (Math.PI * Math.pow(Dm, 4)) / 64;
+
+  // Cantilever deflection delta = (Fc * L^3) / (3 * E * I) (in micrometers)
+  const Lm = stickout * 1e-3;
+  const deltaM = (fc * Math.pow(Lm, 3)) / (3 * E * I);
+  const deflectionUm = Math.max(0.1, deltaM * 1e6);
+
+  // Update DOM
+  if ($("#cnc-res-rpm")) $("#cnc-res-rpm").textContent = `${rpm.toLocaleString()} RPM`;
+  if ($("#cnc-res-feed")) $("#cnc-res-feed").textContent = `${vf.toLocaleString()} mm/min`;
+  if ($("#cnc-res-chipload")) $("#cnc-res-chipload").textContent = `${fzPrime.toFixed(3)} mm/t ${ctf > 1.05 ? "(Thinned)" : ""}`;
+  if ($("#cnc-res-mrr")) $("#cnc-res-mrr").textContent = `${mrr.toFixed(1)} cm³/min`;
+  if ($("#cnc-res-deflect")) $("#cnc-res-deflect").textContent = `${deflectionUm.toFixed(1)} µm`;
+
+  const badge = $("#cnc-deflect-status");
+  const advice = $("#cnc-deflect-advice");
+  if (badge) {
+    if (deflectionUm < 10) {
+      badge.className = "cnc-deflect-badge";
+      badge.style.background = "rgba(16,185,129,0.15)";
+      badge.style.color = "var(--green)";
+      badge.textContent = "✓ Optimal Stiffness (<10 µm)";
+    } else if (deflectionUm <= 25) {
+      badge.className = "cnc-deflect-badge";
+      badge.style.background = "rgba(217,119,6,0.15)";
+      badge.style.color = "var(--primary)";
+      badge.textContent = "⚠️ Acceptable Roughing (10–25 µm)";
+    } else {
+      badge.className = "cnc-deflect-badge";
+      badge.style.background = "rgba(239,68,68,0.15)";
+      badge.style.color = "var(--red)";
+      badge.textContent = "❌ Excessive Deflection (>25 µm)";
+    }
+  }
+
+  if (advice) {
+    if (deflectionUm < 10) {
+      advice.textContent = `Rigid toolpath. Expected dimensional error <0.01 mm. Optimal chip evacuation and tool longevity for ${opt?.text || "material"}.`;
+    } else if (deflectionUm <= 25) {
+      advice.textContent = `Moderate tool flex detected (${deflectionUm.toFixed(1)} µm). Suitable for roughing passes, but schedule a 0.25 mm spring finishing pass to avoid dimensional tapering.`;
+    } else {
+      const suggestedStickout = Math.round(stickout * Math.cbrt(10 / deflectionUm));
+      advice.textContent = `High risk of chatter, wall gouging, and cutter snapping! Reduce tool stickout from ${stickout}mm to ≤${suggestedStickout}mm, upgrade to solid carbide, or step down DOC.`;
+    }
+  }
+
+  return { rpm, vf, fzPrime, mrr, deflectionUm, fc };
+}
+
+/* ------------------------------------------------------------
+   FEATURE 6: 3D Print Visual Failure Diagnostician & Slicer Solver
+   ------------------------------------------------------------ */
+const PRINT_SYMPTOMS = [
+  {
+    id: "stringing",
+    name: "Stringing & Cobweb Oozing",
+    icon: "🕸️",
+    severity: "Cosmetic / Post-Processing",
+    materials: "PLA, PETG, TPU",
+    quickFix: "Increase retraction distance & speed, lower nozzle temperature by 5-10°C, and dry filament spool.",
+    slicer: [
+      { param: "Retraction Distance", change: "+1.0 to +2.0 mm (Bowden) / +0.4 mm (Direct Drive)" },
+      { param: "Retraction Speed", change: "Increase to 45 mm/s" },
+      { param: "Nozzle Temp", change: "Decrease by 5°C – 10°C" },
+      { param: "Travel Speed", change: "Increase to 180–200 mm/s to break ooze quickly" }
+    ],
+    hardware: [
+      "Moist filament causes steam pressure that forces melt out: dry spool at 50°C (PLA) / 65°C (PETG) for 6h.",
+      "Check nozzle orifice for wear (enlarged hole from brass wear)."
+    ],
+    physics: "Hydrostatic melt pressure combined with thermal expansion in the heater block continues to push liquid polymer through the nozzle during non-printing travel moves."
+  },
+  {
+    id: "warping",
+    name: "Corner Warping & Bed Detachment",
+    icon: "📐",
+    severity: "Critical / Failure Risk",
+    materials: "ABS, ASA, PETG, Nylon, Polycarbonate",
+    quickFix: "Increase heated bed temp, apply brim or mouse-ears, clean PEI with dish soap + 99% IPA, turn off part cooling fan.",
+    slicer: [
+      { param: "Build Plate Adhesion", change: "Enable Brim (8–10 mm width)" },
+      { param: "Initial Layer Bed Temp", change: "Increase by +5°C to +10°C" },
+      { param: "Part Cooling Fan", change: "Set to 0% for first 3–5 layers; 0-20% max for ABS/ASA" },
+      { param: "Initial Layer Speed", change: "Slow down to 15–20 mm/s" }
+    ],
+    hardware: [
+      "Wash PEI build plate with warm water & Dawn dish soap to dissolve skin oils, then wipe with 99% IPA.",
+      "Eliminate shop drafts: use an enclosure or draft shield around printer."
+    ],
+    physics: "Thermal contraction gradient: as upper printed layers cool and shrink faster than the heated bottom layers, tensile stress curls the corners upwards."
+  },
+  {
+    id: "delamination",
+    name: "Layer Separation & Delamination",
+    icon: "💔",
+    severity: "Structural Weakness",
+    materials: "ABS, PETG, PC, Nylon",
+    quickFix: "Increase hotend temp by 10°C, decrease part fan speed, print inside an enclosure, and increase flow rate slightly.",
+    slicer: [
+      { param: "Printing Temperature", change: "Increase hotend temp by +10°C to +15°C" },
+      { param: "Fan Speed", change: "Lower fan to 0% – 30%" },
+      { param: "Layer Height", change: "Keep ≤50% of nozzle diameter (e.g. 0.20mm on 0.4mm nozzle)" },
+      { param: "Flow / Extrusion Multiplier", change: "Increase by +2% to +4%" }
+    ],
+    hardware: [
+      "Chamber ambient temperature must stay ≥45°C for ABS to prevent inter-layer shear failure."
+    ],
+    physics: "Polymer chain entanglement fails across layer boundaries when the previous layer cools below its glass transition temperature (Tg) before the new molten bead is deposited."
+  },
+  {
+    id: "underextrusion",
+    name: "Under-Extrusion & Spongy Infill",
+    icon: "🧽",
+    severity: "Structural Defect",
+    materials: "All Filaments",
+    quickFix: "Clean partial nozzle clog with atomic cold pull, check extruder idler tension, inspect for heat creep.",
+    slicer: [
+      { param: "Flow Rate", change: "Calibrate and bump to 102%–105%" },
+      { param: "Filament Diameter", change: "Verify actual caliper measurement (e.g. 1.75mm vs 1.71mm)" },
+      { param: "Print Speed", change: "Decrease volumetric speed by 20%" }
+    ],
+    hardware: [
+      "Perform cold pull using nylon or cleaning filament at 90°C.",
+      "Check extruder drive gear for ground plastic teeth slipping against filament.",
+      "Inspect hotend heatsink fan: failing fan causes heat creep softening filament in the cold break."
+    ],
+    physics: "Flow resistance exceeds extruder gear grip force, resulting in skipped stepper motor steps or filament grinding."
+  },
+  {
+    id: "ghosting",
+    name: "Ghosting, Ringing & Ripples",
+    icon: "🌊",
+    severity: "Cosmetic",
+    materials: "All Filaments",
+    quickFix: "Tune Klipper Input Shaping, tighten GT2 belts to 110Hz, reduce acceleration and jerk settings.",
+    slicer: [
+      { param: "Print Acceleration", change: "Reduce outer wall acceleration to 500–1000 mm/s²" },
+      { param: "Outer Wall Speed", change: "Slow outer walls to 35–45 mm/s" },
+      { param: "Jerk / Junction Deviation", change: "Lower jerk from 10 to 6 mm/s" }
+    ],
+    hardware: [
+      "Tension X/Y timing belts to 105–115 Hz acoustic resonance.",
+      "Place printer on high-mass concrete paver over EVA foam mat to decouple workbench vibration."
+    ],
+    physics: "Rapid directional deceleration generates mechanical resonance oscillations in the frame and gantry that transfer periodic wave patterns to the extruded bead."
+  },
+  {
+    id: "elephantsfoot",
+    name: "Elephant's Foot (Flared First Layer)",
+    icon: "🐘",
+    severity: "Dimensional Fit",
+    materials: "PLA, PETG, ABS",
+    quickFix: "Adjust Initial Layer Horizontal Expansion to -0.2mm, raise Z-offset slightly, lower bed temp by 5°C after layer 1.",
+    slicer: [
+      { param: "Initial Layer Horizontal Expansion", change: "Set to -0.15 mm to -0.25 mm" },
+      { param: "Z-Offset", change: "Baby-step nozzle upward by +0.03 mm to avoid squishing" },
+      { param: "Bed Temp after Layer 1", change: "Lower by 5°C to 10°C" }
+    ],
+    hardware: [
+      "Level bed with precision feeler gauge (0.10mm) instead of paper."
+    ],
+    physics: "Weight of subsequent extruded layers squashes the warm bottom layer outward before it solidifies."
+  },
+  {
+    id: "pillowing",
+    name: "Pillowing & Top Surface Voids",
+    icon: "🕳️",
+    severity: "Surface Quality",
+    materials: "PLA, PETG",
+    quickFix: "Add 2 more top solid layers, increase infill percentage to ≥20%, increase part cooling fan speed.",
+    slicer: [
+      { param: "Top Solid Layers", change: "Increase to at least 5 layers (≥1.0 mm thickness)" },
+      { param: "Infill Density", change: "Increase to at least 15%–20% (use Gyroid pattern)" },
+      { param: "Top Surface Fan", change: "100% cooling on top solid skin" }
+    ],
+    hardware: [
+      "Ensure part cooling fan shroud is aimed at nozzle tip, not heater block."
+    ],
+    physics: "Rising hot air bubbles trapped in sparse infill cells burst through thin molten top layers before solidifying."
+  },
+  {
+    id: "zbanding",
+    name: "Z-Banding & Periodic Ribbing",
+    icon: "📏",
+    severity: "Surface Quality",
+    materials: "All Filaments",
+    quickFix: "De-constrain Z-lead screws with flexible Oldham couplings, clean & lubricate lead screws, run Bed PID tuning.",
+    slicer: [
+      { param: "Layer Height", change: "Use magic numbers matching full motor steps (e.g. 0.12, 0.16, 0.20 mm)" }
+    ],
+    hardware: [
+      "Slightly loosen Z lead-screw brass nut bolts to allow horizontal float without binding.",
+      "Run M303 PID tune on heated bed: bang-bang temperature cycling expands bed cyclically."
+    ],
+    physics: "Lead screw wobble or heated bed thermal pulsing changes layer squish periodically at the pitch of the screw or heater cycle."
+  },
+  {
+    id: "blobs",
+    name: "Blobs, Zits & Visible Z-Seam",
+    icon: "🔴",
+    severity: "Cosmetic",
+    materials: "All Filaments",
+    quickFix: "Align Z-seam to sharpest corner, enable linear/pressure advance, turn on coasting, dry wet filament.",
+    slicer: [
+      { param: "Z-Seam Alignment", change: "Set to 'Sharpest Corner' or 'User Specified (Back)'" },
+      { param: "Coasting", change: "Enable coasting (volume ~0.06 mm³)" },
+      { param: "Wipe Distance", change: "Set to 0.4 mm on loop end" }
+    ],
+    hardware: [
+      "Calibrate Klipper Pressure Advance or Marlin Linear Advance (K-factor) to eliminate deceleration bulge."
+    ],
+    physics: "Residual nozzle nozzle pressure causes excess plastic deposition at the start and stop coordinates of outer perimeter loops."
+  },
+  {
+    id: "bridging",
+    name: "Bridging Sag & Drooping Spans",
+    icon: "🌉",
+    severity: "Geometric Accuracy",
+    materials: "PLA, PETG",
+    quickFix: "100% bridging fan speed, lower bridge flow ratio to 85-90%, print bridges at 25-30 mm/s.",
+    slicer: [
+      { param: "Bridge Fan Speed", change: "Set to 100%" },
+      { param: "Bridge Flow Ratio", change: "Reduce to 0.85 – 0.90" },
+      { param: "Bridge Speed", change: "Set to 25–35 mm/s" }
+    ],
+    hardware: [
+      "Upgrade part cooling fan to high static-pressure 5015 centrifugal blower."
+    ],
+    physics: "Extruded filament must freeze instantly in mid-air under tension before gravity pulls the un-supported molten strand down."
+  }
+];
+
+let printDiagnosticsInitialized = false;
+let activeSymptomId = "stringing";
+
+function openPrintDiagnostics() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#print-diagnostics-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!printDiagnosticsInitialized) {
+    printDiagnosticsInitialized = true;
+  }
+
+  renderPrintSymptomsList();
+  selectPrintSymptom(activeSymptomId);
+}
+
+function renderPrintSymptomsList() {
+  const container = $("#print-symptoms-list");
+  if (!container) return;
+
+  container.innerHTML = PRINT_SYMPTOMS.map(s => {
+    const isAct = s.id === activeSymptomId;
+    return `
+      <div class="panel print-symptom-item ${isAct ? "active" : ""}" data-id="${s.id}" role="button" tabindex="0" style="padding:10px;margin-bottom:8px;cursor:pointer;border-left:4px solid ${isAct ? "var(--primary)" : "transparent"};background:var(--surface)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">${s.icon}</span>
+          <div style="flex:1">
+            <strong style="font-size:12.5px;display:block">${escapeHTML(s.name)}</strong>
+            <span style="font-size:10px;color:var(--muted)">${escapeHTML(s.materials)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  container.querySelectorAll(".print-symptom-item").forEach(el => {
+    el.addEventListener("click", () => {
+      selectPrintSymptom(el.dataset.id);
+    });
+  });
+}
+
+function selectPrintSymptom(id) {
+  activeSymptomId = id;
+  const s = PRINT_SYMPTOMS.find(x => x.id === id) || PRINT_SYMPTOMS[0];
+
+  $$(".print-symptom-item").forEach(el => {
+    el.classList.toggle("active", el.dataset.id === id);
+    el.style.borderLeftColor = el.dataset.id === id ? "var(--primary)" : "transparent";
+  });
+
+  const card = $("#print-solution-card");
+  if (!card) return;
+
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:10px">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:26px">${s.icon}</span>
+          <h3 style="margin:0;font-size:16px">${escapeHTML(s.name)}</h3>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Target Materials: <strong>${escapeHTML(s.materials)}</strong> · Severity: <em>${escapeHTML(s.severity)}</em></div>
+      </div>
+      <button type="button" class="button button-small button-outline" id="copy-print-rx-btn">📋 Copy Tuning Plan</button>
+    </div>
+
+    <!-- Quick Prescription Banner -->
+    <div style="padding:10px 14px;background:rgba(217,119,6,0.12);border-left:4px solid var(--primary);border-radius:4px;font-size:12px;margin-bottom:14px;line-height:1.5">
+      <strong>Immediate Prescription:</strong> ${escapeHTML(s.quickFix)}
+    </div>
+
+    <!-- Slicer Settings Table -->
+    <div style="margin-bottom:14px">
+      <h4 style="margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted)">🔧 Precision Slicer Adjustments:</h4>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tbody>
+          ${s.slicer.map(row => `
+            <tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:6px 8px;font-weight:700;width:35%">${escapeHTML(row.param)}</td>
+              <td style="padding:6px 8px;font-family:monospace;color:var(--primary)">${escapeHTML(row.change)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mechanical & Hardware Checks -->
+    <div style="margin-bottom:14px">
+      <h4 style="margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted)">🛠️ Hardware & Machine Checks:</h4>
+      <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.5">
+        ${s.hardware.map(h => `<li>${escapeHTML(h)}</li>`).join("")}
+      </ul>
+    </div>
+
+    <!-- Physics Explanation -->
+    <div style="font-size:11px;color:var(--muted);padding:8px 12px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">
+      <strong>Root Cause Physics:</strong> ${escapeHTML(s.physics)}
+    </div>
+  `;
+
+  $("#copy-print-rx-btn")?.addEventListener("click", () => {
+    const text = `[3D Print Solver] ${s.name}\nPrescription: ${s.quickFix}\n\nSlicer Adjustments:\n${s.slicer.map(r => `- ${r.param}: ${r.change}`).join("\n")}\n\nHardware Checks:\n${s.hardware.map(h => `- ${h}`).join("\n")}`;
+    navigator.clipboard?.writeText(text).then(() => {
+      showToast("Tuning plan copied to clipboard! 📋");
+    });
+  });
+}
+
+/* ------------------------------------------------------------
+   FEATURE 7: Wood Grain Movement & Distortion Simulator
+   ------------------------------------------------------------ */
+let woodDistortionState = {
+  cutType: "plain", // "plain" | "quarter" | "rift"
+  mc: 8,
+  initialized: false
+};
+
+function openWoodDistortion() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#wood-distortion-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!woodDistortionState.initialized) {
+    $$(".wood-cut-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        $$(".wood-cut-btn").forEach(b => {
+          b.classList.remove("button-primary", "active");
+          b.classList.add("button-outline");
+        });
+        btn.classList.add("button-primary", "active");
+        btn.classList.remove("button-outline");
+        woodDistortionState.cutType = btn.dataset.cut;
+        renderWoodDistortionCanvas();
+      });
+    });
+
+    const mcSlider = $("#wood-mc-slider");
+    mcSlider?.addEventListener("input", (e) => {
+      woodDistortionState.mc = parseInt(e.target.value, 10) || 8;
+      const lbl = $("#wood-mc-display");
+      if (lbl) {
+        let tag = "Equilibrium";
+        if (woodDistortionState.mc <= 7) tag = "Winter / Dry Heated";
+        else if (woodDistortionState.mc <= 10) tag = "Interior Dry";
+        else if (woodDistortionState.mc >= 15) tag = "Summer Humid";
+        lbl.textContent = `${woodDistortionState.mc}% (${tag})`;
+      }
+      renderWoodDistortionCanvas();
+    });
+
+    woodDistortionState.initialized = true;
+  }
+
+  renderWoodDistortionCanvas();
+}
+
+function renderWoodDistortionCanvas() {
+  const canvas = $("#wood-distortion-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background
+  ctx.fillStyle = "#181a1b";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2 + 10;
+  const baseW = 460;
+  const baseH = 80;
+
+  // Moisture deviation from standard equilibrium (12% MC)
+  const dMC = woodDistortionState.mc - 12;
+
+  // Tangential shrinkage ~0.28% per % MC, Radial ~0.14% per % MC (2:1 ratio)
+  const cut = woodDistortionState.cutType;
+
+  ctx.save();
+
+  if (cut === "plain") {
+    // Plain-sawn (flat-sawn): cupping away from pith / concave to bark
+    // Cup curvature delta proportional to dMC
+    const cupSag = -dMC * 2.2; // in pixels
+    const widthShrink = dMC * 1.8;
+
+    ctx.fillStyle = "#9a6324";
+    ctx.strokeStyle = "#e5c07b";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    // Top face (concave curve when dry)
+    ctx.moveTo(cx - (baseW + widthShrink) / 2, cy - baseH / 2);
+    ctx.quadraticCurveTo(cx, cy - baseH / 2 + cupSag, cx + (baseW + widthShrink) / 2, cy - baseH / 2);
+    // Right edge
+    ctx.lineTo(cx + (baseW + widthShrink) / 2 - cupSag * 0.2, cy + baseH / 2);
+    // Bottom face
+    ctx.quadraticCurveTo(cx, cy + baseH / 2 + cupSag, cx - (baseW + widthShrink) / 2 - cupSag * 0.2, cy + baseH / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw growth rings (arched concentric curves)
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
+    ctx.lineWidth = 1.5;
+    for (let r = 80; r <= 320; r += 24) {
+      ctx.beginPath();
+      ctx.arc(cx, cy + 180 + cupSag, r, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.stroke();
+    }
+
+    // Pith indicator
+    ctx.fillStyle = "#f59e0b";
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillText("↓ PITH (Heartwood Center)", cx - 75, cy + baseH / 2 + 35);
+    ctx.fillText("↑ BARK SIDE (Outer Sapwood)", cx - 80, cy - baseH / 2 - 25);
+
+  } else if (cut === "quarter") {
+    // Quarter-sawn: vertical rings, uniform radial shrinkage across width (~half plain-sawn), ZERO cupping!
+    const widthShrink = dMC * 0.9;
+    const heightShrink = dMC * 1.6;
+
+    ctx.fillStyle = "#b45309";
+    ctx.strokeStyle = "#fbbf24";
+    ctx.lineWidth = 2;
+
+    ctx.fillRect(cx - (baseW + widthShrink) / 2, cy - (baseH + heightShrink) / 2, baseW + widthShrink, baseH + heightShrink);
+    ctx.strokeRect(cx - (baseW + widthShrink) / 2, cy - (baseH + heightShrink) / 2, baseW + widthShrink, baseH + heightShrink);
+
+    // Vertical straight growth rings
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+    ctx.lineWidth = 1.5;
+    for (let x = cx - (baseW + widthShrink) / 2 + 15; x < cx + (baseW + widthShrink) / 2; x += 18) {
+      ctx.beginPath();
+      ctx.moveTo(x, cy - (baseH + heightShrink) / 2);
+      ctx.lineTo(x, cy + (baseH + heightShrink) / 2);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#10b981";
+    ctx.font = "bold 12px sans-serif";
+    ctx.fillText("✓ 100% FLAT: Zero cupping distortion across full humidity range!", cx - 180, cy - baseH / 2 - 25);
+
+  } else {
+    // Rift-sawn: 45-degree rings, distorts into slight rhomboid / parallelogram
+    const skew = -dMC * 0.7;
+    const widthShrink = dMC * 1.2;
+
+    ctx.fillStyle = "#78350f";
+    ctx.strokeStyle = "#d97706";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(cx - (baseW + widthShrink) / 2 + skew, cy - baseH / 2);
+    ctx.lineTo(cx + (baseW + widthShrink) / 2 + skew, cy - baseH / 2);
+    ctx.lineTo(cx + (baseW + widthShrink) / 2 - skew, cy + baseH / 2);
+    ctx.lineTo(cx - (baseW + widthShrink) / 2 - skew, cy + baseH / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 45 degree diagonal growth rings
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+    ctx.lineWidth = 1.5;
+    for (let o = -260; o <= 260; o += 22) {
+      ctx.beginPath();
+      ctx.moveTo(cx + o - 30, cy - baseH / 2);
+      ctx.lineTo(cx + o + 30, cy + baseH / 2);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = "#f59e0b";
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillText("45° Straight Grain (Rhomboid Shearing, Stable Face)", cx - 140, cy - baseH / 2 - 25);
+  }
+
+  ctx.restore();
+
+  // Dynamic explanation
+  const exp = $("#wood-dist-explanation");
+  if (exp) {
+    if (cut === "plain") {
+      exp.innerHTML = `
+        <strong>Plain-Sawn Lumber Analysis (${woodDistortionState.mc}% Moisture Content):</strong><br>
+        Because tangential shrinkage (~8%) is roughly double radial shrinkage (~4%), the bark side contracts much more than the pith side as wood dries below the 28% Fiber Saturation Point.
+        <ul style="margin:6px 0 0;padding-left:18px">
+          <li><strong>Glue-Up Rule:</strong> Always alternate growth ring directions (smile / frown / smile) across tabletop board glue-ups to cancel out cumulative cupping.</li>
+          <li><strong>Tabletop Fasteners:</strong> Never glue solid wood tops rigidly to an apron. Use slotted screw holes, figure-8 desktop fasteners, or wooden Z-clips to accommodate seasonal expansion.</li>
+        </ul>
+      `;
+    } else if (cut === "quarter") {
+      exp.innerHTML = `
+        <strong>Quarter-Sawn Lumber Analysis (${woodDistortionState.mc}% Moisture Content):</strong><br>
+        Growth rings run perpendicular to the face (60°–90°). Shrinkage is almost entirely radial across the face, eliminating cupping, twisting, and bowing.
+        <ul style="margin:6px 0 0;padding-left:18px">
+          <li><strong>Ideal Applications:</strong> Guitar necks, instrument tops, drawer sides, hardwood flooring, and mission furniture.</li>
+          <li>Features iconic medullary ray flecks in White Oak and Beech.</li>
+        </ul>
+      `;
+    } else {
+      exp.innerHTML = `
+        <strong>Rift-Sawn Lumber Analysis (${woodDistortionState.mc}% Moisture Content):</strong><br>
+        Growth rings run at a 30°–60° diagonal angle. Produces the most consistent linear straight grain with minimal face movement, but deforms into a mild parallelogram.
+        <ul style="margin:6px 0 0;padding-left:18px">
+          <li><strong>Ideal Applications:</strong> High-end architectural millwork, table legs, and mid-century modern cabinetry.</li>
+        </ul>
+      `;
+    }
+  }
+}
+
+/* ------------------------------------------------------------
+   FEATURE 8: Workshop Chemical Safety SDS Locker & Incompatible Mixing Checker
+   ------------------------------------------------------------ */
+const WORKSHOP_CHEMICALS = [
+  {
+    id: "acetone",
+    name: "Acetone (Pure Technical)",
+    cas: "67-64-1",
+    category: "Organic Solvent",
+    flashPoint: "-20°C (-4°F)",
+    nfpa: { health: 1, flammability: 3, instability: 0, special: "" },
+    ppe: "Butyl or laminated foil gloves (breaks down Nitrile in <5 min!), safety goggles, vapor respirator in enclosed spaces.",
+    firstAid: "Eye contact: rinse immediately for 15 min. Inhalation: move to fresh air. Non-corrosive to skin but causes extreme defatting and drying.",
+    storage: "Explosion-proof flammables safety cabinet. Ground metal pour containers to prevent static spark."
+  },
+  {
+    id: "ipa",
+    name: "Isopropyl Alcohol (99% IPA)",
+    cas: "67-63-0",
+    category: "Solvent / Degreaser",
+    flashPoint: "12°C (54°F)",
+    nfpa: { health: 1, flammability: 3, instability: 0, special: "" },
+    ppe: "Nitrile gloves, safety glasses, well-ventilated area.",
+    firstAid: "Flush skin with water. Eye irrigation for 15 min. Do not induce vomiting if ingested.",
+    storage: "Keep away from pilot lights, 3D UV resin curing stations, and heating elements."
+  },
+  {
+    id: "epoxy_resin",
+    name: "Epoxy Resin (Part A Bisphenol-A)",
+    cas: "25068-38-6",
+    category: "Thermoset Resin",
+    flashPoint: "252°C (485°F)",
+    nfpa: { health: 2, flammability: 1, instability: 0, special: "" },
+    ppe: "Nitrile gloves, safety glasses. Barrier cream recommended.",
+    firstAid: "Clean skin immediately with soap and water or citrus resin wipes (NEVER clean skin with acetone—it drives unreacted oligomers through skin pores!).",
+    storage: "Store 20°C–25°C. Crystallization in cold can be reversed in a warm 50°C water bath."
+  },
+  {
+    id: "epoxy_hardener",
+    name: "Epoxy Hardener (Part B Polyamines)",
+    cas: "112-24-3",
+    category: "Alkaline Amine",
+    flashPoint: "110°C (230°F)",
+    nfpa: { health: 3, flammability: 1, instability: 0, special: "COR" },
+    ppe: "Heavy nitrile or neoprene gloves, vapor respirator for deep casts, eye goggles.",
+    firstAid: "Corrosive to skin & eyes. Causes permanent sensitization and asthma-like allergies on repeated contact.",
+    storage: "Keep tightly capped. Reacts with atmospheric carbon dioxide (amine blush)."
+  },
+  {
+    id: "cyanoacrylate",
+    name: "Cyanoacrylate (Super Glue / CA)",
+    cas: "7085-85-0",
+    category: "Fast Adhesive",
+    flashPoint: "85°C (185°F)",
+    nfpa: { health: 2, flammability: 2, instability: 1, special: "" },
+    ppe: "Nitrile gloves (NEVER wear cotton or wool gloves!), safety glasses.",
+    firstAid: "Glued skin: soak in warm soapy water or apply acetone gently. Do NOT pull skin apart forcefully.",
+    storage: "Refrigerate (4°C) with silica desiccant to prolong shelf life."
+  },
+  {
+    id: "linseed_oil",
+    name: "Boiled Linseed Oil (BLO)",
+    cas: "68553-15-1",
+    category: "Drying Oil Finish",
+    flashPoint: "222°C (432°F)",
+    nfpa: { health: 1, flammability: 1, instability: 1, special: "SPONT" },
+    ppe: "Nitrile gloves, apron.",
+    firstAid: "Skin wash with soap and water. Remove contaminated clothing immediately.",
+    storage: "CRITICAL: Soaked application rags WILL spontaneously combust! Must be immersed in water or laid completely flat outside on bare earth/concrete to cure."
+  },
+  {
+    id: "muriatic_acid",
+    name: "Muriatic Acid (Hydrochloric 31.45%)",
+    cas: "7647-01-0",
+    category: "Inorganic Acid",
+    flashPoint: "Non-flammable",
+    nfpa: { health: 3, flammability: 0, instability: 1, special: "ACID" },
+    ppe: "Acid-resistant rubber gauntlets, chemical face shield, acid gas cartridge respirator.",
+    firstAid: "Flush with copious water for 20 min. Inhalation causes chemical burns to airway.",
+    storage: "Acid storage cabinet away from all metals, bases, and hypochlorites."
+  },
+  {
+    id: "bleach",
+    name: "Sodium Hypochlorite (Household Bleach)",
+    cas: "7681-52-9",
+    category: "Oxidizer / Disinfectant",
+    flashPoint: "Non-flammable",
+    nfpa: { health: 2, flammability: 0, instability: 1, special: "OX" },
+    ppe: "Rubber gloves, eye protection.",
+    firstAid: "Flush eyes and skin immediately with running water.",
+    storage: "Cool, ventilated shelf away from acids, ammonia, and solvents."
+  },
+  {
+    id: "mineral_spirits",
+    name: "Mineral Spirits / White Spirit",
+    cas: "64742-88-7",
+    category: "Petroleum Distillate",
+    flashPoint: "41°C (105°F)",
+    nfpa: { health: 1, flammability: 2, instability: 0, special: "" },
+    ppe: "Nitrile gloves, eye protection.",
+    firstAid: "Do not induce vomiting if swallowed (severe chemical pneumonitis aspiration risk!).",
+    storage: "Flambles cabinet away from heat sources."
+  },
+  {
+    id: "mek",
+    name: "Methyl Ethyl Ketone (MEK)",
+    cas: "78-93-3",
+    category: "Organic Solvent",
+    flashPoint: "-9°C (16°F)",
+    nfpa: { health: 2, flammability: 3, instability: 0, special: "" },
+    ppe: "Butyl rubber gloves, organic vapor respirator, chemical splash goggles.",
+    firstAid: "Remove victim to fresh air. Wash skin with soap and water.",
+    storage: "Dedicated flammables cabinet. Forms peroxide crystals upon prolonged air exposure."
+  },
+  {
+    id: "polyurethane",
+    name: "Polyurethane Varnish (Oil-Based)",
+    cas: "Mixed",
+    category: "Coating Finish",
+    flashPoint: "38°C (100°F)",
+    nfpa: { health: 2, flammability: 2, instability: 0, special: "" },
+    ppe: "Nitrile gloves, organic vapor mask.",
+    firstAid: "Wash skin with mineral spirits followed by soap and water.",
+    storage: "Keep cans tightly sealed upside down to prevent skim skinning."
+  },
+  {
+    id: "denatured_alcohol",
+    name: "Denatured Alcohol (Shellac Solvent)",
+    cas: "64-17-5",
+    category: "Alcohol Solvent",
+    flashPoint: "13°C (55°F)",
+    nfpa: { health: 2, flammability: 3, instability: 0, special: "" },
+    ppe: "Nitrile gloves, safety glasses.",
+    firstAid: "Contains toxic methanol: ingestion causes permanent blindness and death. Seek emergency medical care.",
+    storage: "Pale invisible flame when burning: keep dry powder extinguisher nearby."
+  }
+];
+
+let sdsLockerInitialized = false;
+let selectedSdsId = "acetone";
+
+function openSdsLocker() {
+  if ($("#tools-dialog")?.open) $("#tools-dialog").close();
+  const dlg = $("#sds-locker-dialog");
+  if (!dlg) return;
+  dlg.showModal();
+
+  if (!sdsLockerInitialized) {
+    const search = $("#sds-search");
+    search?.addEventListener("input", (e) => {
+      renderSdsChemicalList(e.target.value);
+    });
+
+    // Incompatibility checker dropdowns
+    const mixA = $("#sds-mix-a");
+    const mixB = $("#sds-mix-b");
+    if (mixA && mixB) {
+      const opts = WORKSHOP_CHEMICALS.map(c => `<option value="${c.id}">${escapeHTML(c.name)}</option>`).join("");
+      mixA.innerHTML = opts;
+      mixB.innerHTML = opts;
+      mixA.value = "bleach";
+      mixB.value = "muriatic_acid";
+
+      mixA.addEventListener("change", evaluateChemicalMixSafety);
+      mixB.addEventListener("change", evaluateChemicalMixSafety);
+    }
+
+    sdsLockerInitialized = true;
+  }
+
+  renderSdsChemicalList("");
+  renderSdsDetails(selectedSdsId);
+  evaluateChemicalMixSafety();
+}
+
+function renderSdsChemicalList(filter) {
+  const container = $("#sds-chemical-list");
+  if (!container) return;
+
+  const q = (filter || "").trim().toLowerCase();
+  const filtered = WORKSHOP_CHEMICALS.filter(c => {
+    return c.name.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.cas.includes(q);
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">No chemicals matched.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(c => {
+    const isAct = c.id === selectedSdsId;
+    return `
+      <div class="panel sds-list-card ${isAct ? "active" : ""}" data-id="${c.id}" role="button" tabindex="0" style="padding:8px 10px;margin-bottom:6px;cursor:pointer;background:var(--surface);border-left:3px solid ${isAct ? "var(--primary)" : "transparent"}">
+        <strong style="font-size:12px;display:block">${escapeHTML(c.name)}</strong>
+        <span style="font-size:10px;color:var(--muted)">${escapeHTML(c.category)} · CAS: ${c.cas}</span>
+      </div>
+    `;
+  }).join("");
+
+  container.querySelectorAll(".sds-list-card").forEach(el => {
+    el.addEventListener("click", () => {
+      selectedSdsId = el.dataset.id;
+      renderSdsChemicalList($("#sds-search")?.value || "");
+      renderSdsDetails(selectedSdsId);
+    });
+  });
+}
+
+function renderSdsDetails(id) {
+  const c = WORKSHOP_CHEMICALS.find(x => x.id === id) || WORKSHOP_CHEMICALS[0];
+  const panel = $("#sds-details-panel");
+  if (!panel) return;
+
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div>
+        <h3 style="margin:0;font-size:16px">${escapeHTML(c.name)}</h3>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:2px">
+          Category: <strong>${escapeHTML(c.category)}</strong> · CAS Registry: ${c.cas} · Flash Point: ${c.flashPoint}
+        </div>
+      </div>
+
+      <!-- NFPA 704 Diamond -->
+      <div class="sds-nfpa-diamond" title="NFPA 704 Standard Fire Diamond" style="width:72px;height:72px;position:relative">
+        <div style="width:72px;height:72px;position:relative;transform:rotate(45deg);border:2px solid #000;background:#000;border-radius:4px">
+          <!-- Top (Red: Flammability) -->
+          <div style="position:absolute;top:0;left:0;width:34px;height:34px;background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;transform:rotate(-45deg)">${c.nfpa.flammability}</div>
+          <!-- Left (Blue: Health) -->
+          <div style="position:absolute;bottom:0;left:0;width:34px;height:34px;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;transform:rotate(-45deg)">${c.nfpa.health}</div>
+          <!-- Right (Yellow: Instability) -->
+          <div style="position:absolute;top:0;right:0;width:34px;height:34px;background:#eab308;color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;transform:rotate(-45deg)">${c.nfpa.instability}</div>
+          <!-- Bottom (White: Special) -->
+          <div style="position:absolute;bottom:0;right:0;width:34px;height:34px;background:#ffffff;color:#000;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;transform:rotate(-45deg)">${c.nfpa.special || "—"}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr;gap:10px;font-size:12px">
+      <div style="padding:8px 12px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">
+        <strong style="color:var(--primary);display:block;margin-bottom:2px">🛡️ Required Personal Protective Equipment (PPE):</strong>
+        ${escapeHTML(c.ppe)}
+      </div>
+
+      <div style="padding:8px 12px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">
+        <strong style="color:var(--green);display:block;margin-bottom:2px">🚑 First Aid Protocol:</strong>
+        ${escapeHTML(c.firstAid)}
+      </div>
+
+      <div style="padding:8px 12px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">
+        <strong style="color:var(--red);display:block;margin-bottom:2px">🔒 Storage, Handling &amp; Disposal:</strong>
+        ${escapeHTML(c.storage)}
+      </div>
+    </div>
+  `;
+}
+
+function checkChemicalCompatibility(idA, idB) {
+  if (idA === idB) {
+    return {
+      safe: true,
+      severity: "identical",
+      message: "Same substance. No cross-reaction hazard."
+    };
+  }
+
+  const pair = [idA, idB].sort().join("+");
+
+  const HAZARDS = {
+    "bleach+muriatic_acid": {
+      safe: false,
+      severity: "DEADLY TOXIC GAS",
+      color: "var(--red)",
+      desc: "☠️ DEADLY CHLORINE GAS EVOLUTION! Mixing bleach (sodium hypochlorite) with muriatic acid (hydrochloric acid) releases dense chlorine gas (Cl2). Causes acute pulmonary edema, chemical asphyxiation, and fatal lung damage. EVACUATE IMMEDIATELY IF MIXED."
+    },
+    "bleach+epoxy_hardener": {
+      safe: false,
+      severity: "TOXIC CHLORAMINES",
+      color: "var(--red)",
+      desc: "☠️ HIGHLY TOXIC CHLORAMINE VAPOR! Bleach reacts violently with organic polyamines in epoxy hardeners, producing poisonous chloramine gas and nitrogen trichloride."
+    },
+    "acetone+bleach": {
+      safe: false,
+      severity: "CHLOROFORM HAZARD",
+      color: "var(--red)",
+      desc: "☠️ CHLOROFORM EVOLUTION (Haloform Reaction)! Acetone reacts with sodium hypochlorite to produce chloroform (CHCl3) and phosgene gas traces, causing immediate dizziness, central nervous system depression, and liver toxicity."
+    },
+    "cyanoacrylate+linseed_oil": {
+      safe: false,
+      severity: "EXOTHERMIC FIRE",
+      color: "var(--red)",
+      desc: "🔥 VIOLENT EXOTHERMIC COMBUSTION! Cyanoacrylate reacts with natural drying oils, catalyzing instantaneous thermal polymerization and igniting combustible rags or wood."
+    },
+    "epoxy_hardener+muriatic_acid": {
+      safe: false,
+      severity: "BOILING ACID SPATTER",
+      color: "var(--red)",
+      desc: "💥 VIOLENT EXOTHERMIC NEUTRALIZATION! Polyamines are concentrated organic alkaline bases. Adding strong mineral acids results in violent boiling, splashing corrosive liquid, and release of noxious amine smoke."
+    },
+    "acetone+mek": {
+      safe: true,
+      severity: "SAFE (FLAMMABLE)",
+      color: "var(--primary)",
+      desc: "Compatible organic ketones. Both are extremely flammable; keep away from ignition sources, but no hazardous chemical cross-reaction occurs."
+    },
+    "ipa+mineral_spirits": {
+      safe: true,
+      severity: "SAFE (SOLVENTS)",
+      color: "var(--primary)",
+      desc: "Compatible solvents. Immiscible depending on water content, but no violent chemical reaction."
+    }
+  };
+
+  if (HAZARDS[pair]) {
+    return HAZARDS[pair];
+  }
+
+  // General checks
+  if (pair.includes("muriatic_acid") && pair.includes("bleach")) {
+    return HAZARDS["bleach+muriatic_acid"];
+  }
+
+  return {
+    safe: true,
+    severity: "SAFE COEXISTENCE",
+    color: "var(--green)",
+    desc: "✓ Chemically compatible for separate storage and standard workshop usage. Always maintain proper ventilation and close containers after use."
+  };
+}
+
+function evaluateChemicalMixSafety() {
+  const idA = $("#sds-mix-a")?.value;
+  const idB = $("#sds-mix-b")?.value;
+  const resultEl = $("#sds-mix-result");
+  if (!idA || !idB || !resultEl) return;
+
+  const result = checkChemicalCompatibility(idA, idB);
+
+  resultEl.style.background = result.safe ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.15)";
+  resultEl.style.color = result.color || (result.safe ? "var(--green)" : "var(--red)");
+  resultEl.style.border = `1px solid ${result.safe ? "var(--green)" : "var(--red)"}`;
+
+  resultEl.innerHTML = `
+    <div style="font-weight:800;margin-bottom:4px;font-size:12.5px">${result.severity}</div>
+    <div>${escapeHTML(result.desc || result.message)}</div>
+  `;
+}
+
+// Restore saved Night-Vision mode on page boot
+restoreNightModeState();
+
+// Global exports for tests and direct event handlers
+window.openCommandPalette = openCommandPalette;
+window.openInclinometer = openInclinometer;
+window.openScreenGauge = openScreenGauge;
+window.openVisualCaliper = openVisualCaliper;
+window.openCncDeflection = openCncDeflection;
+window.openPrintDiagnostics = openPrintDiagnostics;
+window.openWoodDistortion = openWoodDistortion;
+window.openSdsLocker = openSdsLocker;
+window.toggleNightMode = toggleNightMode;
+window.calculateCncDeflection = calculateCncDeflection;
+window.checkChemicalCompatibility = checkChemicalCompatibility;
+window.tareInclinometer = tareInclinometer;
+window.resetTareInclinometer = resetTareInclinometer;
