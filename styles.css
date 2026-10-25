@@ -68,9 +68,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .brand-mark { width: 25px; height: 25px; padding: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; transform: rotate(-8deg); }
 .brand-mark span { background: var(--green); border-radius: 2px 5px 2px 5px; }
 .brand-mark span:nth-child(2), .brand-mark span:nth-child(3) { opacity: .55; }
-.sidebar-label { margin: 0 0 12px 12px; color: #a0a095; font-size: 9px; letter-spacing: 1.45px; font-weight: 700; }
-.main-nav { display: grid; gap: 5px; }
-.nav-link { border: 0; background: transparent; width: 100%; height: 43px; display: flex; align-items: center; text-align: left; gap: 12px; padding: 0 12px; color: #73756c; border-radius: 7px; font-weight: 500; cursor: pointer; transition: .18s ease; }
+.main-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
 .nav-link:hover { background: #f2f1ea; color: var(--ink); }
 .nav-link.active { color: var(--green-dark); background: #eaf0e7; font-weight: 700; }
 .nav-icon { width: 19px; text-align: center; font-size: 17px; line-height: 1; }
@@ -13783,10 +13791,15 @@ body.theme-dark .distill-hydrosol-glow {
   color: #fbbf24;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 960px) {
   .cad-layout-grid,
   .floorplan-container-grid,
-  .job-costing-grid {
+  .job-costing-grid,
+  .cutlist-layout-grid,
+  .box-layout-grid,
+  .gcode-layout-grid,
+  .river-table-layout-grid,
+  .resin-mold-layout-grid {
     grid-template-columns: 1fr;
   }
   .hud-tactile-controls {

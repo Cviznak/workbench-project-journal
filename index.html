@@ -109,33 +109,50 @@
           </div>
 
           <div class="sidebar-section-divider"></div>
-          <div class="sidebar-label" style="margin:10px 0 4px 10px;font-size:10px;letter-spacing:.08em;color:var(--muted)">WORKSHOP SUITES</div>
-          <button class="nav-link" type="button" data-action="open-cad-viewer"><span class="nav-icon">🧊</span>3D CAD &amp; STL</button>
-          <button class="nav-link" type="button" data-action="open-floorplan"><span class="nav-icon">🗺️</span>Floorplan Planner</button>
-          <button class="nav-link" type="button" data-action="open-cutlist-optimizer"><span class="nav-icon">✂️</span>Sheet Cutlist &amp; Vault</button>
-          <button class="nav-link" type="button" data-action="open-climate-advisor"><span class="nav-icon">🌡️</span>Climate &amp; Curing</button>
-          <button class="nav-link" type="button" data-action="open-audio-tuner"><span class="nav-icon">🎙️</span>Audio Tachometer &amp; dB</button>
-          <button class="nav-link" type="button" data-action="open-inclinometer"><span class="nav-icon">📐</span>Digital Level &amp; Angle</button>
-          <button class="nav-link" type="button" data-action="open-screen-gauge"><span class="nav-icon">📏</span>1:1 Screen Bolt Gauge</button>
-          <button class="nav-link" type="button" data-action="open-visual-caliper"><span class="nav-icon">📷</span>Visual Photo Caliper</button>
-          <button class="nav-link" type="button" data-action="open-cnc-deflection"><span class="nav-icon">⚙️</span>CNC Feeds &amp; Deflection</button>
-          <button class="nav-link" type="button" data-action="open-print-diagnostics"><span class="nav-icon">🖨️</span>3D Print Diagnostician</button>
-          <button class="nav-link" type="button" data-action="open-wood-distortion"><span class="nav-icon">🪵</span>Wood Movement Sim</button>
-          <button class="nav-link" type="button" data-action="open-sds-locker"><span class="nav-icon">☣️</span>Chemical SDS Locker</button>
-          <button class="nav-link" type="button" data-action="open-box-generator"><span class="nav-icon">📦</span>Parametric Box CAD</button>
-          <button class="nav-link" type="button" data-action="open-gcode-backplotter"><span class="nav-icon">📊</span>G-Code Toolpath Sim</button>
-          <button class="nav-link" type="button" data-action="open-stock-weight"><span class="nav-icon">⚖️</span>Stock Billet &amp; Weight</button>
-          <button class="nav-link" type="button" data-action="open-electrical-panel"><span class="nav-icon">⚡</span>Shop Electrical Breakers</button>
-          <button class="nav-link" type="button" data-action="open-noise-dosimeter"><span class="nav-icon">🎧</span>Audio Dosimeter &amp; NRR</button>
-          <button class="nav-link" type="button" data-action="open-bom-consolidator"><span class="nav-icon">🔩</span>BOM &amp; Fastener Matrix</button>
-          <button class="nav-link" type="button" data-action="open-resin-mold"><span class="nav-icon">🧪</span>Resin &amp; Silicone Mold</button>
-          <button class="nav-link" type="button" data-action="open-river-table"><span class="nav-icon">🪵</span>River Table &amp; Slab Sim</button>
-          <button class="nav-link" type="button" data-action="open-photo-watermark"><span class="nav-icon">🖼️</span>Photo Watermark &amp; Stamp</button>
-          <button class="nav-link" type="button" data-action="open-undo-history"><span class="nav-icon">↺</span>Undo / Redo Timeline</button>
-          <button class="nav-link" type="button" data-action="open-assembly-manual"><span class="nav-icon">📖</span>Assembly Manuals</button>
-          <button class="nav-link" type="button" data-action="open-pigment-blender"><span class="nav-icon">🎨</span>Pigment &amp; Stains</button>
-          <button class="nav-link" type="button" data-action="open-maintenance-engine"><span class="nav-icon">🛠️</span>Tool Care &amp; Costs</button>
-          <button class="nav-link" type="button" data-action="open-community-hub"><span class="nav-icon">🌐</span>Community Hub</button>
+
+          <!-- 🛠️ Collapsible: Workshop Suites -->
+          <div class="sidebar-section" id="sidebar-section-workshop-suites">
+            <button type="button" class="sidebar-section-header" data-action="toggle-sidebar-section" data-section="workshop-suites" aria-expanded="true" title="Minimize or expand Workshop Suites list">
+              <span>WORKSHOP SUITES</span>
+              <span class="sidebar-section-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <div class="sidebar-studio-search-wrap" id="sidebar-suite-search-wrap">
+              <span class="sidebar-studio-search-icon" aria-hidden="true">🔍</span>
+              <input type="search" id="sidebar-suite-search" class="sidebar-studio-search-input" placeholder="Search workshop suites..." aria-label="Search workshop suites" autocomplete="off" spellcheck="false">
+              <button type="button" id="sidebar-suite-search-clear" class="sidebar-studio-search-clear" aria-label="Clear search" title="Clear search" style="display:none">×</button>
+            </div>
+            <div class="sidebar-section-content" id="sidebar-content-workshop-suites">
+              <div id="sidebar-suites-no-results" class="sidebar-studios-no-results" style="display:none">
+                <span>No suites match "</span><strong id="sidebar-suites-query"></strong><span>"</span>
+              </div>
+              <button class="nav-link" type="button" data-action="open-cad-viewer" data-keywords="cad 3d stl obj gcode model slice mesh triangle render diagnostics"><span class="nav-icon">🧊</span>3D CAD &amp; STL</button>
+              <button class="nav-link" type="button" data-action="open-floorplan" data-keywords="floorplan layout machine shop clearance tools workbench space planner"><span class="nav-icon">🗺️</span>Floorplan Planner</button>
+              <button class="nav-link" type="button" data-action="open-cutlist-optimizer" data-keywords="cutlist sheet plywood lumber guillotine scrap nesting optimizer vault"><span class="nav-icon">✂️</span>Sheet Cutlist &amp; Vault</button>
+              <button class="nav-link" type="button" data-action="open-climate-advisor" data-keywords="climate temp humidity dew point epoxy cure finish dry wood moisture advisor"><span class="nav-icon">🌡️</span>Climate &amp; Curing</button>
+              <button class="nav-link" type="button" data-action="open-audio-tuner" data-keywords="audio tachometer rpm sound db noise mic spindle frequency decibel"><span class="nav-icon">🎙️</span>Audio Tachometer &amp; dB</button>
+              <button class="nav-link" type="button" data-action="open-inclinometer" data-keywords="level angle bevel miter tilt inclinometer blade digital pitch slope"><span class="nav-icon">📐</span>Digital Level &amp; Angle</button>
+              <button class="nav-link" type="button" data-action="open-screen-gauge" data-keywords="bolt screw pitch thread drill size ruler gauge 1:1 screen caliper"><span class="nav-icon">📏</span>1:1 Screen Bolt Gauge</button>
+              <button class="nav-link" type="button" data-action="open-visual-caliper" data-keywords="caliper photo camera dimension measure coin card reference coin"><span class="nav-icon">📷</span>Visual Photo Caliper</button>
+              <button class="nav-link" type="button" data-action="open-cnc-deflection" data-keywords="cnc deflection feeds speeds endmill chip load spindle force rigidity"><span class="nav-icon">⚙️</span>CNC Feeds &amp; Deflection</button>
+              <button class="nav-link" type="button" data-action="open-print-diagnostics" data-keywords="3d print trouble stringing layer shift under-extrusion warp diagnosis slicer"><span class="nav-icon">🖨️</span>3D Print Diagnostician</button>
+              <button class="nav-link" type="button" data-action="open-wood-distortion" data-keywords="wood grain movement cupping bowing warping radial tangential moisture distortion"><span class="nav-icon">🪵</span>Wood Movement Sim</button>
+              <button class="nav-link" type="button" data-action="open-sds-locker" data-keywords="chemical sds safety msds hazard ppe solvent epoxy acid flammable locker"><span class="nav-icon">☣️</span>Chemical SDS Locker</button>
+              <button class="nav-link" type="button" data-action="open-box-generator" data-keywords="box generator finger joint laser tab kerf enclosure parametric 3d dxf"><span class="nav-icon">📦</span>Parametric Box CAD</button>
+              <button class="nav-link" type="button" data-action="open-gcode-backplotter" data-keywords="gcode cnc toolpath backplot simulation crash travel limits visualizer"><span class="nav-icon">📊</span>G-Code Toolpath Sim</button>
+              <button class="nav-link" type="button" data-action="open-stock-weight" data-keywords="stock billet raw metal wood mass weight center gravity density cylinder plate"><span class="nav-icon">⚖️</span>Stock Billet &amp; Weight</button>
+              <button class="nav-link" type="button" data-action="open-electrical-panel" data-keywords="electrical panel breaker phase load wire amps volts subpanel shop balance"><span class="nav-icon">⚡</span>Shop Electrical Breakers</button>
+              <button class="nav-link" type="button" data-action="open-noise-dosimeter" data-keywords="noise dosimeter sound db nrr hearing protection ear osha daily dose"><span class="nav-icon">🎧</span>Audio Dosimeter &amp; NRR</button>
+              <button class="nav-link" type="button" data-action="open-bom-consolidator" data-keywords="bom bill materials fasteners screws hardware tree hierarchy consolidation matrix"><span class="nav-icon">🔩</span>BOM &amp; Fastener Matrix</button>
+              <button class="nav-link" type="button" data-action="open-resin-mold" data-keywords="resin silicone mold casting pour volume exotherm jacket split matrix demold"><span class="nav-icon">🧪</span>Resin &amp; Silicone Mold</button>
+              <button class="nav-link" type="button" data-action="open-river-table" data-keywords="river table live edge slab epoxy barrier dam deep pour volume sim"><span class="nav-icon">🪵</span>River Table &amp; Slab Sim</button>
+              <button class="nav-link" type="button" data-action="open-photo-watermark" data-keywords="photo watermark stamp logo copyright dimension brand portfolio export"><span class="nav-icon">🖼️</span>Photo Watermark &amp; Stamp</button>
+              <button class="nav-link" type="button" data-action="open-undo-history" data-keywords="undo redo history revert snapshot restore timeline roll back state"><span class="nav-icon">↺</span>Undo / Redo Timeline</button>
+              <button class="nav-link" type="button" data-action="open-assembly-manual" data-keywords="assembly manual instructions step diagram explode exploded guide maker"><span class="nav-icon">📖</span>Assembly Manuals</button>
+              <button class="nav-link" type="button" data-action="open-pigment-blender" data-keywords="color pigment paint stain mix ratio cmyk pantone rgb tint tone blender"><span class="nav-icon">🎨</span>Pigment &amp; Stains</button>
+              <button class="nav-link" type="button" data-action="open-maintenance-engine" data-keywords="maintenance machine equipment lube blade service schedule hours interval care costs"><span class="nav-icon">🛠️</span>Tool Care &amp; Costs</button>
+              <button class="nav-link" type="button" data-action="open-community-hub" data-keywords="community recipes fork explore share open-source workbench makers hub"><span class="nav-icon">🌐</span>Community Hub</button>
+            </div>
+          </div>
 
           <div class="sidebar-section-divider"></div>
           <div class="sidebar-label" style="margin:10px 0 4px 10px;font-size:10px;letter-spacing:.08em;color:var(--muted)">WORKSPACE</div>
@@ -10042,6 +10059,7 @@ With warm regards and friendship,</textarea>
         <div class="cad-viewport-column">
           <div class="cad-viewport-container" id="cad-viewport-container">
             <canvas id="cad-viewer-canvas" width="800" height="520"></canvas>
+            <input type="file" id="cad-file-input" accept=".stl,.obj,.gcode,.nc,.svg" style="display:none">
             <div class="cad-overlay-controls">
               <button type="button" class="cad-view-btn" data-cad-view="iso">ISO</button>
               <button type="button" class="cad-view-btn" data-cad-view="top">TOP</button>
@@ -10057,7 +10075,6 @@ With warm regards and friendship,</textarea>
               <div style="font-weight:700;font-size:15px;margin-bottom:4px">Drop 3D CAD File Here</div>
               <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Supports .STL (Binary/ASCII), .OBJ (Wavefront 3D), .GCODE toolpaths, and .SVG</div>
               <button type="button" class="button button-small button-primary" id="cad-browse-file-btn">Browse Computer</button>
-              <input type="file" id="cad-file-input" accept=".stl,.obj,.gcode,.nc,.svg" style="display:none">
             </div>
             <div class="cad-gcode-scrubber" id="cad-gcode-scrubber" style="display:none">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">

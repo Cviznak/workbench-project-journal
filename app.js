@@ -10715,7 +10715,7 @@ function toggleSidebarSection(sectionName) {
 }
 
 function restoreSidebarSections() {
-  ["your-space", "craft-studios"].forEach(sec => {
+  ["your-space", "craft-studios", "workshop-suites"].forEach(sec => {
     try {
       const saved = localStorage.getItem(`workbench_sidebar_${sec}_collapsed`);
       if (saved === "true") {
@@ -39075,6 +39075,73 @@ function initCraftStudios() {
     }
   });
 
+  // 🛠️ Workshop Suites Search in Sidebar
+  const sidebarSuiteInput = $("#sidebar-suite-search");
+  const sidebarSuiteClear = $("#sidebar-suite-search-clear");
+  const sidebarSuiteNoResults = $("#sidebar-suites-no-results");
+  const sidebarSuiteQuerySpan = $("#sidebar-suites-query");
+
+  function filterSidebarSuites(query) {
+    const q = (query || "").toLowerCase().trim();
+    const suiteLinks = $$("#sidebar-content-workshop-suites .nav-link");
+    let matchCount = 0;
+
+    if (sidebarSuiteClear) {
+      sidebarSuiteClear.style.display = q ? "inline-block" : "none";
+    }
+
+    if (q) {
+      const suiteSec = $("#sidebar-section-workshop-suites");
+      if (suiteSec?.classList.contains("collapsed")) {
+        suiteSec.classList.remove("collapsed");
+        $("[data-action='toggle-sidebar-section'][data-section='workshop-suites']")?.setAttribute("aria-expanded", "true");
+      }
+    }
+
+    suiteLinks.forEach(link => {
+      const name = link.textContent.toLowerCase();
+      const keywords = (link.dataset.keywords || "").toLowerCase();
+      const action = (link.dataset.action || "").toLowerCase();
+      const matches = !q || name.includes(q) || keywords.includes(q) || action.includes(q);
+      link.style.display = matches ? "" : "none";
+      if (matches) matchCount++;
+    });
+
+    if (sidebarSuiteNoResults) {
+      sidebarSuiteNoResults.style.display = (q && matchCount === 0) ? "block" : "none";
+      if (sidebarSuiteQuerySpan) sidebarSuiteQuerySpan.textContent = q;
+    }
+  }
+
+  sidebarSuiteInput?.addEventListener("input", (e) => {
+    filterSidebarSuites(e.target.value);
+  });
+
+  sidebarSuiteClear?.addEventListener("click", () => {
+    if (sidebarSuiteInput) {
+      sidebarSuiteInput.value = "";
+      filterSidebarSuites("");
+      sidebarSuiteInput.focus();
+    }
+  });
+
+  sidebarSuiteInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      sidebarSuiteInput.value = "";
+      filterSidebarSuites("");
+    } else if (e.key === "Enter") {
+      const firstMatch = $("#sidebar-content-workshop-suites .nav-link:not([style*='display: none'])");
+      if (firstMatch) firstMatch.click();
+    }
+  });
+
+  // Ensure CAD file input change listener is permanently attached on startup
+  $("#cad-file-input")?.addEventListener("change", e => {
+    if (e.target.files && e.target.files[0]) {
+      loadCadFile(e.target.files[0]);
+    }
+  });
+
   // 💡 Project Ideas Listeners
   $("#idea-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -39568,7 +39635,9 @@ async function loadCadFile(file) {
           } catch (_) {}
         }
       } else {
-        mesh = parseASCIIStl(new TextDecoder().decode(buffer));
+        try {
+          mesh = parseASCIIStl(new TextDecoder().decode(buffer));
+        } catch (_) {}
         // Fallback: If ASCII parsing yielded 0 triangles, try Binary parser
         if (!mesh || mesh.facetCount === 0) {
           try {
@@ -39649,8 +39718,12 @@ function isBinaryStl(buffer) {
   }
 
   // 3. Fallback header check
-  const header = new TextDecoder().decode(buffer.slice(0, Math.min(buffer.byteLength, 80))).trim().toLowerCase();
-  return !header.startsWith("solid");
+  try {
+    const header = new TextDecoder().decode(buffer.slice(0, Math.min(buffer.byteLength, 80))).trim().toLowerCase();
+    return !header.startsWith("solid");
+  } catch (_) {
+    return true;
+  }
 }
 
 function parseBinaryStl(buffer) {
@@ -39690,12 +39763,14 @@ function parseASCIIStl(stlText) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (line.startsWith("facet normal")) {
+    if (!line) continue;
+    const lower = line.toLowerCase();
+    if (lower.startsWith("facet normal")) {
       const parts = line.split(/\s+/).slice(2).map(Number);
       if (parts.length === 3 && parts.every(n => !isNaN(n))) {
         currentNormal = parts;
       }
-    } else if (line.startsWith("vertex")) {
+    } else if (lower.startsWith("vertex")) {
       const parts = line.split(/\s+/).slice(1).map(Number);
       if (parts.length === 3 && parts.every(n => !isNaN(n))) {
         vertices.push(parts);
@@ -39755,6 +39830,8 @@ function computeMeshStats(vertices, normals) {
   let totalVolume = 0;
   let totalArea = 0;
 
+  const cleanNormals = normals && normals.length >= vertices.length ? [...normals] : new Array(vertices.length);
+
   for (let i = 0; i < vertices.length; i += 3) {
     if (i + 2 >= vertices.length) break;
     const v1 = vertices[i];
@@ -39770,6 +39847,31 @@ function computeMeshStats(vertices, normals) {
       if (v[2] > maxZ) maxZ = v[2];
     }
 
+    // Edge vectors
+    const ax = v2[0] - v1[0], ay = v2[1] - v1[1], az = v2[2] - v1[2];
+    const bx = v3[0] - v1[0], by = v3[1] - v1[1], bz = v3[2] - v1[2];
+
+    // Cross product (surface normal vector)
+    const cx = ay * bz - az * by;
+    const cy = az * bx - ax * bz;
+    const cz = ax * by - ay * bx;
+    const crossLen = Math.hypot(cx, cy, cz);
+
+    // Compute / fix face normals if file had (0,0,0) or missing normals
+    const existingNorm = cleanNormals[i];
+    const normLen = existingNorm ? Math.hypot(existingNorm[0], existingNorm[1], existingNorm[2]) : 0;
+    let computedNorm;
+    if (normLen > 0.001) {
+      computedNorm = [existingNorm[0] / normLen, existingNorm[1] / normLen, existingNorm[2] / normLen];
+    } else if (crossLen > 1e-7) {
+      computedNorm = [cx / crossLen, cy / crossLen, cz / crossLen];
+    } else {
+      computedNorm = [0, 0, 1];
+    }
+    cleanNormals[i] = computedNorm;
+    cleanNormals[i + 1] = computedNorm;
+    cleanNormals[i + 2] = computedNorm;
+
     // Signed tetrahedron volume = (v1 . (v2 x v3)) / 6.0
     const crossX = v2[1] * v3[2] - v2[2] * v3[1];
     const crossY = v2[2] * v3[0] - v2[0] * v3[2];
@@ -39778,12 +39880,7 @@ function computeMeshStats(vertices, normals) {
     totalVolume += signedVol;
 
     // Surface Area
-    const ax = v2[0] - v1[0], ay = v2[1] - v1[1], az = v2[2] - v1[2];
-    const bx = v3[0] - v1[0], by = v3[1] - v1[1], bz = v3[2] - v1[2];
-    const cx = ay * bz - az * by;
-    const cy = az * bx - ax * bz;
-    const cz = ax * by - ay * bx;
-    totalArea += 0.5 * Math.sqrt(cx * cx + cy * cy + cz * cz);
+    totalArea += 0.5 * crossLen;
   }
 
   if (minX === Infinity) {
@@ -39803,7 +39900,7 @@ function computeMeshStats(vertices, normals) {
 
   return {
     vertices: centeredVertices,
-    normals,
+    normals: cleanNormals,
     facetCount: Math.floor(vertices.length / 3),
     bounds: {
       minX, maxX, minY, maxY, minZ, maxZ,
@@ -41864,6 +41961,15 @@ document.addEventListener("click", event => {
 
   if (action === "open-cad-viewer") {
     openCadViewer();
+    return;
+  }
+  if (action === "cad-import-file") {
+    openCadViewer();
+    const fileInput = $("#cad-file-input");
+    if (fileInput) {
+      fileInput.value = "";
+      fileInput.click();
+    }
     return;
   }
   if (action === "open-floorplan") {
