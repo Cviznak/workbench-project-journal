@@ -2648,6 +2648,25 @@ async function loadRemoteWorkspace(remote) {
   }
   remoteState.projects = Array.from(mergedProjectMap.values());
 
+  // Merge remote ideas with local ideas so idea brainstorms are never lost
+  if (Array.isArray(remoteState.ideas)) {
+    const ideaMap = new Map();
+    for (const i of (state.ideas || [])) {
+      if (i?.id) ideaMap.set(i.id, i);
+    }
+    for (const ri of remoteState.ideas) {
+      if (ri?.id) {
+        const existing = ideaMap.get(ri.id);
+        if (!existing || new Date(ri.updatedAt || 0) >= new Date(existing.updatedAt || 0)) {
+          ideaMap.set(ri.id, ri);
+        }
+      }
+    }
+    remoteState.ideas = Array.from(ideaMap.values());
+  } else {
+    remoteState.ideas = Array.isArray(state.ideas) && state.ideas.length ? state.ideas : [...STARTER_IDEAS];
+  }
+
   Object.assign(state, remoteState, { updatedAt: remote.updated_at });
   state.starterSkillsAdded = true;
   state.hasUserChanges = remoteState.hasUserChanges === true;
@@ -3466,35 +3485,40 @@ function openIdeaDialog(ideaId = null) {
 
   form.reset();
   const deleteBtn = $("#delete-idea-btn");
+  const el = form.elements;
 
   if (ideaId) {
     const idea = (state.ideas || []).find(i => i.id === ideaId);
     if (!idea) return;
     $("#idea-dialog-title").textContent = "Edit Project Idea";
-    form.id.value = idea.id;
-    form.title.value = idea.title || "";
-    form.category.value = idea.category || "woodworking";
-    form.priority.value = idea.priority || "normal";
-    form.effort.value = idea.effort || "weekend";
-    form.cost.value = idea.cost || "";
-    form.supplies.value = idea.supplies || "";
-    form.notes.value = idea.notes || "";
-    form.status.value = idea.status || "brainstorming";
-    if (form.isGift) form.isGift.checked = Boolean(idea.isGift);
-    if (form.giftRecipient) form.giftRecipient.value = idea.giftRecipient || "";
+    if (el.namedItem("id")) el.namedItem("id").value = idea.id;
+    if (el.namedItem("title")) el.namedItem("title").value = idea.title || "";
+    if (el.namedItem("category")) el.namedItem("category").value = idea.category || "woodworking";
+    if (el.namedItem("priority")) el.namedItem("priority").value = idea.priority || "normal";
+    if (el.namedItem("effort")) el.namedItem("effort").value = idea.effort || "weekend";
+    if (el.namedItem("cost")) el.namedItem("cost").value = idea.cost || "";
+    if (el.namedItem("supplies")) el.namedItem("supplies").value = idea.supplies || "";
+    if (el.namedItem("notes")) el.namedItem("notes").value = idea.notes || "";
+    if (el.namedItem("status")) el.namedItem("status").value = idea.status || "brainstorming";
+    if (el.namedItem("isGift")) el.namedItem("isGift").checked = Boolean(idea.isGift);
+    if (el.namedItem("giftRecipient")) el.namedItem("giftRecipient").value = idea.giftRecipient || "";
     if (deleteBtn) {
       deleteBtn.classList.remove("hidden");
       deleteBtn.dataset.ideaId = idea.id;
     }
   } else {
     $("#idea-dialog-title").textContent = "New Project Idea";
-    form.id.value = "";
-    form.category.value = "woodworking";
-    form.priority.value = "normal";
-    form.effort.value = "weekend";
-    form.status.value = "brainstorming";
-    if (form.isGift) form.isGift.checked = false;
-    if (form.giftRecipient) form.giftRecipient.value = "";
+    if (el.namedItem("id")) el.namedItem("id").value = "";
+    if (el.namedItem("title")) el.namedItem("title").value = "";
+    if (el.namedItem("category")) el.namedItem("category").value = "woodworking";
+    if (el.namedItem("priority")) el.namedItem("priority").value = "normal";
+    if (el.namedItem("effort")) el.namedItem("effort").value = "weekend";
+    if (el.namedItem("cost")) el.namedItem("cost").value = "";
+    if (el.namedItem("supplies")) el.namedItem("supplies").value = "";
+    if (el.namedItem("notes")) el.namedItem("notes").value = "";
+    if (el.namedItem("status")) el.namedItem("status").value = "brainstorming";
+    if (el.namedItem("isGift")) el.namedItem("isGift").checked = false;
+    if (el.namedItem("giftRecipient")) el.namedItem("giftRecipient").value = "";
     if (deleteBtn) deleteBtn.classList.add("hidden");
   }
 
@@ -3502,8 +3526,10 @@ function openIdeaDialog(ideaId = null) {
 }
 
 async function saveIdeaFromForm(form) {
-  const id = form.id.value || uid();
-  const title = (form.title.value || "").trim();
+  if (!form) return;
+  const el = form.elements;
+  const id = el.namedItem("id")?.value || uid();
+  const title = (el.namedItem("title")?.value || "").trim();
   if (!title) {
     showToast("Please enter an idea title.");
     return;
@@ -3515,32 +3541,41 @@ async function saveIdeaFromForm(form) {
   const ideaData = {
     id,
     title,
-    category: form.category.value || "general",
-    priority: form.priority.value || "normal",
-    effort: form.effort.value || "weekend",
-    cost: form.cost.value ? String(form.cost.value) : "",
-    supplies: (form.supplies.value || "").trim(),
-    notes: (form.notes.value || "").trim(),
-    isGift: Boolean(form.isGift?.checked),
-    giftRecipient: (form.giftRecipient?.value || "").trim(),
-    status: form.status.value || "brainstorming",
+    category: el.namedItem("category")?.value || "general",
+    priority: el.namedItem("priority")?.value || "normal",
+    effort: el.namedItem("effort")?.value || "weekend",
+    cost: el.namedItem("cost")?.value ? String(el.namedItem("cost").value) : "",
+    supplies: (el.namedItem("supplies")?.value || "").trim(),
+    notes: (el.namedItem("notes")?.value || "").trim(),
+    isGift: Boolean(el.namedItem("isGift")?.checked),
+    giftRecipient: (el.namedItem("giftRecipient")?.value || "").trim(),
+    status: el.namedItem("status")?.value || "brainstorming",
     updatedAt: new Date().toISOString()
   };
 
   if (existingIndex >= 0) {
     state.ideas[existingIndex] = { ...state.ideas[existingIndex], ...ideaData };
-    showToast(`Updated idea "${title}"`);
+    showToast(`Updated idea "${title}" 💡`);
   } else {
     ideaData.createdAt = new Date().toISOString();
     state.ideas.unshift(ideaData);
     makeActivity("idea", `Added project idea: ${title}`);
-    showToast(`Saved idea "${title}" to your queue!`);
+    showToast(`Saved idea "${title}" to your queue! 💡`);
   }
 
   await persistState();
   renderNavigation();
   renderIdeasView();
   $("#idea-dialog")?.close();
+}
+
+async function handleIdeaSubmit(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const form = event.currentTarget || event.target.closest("form") || $("#idea-form");
+  if (form) {
+    await saveIdeaFromForm(form);
+  }
 }
 
 async function deleteIdea(ideaId) {
@@ -11587,6 +11622,10 @@ async function adminToggleUserRole(userId, currentRole) {
 
 
 async function handleAction(action, target) {
+  if (target?.closest(".sidebar") && action !== "toggle-sidebar-section" && action !== "toggle-sidebar-minimize") {
+    $(".sidebar")?.classList.remove("open");
+    $("#sidebar-backdrop")?.classList.remove("visible");
+  }
   const id = target.dataset.id;
   if (action === "open-activity-detail") {
     openActivityDetail(id || target.dataset.id);
@@ -14327,6 +14366,7 @@ $$(".inventory-segmented-tabs .inventory-tab-btn").forEach(btn => {
 });
 $("#template-form")?.addEventListener("submit", event => void handleTemplateSubmit(event));
 $("#project-form").addEventListener("submit", event => void handleProjectSubmit(event));
+$("#idea-form")?.addEventListener("submit", event => void handleIdeaSubmit(event));
 $("#project-template-select")?.addEventListener("change", event => {
   const key = event.target.value;
   const form = $("#project-form");
@@ -14405,7 +14445,13 @@ $("#practice-filter").addEventListener("change", () => {
   practiceLogLimit = 12;
   renderPracticeLog();
 });
-document.addEventListener("submit", event => void handleProjectEntrySubmit(event));
+document.addEventListener("submit", event => {
+  if (event.target && event.target.id === "idea-form") {
+    void handleIdeaSubmit(event);
+    return;
+  }
+  void handleProjectEntrySubmit(event);
+});
 document.addEventListener("change", event => {
   if (event.target.matches('input[data-action="toggle-task"]')) void handleTaskToggle(event.target);
 });
@@ -39143,10 +39189,7 @@ function initCraftStudios() {
   });
 
   // 💡 Project Ideas Listeners
-  $("#idea-form")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    saveIdeaFromForm(e.target);
-  });
+  $("#idea-form")?.addEventListener("submit", handleIdeaSubmit);
   ["#idea-search", "#idea-category-filter", "#idea-status-filter", "#idea-priority-filter"].forEach(sel => {
     $(sel)?.addEventListener("input", renderIdeasView);
     $(sel)?.addEventListener("change", renderIdeasView);
@@ -41958,6 +42001,11 @@ document.addEventListener("click", event => {
   if (!target) return;
   const action = target.dataset.action;
   const id = target.dataset.id || target.dataset.project;
+
+  if (target.closest(".sidebar") && action !== "toggle-sidebar-section" && action !== "toggle-sidebar-minimize") {
+    $(".sidebar")?.classList.remove("open");
+    $("#sidebar-backdrop")?.classList.remove("visible");
+  }
 
   if (action === "open-cad-viewer") {
     openCadViewer();
