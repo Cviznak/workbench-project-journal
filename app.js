@@ -3550,71 +3550,91 @@ function openIdeaDialog(ideaId = null) {
   }
 }
 
+let isSavingIdea = false;
+
 async function saveIdeaFromForm(form) {
-  const targetForm = (form && form.elements) ? form : $("#idea-form");
-  if (!targetForm) return;
-  const el = targetForm.elements || {};
-  const getVal = (name) => {
-    let field = null;
-    if (el) {
-      field = el.namedItem ? el.namedItem(name) : el[name];
+  if (typeof isSavingIdea !== "undefined" && isSavingIdea) return;
+  if (typeof isSavingIdea !== "undefined") isSavingIdea = true;
+  try {
+    const targetForm = (form && form.elements) ? form : $("#idea-form");
+    if (!targetForm) return;
+    const el = targetForm.elements || {};
+    const getVal = (name) => {
+      let field = null;
+      if (el) {
+        field = el.namedItem ? el.namedItem(name) : el[name];
+      }
+      return (field?.value || (typeof targetForm.querySelector === "function" ? targetForm.querySelector(`[name="${name}"]`)?.value : "") || "").trim();
+    };
+    const getChecked = (name) => {
+      let field = null;
+      if (el) {
+        field = el.namedItem ? el.namedItem(name) : el[name];
+      }
+      return Boolean(field?.checked ?? (typeof targetForm.querySelector === "function" ? targetForm.querySelector(`[name="${name}"]`)?.checked : false));
+    };
+
+    const id = getVal("id") || uid();
+    // Cache the assigned ID into the form controls immediately so that any subsequent read in the same lifecycle updates instead of re-creating
+    const idField = el.namedItem ? el.namedItem("id") : el["id"];
+    if (idField) idField.value = id;
+    const idInput = typeof targetForm.querySelector === "function" ? targetForm.querySelector('input[name="id"]') : null;
+    if (idInput) idInput.value = id;
+
+    const title = (el.namedItem ? el.namedItem("title")?.value : "") || getVal("title");
+    if (!title) {
+      showToast("Please enter an idea title.");
+      return;
     }
-    return (field?.value || (typeof targetForm.querySelector === "function" ? targetForm.querySelector(`[name="${name}"]`)?.value : "") || "").trim();
-  };
-  const getChecked = (name) => {
-    let field = null;
-    if (el) {
-      field = el.namedItem ? el.namedItem(name) : el[name];
+
+    state.ideas = state.ideas || [];
+    const existingIndex = state.ideas.findIndex(i => i.id === id);
+
+    const ideaData = {
+      id,
+      title,
+      category: getVal("category") || "general",
+      priority: getVal("priority") || "normal",
+      effort: getVal("effort") || "weekend",
+      cost: getVal("cost") ? String(getVal("cost")) : "",
+      supplies: getVal("supplies"),
+      notes: getVal("notes"),
+      isGift: getChecked("isGift"),
+      giftRecipient: getVal("giftRecipient"),
+      status: getVal("status") || "brainstorming",
+      updatedAt: new Date().toISOString()
+    };
+
+    if (existingIndex >= 0) {
+      state.ideas[existingIndex] = { ...state.ideas[existingIndex], ...ideaData };
+      showToast(`Updated idea "${title}" 💡`);
+    } else {
+      ideaData.createdAt = new Date().toISOString();
+      state.ideas.unshift(ideaData);
+      makeActivity("idea", `Added project idea: ${title}`);
+      showToast(`Saved idea "${title}" to your queue! 💡`);
     }
-    return Boolean(field?.checked ?? (typeof targetForm.querySelector === "function" ? targetForm.querySelector(`[name="${name}"]`)?.checked : false));
-  };
 
-  const id = getVal("id") || uid();
-  const title = (el.namedItem ? el.namedItem("title")?.value : "") || getVal("title");
-  if (!title) {
-    showToast("Please enter an idea title.");
-    return;
+    await persistState({ syncCloud: true });
+    renderNavigation();
+    renderIdeasView();
+    $("#idea-dialog")?.close();
+  } finally {
+    if (typeof isSavingIdea !== "undefined") {
+      setTimeout(() => {
+        isSavingIdea = false;
+      }, 400);
+    }
   }
-
-  state.ideas = state.ideas || [];
-  const existingIndex = state.ideas.findIndex(i => i.id === id);
-
-  const ideaData = {
-    id,
-    title,
-    category: getVal("category") || "general",
-    priority: getVal("priority") || "normal",
-    effort: getVal("effort") || "weekend",
-    cost: getVal("cost") ? String(getVal("cost")) : "",
-    supplies: getVal("supplies"),
-    notes: getVal("notes"),
-    isGift: getChecked("isGift"),
-    giftRecipient: getVal("giftRecipient"),
-    status: getVal("status") || "brainstorming",
-    updatedAt: new Date().toISOString()
-  };
-
-  if (existingIndex >= 0) {
-    state.ideas[existingIndex] = { ...state.ideas[existingIndex], ...ideaData };
-    showToast(`Updated idea "${title}" 💡`);
-  } else {
-    ideaData.createdAt = new Date().toISOString();
-    state.ideas.unshift(ideaData);
-    makeActivity("idea", `Added project idea: ${title}`);
-    showToast(`Saved idea "${title}" to your queue! 💡`);
-  }
-
-  await persistState({ syncCloud: true });
-  renderNavigation();
-  renderIdeasView();
-  $("#idea-dialog")?.close();
 }
 
 async function handleIdeaSubmit(event) {
   if (event) {
     if (typeof event.preventDefault === "function") event.preventDefault();
     if (typeof event.stopPropagation === "function") event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
   }
+  if (isSavingIdea) return;
   const form = $("#idea-form") || (event?.target?.closest ? event.target.closest("form") : null);
   if (form) {
     await saveIdeaFromForm(form);
@@ -11742,10 +11762,6 @@ async function handleAction(action, target) {
     $("#sidebar-backdrop")?.classList.remove("visible");
     return;
   }
-  if (action === "save-idea-btn") {
-    void handleIdeaSubmit(null);
-    return;
-  }
   if (action === "new-idea") {
     openIdeaDialog();
     return;
@@ -14175,6 +14191,7 @@ async function initialize() {
     const saved = await readSavedState();
     if (saved) {
       state.projects = Array.isArray(saved.projects) ? saved.projects : [];
+      state.ideas = Array.isArray(saved.ideas) ? saved.ideas : (saved.ideas === undefined ? [...STARTER_IDEAS] : []);
       state.skills = Array.isArray(saved.skills) ? saved.skills : [];
       state.activity = Array.isArray(saved.activity) ? saved.activity : [];
       state.practiceLog = Array.isArray(saved.practiceLog)
@@ -14192,7 +14209,9 @@ async function initialize() {
         project.skillIds = Array.isArray(project.skillIds) ? project.skillIds : [];
       });
       state.skills.forEach(skill => { skill.xp = Number.isFinite(skill.xp) ? skill.xp : 0; });
-      state.hasUserChanges = saved.hasUserChanges === true || state.projects.length > 0 || state.skills.some(skill => skill.xp > 0);
+      state.hasUserChanges = saved.hasUserChanges === true || state.projects.length > 0 || state.skills.some(skill => skill.xp > 0) || (state.ideas || []).length > 0;
+    } else {
+      state.ideas = [...STARTER_IDEAS];
     }
     state.projects.forEach(project => {
       project.tasks = Array.isArray(project.tasks) ? project.tasks : [];
@@ -14201,6 +14220,7 @@ async function initialize() {
       project.pinned = Boolean(project.pinned);
       project.timeSpent = Number.isFinite(project.timeSpent) ? project.timeSpent : 0;
     });
+    state.ideas = Array.isArray(state.ideas) ? state.ideas : (Array.isArray(saved?.ideas) ? saved.ideas : (saved?.ideas === undefined ? [...STARTER_IDEAS] : []));
     state.inventory = Array.isArray(saved?.inventory) ? saved.inventory : [];
     state.customTemplates = Array.isArray(saved?.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved?.makerGoals) ? saved.makerGoals : [];
@@ -14493,10 +14513,7 @@ $("#practice-filter").addEventListener("change", () => {
   renderPracticeLog();
 });
 document.addEventListener("submit", event => {
-  if (event.target && event.target.id === "idea-form") {
-    void handleIdeaSubmit(event);
-    return;
-  }
+  if (event.target && event.target.id === "idea-form") return;
   void handleProjectEntrySubmit(event);
 });
 document.addEventListener("change", event => {
@@ -39236,7 +39253,6 @@ function initCraftStudios() {
   });
 
   // 💡 Project Ideas Listeners
-  $("#idea-form")?.addEventListener("submit", handleIdeaSubmit);
   ["#idea-search", "#idea-category-filter", "#idea-status-filter", "#idea-priority-filter"].forEach(sel => {
     $(sel)?.addEventListener("input", renderIdeasView);
     $(sel)?.addEventListener("change", renderIdeasView);
