@@ -2,6 +2,97 @@
    Workbench Project Journal - Application Coordinator & Router
    ============================================================ */
 
+function render() {
+  updateUserUI();
+  renderNavigation();
+  renderCloudConnection();
+  renderOverview();
+  renderProjects();
+  renderIdeasView();
+  renderPlanner();
+  renderSkills();
+  renderGallery();
+  renderTimeline();
+  renderShoppingList();
+  renderInventory();
+  renderWeeklyGoal();
+  renderAchievements();
+  renderNotificationBadge();
+  if ($("#admin-view")?.classList.contains("active")) renderAdminHub();
+  if (activeProjectId && $("#detail-dialog")?.open) renderProjectDetail(activeProjectId);
+}
+
+function renderNavigation() {
+  const projCount = $("#nav-project-count");
+  if (projCount) projCount.textContent = state.projects.length;
+  const ideasCount = $("#nav-ideas-count");
+  if (ideasCount) {
+    ideasCount.textContent = (state.ideas || []).filter(i => i.status !== "archived").length;
+  }
+  const shoppingCount = $("#nav-shopping-count");
+  if (shoppingCount) {
+    const unpurchased = state.projects.flatMap(p => (p.materials || []).filter(m => m.status !== "have"));
+    shoppingCount.textContent = unpurchased.length;
+  }
+  const inventoryCount = $("#nav-inventory-count");
+  if (inventoryCount) {
+    inventoryCount.textContent = (state.inventory || []).length;
+  }
+}
+
+function statCard(label, number, foot, symbol) {
+  return `<article class="stat-card"><div class="stat-label">${label}</div><span class="stat-symbol">${symbol}</span><div class="stat-number">${number}</div><div class="stat-foot">${foot}</div></article>`;
+}
+
+function renderOverview() {
+  const inProgress = state.projects.filter(project => project.status === "in-progress").length;
+  const completed = state.projects.filter(project => project.status === "completed").length;
+  const totalXp = state.skills.reduce((sum, skill) => sum + skill.xp, 0);
+  const photos = state.projects.reduce((sum, project) => sum + projectImageCount(project), 0);
+  const totalMinutes = state.projects.reduce((sum, project) => sum + (Number(project.timeSpent) || 0), 0);
+  $("#overview-stats").innerHTML = [
+    statCard("Projects in motion", inProgress, `${state.projects.length} in your workshop`, "↗"),
+    statCard("Time invested", formatMinutes(totalMinutes), "Across all workshop projects", "⏱"),
+    statCard("Finished projects", completed, "A little something to be proud of", "✳"),
+    statCard("Skills growing", state.skills.length, `${totalXp.toLocaleString()} XP earned so far`, "✽"),
+    statCard("Moments captured", photos, "Photos saved across your projects", "▧")
+  ].join("");
+
+  const recent = [...state.projects].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)).slice(0, 4);
+  $("#recent-projects").innerHTML = recent.length ? recent.map((project, index) => {
+    const skillText = projectSkillNames(project).map(skill => skill.name).join(" · ");
+    return `<div class="project-row" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
+      <div class="project-swatch color-${index % 4}">${["✳", "⌘", "◈", "✿"][index % 4]}</div>
+      <div class="project-row-info"><strong>${escapeHTML(project.title)}</strong><span>${escapeHTML(skillText || project.description || "A project in your workshop")}</span></div>
+      <span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span>
+    </div>`;
+  }).join("") : emptyState("Your first project is waiting", "Start with an idea, a plan, or something you’ve already made.", "new-project");
+
+  const topSkills = [...state.skills].sort((a, b) => b.xp - a.xp).slice(0, 4);
+  $("#overview-skills").innerHTML = topSkills.length ? topSkills.map(skill => `
+    <div class="skill-overview-item">
+      <div class="skill-overview-top"><span class="skill-overview-name">${escapeHTML(skill.name)}</span><span class="skill-level">Level ${skillLevel(skill.xp)}</span></div>
+      <div class="progress-track"><div class="progress-bar" style="width:${skillProgress(skill.xp)}%"></div></div>
+      <div class="skill-overview-foot"><span>${skillProgress(skill.xp)} / ${XP_PER_LEVEL} XP to next level</span><span>${skill.xp} XP</span></div>
+    </div>`).join("") + `<button class="panel-footer-link" data-view="skills">Explore all skills <span>→</span></button>`
+    : `<div class="empty-inline">Add the skills you’re building and celebrate each level up.</div><button class="panel-footer-link" data-action="new-skill">Add your first skill <span>→</span></button>`;
+
+  const activities = state.activity.slice(0, 3);
+  $("#recent-activity").innerHTML = activities.length ? `<div class="activity-list">${activities.map(activity => `
+    <div class="activity-item"><div class="activity-icon">${activity.kind === "xp" ? "✳" : activity.kind === "photo" ? "▧" : "↗"}</div>
+    <div><p>${escapeHTML(activity.text)}</p><time>${relativeTime(activity.at)}</time></div></div>`).join("")}</div>`
+    : `<div class="empty-inline">Your little wins will show up here as you go.</div>`;
+
+  const overviewStreak = $("#overview-streak-container");
+  if (overviewStreak) overviewStreak.innerHTML = renderStreakWidget();
+  renderMakerGoals();
+}
+
+function emptyState(title, description, action, buttonText = "Get started") {
+  return `<div class="empty-state"><div class="empty-state-mark">✳</div><h3>${escapeHTML(title)}</h3><p>${escapeHTML(description)}</p><button class="button button-primary" data-action="${escapeHTML(action)}">＋ ${escapeHTML(buttonText)}</button></div>`;
+}
+
+
 function switchView(view, { updateHistory = true, scroll = true } = {}) {
   const targetView = VALID_APP_VIEWS.has(view) ? view : "overview";
   $$(".view-section").forEach(section => section.classList.toggle("active", section.id === `${targetView}-view`));
@@ -144,21 +235,6 @@ function switchView(view, { updateHistory = true, scroll = true } = {}) {
   }
 
   if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function showToast(message) {
-  const toast = $("#toast");
-  toast.textContent = message;
-  toast.classList.add("visible");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("visible"), 3000);
-}
-
-function addProjectSkillOptions(selectedIds = []) {
-  const container = $("#project-skill-options");
-  container.innerHTML = state.skills.length ? state.skills.map(skill => `
-    <label class="skill-option"><input type="checkbox" name="skillIds" value="${skill.id}" ${selectedIds.includes(skill.id) ? "checked" : ""}><span>${escapeHTML(skill.name)}</span></label>`).join("")
-    : `<span class="form-hint">No skills yet — you can add them from the Skills page.</span>`;
 }
 
 
@@ -2929,18 +3005,18 @@ async function initialize() {
     }
     await persistState({ syncCloud: false, preserveTimestamp: Boolean(state.updatedAt) });
     applyTheme(getSavedTheme());
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    window.matchMedia("(prefers-color-scheme: dark)")?.addEventListener("change", () => {
       if (getSavedTheme() === "auto") applyTheme("auto");
     });
     if ("serviceWorker" in navigator && (window.location.protocol === "http:" || window.location.protocol === "https:")) {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
-    document.addEventListener("visibilitychange", () => {
+    document?.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible" && getCloudConfig() && getCloudSession()) {
         void syncCloudWorkspace();
       }
     });
-    window.addEventListener("storage", event => {
+    window?.addEventListener("storage", event => {
       if (event.key === CLOUD_SESSION_KEY || event.key === CURRENT_PROFILE_STORAGE_KEY || event.key === PRIMARY_ADMIN_STORAGE_KEY) {
         updateUserUI();
         void loadUserScopedState().then(() => render());
@@ -2963,7 +3039,7 @@ async function initialize() {
     }
     checkInviteOrSetupLink();
     checkHashRouting();
-    window.addEventListener("hashchange", checkHashRouting);
+    window?.addEventListener("hashchange", checkHashRouting);
     if (getCloudConfig() && getCloudSession()) {
       void syncCloudWorkspace().then(async () => {
         const curUser = getActiveUser();
@@ -2981,7 +3057,7 @@ async function initialize() {
   }
 }
 
-document.addEventListener("click", event => {
+document?.addEventListener("click", event => {
   if (!getActiveUser() && !event.target.closest("#auth-dialog")) {
     event.preventDefault();
     openAuthModal("signin");
@@ -3028,7 +3104,7 @@ document.addEventListener("click", event => {
   }
 });
 
-document.addEventListener("keydown", event => {
+document?.addEventListener("keydown", event => {
   if ((event.ctrlKey || event.metaKey) && event.key === "[") {
     event.preventDefault();
     toggleSidebarMinimize();
@@ -3060,10 +3136,10 @@ document.addEventListener("keydown", event => {
   }
 });
 
-$("#project-search").addEventListener("input", renderProjects);
-$("#project-status-filter").addEventListener("change", renderProjects);
+$("#project-search")?.addEventListener("input", renderProjects);
+$("#project-status-filter")?.addEventListener("change", renderProjects);
 $("#project-priority-filter")?.addEventListener("change", renderProjects);
-$("#project-sort").addEventListener("change", renderProjects);
+$("#project-sort")?.addEventListener("change", renderProjects);
 $("#timeline-search")?.addEventListener("input", renderTimeline);
 $("#timeline-type-filter")?.addEventListener("change", renderTimeline);
 $("#timeline-project-filter")?.addEventListener("change", renderTimeline);
@@ -3083,7 +3159,7 @@ $("#inventory-form")?.addEventListener("submit", event => void handleInventorySu
 
 // Type selector in inventory modal
 $$('#inventory-form input[name="itemType"]').forEach(radio => {
-  radio.addEventListener("change", () => {
+  radio?.addEventListener("change", () => {
     const isEquip = radio.value === "equipment";
     $("#inventory-material-fields")?.classList.toggle("hidden", isEquip);
     $("#inventory-equipment-fields")?.classList.toggle("hidden", !isEquip);
@@ -3097,7 +3173,7 @@ $$('#inventory-form input[name="itemType"]').forEach(radio => {
 
 // Segmented view tabs in inventory depot
 $$(".inventory-segmented-tabs .inventory-tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
+  btn?.addEventListener("click", () => {
     state.inventoryActiveTab = btn.dataset.tab || "all";
     $$(".inventory-segmented-tabs .inventory-tab-btn").forEach(b => {
       const active = b === btn;
@@ -3110,7 +3186,7 @@ $$(".inventory-segmented-tabs .inventory-tab-btn").forEach(btn => {
   });
 });
 $("#template-form")?.addEventListener("submit", event => void handleTemplateSubmit(event));
-$("#project-form").addEventListener("submit", event => void handleProjectSubmit(event));
+$("#project-form")?.addEventListener("submit", event => void handleProjectSubmit(event));
 $("#idea-form")?.addEventListener("submit", event => void handleIdeaSubmit(event));
 $("#project-template-select")?.addEventListener("change", event => {
   const key = event.target.value;
@@ -3183,21 +3259,21 @@ $("#project-template-select")?.addEventListener("change", event => {
     templateHint.style.display = "block";
   }
 });
-$("#skill-form").addEventListener("submit", event => void handleSkillSubmit(event));
-$("#xp-form").addEventListener("submit", event => void handleXpSubmit(event));
-$("#folder-form").addEventListener("submit", event => void handleFolderSubmit(event));
-$("#practice-filter").addEventListener("change", () => {
+$("#skill-form")?.addEventListener("submit", event => void handleSkillSubmit(event));
+$("#xp-form")?.addEventListener("submit", event => void handleXpSubmit(event));
+$("#folder-form")?.addEventListener("submit", event => void handleFolderSubmit(event));
+$("#practice-filter")?.addEventListener("change", () => {
   practiceLogLimit = 12;
   renderPracticeLog();
 });
-document.addEventListener("submit", event => {
+document?.addEventListener("submit", event => {
   if (event.target && event.target.id === "idea-form") return;
   void handleProjectEntrySubmit(event);
 });
-document.addEventListener("change", event => {
+document?.addEventListener("change", event => {
   if (event.target.matches('input[data-action="toggle-task"]')) void handleTaskToggle(event.target);
 });
-$("#photo-input").addEventListener("change", event => void handlePhotoUpload(event.target.files));
+$("#photo-input")?.addEventListener("change", event => void handlePhotoUpload(event.target.files));
 $("#camera-input")?.addEventListener("change", event => void handlePhotoUpload(event.target.files));
 
 
@@ -3207,7 +3283,7 @@ $("#project-is-gift")?.addEventListener("change", (e) => {
   if (f) f.style.display = e.target.checked ? "block" : "none";
 });
 
-document.addEventListener("click", (e) => {
+document?.addEventListener("click", (e) => {
   const presetBtn = e.target.closest(".tag-preset-btn");
   if (presetBtn) {
     const key = presetBtn.dataset.preset;
@@ -3242,8 +3318,8 @@ document.addEventListener("click", (e) => {
 ["#gift-calc-l", "#gift-calc-w", "#gift-calc-h", "#gift-calc-overlap", "#gift-calc-bow"].forEach(sel => {
   const el = $(sel);
   if (el) {
-    el.addEventListener("input", updateGiftWrappingCalc);
-    el.addEventListener("change", updateGiftWrappingCalc);
+    el?.addEventListener("input", updateGiftWrappingCalc);
+    el?.addEventListener("change", updateGiftWrappingCalc);
   }
 });
 
@@ -3255,8 +3331,8 @@ $("#gift-tag-project-select")?.addEventListener("change", (e) => {
 ["#gift-tag-style-select", "#gift-tag-theme-select", "#gift-tag-to", "#gift-tag-from", "#gift-tag-title", "#gift-tag-occasion", "#gift-tag-materials", "#gift-tag-care", "#gift-tag-date", "#gift-tag-edition"].forEach(sel => {
   const el = $(sel);
   if (el) {
-    el.addEventListener("input", renderGiftTagPreview);
-    el.addEventListener("change", renderGiftTagPreview);
+    el?.addEventListener("input", renderGiftTagPreview);
+    el?.addEventListener("change", renderGiftTagPreview);
   }
 });
 
@@ -3327,7 +3403,7 @@ $("#time-form")?.addEventListener("submit", async event => {
 
 /* Workshop Tools listeners */
 $$(".tool-tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => switchToolTab(btn.dataset.toolTab));
+  btn?.addEventListener("click", () => switchToolTab(btn.dataset.toolTab));
 });
 $("#tool-calc-fraction")?.addEventListener("input", () => updateFractionCalc("fraction"));
 $("#tool-calc-decimal")?.addEventListener("input", () => updateFractionCalc("decimal"));
@@ -3508,7 +3584,7 @@ $("#music-main-swing")?.addEventListener("input", (e) => {
 });
 
 // Jam keyboard shortcuts (1, 2, 3, 4 for Kick, Snare, Hat, Clap; Space for Play Both)
-window.addEventListener("keydown", (e) => {
+window?.addEventListener("keydown", (e) => {
   const tag = (e.target?.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable) {
     return;
@@ -3556,7 +3632,7 @@ $("#mobile-studios-dialog")?.addEventListener("close", () => {
   }
 });
 
-$("#backup-input").addEventListener("change", async event => {
+$("#backup-input")?.addEventListener("change", async event => {
   const [file] = event.target.files;
   if (!file) return;
   try {
@@ -3570,7 +3646,7 @@ $("#backup-input").addEventListener("change", async event => {
 });
 /* Auth modal listeners */
 $$(".auth-tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => switchAuthTab(btn.dataset.authTab));
+  btn?.addEventListener("click", () => switchAuthTab(btn.dataset.authTab));
 });
 
 $("#auth-signin-form")?.addEventListener("submit", async event => {
@@ -3738,9 +3814,22 @@ $("#admin-user-search")?.addEventListener("input", () => {
 });
 
 
+
+$("#goal-form")?.addEventListener("submit", event => void handleGoalSubmit(event));
+$("#maintenance-form")?.addEventListener("submit", event => void handleMaintenanceSubmit(event));
+$("#units-form")?.addEventListener("submit", event => { event.preventDefault(); void saveUnitsSettings(); });
+$("#soundscape-volume")?.addEventListener("input", event => setSoundscapeVolume(event.target.value));
+$("#tool-cut-stock")?.addEventListener("input", () => runCutOptimizer());
+$("#tool-cut-kerf")?.addEventListener("input", () => runCutOptimizer());
+$("#detail-dialog")?.addEventListener("close", () => { activeProjectId = null; });
+
+void initialize();
+
 if (typeof window !== "undefined") {
-  window.switchView = switchView;
+  window.render = render;
   window.renderNavigation = renderNavigation;
+  window.renderOverview = renderOverview;
+  window.switchView = switchView;
   window.handleAction = handleAction;
   window.checkHashRouting = checkHashRouting;
   window.initialize = initialize;

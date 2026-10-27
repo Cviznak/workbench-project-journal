@@ -198,36 +198,47 @@ const PROJECT_TEMPLATES = {
 // ZERO DEFAULTS: Clean slate - no starter ideas
 const STARTER_IDEAS = [];
 
-const IDEA_CATEGORIES = [
-  { id: "woodworking", label: "🪵 Woodworking" },
-  { id: "textiles", label: "🧶 Textiles & Fiber" },
-  { id: "music", label: "🎵 Music & Audio" },
-  { id: "electronics", label: "⚡ Electronics & IoT" },
-  { id: "programming", label: "💻 Software & MCU" },
-  { id: "art", label: "🎨 Fine Art & Design" },
-  { id: "resin", label: "🧪 Epoxy & Casting" },
-  { id: "printing", label: "🖨️ 3D Printing" },
-  { id: "origami", label: "🦢 Origami & Paper" },
-  { id: "laser", label: "🔥 Laser & Engraving" },
-  { id: "leather", label: "🪡 Leathercraft" },
-  { id: "ceramics", label: "🏺 Ceramics & Pottery" },
-  { id: "welding", label: "⚡ Welding & Metal" },
-  { id: "cnc", label: "⚙️ CNC Machining" },
-  { id: "blacksmith", label: "⚒️ Blacksmithing & Blades" },
-  { id: "fasteners", label: "🔩 Fasteners & Hardware" },
-  { id: "glass", label: "🪟 Stained Glass" },
-  { id: "jewelry", label: "💍 Jewelry & Metals" },
-  { id: "bookbinding", label: "📖 Bookbinding & Print" },
-  { id: "sla", label: "🧪 Resin SLA 3D Printing" },
-  { id: "luthier", label: "🎸 Luthier & Instruments" },
-  { id: "composites", label: "🌀 Composites & Carbon" },
-  { id: "horology", label: "⏱️ Watchmaking & Horology" },
-  { id: "robotics", label: "🤖 Robotics & Mechatronics" },
-  { id: "bicycle", label: "🚲 Bicycle Framebuilding" },
-  { id: "general", label: "✨ General Craft" }
-];
+const IDEA_CATEGORIES = {
+  woodworking: { name: "Woodworking", icon: "🪵" },
+  textiles: { name: "Textiles & Fiber", icon: "🧶" },
+  music: { name: "Music & Audio", icon: "🎵" },
+  electronics: { name: "Electronics & IoT", icon: "⚡" },
+  programming: { name: "Software & MCU", icon: "💻" },
+  art: { name: "Fine Art & Design", icon: "🎨" },
+  resin: { name: "Epoxy & Casting", icon: "🧪" },
+  printing: { name: "3D Printing", icon: "🖨️" },
+  origami: { name: "Origami & Paper", icon: "🦢" },
+  laser: { name: "Laser Cutting", icon: "🔥" },
+  leather: { name: "Leathercraft", icon: "🪡" },
+  ceramics: { name: "Ceramics & Pottery", icon: "🏺" },
+  welding: { name: "Welding & Metal", icon: "⚡" },
+  cnc: { name: "CNC Machining", icon: "⚙️" },
+  blacksmith: { name: "Blacksmithing", icon: "⚒️" },
+  fasteners: { name: "Fasteners & Hardware", icon: "🔩" },
+  glass: { name: "Stained Glass", icon: "🪟" },
+  jewelry: { name: "Jewelry Making", icon: "💍" },
+  bookbinding: { name: "Bookbinding & Print", icon: "📖" },
+  sla: { name: "Resin SLA Print", icon: "🧪" },
+  luthier: { name: "Luthier & Guitar", icon: "🎸" },
+  composites: { name: "Carbon Fiber", icon: "🌀" },
+  horology: { name: "Watchmaking", icon: "⏱️" },
+  robotics: { name: "Robotics & Mechatronics", icon: "🤖" },
+  bicycle: { name: "Bicycle Framebuilding", icon: "🚲" },
+  candle: { name: "Candle & Wax Studio", icon: "🕯️" },
+  perfume: { name: "Perfume & Botanical Distillation", icon: "🌿" },
+  letter: { name: "Letter & Correspondence Studio", icon: "✉️" },
+  general: { name: "General Craft", icon: "✨" }
+};
 
-const VALID_APP_VIEWS = ["projects", "detail", "skills", "ideas", "inventory", "timeline", "studio", "admin"];
+const VALID_APP_VIEWS = new Set([
+  "overview", "projects", "ideas", "skills", "gallery", "planner", "sync",
+  "timeline", "shopping", "inventory", "admin", "music", "woodworking",
+  "textiles", "electronics", "programming", "art", "resin", "printing",
+  "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith",
+  "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier",
+  "composites", "horology", "robotics", "bicycle", "candle", "perfume",
+  "letter", "distillation"
+]);
 
 if (typeof window !== "undefined") {
   window.DB_NAME = DB_NAME;

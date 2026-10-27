@@ -11467,17 +11467,6 @@ function exportProjectBinder(projectId) {
   showToast(`Exported Digital Build Binder for "${project.title}"! 📦`);
 }
 
-$("#goal-form")?.addEventListener("submit", event => void handleGoalSubmit(event));
-$("#maintenance-form")?.addEventListener("submit", event => void handleMaintenanceSubmit(event));
-$("#units-form")?.addEventListener("submit", event => { event.preventDefault(); void saveUnitsSettings(); });
-$("#soundscape-volume")?.addEventListener("input", event => setSoundscapeVolume(event.target.value));
-$("#tool-cut-stock")?.addEventListener("input", () => runCutOptimizer());
-$("#tool-cut-kerf")?.addEventListener("input", () => runCutOptimizer());
-$("#detail-dialog").addEventListener("close", () => { activeProjectId = null; });
-void initialize();
-
-
-
 if (typeof window !== "undefined") {
   window.openToolsDialog = openToolsDialog;
   window.runCutListOptimizer = runCutListOptimizer;

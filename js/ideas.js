@@ -6,109 +6,7 @@
    💡 Project Ideas & Maker Sparks System
    ============================================================ */
 
-const IDEA_CATEGORIES = {
-  woodworking: { name: "Woodworking", icon: "🪵" },
-  textiles: { name: "Textiles & Fiber", icon: "🧶" },
-  music: { name: "Music & Audio", icon: "🎵" },
-  electronics: { name: "Electronics & IoT", icon: "⚡" },
-  programming: { name: "Software & MCU", icon: "💻" },
-  art: { name: "Fine Art & Design", icon: "🎨" },
-  resin: { name: "Epoxy & Casting", icon: "🧪" },
-  printing: { name: "3D Printing", icon: "🖨️" },
-  origami: { name: "Origami & Paper", icon: "🦢" },
-  laser: { name: "Laser Cutting", icon: "🔥" },
-  leather: { name: "Leathercraft", icon: "🪡" },
-  ceramics: { name: "Ceramics & Pottery", icon: "🏺" },
-  welding: { name: "Welding & Metal", icon: "⚡" },
-  cnc: { name: "CNC Machining", icon: "⚙️" },
-  blacksmith: { name: "Blacksmithing", icon: "⚒️" },
-  fasteners: { name: "Fasteners & Hardware", icon: "🔩" },
-  glass: { name: "Stained Glass", icon: "🪟" },
-  jewelry: { name: "Jewelry Making", icon: "💍" },
-  bookbinding: { name: "Bookbinding & Print", icon: "📖" },
-  sla: { name: "Resin SLA Print", icon: "🧪" },
-  luthier: { name: "Luthier & Guitar", icon: "🎸" },
-  composites: { name: "Carbon Fiber", icon: "🌀" },
-  horology: { name: "Watchmaking", icon: "⏱️" },
-  robotics: { name: "Robotics & Motors", icon: "🤖" },
-  bicycle: { name: "Bicycle Framebuilding", icon: "🚲" },
-  general: { name: "General Craft", icon: "✨" }
-};
 
-const STARTER_IDEAS = [
-  {
-    id: "idea-starter-1",
-    title: "Live Edge Black Walnut Charcuterie Board",
-    category: "woodworking",
-    priority: "high",
-    effort: "weekend",
-    cost: "45",
-    supplies: "Kiln-dried walnut slab, food-safe mineral oil, brass cabinet handles, beeswax",
-    notes: "Flatten with router sled, chamfer underside 45 degrees for finger grip, carve juice groove with ball-nose bit.",
-    status: "ready",
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "idea-starter-2",
-    title: "Ortholinear Split Macro Pad with OLED & Rotary",
-    category: "electronics",
-    priority: "high",
-    effort: "weekend",
-    cost: "38",
-    supplies: "Raspberry Pi Pico RP2040, Kailh Choc v2 switches, custom PCB, EC11 encoder, 0.91in I2C OLED",
-    notes: "Program with QMK / Vial firmware for layered hotkeys in Fusion 360, KiCAD, and VS Code.",
-    status: "ready",
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "idea-starter-3",
-    title: "Hand-Stitched Shell Cordovan 5-Pocket Card Wallet",
-    category: "leather",
-    priority: "normal",
-    effort: "quick",
-    cost: "30",
-    supplies: "3oz Horween shell cordovan, 0.6mm Vinymo poly thread, Tokonole burnishing gum",
-    notes: "3.85mm French pricking irons, saddle stitch with 2 harness needles, polished glass burnished edge.",
-    status: "brainstorming",
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "idea-starter-4",
-    title: "Vacuum-Compacted Carbon Fiber Drone Top Plate",
-    category: "composites",
-    priority: "normal",
-    effort: "weekend",
-    cost: "40",
-    supplies: "3K 200gsm 2x2 twill carbon cloth, laminating epoxy, peel ply, vacuum bag film, breather mesh",
-    notes: "Quasi-isotropic [0/45/90/-45]s layup, 28 inHg vacuum clamp, CNC profile routing under water bath.",
-    status: "brainstorming",
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "idea-starter-5",
-    title: "Lost-Wax Cast 14K Gold Signet Ring",
-    category: "jewelry",
-    priority: "normal",
-    effort: "multi-week",
-    cost: "120",
-    supplies: "Blue carving wax, investment powder, 14K casting grain, sprue base, pickle acid",
-    notes: "Carve monogram with micro graver, vacuum debubble investment, burnout kiln ramp to 1350F.",
-    status: "brainstorming",
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "idea-starter-6",
-    title: "Hardcover French-Link Coptic Stitch Sketchbook",
-    category: "bookbinding",
-    priority: "low",
-    effort: "weekend",
-    cost: "22",
-    supplies: "140gsm cotton watercolor paper, Davey book board, bookcloth, waxed Irish linen thread, bone folder",
-    notes: "8 signatures of 4 folios each (64 pages), exposed French-link stitch spine allowing flat 180° opening.",
-    status: "brainstorming",
-    createdAt: new Date().toISOString()
-  }
-];
 
 const CURATED_SPARKS = [
   {
@@ -666,7 +564,9 @@ if (typeof window !== "undefined") {
   window.deleteIdea = deleteIdea;
   window.promoteIdeaToProject = promoteIdeaToProject;
   window.renderIdeasView = renderIdeasView;
-  window.filterIdeas = filterIdeas;
-  window.generateSpark = generateSpark;
-  window.saveSparkAsIdea = saveSparkAsIdea;
+  window.saveIdeasBackup = saveIdeasBackup;
+  window.readIdeasBackup = readIdeasBackup;
+  window.mergeIdeas = mergeIdeas;
+  window.adoptSparkIdea = adoptSparkIdea;
+  window.sparkRandomIdea = sparkRandomIdea;
 }

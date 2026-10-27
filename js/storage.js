@@ -655,6 +655,18 @@ function toggleSpeechDictation(button, targetInput) {
 }
 
 
+function safeStatus(status) {
+  return STATUS_LABELS[status] ? status : "planned";
+}
+
+function showToast(message) {
+  const toast = $("#toast");
+  toast.textContent = message;
+  toast.classList.add("visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("visible"), 3000);
+}
+
 /* 🪟 Panel Minimization & Window Collapsing */
 const COLLAPSED_PANELS_STORAGE_KEY = "workbench-collapsed-panels";
 
@@ -857,23 +869,19 @@ if (typeof window !== "undefined") {
   window.state = state;
   window.$ = $;
   window.$$ = $$;
+  window.uid = uid;
   window.CURRENCIES = CURRENCIES;
   window.formatMoney = formatMoney;
-  window.formatUnit = formatUnit;
   window.formatDate = formatDate;
   window.escapeHTML = escapeHTML;
-  window.safeStatus = safeStatus;
+  window.escapeHtml = escapeHtml;
   window.safePriority = safePriority;
-  window.uid = uid;
-  window.slugify = slugify;
+  window.safeStatus = safeStatus;
   window.showToast = showToast;
   window.makeActivity = makeActivity;
   window.persistState = persistState;
   window.readSavedState = readSavedState;
-  window.writeSavedState = writeSavedState;
   window.openDatabase = openDatabase;
-  window.saveIdeasBackup = saveIdeasBackup;
-  window.readIdeasBackup = readIdeasBackup;
-  window.mergeIdeas = mergeIdeas;
-  window.hasWorkspaceContent = hasWorkspaceContent;
+  window.applyTheme = applyTheme;
+  window.getSavedTheme = getSavedTheme;
 }

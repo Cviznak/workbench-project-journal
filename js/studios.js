@@ -16122,8 +16122,5 @@ function initCraftStudios() {
 }
 
 window.addEventListener("DOMContentLoaded", initCraftStudios);
-if (document.readyState === "complete" || document.readyState === "interactive") {
-  initCraftStudios();
-}
 
 

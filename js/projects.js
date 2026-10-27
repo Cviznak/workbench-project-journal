@@ -2,6 +2,117 @@
    Workbench Project Journal - Projects, Gifts & Collaborations
    ============================================================ */
 
+function renderProjects() {
+  renderSkillFilterPills();
+  renderTagFilterPills();
+  const query = ($("#project-search")?.value || "").trim().toLowerCase();
+  const filter = $("#project-status-filter")?.value || "all";
+  const collabOpt = $("#project-status-filter option[value='collaborative']");
+  if (collabOpt) {
+    const collabCount = (state.projects || []).filter(isCollaborativeProject).length;
+    collabOpt.textContent = `👥 Collaborative (${collabCount})`;
+  }
+  const priorityFilter = $("#project-priority-filter")?.value || "all";
+  const sort = $("#project-sort")?.value || "updated";
+  const filtered = [...state.projects]
+    .filter(project => {
+      if (filter === "all") return true;
+      if (filter === "pinned") return project.pinned === true;
+      if (filter === "collaborative") return isCollaborativeProject(project);
+      if (filter === "gift") return Boolean(project.isGift);
+      return safeStatus(project.status) === filter;
+    })
+    .filter(project => {
+      if (priorityFilter === "all") return true;
+      return safePriority(project.priority) === priorityFilter;
+    })
+    .filter(project => {
+      if (selectedSkillFilters.size === 0) return true;
+      return (project.skillIds || []).some(id => selectedSkillFilters.has(id));
+    })
+    .filter(project => {
+      if (selectedTagFilters.size === 0) return true;
+      return (project.tags || []).some(tag => selectedTagFilters.has(tag));
+    })
+    .filter(project => {
+      if (!query) return true;
+      const skillsStr = projectSkillNames(project).map(skill => skill.name).join(" ");
+      const tagsStr = (project.tags || []).join(" ");
+      const creatorStr = project.creator ? `${project.creator.name || ""} ${project.creator.email || ""}` : "";
+      const collabStr = (project.coCreators || []).map(c => `${c.name || ""} ${c.email || ""} ${c.role || ""}`).join(" ");
+      const giftStr = project.isGift ? `gift ${project.giftRecipient || ""} ${project.giftOccasion || ""}` : "";
+      const isCollabKeyword = isCollaborativeProject(project) && (query.includes("collab") || query.includes("shared") || query.includes("team"));
+      const combined = `${project.title} ${project.description} ${tagsStr} ${skillsStr} ${creatorStr} ${collabStr} ${giftStr}`.toLowerCase();
+      return combined.includes(query) || isCollabKeyword;
+    })
+    .sort((a, b) => {
+      if (Boolean(b.pinned) !== Boolean(a.pinned)) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+      if (sort === "due-soon") return (a.targetDate || "9999").localeCompare(b.targetDate || "9999");
+      if (sort === "priority") return ({ high: 0, normal: 1, low: 2 }[a.priority] ?? 1) - ({ high: 0, normal: 1, low: 2 }[b.priority] ?? 1);
+      if (sort === "name") return a.title.localeCompare(b.title);
+      return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
+  $("#project-result-count").textContent = `${filtered.length} ${filtered.length === 1 ? "project" : "projects"}`;
+
+  const isKanban = projectViewMode === "kanban";
+  const gridEl = $("#project-grid");
+  const kanbanEl = $("#project-kanban");
+  $$("#project-view-mode-toggle .view-mode-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.mode === projectViewMode);
+  });
+
+  if (isKanban) {
+    if (gridEl) gridEl.style.display = "none";
+    if (kanbanEl) {
+      kanbanEl.style.display = "grid";
+      renderKanban(filtered);
+    }
+  } else {
+    if (kanbanEl) kanbanEl.style.display = "none";
+    if (gridEl) {
+      gridEl.style.display = "grid";
+      gridEl.innerHTML = filtered.length ? filtered.map((project, index) => {
+        const skills = projectSkillNames(project);
+        const images = projectImageCount(project);
+        const progress = projectTaskProgress(project);
+        const isSecret = Boolean(project.isGift && project.giftSecret);
+        const isRevealed = revealedSecretProjectIds.has(project.id);
+        const secretShieldClass = (isSecret && !isRevealed) ? "is-gift-secret" : (isSecret && isRevealed) ? "is-gift-secret is-revealed" : "";
+        const countdownInfo = project.giftDeadline ? formatGiftCountdown(project.giftDeadline) : null;
+
+        return `<article class="project-card ${project.pinned ? "is-pinned" : ""} ${secretShieldClass}" data-project="${project.id}" tabindex="0" role="button" aria-label="Open ${escapeHTML(project.title)}">
+          <div class="project-card-head">
+            <div class="project-card-mark">${["✳", "⌘", "◈", "✿"][index % 4]}</div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              ${isCollaborativeProject(project) ? `<span class="collab-badge" title="Collaborative project with ${(project.coCreators || []).length + 1} members">👥 Team (${(project.coCreators || []).length + 1})</span>${(() => {
+                const ur = getProjectUserRole(project);
+                return ur ? `<span class="collab-role-pill ${ur.className}" title="Your role: ${ur.role}">${ur.label}</span>` : "";
+              })()}` : ""}
+              ${project.pinned ? `<span class="pin-badge">★ Pinned</span>` : ""}
+              ${project.isGift ? `<span class="gift-badge" title="Handmade gift for ${escapeHTML(project.giftRecipient || "Someone")}">🎁 For ${escapeHTML(project.giftRecipient || "Someone")}</span>` : ""}
+              ${countdownInfo ? `<span class="gift-countdown-pill ${countdownInfo.className}" title="Gift handover deadline">${countdownInfo.text}</span>` : ""}
+              <button type="button" class="pin-toggle-btn ${project.pinned ? "active" : ""}" data-action="toggle-pin" data-project="${project.id}" title="${project.pinned ? "Unpin project" : "Pin project to top"}" aria-label="${project.pinned ? "Unpin project" : "Pin project to top"}">★</button>
+              <span class="status-pill status-${safeStatus(project.status)}">${STATUS_LABELS[safeStatus(project.status)]}</span>
+            </div>
+          </div>
+          ${isSecret ? `
+            <div class="secret-gift-overlay" data-action="toggle-secret-reveal" data-project="${project.id}" title="Click to toggle peek">
+              <span>🎁 Secret Surprise (${escapeHTML(project.giftRecipient || "Gift")})</span>
+              <span>${isRevealed ? "🛡️ Shield" : "👁️ Reveal"}</span>
+            </div>
+          ` : ""}
+          <h3>${escapeHTML(project.title)}</h3><p class="project-card-description">${escapeHTML(project.description || "No description yet. Open this project to add one.")}</p>
+          <div class="project-card-labels"><span class="priority-pill priority-${safePriority(project.priority)}">${priorityLabel(project.priority)}</span>${(project.tags || []).slice(0, 3).map(tag => `<span class="mini-tag clickable" data-tag="${escapeHTML(tag)}">${escapeHTML(tag)}</span>`).join("")}${(project.tags || []).length > 3 ? `<span class="mini-tag">+${project.tags.length - 3}</span>` : ""}</div>
+          <div class="project-card-skills">${skills.slice(0, 3).map(skill => `<span class="mini-tag clickable" data-skill-id="${skill.id}">${escapeHTML(skill.name)}</span>`).join("")}${skills.length > 3 ? `<span class="mini-tag">+${skills.length - 3}</span>` : ""}</div>
+          ${progress.total ? `<div class="card-task-progress"><div class="progress-track"><div class="progress-bar" style="width:${progress.percent}%"></div></div><span>${progress.completed}/${progress.total} steps</span></div>` : ""}
+          <div class="project-card-bottom"><span class="project-card-meta">${images ? `▧ ${images} ${images === 1 ? "photo" : "photos"} · ` : ""}${project.materials?.length ? `⚙ ${project.materials.length} parts · ` : ""}${project.timeSpent ? `⏱ ${formatMinutes(project.timeSpent)} · ` : ""}Updated ${relativeTime(project.updatedAt)}</span>${project.targetDate ? `<span class="project-card-meta">Due ${formatDate(project.targetDate)}</span>` : ""}</div>
+        </article>`;
+      }).join("") : emptyState(query || filter !== "all" || priorityFilter !== "all" || selectedSkillFilters.size > 0 || selectedTagFilters.size > 0 ? "No projects match that" : "Every great thing starts somewhere", query || filter !== "all" || priorityFilter !== "all" || selectedSkillFilters.size > 0 || selectedTagFilters.size > 0 ? "Try another search or status/priority/tag filter." : "Add something you’ve made, want to make, or are working on right now.", "new-project", "New project");
+    }
+  }
+}
+
+
 /* ============================================================
    🎁 Handmade Gift Preparation Hub & Maker Tag Studio Suite
    ============================================================ */
@@ -1437,8 +1548,13 @@ function renderProjectDetail(projectId) {
 }
 
 const ACTIVE_VIEW_STORAGE_KEY = "workbench_active_view";
-const VALID_APP_VIEWS = new Set(["overview", "projects", "ideas", "skills", "gallery", "planner", "sync", "timeline", "shopping", "inventory", "admin", "music", "woodworking", "textiles", "electronics", "programming", "art", "resin", "printing", "origami", "laser", "leather", "ceramics", "welding", "cnc", "blacksmith", "fasteners", "glass", "jewelry", "bookbinding", "sla", "luthier", "composites", "horology", "robotics", "bicycle", "candle", "perfume", "letter", "distillation"]);
 
+function addProjectSkillOptions(selectedIds = []) {
+  const container = $("#project-skill-options");
+  container.innerHTML = state.skills.length ? state.skills.map(skill => `
+    <label class="skill-option"><input type="checkbox" name="skillIds" value="${skill.id}" ${selectedIds.includes(skill.id) ? "checked" : ""}><span>${escapeHTML(skill.name)}</span></label>`).join("")
+    : `<span class="form-hint">No skills yet — you can add them from the Skills page.</span>`;
+}
 
 function openProjectForm(project = null) {
   const form = $("#project-form");
@@ -2916,6 +3032,7 @@ if (typeof window !== "undefined") {
   window.openProjectForm = openProjectForm;
   window.handleProjectSubmit = handleProjectSubmit;
   window.openProjectDetail = openProjectDetail;
+  window.renderProjects = renderProjects;
   window.renderKanban = renderKanban;
   window.setProjectViewMode = setProjectViewMode;
 }
