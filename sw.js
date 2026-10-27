@@ -1,9 +1,18 @@
-const CACHE_NAME = "workbench-cache-v5";
+const CACHE_NAME = "workbench-cache-v6";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./qr-generator.js",
+  "./js/constants.js",
+  "./js/storage.js",
+  "./js/auth.js",
+  "./js/ideas.js",
+  "./js/projects.js",
+  "./js/skills.js",
+  "./js/tools.js",
+  "./js/studios.js",
+  "./js/advanced-suites.js",
   "./app.js",
   "./manifest.json",
   "./favicon.svg"
@@ -30,7 +39,7 @@ self.addEventListener("fetch", event => {
   if (url.origin !== self.location.origin) return;
 
   // Network-first for code and markup so refreshes always fetch the latest updates immediately
-  const isCodeOrDoc = url.pathname.endsWith("index.html") || url.pathname.endsWith("app.js") || url.pathname.endsWith("styles.css") || url.pathname === "/" || url.pathname.endsWith("/");
+  const isCodeOrDoc = url.pathname.endsWith(".html") || url.pathname.endsWith(".js") || url.pathname.endsWith(".css") || url.pathname === "/" || url.pathname.endsWith("/");
   if (isCodeOrDoc) {
     event.respondWith(
       fetch(event.request).then(networkResponse => {
@@ -48,12 +57,12 @@ self.addEventListener("fetch", event => {
   event.respondWith(
     caches.match(event.request).then(cached => {
       const fetchPromise = fetch(event.request).then(networkResponse => {
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
+        if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
         }
         return networkResponse;
-      }).catch(() => cached);
+      }).catch(() => null);
       return cached || fetchPromise;
     })
   );

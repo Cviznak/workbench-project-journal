@@ -25,7 +25,16 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="app.js?v=2.8.1" defer></script>
+    <script src="js/constants.js?v=2.8.2" defer></script>
+    <script src="js/storage.js?v=2.8.2" defer></script>
+    <script src="js/auth.js?v=2.8.2" defer></script>
+    <script src="js/ideas.js?v=2.8.2" defer></script>
+    <script src="js/projects.js?v=2.8.2" defer></script>
+    <script src="js/skills.js?v=2.8.2" defer></script>
+    <script src="js/tools.js?v=2.8.2" defer></script>
+    <script src="js/studios.js?v=2.8.2" defer></script>
+    <script src="js/advanced-suites.js?v=2.8.2" defer></script>
+    <script src="app.js?v=2.8.2" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -7796,6 +7805,7 @@ With warm regards and friendship,</textarea>
         <div class="form-row">
           <label class="field-label">Craft category
             <select name="category" required>
+              <option value="" disabled selected>Select craft category...</option>
               <option value="woodworking">🪵 Woodworking</option>
               <option value="textiles">🧶 Textiles &amp; Fiber</option>
               <option value="music">🎵 Music &amp; Audio</option>
@@ -7826,8 +7836,9 @@ With warm regards and friendship,</textarea>
           </label>
           <label class="field-label">Priority
             <select name="priority">
+              <option value="" disabled selected>Select priority...</option>
               <option value="high">★★★ High Priority</option>
-              <option value="normal" selected>★★ Medium Priority</option>
+              <option value="normal">★★ Medium Priority</option>
               <option value="low">★ Low / Someday</option>
             </select>
           </label>
@@ -7836,8 +7847,9 @@ With warm regards and friendship,</textarea>
         <div class="form-row">
           <label class="field-label">Estimated effort
             <select name="effort">
+              <option value="" disabled selected>Select estimated effort...</option>
               <option value="quick">⚡ Quick Afternoon (&lt; 3 hrs)</option>
-              <option value="weekend" selected>🔨 Weekend Build (1–2 days)</option>
+              <option value="weekend">🔨 Weekend Build (1–2 days)</option>
               <option value="multi-week">🏔️ Multi-Week Deep Project</option>
               <option value="long-term">🌌 Long-Term Masterpiece</option>
             </select>
@@ -7867,7 +7879,8 @@ With warm regards and friendship,</textarea>
 
         <label class="field-label">Status
           <select name="status">
-            <option value="brainstorming" selected>💭 Brainstorming</option>
+            <option value="" disabled selected>Select status...</option>
+            <option value="brainstorming">💭 Brainstorming</option>
             <option value="ready">⚡ Ready to Build</option>
             <option value="archived">📦 Archived</option>
           </select>
@@ -7904,11 +7917,11 @@ With warm regards and friendship,</textarea>
         <label class="field-label">Project name<input name="title" required maxlength="100" placeholder="What are you making?"></label>
         <label class="field-label">A little about it<textarea name="description" rows="3" maxlength="2000" placeholder="The idea, the plan, the why..."></textarea></label>
         <div class="form-row">
-          <label class="field-label">Status<select name="status"><option value="planned">Planned</option><option value="in-progress">In progress</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
+          <label class="field-label">Status<select name="status"><option value="" disabled selected>Select status...</option><option value="planned">Planned</option><option value="in-progress">In progress</option><option value="completed">Completed</option><option value="postponed">Postponed</option><option value="on-hold">On hold</option></select></label>
           <label class="field-label">Target date <span class="optional">(optional)</span><input name="targetDate" type="date"></label>
         </div>
         <div class="form-row">
-          <label class="field-label">Priority<select name="priority"><option value="normal">Normal</option><option value="high">High</option><option value="low">Low</option></select></label>
+          <label class="field-label">Priority<select name="priority"><option value="" disabled selected>Select priority...</option><option value="normal">Normal</option><option value="high">High</option><option value="low">Low</option></select></label>
           <label class="field-label">Target budget ($) <span class="optional">(optional)</span><input name="budget" type="number" step="0.01" min="0" placeholder="e.g. 75.00"></label>
         </div>
         <label class="field-label">Tags <span class="optional">(comma separated)</span><input name="tags" maxlength="200" placeholder="e.g. gift, electronics, home"></label>
@@ -7937,6 +7950,7 @@ With warm regards and friendship,</textarea>
             </label>
             <label class="field-label">Occasion
               <select name="giftOccasion">
+                <option value="" disabled selected>Select occasion...</option>
                 <option value="birthday">🎂 Birthday</option>
                 <option value="holiday">🎄 Holiday / Christmas</option>
                 <option value="wedding">💍 Wedding</option>
@@ -7957,6 +7971,7 @@ With warm regards and friendship,</textarea>
             </label>
             <label class="field-label">Gift Status
               <select name="giftStatus">
+                <option value="" disabled selected>Select gift status...</option>
                 <option value="planning">📋 Planning &amp; Sourcing</option>
                 <option value="making">🛠️ In the Workshop (Making)</option>
                 <option value="wrapped">🎀 Wrapped &amp; Tagged</option>
