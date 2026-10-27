@@ -8467,6 +8467,7 @@ let soundscapeAudioCtx = null;
 let activeSoundscape = "off";
 let soundscapeMasterGain = null;
 let soundscapeNodes = [];
+let chillMusicTimer = null;
 
 function initSoundscapeContext() {
   if (!soundscapeAudioCtx) {
@@ -8485,6 +8486,10 @@ function initSoundscapeContext() {
 }
 
 function stopCurrentSoundscape() {
+  if (chillMusicTimer) {
+    clearInterval(chillMusicTimer);
+    chillMusicTimer = null;
+  }
   for (const node of soundscapeNodes) {
     try {
       if (typeof node.stop === "function") node.stop();
@@ -8492,6 +8497,21 @@ function stopCurrentSoundscape() {
     } catch {}
   }
   soundscapeNodes = [];
+}
+
+function formatSoundscapeName(track) {
+  const names = {
+    off: "Off",
+    lofi: "Lo-Fi Beats",
+    ambient: "Ambient Flow",
+    piano: "Chill Piano",
+    synthwave: "Synth Drift",
+    rain: "Rain",
+    fire: "Hearth",
+    hum: "Workshop",
+    brown: "Brown Noise"
+  };
+  return names[track] || (track.charAt(0).toUpperCase() + track.slice(1));
 }
 
 function toggleSoundscape(track) {
@@ -8509,7 +8529,340 @@ function toggleSoundscape(track) {
   const ctx = initSoundscapeContext();
   if (!ctx) return;
 
-  if (track === "rain") {
+  // ----------------------------------------------------
+  // 1. ☕ LO-FI CHILL BEATS (Warm Rhodes + Vinyl + Drums)
+  // ----------------------------------------------------
+  if (track === "lofi") {
+    // Vinyl dust crackle floor
+    const bufferSize = ctx.sampleRate * 2.5;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.018;
+      if (Math.random() < 0.00035) {
+        data[i] += (Math.random() * 2 - 1) * 0.22;
+      }
+    }
+    const vinylNoise = ctx.createBufferSource();
+    vinylNoise.buffer = buffer;
+    vinylNoise.loop = true;
+    const vinylFilter = ctx.createBiquadFilter();
+    vinylFilter.type = "highpass";
+    vinylFilter.frequency.setValueAtTime(380, ctx.currentTime);
+    vinylNoise.connect(vinylFilter);
+    vinylFilter.connect(soundscapeMasterGain);
+    vinylNoise.start();
+    soundscapeNodes.push(vinylNoise, vinylFilter);
+
+    // Warm Lo-Fi Neo-Soul Chords (Dm9 -> G13 -> Cmaj9 -> Am9 -> Fmaj9 -> Em7)
+    const chords = [
+      [146.83, 174.61, 220.00, 261.63, 329.63],
+      [98.00, 174.61, 246.94, 329.63, 392.00],
+      [130.81, 164.81, 196.00, 246.94, 293.66],
+      [110.00, 196.00, 261.63, 329.63, 493.88],
+      [174.61, 220.00, 261.63, 329.63, 392.00],
+      [164.81, 196.00, 246.94, 293.66, 329.63]
+    ];
+    let chordIdx = 0;
+    let beatStep = 0;
+
+    function playRhodesChord(freqs, time) {
+      freqs.forEach((freq, idx) => {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(freq, time);
+        osc2.type = "triangle";
+        osc2.frequency.setValueAtTime(freq * 1.0016, time);
+
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(800 + idx * 70, time);
+        filter.frequency.exponentialRampToValueAtTime(320, time + 2.8);
+
+        gain.gain.setValueAtTime(0, time);
+        gain.gain.linearRampToValueAtTime(0.09 / Math.sqrt(freqs.length), time + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + 3.2);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(soundscapeMasterGain);
+
+        osc1.start(time);
+        osc2.start(time);
+        osc1.stop(time + 3.3);
+        osc2.stop(time + 3.3);
+        soundscapeNodes.push(osc1, osc2, gain, filter);
+      });
+    }
+
+    function playKick(time) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.setValueAtTime(85, time);
+      osc.frequency.exponentialRampToValueAtTime(36, time + 0.16);
+      gain.gain.setValueAtTime(0.32, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+      osc.connect(gain);
+      gain.connect(soundscapeMasterGain);
+      osc.start(time);
+      osc.stop(time + 0.2);
+      soundscapeNodes.push(osc, gain);
+    }
+
+    function playSnare(time) {
+      const bSize = ctx.sampleRate * 0.1;
+      const b = ctx.createBuffer(1, bSize, ctx.sampleRate);
+      const d = b.getChannelData(0);
+      for (let i = 0; i < bSize; i++) d[i] = (Math.random() * 2 - 1) * 0.15;
+      const noise = ctx.createBufferSource();
+      noise.buffer = b;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(2100, time);
+      filter.Q.setValueAtTime(1.8, time);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.18, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(soundscapeMasterGain);
+      noise.start(time);
+      soundscapeNodes.push(noise, filter, gain);
+    }
+
+    playRhodesChord(chords[0], ctx.currentTime + 0.05);
+    playKick(ctx.currentTime + 0.05);
+
+    const tempo = 72; // BPM
+    const beatMs = (60 / tempo) * 1000;
+
+    chillMusicTimer = setInterval(() => {
+      if (activeSoundscape !== "lofi") return;
+      beatStep++;
+      const now = ctx.currentTime;
+      const beatInBar = beatStep % 4;
+
+      if (beatInBar === 0) {
+        chordIdx = (chordIdx + 1) % chords.length;
+        playRhodesChord(chords[chordIdx], now);
+        playKick(now);
+      } else if (beatInBar === 2) {
+        playKick(now);
+      } else if (beatInBar === 1 || beatInBar === 3) {
+        playSnare(now);
+      }
+    }, beatMs);
+
+  // ----------------------------------------------------
+  // 2. 🧘 AMBIENT FLOW (528 Hz Solfeggio & 10Hz Binaural)
+  // ----------------------------------------------------
+  } else if (track === "ambient") {
+    // Binaural 10Hz Alpha beat for focused flow state (216 Hz Left, 226 Hz Right)
+    const leftOsc = ctx.createOscillator();
+    const rightOsc = ctx.createOscillator();
+    const merger = ctx.createChannelMerger(2);
+    const binGain = ctx.createGain();
+
+    leftOsc.type = "sine";
+    leftOsc.frequency.setValueAtTime(216, ctx.currentTime);
+    rightOsc.type = "sine";
+    rightOsc.frequency.setValueAtTime(226, ctx.currentTime);
+
+    binGain.gain.setValueAtTime(0.04, ctx.currentTime);
+    leftOsc.connect(merger, 0, 0);
+    rightOsc.connect(merger, 0, 1);
+    merger.connect(binGain);
+    binGain.connect(soundscapeMasterGain);
+
+    leftOsc.start();
+    rightOsc.start();
+    soundscapeNodes.push(leftOsc, rightOsc, merger, binGain);
+
+    const ambientChords = [
+      [132.00, 198.00, 264.00, 396.00, 528.00], // 528Hz Solfeggio Harmonic
+      [148.50, 222.75, 297.00, 445.50, 594.00],
+      [165.00, 247.50, 330.00, 495.00, 660.00],
+      [176.00, 264.00, 352.00, 528.00, 704.00]
+    ];
+    let ambIdx = 0;
+
+    function playAmbientPad(freqs, time) {
+      freqs.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+
+        osc.type = idx % 2 === 0 ? "sine" : "triangle";
+        osc.frequency.setValueAtTime(freq, time);
+
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(500, time);
+        filter.frequency.linearRampToValueAtTime(780, time + 2.8);
+        filter.frequency.linearRampToValueAtTime(450, time + 5.8);
+
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.linearRampToValueAtTime(0.05 / Math.sqrt(freqs.length), time + 2.2);
+        gain.gain.linearRampToValueAtTime(0.0001, time + 6.2);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(soundscapeMasterGain);
+
+        osc.start(time);
+        osc.stop(time + 6.3);
+        soundscapeNodes.push(osc, filter, gain);
+      });
+
+      // Crystal chime droplet
+      if (Math.random() > 0.35) {
+        const chimeFreq = freqs[freqs.length - 1] * (Math.random() > 0.5 ? 1.5 : 2.0);
+        const chime = ctx.createOscillator();
+        const chimeGain = ctx.createGain();
+        chime.type = "sine";
+        chime.frequency.setValueAtTime(chimeFreq, time + 1.2);
+        chimeGain.gain.setValueAtTime(0.024, time + 1.2);
+        chimeGain.gain.exponentialRampToValueAtTime(0.0001, time + 4.2);
+        chime.connect(chimeGain);
+        chimeGain.connect(soundscapeMasterGain);
+        chime.start(time + 1.2);
+        chime.stop(time + 4.3);
+        soundscapeNodes.push(chime, chimeGain);
+      }
+    }
+
+    playAmbientPad(ambientChords[0], ctx.currentTime + 0.1);
+
+    chillMusicTimer = setInterval(() => {
+      if (activeSoundscape !== "ambient") return;
+      ambIdx = (ambIdx + 1) % ambientChords.length;
+      playAmbientPad(ambientChords[ambIdx], ctx.currentTime + 0.1);
+    }, 5600);
+
+  // ----------------------------------------------------
+  // 3. 🎹 CHILL ACOUSTIC FELT PIANO
+  // ----------------------------------------------------
+  } else if (track === "piano") {
+    const pianoChords = [
+      { bass: [65.41, 130.81, 196.00], notes: [261.63, 329.63, 392.00, 523.25] },
+      { bass: [58.27, 116.54, 174.61], notes: [233.08, 293.66, 349.23, 466.16] },
+      { bass: [43.65, 87.31, 130.81], notes: [220.00, 261.63, 329.63, 440.00] },
+      { bass: [55.00, 110.00, 164.81], notes: [246.94, 293.66, 392.00, 493.88] }
+    ];
+    let pianoIdx = 0;
+
+    function playPianoKey(freq, time, volume = 0.08) {
+      const oscFund = ctx.createOscillator();
+      const osc2nd = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+
+      oscFund.type = "sine";
+      oscFund.frequency.setValueAtTime(freq, time);
+      osc2nd.type = "sine";
+      osc2nd.frequency.setValueAtTime(freq * 2, time);
+
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(1300, time);
+      filter.frequency.exponentialRampToValueAtTime(320, time + 2.2);
+
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(volume, time + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 2.7);
+
+      oscFund.connect(filter);
+      osc2nd.connect(filter);
+      filter.connect(gain);
+      gain.connect(soundscapeMasterGain);
+
+      oscFund.start(time);
+      osc2nd.start(time);
+      oscFund.stop(time + 2.8);
+      osc2nd.stop(time + 2.8);
+      soundscapeNodes.push(oscFund, osc2nd, filter, gain);
+    }
+
+    function playPianoBar(chord, time) {
+      chord.bass.forEach((bFreq, bIdx) => {
+        playPianoKey(bFreq, time + bIdx * 0.35, 0.065);
+      });
+      const noteCount = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < noteCount; i++) {
+        const note = chord.notes[Math.floor(Math.random() * chord.notes.length)];
+        playPianoKey(note, time + 0.8 + i * 0.65, 0.045);
+      }
+    }
+
+    playPianoBar(pianoChords[0], ctx.currentTime + 0.05);
+
+    chillMusicTimer = setInterval(() => {
+      if (activeSoundscape !== "piano") return;
+      pianoIdx = (pianoIdx + 1) % pianoChords.length;
+      playPianoBar(pianoChords[pianoIdx], ctx.currentTime + 0.05);
+    }, 3800);
+
+  // ----------------------------------------------------
+  // 4. 🌌 CHILLWAVE SYNTH DRIFT (Warm 80s Pad)
+  // ----------------------------------------------------
+  } else if (track === "synthwave") {
+    const synthChords = [
+      [146.83, 220.00, 261.63, 349.23],
+      [116.54, 174.61, 233.08, 293.66],
+      [130.81, 174.61, 220.00, 261.63],
+      [98.00, 146.83, 196.00, 246.94]
+    ];
+    let synthIdx = 0;
+
+    function playSynthPad(freqs, time) {
+      freqs.forEach((freq) => {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const filter = ctx.createBiquadFilter();
+        const gain = ctx.createGain();
+
+        osc1.type = "sawtooth";
+        osc1.frequency.setValueAtTime(freq * 0.998, time);
+        osc2.type = "triangle";
+        osc2.frequency.setValueAtTime(freq * 1.002, time);
+
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(380, time);
+        filter.frequency.linearRampToValueAtTime(700, time + 1.8);
+        filter.frequency.linearRampToValueAtTime(360, time + 3.8);
+        filter.Q.setValueAtTime(2.2, time);
+
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.linearRampToValueAtTime(0.042 / Math.sqrt(freqs.length), time + 1.2);
+        gain.gain.linearRampToValueAtTime(0.0001, time + 4.2);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(soundscapeMasterGain);
+
+        osc1.start(time);
+        osc2.start(time);
+        osc1.stop(time + 4.3);
+        osc2.stop(time + 4.3);
+        soundscapeNodes.push(osc1, osc2, filter, gain);
+      });
+    }
+
+    playSynthPad(synthChords[0], ctx.currentTime + 0.05);
+
+    chillMusicTimer = setInterval(() => {
+      if (activeSoundscape !== "synthwave") return;
+      synthIdx = (synthIdx + 1) % synthChords.length;
+      playSynthPad(synthChords[synthIdx], ctx.currentTime + 0.05);
+    }, 4000);
+
+  // ----------------------------------------------------
+  // 5. NATURAL AMBIENT SOUNDSCAPES (Rain, Brown, Hum, Fire)
+  // ----------------------------------------------------
+  } else if (track === "rain") {
     const bufferSize = ctx.sampleRate * 2;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -8628,6 +8981,29 @@ function toggleSoundscape(track) {
   }
 }
 
+function toggleChillMusic(specificTrack = null) {
+  const chillTracks = ["lofi", "ambient", "piano", "synthwave"];
+  if (specificTrack && chillTracks.includes(specificTrack)) {
+    toggleSoundscape(specificTrack);
+    return;
+  }
+  // Toggle off if currently playing chill music
+  if (chillTracks.includes(activeSoundscape)) {
+    const currentIdx = chillTracks.indexOf(activeSoundscape);
+    if (currentIdx === chillTracks.length - 1) {
+      toggleSoundscape("off");
+      if (typeof showToast === "function") showToast("⏹️ Chill Music stopped");
+    } else {
+      const next = chillTracks[currentIdx + 1];
+      toggleSoundscape(next);
+      if (typeof showToast === "function") showToast(`🎵 Chill Music: ${formatSoundscapeName(next)}`);
+    }
+  } else {
+    toggleSoundscape("lofi");
+    if (typeof showToast === "function") showToast("🎵 Chill Music: Lo-Fi Study Beats");
+  }
+}
+
 function updateSoundscapeButtons() {
   $$(".soundscape-btn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.track === activeSoundscape);
@@ -8637,13 +9013,32 @@ function updateSoundscapeButtons() {
     if (activeSoundscape !== "off") {
       timerBtn.classList.add("button-primary");
       timerBtn.classList.remove("button-outline");
-      const name = activeSoundscape.charAt(0).toUpperCase() + activeSoundscape.slice(1);
+      const name = formatSoundscapeName(activeSoundscape);
       timerBtn.textContent = `⏱️ Focus (${name})`;
     } else {
       timerBtn.classList.remove("button-primary");
       timerBtn.classList.add("button-outline");
       timerBtn.textContent = "⏱️ Focus & Sounds";
     }
+  }
+  const chillTopBtn = $("#topbar-chill-music-btn");
+  if (chillTopBtn) {
+    const isChill = ["lofi", "ambient", "piano", "synthwave"].includes(activeSoundscape);
+    if (isChill) {
+      chillTopBtn.classList.add("button-primary", "chill-playing");
+      chillTopBtn.classList.remove("button-outline");
+      chillTopBtn.innerHTML = `🎵 ${formatSoundscapeName(activeSoundscape)} <span class="chill-eq-bars" aria-hidden="true"><span></span><span></span><span></span></span>`;
+    } else {
+      chillTopBtn.classList.remove("button-primary", "chill-playing");
+      chillTopBtn.classList.add("button-outline");
+      chillTopBtn.innerHTML = `🎵 Chill Music: Off`;
+    }
+  }
+  const floatingMusicBtn = $("#floating-timer-music-btn");
+  if (floatingMusicBtn) {
+    const isChill = ["lofi", "ambient", "piano", "synthwave"].includes(activeSoundscape);
+    floatingMusicBtn.classList.toggle("active", isChill);
+    floatingMusicBtn.title = isChill ? `Chill Music: ${formatSoundscapeName(activeSoundscape)} (Click to toggle)` : "Play Chill Music";
   }
 }
 
@@ -8660,7 +9055,6 @@ function toggleSoundscapePanel() {
     openTimerDialog();
   }
 }
-
 /* ============================================================
    FEATURE 5: 2D Blueprint & Dimensioned Sketchpad
    ============================================================ */
@@ -11474,4 +11868,8 @@ if (typeof window !== "undefined") {
   window.openInventoryDialog = openInventoryDialog;
   window.openWorkshopBlueprint = openWorkshopBlueprint;
   window.openQuoteDialog = openQuoteDialog;
+  window.toggleSoundscape = toggleSoundscape;
+  window.toggleChillMusic = toggleChillMusic;
+  window.formatSoundscapeName = formatSoundscapeName;
+  window.setSoundscapeVolume = setSoundscapeVolume;
 }

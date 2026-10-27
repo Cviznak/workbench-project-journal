@@ -2309,6 +2309,10 @@ async function handleAction(action, target) {
     toggleSoundscape(target.dataset.track);
     return;
   }
+  if (action === "toggle-chill-music") {
+    toggleChillMusic(target?.dataset?.track);
+    return;
+  }
   if (action === "toggle-soundscape-panel") {
     toggleSoundscapePanel();
     return;

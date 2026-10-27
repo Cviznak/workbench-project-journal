@@ -15477,3 +15477,74 @@ body.theme-night .app-dialog {
     grid-template-columns: 1fr;
   }
 }
+
+/* 🎵 Chill Music Player & Equalizer Styles */
+.chill-music-top-btn {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.chill-music-top-btn.chill-playing {
+  background: var(--brand-terracotta, #e07a5f);
+  border-color: var(--brand-terracotta, #e07a5f);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(224, 122, 95, 0.35);
+}
+.chill-eq-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+.chill-eq-bars span {
+  display: block;
+  width: 2.5px;
+  background: currentColor;
+  border-radius: 1px;
+  animation: chillEqBounce 0.75s ease-in-out infinite alternate;
+}
+.chill-eq-bars span:nth-child(1) { height: 4px; animation-delay: 0.1s; }
+.chill-eq-bars span:nth-child(2) { height: 11px; animation-delay: 0.35s; }
+.chill-eq-bars span:nth-child(3) { height: 7px; animation-delay: 0.2s; }
+
+@keyframes chillEqBounce {
+  0% { height: 3px; }
+  100% { height: 12px; }
+}
+
+.chill-music-strip {
+  background: rgba(224, 122, 95, 0.08);
+  border-color: rgba(224, 122, 95, 0.25);
+}
+.chill-music-strip .soundscape-btn.active {
+  background: var(--brand-terracotta, #e07a5f);
+  border-color: var(--brand-terracotta, #e07a5f);
+  color: #fff;
+}
+
+.floating-timer-music-btn {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: transform 0.15s, background 0.15s;
+}
+.floating-timer-music-btn:hover {
+  background: rgba(0,0,0,0.08);
+  transform: scale(1.18);
+}
+.floating-timer-music-btn.active {
+  color: var(--brand-terracotta, #e07a5f);
+  animation: chillPulse 2s ease-in-out infinite;
+}
+@keyframes chillPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.85; }
+}

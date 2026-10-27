@@ -25,16 +25,16 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="js/constants.js?v=2.8.3" defer></script>
-    <script src="js/storage.js?v=2.8.3" defer></script>
-    <script src="js/auth.js?v=2.8.3" defer></script>
-    <script src="js/ideas.js?v=2.8.3" defer></script>
-    <script src="js/projects.js?v=2.8.3" defer></script>
-    <script src="js/skills.js?v=2.8.3" defer></script>
-    <script src="js/tools.js?v=2.8.3" defer></script>
-    <script src="js/studios.js?v=2.8.3" defer></script>
-    <script src="js/advanced-suites.js?v=2.8.3" defer></script>
-    <script src="app.js?v=2.8.3" defer></script>
+    <script src="js/constants.js?v=2.8.4" defer></script>
+    <script src="js/storage.js?v=2.8.4" defer></script>
+    <script src="js/auth.js?v=2.8.4" defer></script>
+    <script src="js/ideas.js?v=2.8.4" defer></script>
+    <script src="js/projects.js?v=2.8.4" defer></script>
+    <script src="js/skills.js?v=2.8.4" defer></script>
+    <script src="js/tools.js?v=2.8.4" defer></script>
+    <script src="js/studios.js?v=2.8.4" defer></script>
+    <script src="js/advanced-suites.js?v=2.8.4" defer></script>
+    <script src="app.js?v=2.8.4" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -198,6 +198,7 @@
             <button type="button" class="button button-outline button-small" data-action="open-invite-modal" title="Invite makers to your shop">👥 Invite</button>
             <button type="button" class="button button-outline button-small" data-action="open-tools" title="Workshop Reference &amp; Conversion Tools">📐 Tools</button>
             <button type="button" class="button button-outline button-small" id="topbar-timer-btn" data-action="open-timer" title="Focus Timer &amp; Ambient Workshop Sounds">⏱️ Focus &amp; Sounds</button>
+            <button type="button" class="button button-outline button-small chill-music-top-btn" id="topbar-chill-music-btn" data-action="toggle-chill-music" title="Toggle Chill Work Music (Lo-Fi / Ambient / Piano / Synth)">🎵 Chill Music: Off</button>
 
             <button type="button" class="button button-outline button-small" id="topbar-units-btn" data-action="open-units-modal" title="Currency &amp; Measurement Units">💱 <span id="topbar-units-label">$ USD · in</span></button>
             <button type="button" class="notification-btn" id="notification-btn" data-action="open-notifications" title="Notifications" aria-label="Notifications">
@@ -8103,14 +8104,21 @@ With warm regards and friendship,</textarea>
           <button type="button" class="timer-sound-pill active" id="timer-sound-toggle" data-action="toggle-timer-sound" title="Toggle audio chime">🔔 Chime: ON</button>
         </div>
 
+        <div class="soundscape-strip chill-music-strip" style="margin-bottom:8px">
+          <span style="font-size:11px;font-weight:700;color:var(--brand-terracotta, #e07a5f)">🎵 CHILL MUSIC:</span>
+          <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="lofi" title="Warm Rhodes &amp; vinyl jazz beats">☕ Lo-Fi Beats</button>
+          <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="ambient" title="528Hz Solfeggio &amp; alpha wave flow pad">🧘 Ambient Flow</button>
+          <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="piano" title="Gentle felt piano pentatonic arpeggios">🎹 Chill Piano</button>
+          <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="synthwave" title="Dreamy 80s analog synth drift">🌌 Synth Drift</button>
+        </div>
         <div class="soundscape-strip">
           <span style="font-size:11px;font-weight:700;color:var(--muted)">🎧 AMBIENT:</span>
-          <button type="button" class="soundscape-btn active" data-action="toggle-soundscape" data-track="off">Off</button>
+          <button type="button" class="soundscape-btn active" data-action="toggle-soundscape" data-track="off">⏹️ Off</button>
           <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="rain">🌧️ Rain</button>
           <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="fire">🪵 Hearth</button>
           <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="hum">📻 Workshop</button>
           <button type="button" class="soundscape-btn" data-action="toggle-soundscape" data-track="brown">🌊 Brown Noise</button>
-          <input type="range" class="soundscape-vol-slider" id="soundscape-volume" min="0" max="1" step="0.05" value="0.5" title="Soundscape volume" aria-label="Soundscape volume">
+          <input type="range" class="soundscape-vol-slider" id="soundscape-volume" min="0" max="1" step="0.05" value="0.5" title="Music &amp; Soundscape volume" aria-label="Music and soundscape volume">
         </div>
 
         <div class="form-row" style="margin-bottom:12px">
@@ -10049,6 +10057,7 @@ With warm regards and friendship,</textarea>
       <span class="floating-timer-icon" aria-hidden="true">⏱️</span>
       <span class="floating-timer-time" id="floating-timer-display">25:00</span>
       <button type="button" class="floating-timer-play" id="floating-timer-play-btn" data-action="toggle-floating-timer" title="Play or pause timer">▶</button>
+        <button type="button" class="floating-timer-music-btn" id="floating-timer-music-btn" data-action="toggle-chill-music" title="Toggle Chill Music">🎵</button>
       <button type="button" class="floating-timer-close" data-action="close-floating-timer" title="Close timer widget">×</button>
     </div>
 

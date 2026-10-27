@@ -4223,6 +4223,13 @@ function getCommandPaletteIndex() {
     { title: "Photo Watermark & Timestamp", icon: "🖼️", category: "Workshop Suite", type: "action", action: "open-photo-watermark", keywords: "photo watermark timestamp stamp logo brand dimension proof" },
     { title: "Undo / Redo Action Timeline", icon: "↺", category: "Workshop Suite", type: "action", action: "open-undo-history", keywords: "undo redo history timeline revert rollback ctrl-z" },
 
+    // Chill Music & Audio
+    { title: "Chill Music: Lo-Fi Study Beats", icon: "☕", category: "Chill Music", type: "action", action: "toggle-soundscape", dataset: { track: "lofi" }, keywords: "chill music lofi beats study focus work relaxing soundscape rhodes vinyl" },
+    { title: "Chill Music: Ambient Flow (528Hz Alpha)", icon: "🧘", category: "Chill Music", type: "action", action: "toggle-soundscape", dataset: { track: "ambient" }, keywords: "chill music ambient flow 528hz solfeggio binaural alpha focus meditation relax" },
+    { title: "Chill Music: Felt Piano Melodies", icon: "🎹", category: "Chill Music", type: "action", action: "toggle-soundscape", dataset: { track: "piano" }, keywords: "chill music piano felt acoustic keys relax study work focus melody" },
+    { title: "Chill Music: Synthwave Drift", icon: "🌌", category: "Chill Music", type: "action", action: "toggle-soundscape", dataset: { track: "synthwave" }, keywords: "chill music synthwave retro analog synth pad relax work study drift" },
+    { title: "Stop Chill Music & Soundscapes", icon: "⏹️", category: "Chill Music", type: "action", action: "toggle-soundscape", dataset: { track: "off" }, keywords: "stop chill music sound soundscape mute pause silence off" },
+
     // Quick Actions
     { title: "Toggle Red Night-Vision Darkroom Mode", icon: "🔴", category: "Quick Action", type: "action", action: "toggle-night-mode", keywords: "night dark red vision astronomy darkroom light theme" },
     { title: "Start New Workshop Project", icon: "➕", category: "Quick Action", type: "action", action: "new-project", keywords: "new project create start add make" },
