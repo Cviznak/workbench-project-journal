@@ -15548,3 +15548,173 @@ body.theme-night .app-dialog {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.2); opacity: 0.85; }
 }
+
+/* ============================================================
+   Materials Folders & Grouping
+   ============================================================ */
+.materials-view-mode-toggle {
+  margin-right: 2px;
+}
+
+.material-folders-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.material-folder-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.material-folder-card:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .material-folder-card,
+body.theme-dark .material-folder-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .material-folder-card:hover,
+body.theme-dark .material-folder-card:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.material-folder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 12px;
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  gap: 10px;
+  flex-wrap: wrap;
+  transition: background 0.15s ease;
+}
+.material-folder-header:hover {
+  background: var(--surface-subtle);
+}
+.material-folder-card.is-collapsed .material-folder-header {
+  border-bottom: none;
+}
+
+.material-folder-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.material-folder-chevron {
+  font-size: 10px;
+  color: var(--muted);
+  width: 14px;
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.material-folder-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.material-folder-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.material-folder-count-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 1px 7px;
+}
+
+.material-folder-cost-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--brand-terracotta, #e07a5f);
+  background: rgba(224, 122, 95, 0.1);
+  border: 1px solid rgba(224, 122, 95, 0.25);
+  border-radius: 9999px;
+  padding: 1px 7px;
+}
+
+.material-folder-progress-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #047857;
+  background: rgba(5, 150, 105, 0.1);
+  border: 1px solid rgba(5, 150, 105, 0.25);
+  border-radius: 9999px;
+  padding: 1px 7px;
+}
+.material-folder-progress-badge.complete {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+[data-theme="dark"] .material-folder-progress-badge,
+body.theme-dark .material-folder-progress-badge {
+  color: #34d399;
+  background: rgba(5, 150, 105, 0.2);
+}
+
+.material-folder-empty-badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.material-folder-header-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.material-folder-add-shortcut {
+  font-size: 10.5px;
+  padding: 2px 7px;
+}
+
+.material-folder-body {
+  padding: 0;
+}
+
+.material-folder-body .materials-table-wrap {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.material-folder-empty-state {
+  padding: 14px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.materials-group-badge.clickable {
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.materials-group-badge.clickable:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}

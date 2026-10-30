@@ -1094,6 +1094,127 @@ function renderGallery() {
     </section>`).join("") : `<div class="gallery-empty"><div class="empty-state-mark">▧</div><h3>Your making, in the making</h3><p>Add photos to any project to build a visual journal of the process. Create folders for prototypes, materials, finished pieces, and everything in between.</p><button class="button button-primary" data-view="projects">Explore projects <span>→</span></button></div>`;
 }
 
+function getProjectMaterialFolders(project) {
+  if (!project) return [];
+  const defined = Array.isArray(project.materialFolders) ? project.materialFolders.filter(Boolean) : [];
+  const used = (project.materials || []).map(m => m.folder || m.group || (typeof inferMaterialGroup === "function" ? inferMaterialGroup(m.name) : "")).filter(Boolean);
+  const combined = Array.from(new Set([...defined, ...used]));
+  if (!combined.length && (project.materials || []).length > 0) {
+    return ["General Supplies"];
+  }
+  return combined;
+}
+
+function openMaterialFolderForm(projectId, oldFolder = "") {
+  const dialog = $("#material-folder-dialog");
+  if (!dialog) return;
+  const form = $("#material-folder-form");
+  if (form) {
+    form.reset();
+    form.elements.projectId.value = projectId || "";
+    form.elements.oldFolder.value = oldFolder || "";
+    form.elements.name.value = oldFolder || "";
+    const titleEl = $("#material-folder-dialog-title");
+    if (titleEl) {
+      titleEl.textContent = oldFolder ? "Rename Material Folder" : "New Material Folder";
+    }
+  }
+  dialog.showModal();
+  const input = $("#material-folder-name-input");
+  if (input) {
+    input.focus();
+    if (oldFolder) input.select();
+  }
+}
+
+async function handleMaterialFolderSubmit(event) {
+  event.preventDefault();
+  const form = event.target || event.currentTarget;
+  const projectId = form.elements.projectId.value;
+  const oldFolder = (form.elements.oldFolder.value || "").trim();
+  const newFolder = (form.elements.name.value || "").trim();
+
+  if (!newFolder) return;
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  if (!canUserEditProject(project)) {
+    showToast("Viewers have read-only access to this project.");
+    $("#material-folder-dialog")?.close();
+    return;
+  }
+
+  project.materialFolders = Array.isArray(project.materialFolders) ? project.materialFolders : [];
+
+  if (oldFolder) {
+    const idx = project.materialFolders.indexOf(oldFolder);
+    if (idx >= 0) {
+      project.materialFolders[idx] = newFolder;
+    } else {
+      project.materialFolders.push(newFolder);
+    }
+    (project.materials || []).forEach(m => {
+      if ((m.folder || m.group) === oldFolder) {
+        m.folder = newFolder;
+        m.group = newFolder;
+      }
+    });
+    showToast(`Renamed folder to “${newFolder}”.`);
+  } else {
+    if (!project.materialFolders.includes(newFolder)) {
+      project.materialFolders.push(newFolder);
+    }
+    showToast(`Created folder “${newFolder}”.`);
+  }
+
+  project.updatedAt = new Date().toISOString();
+  $("#material-folder-dialog")?.close();
+  try {
+    await persistState();
+    render();
+    renderProjectDetail(project.id);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not save material folder.");
+  }
+}
+
+async function deleteMaterialFolder(projectId, folderName) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  if (!canUserEditProject(project)) {
+    showToast("Viewers have read-only access to this project.");
+    return;
+  }
+  const itemsInFolder = (project.materials || []).filter(m => (m.folder || m.group) === folderName);
+  const msg = itemsInFolder.length > 0
+    ? `Delete folder “${folderName}”? Its ${itemsInFolder.length} ${itemsInFolder.length === 1 ? 'item' : 'items'} will be moved to “General Supplies”.`
+    : `Delete folder “${folderName}”?`;
+  if (!confirm(msg)) return;
+
+  (project.materials || []).forEach(m => {
+    if ((m.folder || m.group) === folderName) {
+      m.folder = "General Supplies";
+      m.group = "General Supplies";
+    }
+  });
+
+  project.materialFolders = (project.materialFolders || []).filter(f => f !== folderName);
+  if (itemsInFolder.length > 0 && !project.materialFolders.includes("General Supplies")) {
+    project.materialFolders.push("General Supplies");
+  }
+  project.updatedAt = new Date().toISOString();
+
+  try {
+    await persistState();
+    render();
+    renderProjectDetail(project.id);
+    showToast(`Deleted folder “${folderName}”.`);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not delete material folder.");
+  }
+}
+
 function inferMaterialGroup(name = "") {
   const n = (name || "").toLowerCase();
   if (n.includes("yarn") || n.includes("wool") || n.includes("skein") || n.includes("cotton") || n.includes("acrylic") || n.includes("alpaca") || n.includes("thread") || n.includes("merino") || n.includes("fabric") || n.includes("linen") || n.includes("cashmere") || n.includes("silk") || n.includes("stitch") || n.includes("fiber")) return "Yarn & Fibers";
@@ -1375,7 +1496,12 @@ function renderProjectDetail(projectId) {
         <h3>Materials &amp; Supplies</h3>
         <span class="subtle-count">${materials.length ? `${materials.length} items · ${formatMoney(totalCost)} total` : "Track parts & build budget"}</span>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        <div class="view-mode-toggle materials-view-mode-toggle" role="group" aria-label="Materials view mode">
+          <button type="button" class="view-mode-btn ${(state.materialsViewMode || (typeof localStorage !== 'undefined' && localStorage.getItem('workbench_materials_view_mode')) || 'folders') === 'folders' ? 'active' : ''}" data-action="set-materials-view-mode" data-mode="folders" data-project="${project.id}" title="Group materials into folders">📁 Folders</button>
+          <button type="button" class="view-mode-btn ${(state.materialsViewMode || (typeof localStorage !== 'undefined' && localStorage.getItem('workbench_materials_view_mode')) || 'folders') === 'table' ? 'active' : ''}" data-action="set-materials-view-mode" data-mode="table" data-project="${project.id}" title="Flat table list">📋 Flat List</button>
+        </div>
+        <button type="button" class="small-action" data-action="new-material-folder" data-project="${project.id}" title="Create a new folder for materials">📁 ＋ Folder</button>
         <button type="button" class="small-action" data-action="check-materials-inventory" data-project="${project.id}" title="Auto-match supplies against shop inventory">📦 Shop Stock Match</button>
         <button type="button" class="small-action" data-action="add-missing-materials-to-restock" data-project="${project.id}" title="Send needed/out-of-stock items to Depot Restock List">🛒 Add Needed to Restock List</button>
         <button type="button" class="small-action" data-action="transfer-project-to-cutlist" data-id="${project.id}" title="Send lumber items to Workshop Cut List Optimizer">✂️ Send to Cut List</button>
@@ -1388,19 +1514,21 @@ function renderProjectDetail(projectId) {
         <div><span>${haveCount}/${materials.length} items in hand</span></div>
       </div>
     ` : ""}
-    <datalist id="material-groups-datalist">
-      <option value="Yarn &amp; Fibers">
-      <option value="Sensors &amp; Modules">
-      <option value="Lumber &amp; Sheet Goods">
-      <option value="Fasteners &amp; Hardware">
-      <option value="Finishes &amp; Adhesives">
-      <option value="Electronics &amp; Wiring">
-      <option value="3D Print &amp; Filament">
-      <option value="Consumables &amp; Other">
-    </datalist>
     <form class="materials-add-form" data-project="${project.id}">
-      <input name="materialName" required maxlength="80" placeholder="Part or material name (e.g. 1/4&quot; Walnut ply, Merino wool, BME280)..." aria-label="Material name">
-      <input name="materialGroup" list="material-groups-datalist" maxlength="40" placeholder="Group (e.g. Yarn, Sensors)..." aria-label="Group">
+      <input name="materialName" id="material-add-name-input-${project.id}" required maxlength="80" placeholder="Part or material name (e.g. 1/4&quot; Walnut ply, Merino wool, BME280)..." aria-label="Material name">
+      <input name="materialFolder" id="material-add-folder-input-${project.id}" list="material-folders-datalist-${project.id}" maxlength="60" placeholder="Folder (e.g. Lumber, Hardware, Finishes)..." aria-label="Folder">
+      <datalist id="material-folders-datalist-${project.id}">
+        ${getProjectMaterialFolders(project).map(f => `<option value="${escapeHTML(f)}">`).join("")}
+        <option value="Lumber &amp; Sheet Goods">
+        <option value="Fasteners &amp; Hardware">
+        <option value="Sensors &amp; Modules">
+        <option value="Electronics &amp; Wiring">
+        <option value="Finishes &amp; Adhesives">
+        <option value="Yarn &amp; Fibers">
+        <option value="3D Print &amp; Filament">
+        <option value="Packaging &amp; Presentation">
+        <option value="Consumables &amp; Supplies">
+      </datalist>
       <input name="materialQty" maxlength="30" placeholder="Qty (e.g. 2 pcs, 100g)" aria-label="Quantity">
       <input name="materialCost" type="number" step="0.01" min="0" placeholder="${getCurrencySymbol()} Price" aria-label="Price">
       <select name="materialStatus" aria-label="Status">
@@ -1410,47 +1538,137 @@ function renderProjectDetail(projectId) {
       </select>
       <button class="button button-primary" type="submit">＋ Add</button>
     </form>
-    ${materials.length ? `
-      ${(() => {
-        const groups = Array.from(new Set(materials.map(m => m.group || inferMaterialGroup(m.name)))).filter(Boolean);
-        const activeFilter = state.activeMaterialGroupFilter || "all";
-        if (groups.length <= 1) return "";
+    ${(() => {
+      const mode = state.materialsViewMode || (typeof localStorage !== "undefined" && localStorage.getItem("workbench_materials_view_mode")) || "folders";
+      const allFolderNames = getProjectMaterialFolders(project);
+      
+      if (!materials.length && !allFolderNames.length) {
+        return `<div class="folder-empty"><span style="font-size:16px;margin-right:6px">🪵</span>No materials tracked yet. Add items and parts above or create folders to organize your build budget.</div>`;
+      }
+      
+      if (mode === "folders") {
         return `
-          <div class="materials-filter-bar">
-            <button type="button" class="materials-filter-pill ${activeFilter === "all" ? "active" : ""}" data-action="filter-material-group" data-group="all" data-project="${project.id}">All (${materials.length})</button>
-            ${groups.map(grp => {
-              const count = materials.filter(m => (m.group || inferMaterialGroup(m.name)) === grp).length;
-              return `<button type="button" class="materials-filter-pill ${activeFilter === grp ? "active" : ""}" data-action="filter-material-group" data-group="${escapeHTML(grp)}" data-project="${project.id}">${getGroupIcon(grp)} ${escapeHTML(grp)} (${count})</button>`;
+          <div class="material-folders-container">
+            ${allFolderNames.map(folderName => {
+              const items = materials.filter(m => (m.folder || m.group || inferMaterialGroup(m.name)) === folderName);
+              const count = items.length;
+              const folderCost = items.reduce((sum, m) => sum + (Number(m.cost) || 0), 0);
+              const haveCount = items.filter(m => m.status === "have").length;
+              const folderKey = `${project.id}:${folderName}`;
+              const isCollapsed = Boolean(state.collapsedMaterialFolders && state.collapsedMaterialFolders.has(folderKey));
+              return `
+                <div class="material-folder-card ${isCollapsed ? "is-collapsed" : ""}" data-folder-key="${escapeHTML(folderKey)}">
+                  <div class="material-folder-header" data-action="toggle-material-folder-collapse" data-project="${project.id}" data-folder="${escapeHTML(folderName)}" role="button" tabindex="0" aria-expanded="${!isCollapsed}">
+                    <div class="material-folder-header-left">
+                      <span class="material-folder-chevron">${isCollapsed ? "▶" : "▼"}</span>
+                      <span class="material-folder-icon">${getGroupIcon(folderName)}</span>
+                      <span class="material-folder-title">${escapeHTML(folderName)}</span>
+                      <span class="material-folder-count-badge">${count} ${count === 1 ? "item" : "items"}</span>
+                      ${folderCost > 0 ? `<span class="material-folder-cost-badge">${formatMoney(folderCost)}</span>` : ""}
+                      ${count > 0 ? `<span class="material-folder-progress-badge ${haveCount === count ? "complete" : ""}">${haveCount === count ? "✓ All acquired" : `${haveCount}/${count} acquired`}</span>` : `<span class="material-folder-empty-badge">Empty folder</span>`}
+                    </div>
+                    <div class="material-folder-header-right" onclick="event.stopPropagation()">
+                      <button type="button" class="small-action material-folder-add-shortcut" data-action="prefill-material-folder" data-project="${project.id}" data-folder="${escapeHTML(folderName)}" title="Add item to ${escapeHTML(folderName)}">＋ Add item</button>
+                      <button type="button" class="icon-link-btn" data-action="rename-material-folder" data-project="${project.id}" data-folder="${escapeHTML(folderName)}" title="Rename folder" aria-label="Rename folder">✎</button>
+                      <button type="button" class="icon-link-btn danger-hover" data-action="delete-material-folder" data-project="${project.id}" data-folder="${escapeHTML(folderName)}" title="Delete folder" aria-label="Delete folder">×</button>
+                    </div>
+                  </div>
+                  ${!isCollapsed ? `
+                    <div class="material-folder-body">
+                      ${count > 0 ? `
+                        <div class="materials-table-wrap">
+                          <table class="materials-table">
+                            <thead>
+                              <tr>
+                                <th>Item</th>
+                                <th>Qty</th>
+                                <th>Est. Cost</th>
+                                <th>Status</th>
+                                <th>Folder</th>
+                                <th style="text-align:right">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              ${items.map(mat => {
+                                const fName = mat.folder || mat.group || folderName;
+                                return `
+                                <tr>
+                                  <td><strong>${escapeHTML(mat.name)}</strong></td>
+                                  <td>${escapeHTML(mat.qty || "-")}</td>
+                                  <td>${Number(mat.cost) > 0 ? formatMoney(mat.cost) : "-"}</td>
+                                  <td>
+                                    <span class="materials-status-tag status-${mat.status || "need"}" data-action="cycle-material-status" data-project="${project.id}" data-id="${mat.id}" title="Click to cycle status">
+                                      ${mat.status === "have" ? "✓ Have / In stock" : mat.status === "ordered" ? "↗ Ordered" : "○ Need to buy"}
+                                    </span>
+                                    ${mat._stockStatus ? `<span class="materials-stock-badge ${mat._stockStatus.class}">${mat._stockStatus.text}</span>` : ""}
+                                  </td>
+                                  <td>
+                                    <span class="materials-group-badge clickable ${getGroupBadgeClass(fName)}" data-action="edit-material-folder" data-project="${project.id}" data-id="${mat.id}" title="Click to move to another folder">
+                                      📁 ${escapeHTML(fName)} ▾
+                                    </span>
+                                  </td>
+                                  <td style="text-align:right">
+                                    <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
+                                  </td>
+                                </tr>
+                              `;
+                              }).join("")}
+                            </tbody>
+                          </table>
+                        </div>
+                      ` : `
+                        <div class="material-folder-empty-state">
+                          <span>No items in this folder yet.</span>
+                          <button type="button" class="small-action" data-action="prefill-material-folder" data-project="${project.id}" data-folder="${escapeHTML(folderName)}">＋ Add item here</button>
+                        </div>
+                      `}
+                    </div>
+                  ` : ""}
+                </div>
+              `;
             }).join("")}
           </div>
         `;
-      })()}
-      <div class="materials-table-wrap">
-        <table class="materials-table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Group</th>
-              <th>Qty</th>
-              <th>Est. Cost</th>
-              <th>Status</th>
-              <th style="text-align:right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${(() => {
-              const activeFilter = state.activeMaterialGroupFilter || "all";
-              const displayed = activeFilter === "all"
-                ? materials
-                : materials.filter(m => (m.group || inferMaterialGroup(m.name)) === activeFilter);
-              return displayed.map(mat => {
-                const grp = mat.group || inferMaterialGroup(mat.name);
+      }
+
+      // Flat table list mode
+      const groups = allFolderNames;
+      const activeFilter = state.activeMaterialGroupFilter || "all";
+      const displayed = activeFilter === "all"
+        ? materials
+        : materials.filter(m => (m.folder || m.group || inferMaterialGroup(m.name)) === activeFilter);
+
+      return `
+        ${groups.length > 1 ? `
+          <div class="materials-filter-bar">
+            <button type="button" class="materials-filter-pill ${activeFilter === "all" ? "active" : ""}" data-action="filter-material-group" data-group="all" data-project="${project.id}">All (${materials.length})</button>
+            ${groups.map(grp => {
+              const count = materials.filter(m => (m.folder || m.group || inferMaterialGroup(m.name)) === grp).length;
+              return `<button type="button" class="materials-filter-pill ${activeFilter === grp ? "active" : ""}" data-action="filter-material-group" data-group="${escapeHTML(grp)}" data-project="${project.id}">${getGroupIcon(grp)} ${escapeHTML(grp)} (${count})</button>`;
+            }).join("")}
+          </div>
+        ` : ""}
+        <div class="materials-table-wrap">
+          <table class="materials-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Folder</th>
+                <th>Qty</th>
+                <th>Est. Cost</th>
+                <th>Status</th>
+                <th style="text-align:right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${displayed.length ? displayed.map(mat => {
+                const grp = mat.folder || mat.group || inferMaterialGroup(mat.name);
                 return `
                 <tr>
                   <td><strong>${escapeHTML(mat.name)}</strong></td>
                   <td>
-                    <span class="materials-group-badge ${getGroupBadgeClass(grp)}" data-action="edit-material-group" data-project="${project.id}" data-id="${mat.id}" title="Click to change group">
-                      ${getGroupIcon(grp)} ${escapeHTML(grp)}
+                    <span class="materials-group-badge clickable ${getGroupBadgeClass(grp)}" data-action="edit-material-folder" data-project="${project.id}" data-id="${mat.id}" title="Click to move folder">
+                      📁 ${escapeHTML(grp)} ▾
                     </span>
                   </td>
                   <td>${escapeHTML(mat.qty || "-")}</td>
@@ -1466,12 +1684,12 @@ function renderProjectDetail(projectId) {
                   </td>
                 </tr>
               `;
-              }).join("");
-            })()}
-          </tbody>
-        </table>
-      </div>
-    ` : `<div class="folder-empty"><span style="font-size:16px;margin-right:6px">🪵</span>No materials tracked yet. Add items and parts above to keep track of your build budget.</div>`}
+              }).join("") : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">No materials matching "${escapeHTML(activeFilter)}".</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      `;
+    })()}
     <div class="detail-section-heading">
       <div>
         <h3>Assigned Tools &amp; Equipment</h3>
@@ -1889,26 +2107,31 @@ async function handleProjectEntrySubmit(event) {
     const qty = form.elements.materialQty?.value.trim() || "";
     const cost = parseFloat(form.elements.materialCost?.value) || 0;
     const status = form.elements.materialStatus?.value || "need";
-    const groupVal = form.elements.materialGroup?.value.trim();
-    const group = groupVal || inferMaterialGroup(name);
+    const folderVal = form.elements.materialFolder?.value?.trim() || form.elements.materialGroup?.value?.trim();
+    const folder = folderVal || inferMaterialGroup(name) || "General Supplies";
     project.materials = Array.isArray(project.materials) ? project.materials : [];
+    project.materialFolders = Array.isArray(project.materialFolders) ? project.materialFolders : [];
+    if (!project.materialFolders.includes(folder)) {
+      project.materialFolders.push(folder);
+    }
     project.materials.push({
       id: uid(),
       name,
       qty,
       cost,
       status,
-      group: group || "General Supplies",
+      folder,
+      group: folder,
       createdAt: new Date().toISOString()
     });
     project.updatedAt = new Date().toISOString();
-    makeActivity("project", `Added ${name} (${group}) to materials for ${project.title}`);
+    makeActivity("project", `Added ${name} (${folder}) to materials for ${project.title}`);
     try {
       await persistState();
       form.reset();
       render();
       renderProjectDetail(project.id);
-      showToast(`Added “${name}” to ${group}.`);
+      showToast(`Added “${name}” to ${folder}.`);
     } catch (error) {
       console.error(error);
       showToast("Could not save material item.");
@@ -3035,4 +3258,8 @@ if (typeof window !== "undefined") {
   window.renderProjects = renderProjects;
   window.renderKanban = renderKanban;
   window.setProjectViewMode = setProjectViewMode;
+  window.openMaterialFolderForm = openMaterialFolderForm;
+  window.handleMaterialFolderSubmit = handleMaterialFolderSubmit;
+  window.deleteMaterialFolder = deleteMaterialFolder;
+  window.getProjectMaterialFolders = getProjectMaterialFolders;
 }

@@ -25,16 +25,16 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="js/constants.js?v=2.8.4" defer></script>
-    <script src="js/storage.js?v=2.8.4" defer></script>
-    <script src="js/auth.js?v=2.8.4" defer></script>
-    <script src="js/ideas.js?v=2.8.4" defer></script>
-    <script src="js/projects.js?v=2.8.4" defer></script>
-    <script src="js/skills.js?v=2.8.4" defer></script>
-    <script src="js/tools.js?v=2.8.4" defer></script>
-    <script src="js/studios.js?v=2.8.4" defer></script>
-    <script src="js/advanced-suites.js?v=2.8.4" defer></script>
-    <script src="app.js?v=2.8.4" defer></script>
+    <script src="js/constants.js?v=2.8.5" defer></script>
+    <script src="js/storage.js?v=2.8.5" defer></script>
+    <script src="js/auth.js?v=2.8.5" defer></script>
+    <script src="js/ideas.js?v=2.8.5" defer></script>
+    <script src="js/projects.js?v=2.8.5" defer></script>
+    <script src="js/skills.js?v=2.8.5" defer></script>
+    <script src="js/tools.js?v=2.8.5" defer></script>
+    <script src="js/studios.js?v=2.8.5" defer></script>
+    <script src="js/advanced-suites.js?v=2.8.5" defer></script>
+    <script src="app.js?v=2.8.5" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -8062,6 +8062,35 @@ With warm regards and friendship,</textarea>
         <input type="hidden" name="projectId">
         <label class="field-label">Folder name<input name="name" required maxlength="50" placeholder="e.g. First prototypes"></label>
         <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">Create folder <span>→</span></button></div>
+      </form>
+    </dialog>
+
+    <dialog class="app-dialog compact-dialog" id="material-folder-dialog" aria-label="Material Folder">
+      <form id="material-folder-form" method="dialog">
+        <div class="dialog-heading">
+          <div><div class="eyebrow">ORGANIZE MATERIALS</div><h2 id="material-folder-dialog-title">New Material Folder</h2></div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        <input type="hidden" name="projectId">
+        <input type="hidden" name="oldFolder">
+        <label class="field-label">Folder name
+          <input name="name" id="material-folder-name-input" required maxlength="60" placeholder="e.g. Structural Lumber, Fasteners, Wiring, Finishes" list="material-folder-quick-suggestions">
+          <datalist id="material-folder-quick-suggestions">
+            <option value="Lumber &amp; Sheet Goods">
+            <option value="Hardware &amp; Fasteners">
+            <option value="Sensors &amp; Modules">
+            <option value="Electronics &amp; Wiring">
+            <option value="Finishes &amp; Adhesives">
+            <option value="Yarn &amp; Fibers">
+            <option value="3D Print &amp; Filament">
+            <option value="Packaging &amp; Presentation">
+            <option value="Consumables &amp; Supplies">
+          </datalist>
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button class="button button-primary" type="submit" id="material-folder-submit-btn">Save folder <span>→</span></button>
+        </div>
       </form>
     </dialog>
 

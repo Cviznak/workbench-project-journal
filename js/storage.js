@@ -279,7 +279,20 @@ function sanitizeProjectObject(raw) {
     clean.tags = Array.isArray(clean.tags) ? clean.tags.filter(t => typeof t === "string").map(t => t.slice(0, 50)) : [];
     clean.tasks = Array.isArray(clean.tasks) ? clean.tasks : [];
     clean.notes = Array.isArray(clean.notes) ? clean.notes : [];
-    clean.materials = Array.isArray(clean.materials) ? clean.materials : [];
+    clean.materials = Array.isArray(clean.materials) ? clean.materials.filter(m => m && typeof m === "object").map(m => {
+      const folder = typeof m.folder === "string" && m.folder.trim() ? m.folder.trim().slice(0, 60) : (typeof m.group === "string" && m.group.trim() ? m.group.trim().slice(0, 60) : "");
+      return {
+        ...m,
+        id: typeof m.id === "string" ? m.id : ("mat_" + Math.random().toString(36).slice(2, 9)),
+        name: typeof m.name === "string" ? m.name.slice(0, 200) : "Material",
+        qty: typeof m.qty === "string" ? m.qty.slice(0, 50) : (m.qty != null ? String(m.qty).slice(0, 50) : ""),
+        cost: Number.isFinite(Number(m.cost)) ? Number(m.cost) : 0,
+        status: ["need", "ordered", "have"].includes(m.status) ? m.status : "need",
+        folder: folder || "General Supplies",
+        group: folder || "General Supplies"
+      };
+    }) : [];
+    clean.materialFolders = Array.isArray(clean.materialFolders) ? clean.materialFolders.filter(f => typeof f === "string" && f.trim()).map(f => f.trim().slice(0, 60)) : [];
     clean.folders = Array.isArray(clean.folders) ? clean.folders : [];
     if (clean.creator && typeof clean.creator === "object") {
       clean.creator = {

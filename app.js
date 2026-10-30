@@ -423,7 +423,7 @@ async function handleAction(action, target) {
       "new-skill", "edit-skill", "delete-skill", "delete-xp",
       "toggle-task", "delete-task", "move-task-up", "move-task-down", "edit-task",
       "dictate-task", "add-task", "assign-task-phase", "add-project-phase", "pick-from-inventory", "add-material",
-      "delete-material", "add-journal", "delete-journal",
+      "delete-material", "new-material-folder", "rename-material-folder", "delete-material-folder", "edit-material-folder", "add-journal", "delete-journal",
       "add-co-creator", "remove-co-creator", "toggle-co-creator-role", "pass-creator-status",
       "save-inventory", "delete-inventory", "commit-inventory-csv", "save-maintenance", "delete-maintenance"
     ];
@@ -1432,6 +1432,104 @@ async function handleAction(action, target) {
     }
     return;
   }
+  if (action === "set-materials-view-mode") {
+    const mode = target.dataset.mode || "folders";
+    state.materialsViewMode = mode;
+    try {
+      localStorage.setItem("workbench_materials_view_mode", mode);
+    } catch (e) {}
+    const projId = target.dataset.project || activeProjectId;
+    if (projId) renderProjectDetail(projId);
+    return;
+  }
+  if (action === "new-material-folder") {
+    const projId = target.dataset.project || id;
+    const project = state.projects.find(p => p.id === projId);
+    if (project && !canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    openMaterialFolderForm(projId);
+    return;
+  }
+  if (action === "rename-material-folder") {
+    const projId = target.dataset.project;
+    const project = state.projects.find(p => p.id === projId);
+    if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    const folderName = target.dataset.folder;
+    openMaterialFolderForm(projId, folderName);
+    return;
+  }
+  if (action === "delete-material-folder") {
+    const projId = target.dataset.project;
+    const folderName = target.dataset.folder;
+    void deleteMaterialFolder(projId, folderName);
+    return;
+  }
+  if (action === "toggle-material-folder-collapse") {
+    state.collapsedMaterialFolders = state.collapsedMaterialFolders || new Set();
+    const key = `${target.dataset.project}:${target.dataset.folder}`;
+    if (state.collapsedMaterialFolders.has(key)) {
+      state.collapsedMaterialFolders.delete(key);
+    } else {
+      state.collapsedMaterialFolders.add(key);
+    }
+    const projId = target.dataset.project || activeProjectId;
+    if (projId) renderProjectDetail(projId);
+    return;
+  }
+  if (action === "prefill-material-folder") {
+    const folder = target.dataset.folder;
+    const projId = target.dataset.project;
+    const folderInput = document.getElementById(`material-add-folder-input-${projId}`) || document.querySelector(`.materials-add-form[data-project="${projId}"] input[name="materialFolder"]`) || document.querySelector(`.materials-add-form[data-project="${projId}"] input[name="materialGroup"]`);
+    const nameInput = document.getElementById(`material-add-name-input-${projId}`) || document.querySelector(`.materials-add-form[data-project="${projId}"] input[name="materialName"]`);
+    if (folderInput) {
+      folderInput.value = folder;
+    }
+    if (nameInput) {
+      nameInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      nameInput.focus();
+    }
+    return;
+  }
+  if (action === "edit-material-folder" || action === "edit-material-group") {
+    const project = state.projects.find(item => item.id === target.dataset.project);
+    if (!project) return;
+    if (!canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    const material = project.materials?.find(item => item.id === id);
+    if (!material) return;
+    const currentFolder = material.folder || material.group || inferMaterialGroup(material.name);
+    const allFolders = getProjectMaterialFolders(project);
+    const promptMsg = `Move “${material.name}” to folder:\n(Existing folders: ${allFolders.join(", ") || "General Supplies"})`;
+    const newFolder = window.prompt(promptMsg, currentFolder)?.trim();
+    if (newFolder && newFolder !== currentFolder) {
+      material.folder = newFolder;
+      material.group = newFolder;
+      project.materialFolders = Array.isArray(project.materialFolders) ? project.materialFolders : [];
+      if (!project.materialFolders.includes(newFolder)) {
+        project.materialFolders.push(newFolder);
+      }
+      project.updatedAt = new Date().toISOString();
+      try {
+        await persistState();
+        render();
+        renderProjectDetail(project.id);
+        showToast(`Moved “${material.name}” to folder “${newFolder}”.`);
+      } catch (err) {
+        console.error(err);
+        showToast("Could not move material.");
+      }
+    }
+    return;
+  }
+
   if (action === "cycle-material-status") {
     const project = state.projects.find(item => item.id === target.dataset.project);
     if (!project) return;
@@ -3266,6 +3364,7 @@ $("#project-template-select")?.addEventListener("change", event => {
 $("#skill-form")?.addEventListener("submit", event => void handleSkillSubmit(event));
 $("#xp-form")?.addEventListener("submit", event => void handleXpSubmit(event));
 $("#folder-form")?.addEventListener("submit", event => void handleFolderSubmit(event));
+$("#material-folder-form")?.addEventListener("submit", event => void handleMaterialFolderSubmit(event));
 $("#practice-filter")?.addEventListener("change", () => {
   practiceLogLimit = 12;
   renderPracticeLog();
