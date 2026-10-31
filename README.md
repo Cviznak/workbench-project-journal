@@ -15,6 +15,12 @@ Designed with a clean, mobile-first responsive layout, dark/light theme support,
   - 🖨️ **3D Printing Filament Spool Depot** with visual color swatches and quick remaining weight tracking.
   - **Copy Spool (⧉)**: Duplicate a spool profile in 1 click to quickly log new filament colors from the same brand/material.
   - Quick quantity bump buttons (`+` / `-`).
+- 🎯 **Maker Skills & XP Progression**:
+  - Track techniques, crafts, and maker tools (e.g. Wood Joinery, 3D Printing, SMD Soldering, Leathercraft) with **zero forced defaults**.
+  - Level progression (100 XP per Level) with progress tracks and level-up celebrations.
+  - Quick XP bump buttons (`+15`, `+25`, `+50 XP`) and detailed practice session logger.
+  - Link developing skills to projects: view skill levels in project cards, award milestone XP, and earn +100 completion XP.
+  - Focus Timer integration: choose a skill to practice during your 25m Pomodoro sprints and automatically earn +25 XP upon completion.
 - 💡 **Project Ideas**: Quick inspiration capture with **zero starter defaults**. Ideas survive browser reloads and convert to full projects in 1 click (**🚀 Make Project**).
 - 🎵 **Focus & Ambient Soundscapes**: 100% offline Web Audio sound synthesizers (Lo-Fi Chill Chords, Rainy Workshop, Zen Wind Bells, Grounding Drone) paired with a 25-minute Pomodoro timer.
 - 📱 **Mobile-First Experience**: Clean sticky top header with quick chill audio toggle on desktop, and an ergonomic bottom navigation bar on mobile phones.

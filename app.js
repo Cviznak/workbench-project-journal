@@ -22,7 +22,9 @@ function switchView(viewName) {
   // Render view-specific content
   if (viewName === "projects") renderProjects();
   else if (viewName === "inventory") renderInventory();
+  else if (viewName === "skills") renderSkills();
   else if (viewName === "ideas") renderIdeas();
+  else if (viewName === "focus") updateFocusSkillsDropdown();
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -30,8 +32,22 @@ function switchView(viewName) {
 function renderAll() {
   renderProjects();
   renderInventory();
+  renderSkills();
   renderIdeas();
   updateAudioUI();
+  updateFocusSkillsDropdown();
+}
+
+function updateFocusSkillsDropdown() {
+  const sel = document.getElementById("focus-skill-select");
+  if (!sel) return;
+  const current = sel.value;
+  const skills = state.skills || [];
+  sel.innerHTML = '<option value="">— None (General Focus) —</option>' + skills.map(s => `
+    <option value="${s.id}" ${s.id === current ? "selected" : ""}>
+      ${escapeHTML(s.icon || "🎯")} ${escapeHTML(s.name)} (Lvl ${skillLevel(s.xp)})
+    </option>
+  `).join("");
 }
 
 // Focus Pomodoro Timer
@@ -48,7 +64,13 @@ function toggleFocusTimer() {
         clearInterval(focusTimer);
         focusTimerRunning = false;
         focusSecondsLeft = 25 * 60;
-        showToast("🔔 Focus session complete! Time for a short break.");
+        const skillSelect = document.getElementById("focus-skill-select");
+        const skillId = skillSelect ? skillSelect.value : "";
+        if (skillId && typeof quickAwardXp === "function") {
+          quickAwardXp(skillId, 25, "Pomodoro Focus Session");
+        } else {
+          showToast("🔔 Focus session complete! Time for a short break.");
+        }
       }
       updateFocusTimerDisplay();
     }, 1000);
@@ -84,6 +106,7 @@ async function initApp() {
   // Setup search listeners
   document.getElementById("project-search")?.addEventListener("input", renderProjects);
   document.getElementById("inventory-search")?.addEventListener("input", renderInventory);
+  document.getElementById("skills-search")?.addEventListener("input", renderSkills);
 
   // Close modals on escape key
   document.addEventListener("keydown", e => {

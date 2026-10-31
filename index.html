@@ -25,6 +25,9 @@
           <button type="button" class="nav-btn" data-nav-view="inventory" onclick="switchView('inventory')">
             <span class="nav-icon">📦</span> Inventory
           </button>
+          <button type="button" class="nav-btn" data-nav-view="skills" onclick="switchView('skills')">
+            <span class="nav-icon">🎯</span> Skills
+          </button>
           <button type="button" class="nav-btn" data-nav-view="ideas" onclick="switchView('ideas')">
             <span class="nav-icon">💡</span> Ideas
           </button>
@@ -147,7 +150,71 @@
         <div id="inventory-content"></div>
       </section>
 
-      <!-- 3. IDEAS VIEW -->
+      <!-- 3. SKILLS & XP VIEW -->
+      <section class="view-section" id="skills-view">
+        <div class="view-header">
+          <div>
+            <h1 class="view-title">Maker Skills &amp; XP</h1>
+            <p class="view-subtitle">Level up your crafts, techniques, and maker tools as you build.</p>
+          </div>
+          <div class="btn-group">
+            <button type="button" class="btn btn-outline" onclick="openPracticeDialog()">⏱️ ＋ Log Practice</button>
+            <button type="button" class="btn btn-primary" onclick="openSkillDialog()">🎯 ＋ New Skill</button>
+          </div>
+        </div>
+
+        <!-- Skills Stat Strip -->
+        <div class="stats-strip">
+          <div class="stat-tile">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-info">
+              <span class="stat-label">Total Skills</span>
+              <strong class="stat-val" id="skills-stat-total">0 skills</strong>
+            </div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-info">
+              <span class="stat-label">Total XP Earned</span>
+              <strong class="stat-val" id="skills-stat-xp">0 XP</strong>
+            </div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-info">
+              <span class="stat-label">Top Mastery</span>
+              <strong class="stat-val" id="skills-stat-top">No skills yet</strong>
+            </div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-icon">📈</div>
+            <div class="stat-info">
+              <span class="stat-label">Practice Sessions</span>
+              <strong class="stat-val" id="skills-stat-sessions">0 sessions</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skills Toolbar -->
+        <div class="toolbar">
+          <div class="search-box">
+            <span>⌕</span>
+            <input type="search" id="skills-search" placeholder="Search skills, category, or notes..." aria-label="Search skills" oninput="renderSkills()">
+          </div>
+          <div class="filter-pills" role="group" aria-label="Filter skills by category">
+            <button type="button" class="pill-btn active" data-cat="all" onclick="setSkillsFilter('all', this)">All</button>
+            <button type="button" class="pill-btn" data-cat="Fabrication" onclick="setSkillsFilter('Fabrication', this)">🪵 Fabrication</button>
+            <button type="button" class="pill-btn" data-cat="3D Printing" onclick="setSkillsFilter('3D Printing', this)">🖨️ 3D Printing</button>
+            <button type="button" class="pill-btn" data-cat="Electronics" onclick="setSkillsFilter('Electronics', this)">⚡ Electronics</button>
+            <button type="button" class="pill-btn" data-cat="Crafts" onclick="setSkillsFilter('Crafts', this)">🧵 Crafts</button>
+          </div>
+        </div>
+
+        <!-- Skills Grid Container -->
+        <div class="skills-grid" id="skills-list"></div>
+      </section>
+
+      <!-- 4. IDEAS VIEW -->
       <section class="view-section" id="ideas-view">
         <div class="view-header">
           <div>
@@ -182,6 +249,12 @@
           <div class="focus-card">
             <h3>⏱️ Workshop Focus Timer</h3>
             <div class="focus-clock" id="focus-timer-clock">25:00</div>
+            <label class="field-label" style="margin-bottom:12px">
+              Level Up Skill (awards +25 XP upon completion)
+              <select id="focus-skill-select">
+                <option value="">— None (General Focus) —</option>
+              </select>
+            </label>
             <div class="btn-group" style="justify-content:center">
               <button type="button" class="btn btn-primary" id="focus-timer-btn" onclick="toggleFocusTimer()">▶ Start 25m Focus</button>
               <button type="button" class="btn btn-outline" onclick="resetFocusTimer()">Reset</button>
@@ -223,6 +296,10 @@
         <span class="icon">📦</span>
         <span class="label">Inventory</span>
       </button>
+      <button type="button" class="mobile-nav-btn" data-nav-view="skills" onclick="switchView('skills')">
+        <span class="icon">🎯</span>
+        <span class="label">Skills</span>
+      </button>
       <button type="button" class="mobile-nav-btn" data-nav-view="ideas" onclick="switchView('ideas')">
         <span class="icon">💡</span>
         <span class="label">Ideas</span>
@@ -262,6 +339,10 @@
           <label class="field-label">Target Date (optional)
             <input name="targetDate" type="date">
           </label>
+        </div>
+        <div id="project-form-skills-wrap" class="field-label" style="display:none">
+          <span>Developing Skills (Earn XP as you build)</span>
+          <div id="project-form-skills-list" class="skills-select-grid"></div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
@@ -580,12 +661,109 @@
       <option value="General Supplies">
     </datalist>
 
+    <!-- Skill Dialog (Create / Edit) -->
+    <dialog class="modal" id="skill-dialog" aria-label="Skill Form">
+      <form id="skill-form" method="dialog" onsubmit="handleSkillSubmit(event)">
+        <div class="modal-header">
+          <h2 id="skill-dialog-title">Add Maker Skill</h2>
+          <button type="button" class="icon-btn" onclick="this.closest('dialog').close()">×</button>
+        </div>
+        <input type="hidden" name="id">
+
+        <div class="form-row">
+          <label class="field-label" style="flex:0 0 90px">Icon
+            <input name="icon" maxlength="6" value="🎯" style="text-align:center;font-size:20px">
+          </label>
+          <label class="field-label" style="flex:1">Skill Name
+            <input name="name" required maxlength="80" placeholder="e.g. Wood Joinery, 3D Slicing, SMD Soldering">
+          </label>
+        </div>
+
+        <!-- Quick Emoji Picker -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:-6px 0 14px">
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('🎯')">🎯</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('🪵')">🪵</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('🖨️')">🖨️</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('⚡')">⚡</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('🎨')">🎨</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('🧵')">🧵</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('🔧')">🔧</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('📐')">📐</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('💻')">💻</button>
+          <button type="button" class="btn btn-xs btn-outline" onclick="setSkillFormIcon('🧪')">🧪</button>
+        </div>
+
+        <div class="form-row">
+          <label class="field-label">Category
+            <input name="category" list="skill-category-suggestions" maxlength="50" placeholder="e.g. Fabrication, Electronics, Crafts">
+            <datalist id="skill-category-suggestions">
+              <option value="Fabrication">
+              <option value="3D Printing">
+              <option value="Electronics">
+              <option value="Crafts">
+              <option value="Finishing">
+              <option value="Design &amp; 3D Modeling">
+              <option value="Software &amp; Microcontrollers">
+            </datalist>
+          </label>
+          <label class="field-label">Starting XP
+            <input name="xp" type="number" min="0" step="5" value="0" placeholder="0">
+            <span class="field-hint">100 XP per level</span>
+          </label>
+        </div>
+
+        <label class="field-label">Notes &amp; Goals
+          <textarea name="notes" rows="2" maxlength="300" placeholder="Techniques to master, reference books, tutorials..."></textarea>
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Skill →</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Log Practice Dialog -->
+    <dialog class="modal" id="practice-dialog" aria-label="Log Practice Form">
+      <form id="practice-form" method="dialog" onsubmit="handlePracticeSubmit(event)">
+        <div class="modal-header">
+          <h2>Log Practice &amp; Earn XP</h2>
+          <button type="button" class="icon-btn" onclick="this.closest('dialog').close()">×</button>
+        </div>
+
+        <label class="field-label">Select Skill
+          <select name="skillId" id="practice-skill-select" required></select>
+        </label>
+
+        <div class="form-row">
+          <label class="field-label">XP to Award
+            <select name="amount">
+              <option value="15">+15 XP — Quick Test / Tinkering (10m)</option>
+              <option value="25" selected>+25 XP — Standard Practice Session (25m)</option>
+              <option value="50">+50 XP — Major Build Milestone / Difficult Technique</option>
+              <option value="100">+100 XP — Mastered Project Step / Full Build</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field-label">What did you build or practice?
+          <textarea name="notes" rows="2" maxlength="300" placeholder="e.g. Practiced dovetail joints, tuned extrusion multiplier, soldered ESP32 board..."></textarea>
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Log XP →</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- Notification Toast -->
     <div class="toast" id="toast" role="alert" aria-live="polite"></div>
 
     <!-- Scripts -->
     <script src="js/storage.js" defer></script>
     <script src="js/audio.js" defer></script>
+    <script src="js/skills.js" defer></script>
     <script src="js/projects.js" defer></script>
     <script src="js/inventory.js" defer></script>
     <script src="js/ideas.js" defer></script>

@@ -39,6 +39,8 @@ function renderProjects() {
     const materials = Array.isArray(project.materials) ? project.materials : [];
     const totalCost = materials.reduce((s, m) => s + (Number(m.cost) || 0), 0);
     const photos = Array.isArray(project.photos) ? project.photos : [];
+    const skillIds = Array.isArray(project.skillIds) ? project.skillIds : [];
+    const linkedSkills = (state.skills || []).filter(s => skillIds.includes(s.id));
 
     const statusBadge = {
       in_progress: `<span class="badge badge-progress">⚡ In Progress</span>`,
@@ -59,6 +61,13 @@ function renderProjects() {
           </div>
         </div>
         ${project.description ? `<p class="card-desc">${escapeHTML(project.description)}</p>` : ""}
+        ${linkedSkills.length ? `
+          <div class="project-skills-row">
+            ${linkedSkills.map(s => `
+              <span class="skill-mini-chip">${escapeHTML(s.icon || "🎯")} ${escapeHTML(s.name)} · Lvl ${skillLevel(s.xp)}</span>
+            `).join("")}
+          </div>
+        ` : ""}
         ${tasks.length ? `
           <div class="progress-wrap">
             <div class="progress-bar"><div class="progress-fill" style="width:${progressPct}%"></div></div>
@@ -83,6 +92,25 @@ function openProjectForm(projectId = null) {
   form.reset();
   const titleEl = document.getElementById("project-dialog-title");
   const project = projectId ? (state.projects || []).find(p => p.id === projectId) : null;
+
+  // Populate skills selection
+  const skillsWrap = document.getElementById("project-form-skills-wrap");
+  const skillsList = document.getElementById("project-form-skills-list");
+  if (skillsWrap && skillsList) {
+    const availableSkills = state.skills || [];
+    if (availableSkills.length > 0) {
+      skillsWrap.style.display = "block";
+      const linked = new Set(project?.skillIds || []);
+      skillsList.innerHTML = availableSkills.map(s => `
+        <label class="skill-check-chip ${linked.has(s.id) ? "checked" : ""}">
+          <input type="checkbox" name="skillIds" value="${s.id}" ${linked.has(s.id) ? "checked" : ""} onchange="this.closest('.skill-check-chip').classList.toggle('checked', this.checked)">
+          <span>${escapeHTML(s.icon || "🎯")} ${escapeHTML(s.name)} (Lvl ${skillLevel(s.xp)})</span>
+        </label>
+      `).join("");
+    } else {
+      skillsWrap.style.display = "none";
+    }
+  }
 
   if (project) {
     if (titleEl) titleEl.textContent = "Edit Project";
@@ -109,12 +137,19 @@ async function handleProjectSubmit(event) {
   if (!title) return;
 
   const existing = id ? (state.projects || []).find(p => p.id === id) : null;
+  const wasCompleted = existing?.status === "completed";
+  const newStatus = form.elements.status.value || "planned";
+
+  const skillCheckboxes = form.querySelectorAll('input[name="skillIds"]:checked');
+  const skillIds = Array.from(skillCheckboxes).map(cb => cb.value);
+
   const projectData = {
     id: existing?.id || uid(),
     title,
     description: (form.elements.description.value || "").trim(),
-    status: form.elements.status.value || "planned",
+    status: newStatus,
     targetDate: form.elements.targetDate.value || "",
+    skillIds: skillIds,
     tasks: existing?.tasks || [],
     materials: existing?.materials || [],
     materialFolders: existing?.materialFolders || [],
@@ -130,6 +165,15 @@ async function handleProjectSubmit(event) {
   } else {
     state.projects.unshift(projectData);
     showToast(`Created project “${title}”!`);
+  }
+
+  // If newly completed, award +100 XP to each linked skill!
+  if (!wasCompleted && newStatus === "completed" && skillIds.length > 0) {
+    skillIds.forEach(sid => {
+      if (typeof quickAwardXp === "function") {
+        quickAwardXp(sid, 100, `Completed Project: ${title}`);
+      }
+    });
   }
 
   document.getElementById("project-dialog")?.close();
@@ -184,6 +228,8 @@ function openProjectDetail(projectId) {
   const acquiredCost = materials.filter(m => m.status === "have" || m.status === "ordered").reduce((s, m) => s + (Number(m.cost) || 0), 0);
   const haveCount = materials.filter(m => m.status === "have").length;
   const photos = Array.isArray(project.photos) ? project.photos : [];
+  const skillIds = Array.isArray(project.skillIds) ? project.skillIds : [];
+  const linkedSkills = (state.skills || []).filter(s => skillIds.includes(s.id));
   const viewMode = state.materialsViewMode || "folders";
   const allFolders = getProjectMaterialFolders(project);
 
@@ -203,6 +249,41 @@ function openProjectDetail(projectId) {
         <button type="button" class="btn btn-outline" onclick="openProjectForm('${project.id}')">✎ Edit</button>
       </div>
     </div>
+
+    ${linkedSkills.length ? `
+      <!-- Developing Skills Section -->
+      <section class="detail-section">
+        <div class="section-heading-row">
+          <div>
+            <h3>Developing Skills</h3>
+            <span class="section-sub">Earn XP as you advance through this build</span>
+          </div>
+          <button type="button" class="btn btn-outline btn-xs" onclick="awardProjectMilestoneXp('${project.id}')">＋ Milestone (+50 XP to all)</button>
+        </div>
+        <div class="project-detail-skills-grid">
+          ${linkedSkills.map(s => {
+            const xp = Number(s.xp) || 0;
+            const lvl = skillLevel(xp);
+            const prog = skillProgress(xp);
+            return `
+              <div class="project-skill-card">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <span style="font-weight:600;font-size:13px">${escapeHTML(s.icon || "🎯")} ${escapeHTML(s.name)}</span>
+                  <span class="badge">Lvl ${lvl}</span>
+                </div>
+                <div class="progress-bar" style="margin:6px 0 4px">
+                  <div class="progress-fill" style="width:${prog}%"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink-muted)">
+                  <span>${prog}/100 XP (${xp} total)</span>
+                  <button type="button" class="xp-btn" style="padding:1px 6px;font-size:10.5px" onclick="quickAwardXp('${s.id}', 25, 'Project: ${escapeHTML(project.title)}'); renderProjectDetail('${project.id}')">+25 XP</button>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    ` : ""}
 
     <!-- Steps Checklist Section -->
     <section class="detail-section">
@@ -789,6 +870,17 @@ function openPhotoViewer(src) {
   dialog.showModal();
 }
 
+function awardProjectMilestoneXp(projectId) {
+  const project = (state.projects || []).find(p => p.id === projectId);
+  if (!project || !Array.isArray(project.skillIds)) return;
+  project.skillIds.forEach(sid => {
+    if (typeof quickAwardXp === "function") {
+      quickAwardXp(sid, 50, `Project Milestone: ${project.title}`);
+    }
+  });
+  renderProjectDetail(projectId);
+}
+
 if (typeof window !== "undefined") {
   window.renderProjects = renderProjects;
   window.openProjectForm = openProjectForm;
@@ -813,4 +905,5 @@ if (typeof window !== "undefined") {
   window.handleAddPhoto = handleAddPhoto;
   window.deletePhoto = deletePhoto;
   window.openPhotoViewer = openPhotoViewer;
+  window.awardProjectMilestoneXp = awardProjectMilestoneXp;
 }

@@ -18,11 +18,14 @@ const state = {
     "Workshop Tools & Equipment",
     "General Supplies"
   ],
+  skills: [],
+  practiceLog: [],
   ideas: [],
   activeView: "projects",
   projectsFilter: "all",
   inventoryFilter: "all",
   inventoryTab: "all",
+  skillsFilter: "all",
   projectsViewMode: "grid",
   inventoryViewMode: "folders",
   materialsViewMode: "folders",
@@ -97,6 +100,8 @@ async function loadState() {
       state.inventoryFolders = loaded.inventoryFolders;
     }
     if (Array.isArray(loaded.ideas)) state.ideas = loaded.ideas;
+    if (Array.isArray(loaded.skills)) state.skills = loaded.skills;
+    if (Array.isArray(loaded.practiceLog)) state.practiceLog = loaded.practiceLog;
     if (loaded.theme) state.theme = loaded.theme;
     if (loaded.inventoryViewMode) state.inventoryViewMode = loaded.inventoryViewMode;
     if (loaded.materialsViewMode) state.materialsViewMode = loaded.materialsViewMode;
@@ -141,9 +146,11 @@ function migrateLegacyData() {
     const inventory = Array.isArray(legacyState?.inventory) ? legacyState.inventory : [];
     const inventoryFolders = Array.isArray(legacyState?.inventoryFolders) ? legacyState.inventoryFolders : [];
     const ideas = Array.isArray(legacyIdeas) && legacyIdeas.length ? legacyIdeas : (Array.isArray(legacyState?.ideas) ? legacyState.ideas : []);
+    const skills = Array.isArray(legacyState?.skills) ? legacyState.skills : [];
+    const practiceLog = Array.isArray(legacyState?.practiceLog) ? legacyState.practiceLog : [];
 
-    if (projects.length || inventory.length || ideas.length) {
-      return { projects, inventory, inventoryFolders, ideas };
+    if (projects.length || inventory.length || ideas.length || skills.length) {
+      return { projects, inventory, inventoryFolders, ideas, skills, practiceLog };
     }
   } catch (e) {}
   return null;
@@ -243,6 +250,8 @@ async function importBackup(file) {
     if (Array.isArray(imported.inventory)) state.inventory = imported.inventory;
     if (Array.isArray(imported.inventoryFolders)) state.inventoryFolders = imported.inventoryFolders;
     if (Array.isArray(imported.ideas)) state.ideas = imported.ideas;
+    if (Array.isArray(imported.skills)) state.skills = imported.skills;
+    if (Array.isArray(imported.practiceLog)) state.practiceLog = imported.practiceLog;
     await persistState();
     if (typeof window.renderAll === "function") window.renderAll();
     showToast("Workshop backup restored successfully!");
@@ -264,6 +273,17 @@ function getGroupIcon(name = "") {
   return "📁";
 }
 
+// Skills & XP progression helpers
+const XP_PER_LEVEL = 100;
+
+function skillLevel(xp = 0) {
+  return Math.floor((Number(xp) || 0) / XP_PER_LEVEL) + 1;
+}
+
+function skillProgress(xp = 0) {
+  return (Number(xp) || 0) % XP_PER_LEVEL;
+}
+
 if (typeof window !== "undefined") {
   window.state = state;
   window.loadState = loadState;
@@ -279,6 +299,9 @@ if (typeof window !== "undefined") {
   window.exportBackup = exportBackup;
   window.importBackup = importBackup;
   window.getGroupIcon = getGroupIcon;
+  window.XP_PER_LEVEL = XP_PER_LEVEL;
+  window.skillLevel = skillLevel;
+  window.skillProgress = skillProgress;
 }
 
 if (typeof module !== "undefined" && module.exports) {
@@ -297,6 +320,9 @@ if (typeof module !== "undefined" && module.exports) {
     exportBackup,
     importBackup,
     getGroupIcon,
+    XP_PER_LEVEL,
+    skillLevel,
+    skillProgress,
     STORAGE_KEY
   };
 }
