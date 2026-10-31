@@ -423,7 +423,7 @@ async function handleAction(action, target) {
       "new-skill", "edit-skill", "delete-skill", "delete-xp",
       "toggle-task", "delete-task", "move-task-up", "move-task-down", "edit-task",
       "dictate-task", "add-task", "assign-task-phase", "add-project-phase", "pick-from-inventory", "add-material",
-      "delete-material", "new-material-folder", "rename-material-folder", "delete-material-folder", "edit-material-folder", "add-journal", "delete-journal",
+      "delete-material", "new-material-folder", "rename-material-folder", "delete-material-folder", "edit-material-folder", "copy-material", "edit-material", "add-journal", "delete-journal",
       "add-co-creator", "remove-co-creator", "toggle-co-creator-role", "pass-creator-status",
       "save-inventory", "delete-inventory", "commit-inventory-csv", "save-maintenance", "delete-maintenance"
     ];
@@ -1494,6 +1494,26 @@ async function handleAction(action, target) {
       nameInput.scrollIntoView({ behavior: "smooth", block: "center" });
       nameInput.focus();
     }
+    return;
+  }
+  if (action === "copy-material") {
+    const projId = target.dataset.project || activeProjectId;
+    const project = state.projects.find(p => p.id === projId);
+    if (project && !canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    openMaterialEditDialog(projId, id, true);
+    return;
+  }
+  if (action === "edit-material") {
+    const projId = target.dataset.project || activeProjectId;
+    const project = state.projects.find(p => p.id === projId);
+    if (project && !canUserEditProject(project)) {
+      showToast("Viewers have read-only access to this project.");
+      return;
+    }
+    openMaterialEditDialog(projId, id, false);
     return;
   }
   if (action === "edit-material-folder" || action === "edit-material-group") {
@@ -3365,6 +3385,7 @@ $("#skill-form")?.addEventListener("submit", event => void handleSkillSubmit(eve
 $("#xp-form")?.addEventListener("submit", event => void handleXpSubmit(event));
 $("#folder-form")?.addEventListener("submit", event => void handleFolderSubmit(event));
 $("#material-folder-form")?.addEventListener("submit", event => void handleMaterialFolderSubmit(event));
+$("#material-edit-form")?.addEventListener("submit", event => void handleMaterialEditSubmit(event));
 $("#practice-filter")?.addEventListener("change", () => {
   practiceLogLimit = 12;
   renderPracticeLog();

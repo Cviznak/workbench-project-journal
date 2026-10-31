@@ -1178,6 +1178,140 @@ async function handleMaterialFolderSubmit(event) {
   }
 }
 
+function openMaterialEditDialog(projectId, materialId, isDuplicate = false) {
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  const mat = (project.materials || []).find(m => m.id === materialId);
+  if (!mat) return;
+
+  const dialog = $("#material-edit-dialog");
+  if (!dialog) return;
+  const form = $("#material-edit-form");
+  if (!form) return;
+
+  form.reset();
+  form.elements.projectId.value = projectId;
+  form.elements.materialId.value = materialId;
+  form.elements.isDuplicate.value = isDuplicate ? "true" : "false";
+
+  const eyebrow = $("#material-edit-dialog-eyebrow");
+  const title = $("#material-edit-dialog-title");
+  const submitBtn = $("#material-edit-submit-btn");
+  const hintEl = $("#material-edit-name-hint");
+  const nameInput = $("#material-edit-name-input");
+  const folderInput = $("#material-edit-folder-input");
+  const qtyInput = $("#material-edit-qty-input");
+  const costInput = $("#material-edit-cost-input");
+  const statusSelect = $("#material-edit-status-select");
+
+  if (isDuplicate) {
+    if (eyebrow) eyebrow.textContent = "CREATE A VARIANT";
+    if (title) title.textContent = "Copy & Edit Material";
+    if (submitBtn) submitBtn.innerHTML = "Save as new material <span>→</span>";
+    if (hintEl) hintEl.textContent = "Tip: Change color, dimensions, or size to save this variant.";
+  } else {
+    if (eyebrow) eyebrow.textContent = "UPDATE SUPPLY";
+    if (title) title.textContent = "Edit Material";
+    if (submitBtn) submitBtn.innerHTML = "Save changes <span>→</span>";
+    if (hintEl) hintEl.textContent = "Update name, folder, quantity, price, or status.";
+  }
+
+  if (nameInput) nameInput.value = mat.name || "";
+  if (folderInput) folderInput.value = mat.folder || mat.group || "";
+  if (qtyInput) qtyInput.value = mat.qty || "";
+  if (costInput) costInput.value = (mat.cost != null && mat.cost !== "" && Number(mat.cost) > 0) ? mat.cost : "";
+  if (statusSelect) statusSelect.value = mat.status || "need";
+
+  const datalist = $("#material-edit-folder-suggestions");
+  if (datalist) {
+    const folders = getProjectMaterialFolders(project);
+    datalist.innerHTML = folders.map(f => `<option value="${escapeHTML(f)}">`).join("");
+  }
+
+  dialog.showModal();
+
+  if (nameInput) {
+    nameInput.focus();
+    if (isDuplicate) {
+      nameInput.select();
+    }
+  }
+}
+
+async function handleMaterialEditSubmit(event) {
+  event.preventDefault();
+  const form = event.target || event.currentTarget;
+  const projectId = form.elements.projectId.value;
+  const materialId = form.elements.materialId.value;
+  const isDuplicate = form.elements.isDuplicate.value === "true";
+  const name = (form.elements.name.value || "").trim();
+  const folder = (form.elements.folder.value || "").trim() || (typeof inferMaterialGroup === "function" ? inferMaterialGroup(name) : "") || "General Supplies";
+  const qty = (form.elements.qty.value || "").trim();
+  const cost = parseFloat(form.elements.cost.value) || 0;
+  const status = form.elements.status.value || "need";
+
+  if (!name) return;
+  const project = state.projects.find(p => p.id === projectId);
+  if (!project) return;
+  if (!canUserEditProject(project)) {
+    showToast("Viewers have read-only access to this project.");
+    $("#material-edit-dialog")?.close();
+    return;
+  }
+
+  project.materials = Array.isArray(project.materials) ? project.materials : [];
+  project.materialFolders = Array.isArray(project.materialFolders) ? project.materialFolders : [];
+  if (!project.materialFolders.includes(folder)) {
+    project.materialFolders.push(folder);
+  }
+
+  if (isDuplicate) {
+    const newMaterial = {
+      id: uid(),
+      name,
+      folder,
+      group: folder,
+      qty,
+      cost,
+      status,
+      createdAt: new Date().toISOString()
+    };
+    const origIdx = project.materials.findIndex(m => m.id === materialId);
+    if (origIdx >= 0) {
+      project.materials.splice(origIdx + 1, 0, newMaterial);
+    } else {
+      project.materials.push(newMaterial);
+    }
+    project.updatedAt = new Date().toISOString();
+    makeActivity("project", `Copied material ${name} (${folder}) for ${project.title}`);
+    showToast(`Created copy “${name}”.`);
+  } else {
+    const mat = project.materials.find(m => m.id === materialId);
+    if (!mat) return;
+    mat.name = name;
+    mat.folder = folder;
+    mat.group = folder;
+    mat.qty = qty;
+    mat.cost = cost;
+    mat.status = status;
+    mat.updatedAt = new Date().toISOString();
+    project.updatedAt = new Date().toISOString();
+    makeActivity("project", `Updated material ${name} for ${project.title}`);
+    showToast(`Updated “${name}”.`);
+  }
+
+  $("#material-edit-dialog")?.close();
+
+  try {
+    await persistState();
+    render();
+    renderProjectDetail(project.id);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not save material.");
+  }
+}
+
 async function deleteMaterialFolder(projectId, folderName) {
   const project = state.projects.find(p => p.id === projectId);
   if (!project) return;
@@ -1608,7 +1742,11 @@ function renderProjectDetail(projectId) {
                                     </span>
                                   </td>
                                   <td style="text-align:right">
-                                    <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
+                                    <div class="materials-row-actions">
+                                      <button type="button" class="material-action-btn copy-btn" data-action="copy-material" data-project="${project.id}" data-id="${mat.id}" title="Copy material (create variant e.g. different color or size)" aria-label="Copy ${escapeHTML(mat.name)}">⧉</button>
+                                      <button type="button" class="material-action-btn edit-btn" data-action="edit-material" data-project="${project.id}" data-id="${mat.id}" title="Edit material details" aria-label="Edit ${escapeHTML(mat.name)}">✎</button>
+                                      <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
+                                    </div>
                                   </td>
                                 </tr>
                               `;
@@ -1680,7 +1818,11 @@ function renderProjectDetail(projectId) {
                     ${mat._stockStatus ? `<span class="materials-stock-badge ${mat._stockStatus.class}">${mat._stockStatus.text}</span>` : ""}
                   </td>
                   <td style="text-align:right">
-                    <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
+                    <div class="materials-row-actions">
+                      <button type="button" class="material-action-btn copy-btn" data-action="copy-material" data-project="${project.id}" data-id="${mat.id}" title="Copy material (create variant e.g. different color or size)" aria-label="Copy ${escapeHTML(mat.name)}">⧉</button>
+                      <button type="button" class="material-action-btn edit-btn" data-action="edit-material" data-project="${project.id}" data-id="${mat.id}" title="Edit material details" aria-label="Edit ${escapeHTML(mat.name)}">✎</button>
+                      <button type="button" class="task-remove" data-action="delete-material" data-project="${project.id}" data-id="${mat.id}" title="Remove material" aria-label="Remove material">×</button>
+                    </div>
                   </td>
                 </tr>
               `;
@@ -3262,4 +3404,6 @@ if (typeof window !== "undefined") {
   window.handleMaterialFolderSubmit = handleMaterialFolderSubmit;
   window.deleteMaterialFolder = deleteMaterialFolder;
   window.getProjectMaterialFolders = getProjectMaterialFolders;
+  window.openMaterialEditDialog = openMaterialEditDialog;
+  window.handleMaterialEditSubmit = handleMaterialEditSubmit;
 }

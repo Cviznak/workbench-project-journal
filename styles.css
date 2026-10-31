@@ -15718,3 +15718,54 @@ body.theme-dark .material-folder-progress-badge {
   opacity: 0.85;
   transform: translateY(-1px);
 }
+
+/* ============================================================
+   Materials Row Actions (Copy, Edit, Remove)
+   ============================================================ */
+.materials-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.material-action-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.material-action-btn:hover {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.05));
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.material-action-btn.copy-btn:hover {
+  color: var(--brand-terracotta, #e07a5f);
+  background: rgba(224, 122, 95, 0.12);
+  border-color: rgba(224, 122, 95, 0.3);
+}
+
+.material-action-btn.edit-btn:hover {
+  color: var(--green, #2e5a44);
+  background: var(--green-pale, rgba(46, 90, 68, 0.12));
+  border-color: rgba(46, 90, 68, 0.3);
+}
+
+[data-theme="dark"] .material-action-btn:hover,
+body.theme-dark .material-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}

@@ -25,16 +25,16 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="js/constants.js?v=2.8.5" defer></script>
-    <script src="js/storage.js?v=2.8.5" defer></script>
-    <script src="js/auth.js?v=2.8.5" defer></script>
-    <script src="js/ideas.js?v=2.8.5" defer></script>
-    <script src="js/projects.js?v=2.8.5" defer></script>
-    <script src="js/skills.js?v=2.8.5" defer></script>
-    <script src="js/tools.js?v=2.8.5" defer></script>
-    <script src="js/studios.js?v=2.8.5" defer></script>
-    <script src="js/advanced-suites.js?v=2.8.5" defer></script>
-    <script src="app.js?v=2.8.5" defer></script>
+    <script src="js/constants.js?v=2.8.6" defer></script>
+    <script src="js/storage.js?v=2.8.6" defer></script>
+    <script src="js/auth.js?v=2.8.6" defer></script>
+    <script src="js/ideas.js?v=2.8.6" defer></script>
+    <script src="js/projects.js?v=2.8.6" defer></script>
+    <script src="js/skills.js?v=2.8.6" defer></script>
+    <script src="js/tools.js?v=2.8.6" defer></script>
+    <script src="js/studios.js?v=2.8.6" defer></script>
+    <script src="js/advanced-suites.js?v=2.8.6" defer></script>
+    <script src="app.js?v=2.8.6" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -8090,6 +8090,63 @@ With warm regards and friendship,</textarea>
         <div class="dialog-actions">
           <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
           <button class="button button-primary" type="submit" id="material-folder-submit-btn">Save folder <span>→</span></button>
+        </div>
+      </form>
+    </dialog>
+
+<dialog class="app-dialog compact-dialog" id="material-edit-dialog" aria-label="Edit or Copy Material">
+      <form id="material-edit-form" method="dialog">
+        <div class="dialog-heading">
+          <div>
+            <div class="eyebrow" id="material-edit-dialog-eyebrow">UPDATE SUPPLY</div>
+            <h2 id="material-edit-dialog-title">Edit Material</h2>
+          </div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        <input type="hidden" name="projectId">
+        <input type="hidden" name="materialId">
+        <input type="hidden" name="isDuplicate" value="false">
+
+        <label class="field-label">Material or part name
+          <input name="name" id="material-edit-name-input" required maxlength="120" placeholder="e.g. PLA 1.75mm Spool - Black, 8/4 Walnut, M3x12 Bolts">
+          <span class="form-hint" id="material-edit-name-hint">Tip: Tweak the color, size, or variant name.</span>
+        </label>
+
+        <label class="field-label">Folder
+          <input name="folder" id="material-edit-folder-input" maxlength="60" placeholder="e.g. 3D Print &amp; Filament, Hardware, Finishes" list="material-edit-folder-suggestions">
+          <datalist id="material-edit-folder-suggestions">
+            <option value="3D Print &amp; Filament">
+            <option value="Lumber &amp; Sheet Goods">
+            <option value="Hardware &amp; Fasteners">
+            <option value="Sensors &amp; Modules">
+            <option value="Electronics &amp; Wiring">
+            <option value="Finishes &amp; Adhesives">
+            <option value="Yarn &amp; Fibers">
+            <option value="Packaging &amp; Presentation">
+            <option value="Consumables &amp; Supplies">
+          </datalist>
+        </label>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label class="field-label">Quantity
+            <input name="qty" id="material-edit-qty-input" maxlength="30" placeholder="e.g. 1 spool, 250g, 4 pcs">
+          </label>
+          <label class="field-label">Estimated Price
+            <input name="cost" id="material-edit-cost-input" type="number" step="0.01" min="0" placeholder="0.00">
+          </label>
+        </div>
+
+        <label class="field-label">Status
+          <select name="status" id="material-edit-status-select">
+            <option value="need">○ Need to buy</option>
+            <option value="ordered">↗ Ordered</option>
+            <option value="have">✓ Have / In stock</option>
+          </select>
+        </label>
+
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button class="button button-primary" type="submit" id="material-edit-submit-btn">Save changes <span>→</span></button>
         </div>
       </form>
     </dialog>
