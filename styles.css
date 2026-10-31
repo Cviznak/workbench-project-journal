@@ -15769,3 +15769,130 @@ body.theme-dark .material-folder-progress-badge {
 body.theme-dark .material-action-btn:hover {
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* ============================================================
+   Inventory Folders & Grouping
+   ============================================================ */
+.inventory-view-mode-toggle {
+  margin-right: 2px;
+}
+
+.inventory-folders-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0 24px;
+}
+
+.inventory-folder-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.inventory-folder-card:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .inventory-folder-card,
+body.theme-dark .inventory-folder-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .inventory-folder-card:hover,
+body.theme-dark .inventory-folder-card:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.inventory-folder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  gap: 10px;
+  flex-wrap: wrap;
+  transition: background 0.15s ease;
+}
+.inventory-folder-header:hover {
+  background: var(--surface-subtle);
+}
+.inventory-folder-card.is-collapsed .inventory-folder-header {
+  border-bottom: none;
+}
+
+.inventory-folder-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.inventory-folder-chevron {
+  font-size: 10px;
+  color: var(--muted);
+  width: 14px;
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.inventory-folder-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.inventory-folder-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.inventory-folder-count-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  padding: 1px 8px;
+}
+
+.inventory-folder-cost-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand-terracotta, #e07a5f);
+  background: rgba(224, 122, 95, 0.1);
+  border: 1px solid rgba(224, 122, 95, 0.25);
+  border-radius: 9999px;
+  padding: 1px 8px;
+}
+
+.inventory-folder-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inventory-folder-body {
+  padding: 12px;
+}
+
+.inventory-folder-body .inventory-grid {
+  margin: 0;
+}
+
+.inventory-folder-empty-state {
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 11.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

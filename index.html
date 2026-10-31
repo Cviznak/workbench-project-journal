@@ -25,16 +25,16 @@
       })();
     </script>
     <script src="qr-generator.js" defer></script>
-    <script src="js/constants.js?v=2.8.6" defer></script>
-    <script src="js/storage.js?v=2.8.6" defer></script>
-    <script src="js/auth.js?v=2.8.6" defer></script>
-    <script src="js/ideas.js?v=2.8.6" defer></script>
-    <script src="js/projects.js?v=2.8.6" defer></script>
-    <script src="js/skills.js?v=2.8.6" defer></script>
-    <script src="js/tools.js?v=2.8.6" defer></script>
-    <script src="js/studios.js?v=2.8.6" defer></script>
-    <script src="js/advanced-suites.js?v=2.8.6" defer></script>
-    <script src="app.js?v=2.8.6" defer></script>
+    <script src="js/constants.js?v=2.8.7" defer></script>
+    <script src="js/storage.js?v=2.8.7" defer></script>
+    <script src="js/auth.js?v=2.8.7" defer></script>
+    <script src="js/ideas.js?v=2.8.7" defer></script>
+    <script src="js/projects.js?v=2.8.7" defer></script>
+    <script src="js/skills.js?v=2.8.7" defer></script>
+    <script src="js/tools.js?v=2.8.7" defer></script>
+    <script src="js/studios.js?v=2.8.7" defer></script>
+    <script src="js/advanced-suites.js?v=2.8.7" defer></script>
+    <script src="app.js?v=2.8.7" defer></script>
   </head>
   <body>
     <div class="app-shell">
@@ -577,6 +577,11 @@
                 <p>Track common supplies, scrap lumber, fasteners, materials, machinery, and equipment in your shop.</p>
               </div>
               <div class="sync-actions">
+                <div class="view-mode-toggle inventory-view-mode-toggle" role="group" aria-label="Inventory view mode">
+                  <button type="button" class="view-mode-btn" id="inv-view-folders-btn" data-action="set-inventory-view-mode" data-mode="folders" title="Group inventory into folders">📁 Folders</button>
+                  <button type="button" class="view-mode-btn" id="inv-view-grid-btn" data-action="set-inventory-view-mode" data-mode="grid" title="Flat grid view">📋 Flat Grid</button>
+                </div>
+                <button type="button" class="button button-outline" data-action="new-inventory-folder" title="Create a new inventory folder">📁 ＋ Folder</button>
                 <button type="button" class="button button-outline" data-action="export-inventory-csv" title="Export workshop inventory and tools to CSV">📋 Export CSV</button>
                 <button type="button" class="button button-outline" data-action="open-import-inventory-dialog" title="Bulk import inventory supplies or equipment from CSV">📥 Import CSV</button>
                 <button type="button" class="button button-outline" data-action="open-inventory-dialog" data-type="equipment">⚙️ Add Equipment</button>
@@ -8151,6 +8156,44 @@ With warm regards and friendship,</textarea>
       </form>
     </dialog>
 
+    <dialog class="app-dialog compact-dialog" id="inventory-folder-dialog" aria-label="Inventory Folder">
+      <form id="inventory-folder-form" method="dialog">
+        <div class="dialog-heading">
+          <div><div class="eyebrow">ORGANIZE INVENTORY</div><h2 id="inventory-folder-dialog-title">New Inventory Folder</h2></div>
+          <button type="button" class="dialog-close" data-action="close-dialog" aria-label="Close">×</button>
+        </div>
+        <input type="hidden" name="oldFolder">
+        <label class="field-label">Folder name
+          <input name="name" id="inventory-folder-name-input" required maxlength="60" placeholder="e.g. Filament &amp; 3D Print, Fasteners, Sheet Goods" list="inventory-folder-quick-suggestions">
+          <datalist id="inventory-folder-quick-suggestions">
+            <option value="3D Printing &amp; Filament">
+            <option value="Lumber &amp; Sheet Goods">
+            <option value="Fasteners &amp; Hardware">
+            <option value="Sensors &amp; Electronics">
+            <option value="Finishes &amp; Adhesives">
+            <option value="Hand Tools &amp; Measuring">
+            <option value="Power Tools &amp; Machinery">
+            <option value="Laser &amp; CNC Tooling">
+            <option value="Consumables &amp; Supplies">
+          </datalist>
+        </label>
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Cancel</button>
+          <button class="button button-primary" type="submit" id="inventory-folder-submit-btn">Save folder <span>→</span></button>
+        </div>
+      </form>
+    </dialog>
+
+    <datalist id="inventory-folders-datalist">
+      <option value="3D Printing &amp; Filament">
+      <option value="Lumber &amp; Sheet Goods">
+      <option value="Fasteners &amp; Hardware">
+      <option value="Electronics &amp; Wiring">
+      <option value="Finishes &amp; Adhesives">
+      <option value="Workshop Tools &amp; Equipment">
+      <option value="General Supplies">
+    </datalist>
+
     <dialog class="app-dialog compact-dialog" id="timer-dialog" aria-label="Practice & Focus Timer">
       <div class="dialog-heading">
         <div><div class="eyebrow">STAY IN THE FLOW</div><h2>Pomodoro Focus Mode</h2></div>
@@ -8747,6 +8790,9 @@ With warm regards and friendship,</textarea>
                 <option value="Other Supplies">Other Supplies</option>
               </select>
             </label>
+            <label class="field-label">Folder <span class="optional">(optional)</span>
+              <input name="folder" id="inventory-material-folder-input" list="inventory-folders-datalist" maxlength="60" placeholder="e.g. 3D Printing &amp; Filament, Fasteners, Lumber">
+            </label>
             <label class="field-label">Storage location / bin <span class="optional">(optional)</span>
               <input name="location" maxlength="40" placeholder="e.g. Bin 4A, Top Rack, Lumber Bin">
             </label>
@@ -8778,6 +8824,9 @@ With warm regards and friendship,</textarea>
                 <option value="Safety Gear &amp; PPE">Safety Gear &amp; PPE (Respirator, face shield)</option>
                 <option value="Other Equipment">Other Equipment</option>
               </select>
+            </label>
+            <label class="field-label">Folder <span class="optional">(optional)</span>
+              <input name="equipFolder" id="inventory-equip-folder-input" list="inventory-folders-datalist" maxlength="60" placeholder="e.g. Power Tools, Machinery, Hand Tools">
             </label>
             <label class="field-label">Condition / Status
               <select name="equipCondition">
@@ -8864,6 +8913,9 @@ With warm regards and friendship,</textarea>
         </div>
 
         <div class="form-row">
+          <label class="field-label">Folder <span class="optional">(optional)</span>
+            <input name="folder" id="spool-folder-input" list="inventory-folders-datalist" maxlength="60" placeholder="e.g. 3D Printing &amp; Filament" value="3D Printing &amp; Filament">
+          </label>
           <label class="field-label">Color Name
             <input name="colorName" placeholder="e.g. Matte Charcoal, Alpine White, Signal Red" maxlength="50" required>
           </label>

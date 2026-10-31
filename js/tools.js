@@ -1204,6 +1204,112 @@ function isMaintOverdue(item) {
   return dueDate.getTime() < Date.now();
 }
 
+function getInventoryFolders() {
+  const defined = Array.isArray(state.inventoryFolders) ? state.inventoryFolders.filter(Boolean) : [];
+  const used = (state.inventory || []).map(i => i.folder || i.category).filter(Boolean);
+  const combined = Array.from(new Set([...defined, ...used]));
+  if (!combined.length) {
+    return [
+      "3D Printing & Filament",
+      "Lumber & Sheet Goods",
+      "Fasteners & Hardware",
+      "Electronics & Wiring",
+      "Finishes & Adhesives",
+      "Workshop Tools & Equipment",
+      "General Supplies"
+    ];
+  }
+  return combined;
+}
+
+function openInventoryFolderDialog(oldFolder = "") {
+  const dialog = $("#inventory-folder-dialog");
+  if (!dialog) return;
+  const form = $("#inventory-folder-form");
+  if (form) {
+    form.reset();
+    form.elements.oldFolder.value = oldFolder || "";
+    form.elements.name.value = oldFolder || "";
+    const titleEl = $("#inventory-folder-dialog-title");
+    if (titleEl) {
+      titleEl.textContent = oldFolder ? "Rename Inventory Folder" : "New Inventory Folder";
+    }
+  }
+  dialog.showModal();
+  const input = $("#inventory-folder-name-input");
+  if (input) {
+    input.focus();
+    if (oldFolder) input.select();
+  }
+}
+
+async function handleInventoryFolderSubmit(event) {
+  event.preventDefault();
+  const form = event.target || event.currentTarget;
+  const oldFolder = (form.elements.oldFolder.value || "").trim();
+  const newFolder = (form.elements.name.value || "").trim();
+  if (!newFolder) return;
+
+  state.inventoryFolders = Array.isArray(state.inventoryFolders) ? state.inventoryFolders : [];
+
+  if (oldFolder) {
+    const idx = state.inventoryFolders.indexOf(oldFolder);
+    if (idx >= 0) {
+      state.inventoryFolders[idx] = newFolder;
+    } else {
+      state.inventoryFolders.push(newFolder);
+    }
+    (state.inventory || []).forEach(item => {
+      if ((item.folder || item.category) === oldFolder) {
+        item.folder = newFolder;
+      }
+    });
+    showToast(`Renamed folder to “${newFolder}”.`);
+  } else {
+    if (!state.inventoryFolders.includes(newFolder)) {
+      state.inventoryFolders.push(newFolder);
+    }
+    showToast(`Created folder “${newFolder}”.`);
+  }
+
+  $("#inventory-folder-dialog")?.close();
+  try {
+    await persistState();
+    renderInventory();
+  } catch (err) {
+    console.error(err);
+    showToast("Could not save folder.");
+  }
+}
+
+async function deleteInventoryFolder(folderName) {
+  const itemsInFolder = (state.inventory || []).filter(i => (i.folder || i.category) === folderName);
+  const msg = itemsInFolder.length > 0
+    ? `Delete folder “${folderName}”? Its ${itemsInFolder.length} ${itemsInFolder.length === 1 ? 'item' : 'items'} will be moved to “General Supplies”.`
+    : `Delete folder “${folderName}”?`;
+  if (!confirm(msg)) return;
+
+  (state.inventory || []).forEach(item => {
+    if ((item.folder || item.category) === folderName) {
+      item.folder = "General Supplies";
+    }
+  });
+
+  state.inventoryFolders = (state.inventoryFolders || []).filter(f => f !== folderName);
+  if (itemsInFolder.length > 0 && !state.inventoryFolders.includes("General Supplies")) {
+    state.inventoryFolders.push("General Supplies");
+  }
+
+  try {
+    await persistState();
+    renderInventory();
+    showToast(`Deleted folder “${folderName}”.`);
+  } catch (err) {
+    console.error(err);
+    showToast("Could not delete folder.");
+  }
+}
+
 function renderInventory() {
   const view = $("#inventory-view");
   if (!view) return;
@@ -1378,7 +1484,8 @@ function renderInventory() {
             <button type="button" class="small-action" data-action="pick-from-inventory" data-id="${item.id}">📥 Use in Project</button>
             ${item.spoolData ? `<button type="button" class="small-action" data-action="weigh-spool" data-id="${item.id}" title="Weigh or deduct filament">⚖️ Weigh / Deduct</button>` : `<button type="button" class="small-action" data-action="restock-material" data-id="${item.id}" title="Send this item to Shopping List">🛒 Restock</button>`}
           </div>
-          <div style="display:flex;gap:4px">
+          <div style="display:flex;gap:4px;align-items:center">
+            <button type="button" class="icon-link-btn copy-btn" data-action="${item.spoolData ? 'copy-spool' : 'copy-inventory-item'}" data-id="${item.id}" title="${item.spoolData ? 'Copy spool (create variant with different color)' : 'Copy material'}">⧉</button>
             <button type="button" class="icon-link-btn" data-action="${item.spoolData ? 'edit-spool' : 'edit-inventory-item'}" data-id="${item.id}" title="${item.spoolData ? 'Edit filament spool' : 'Edit material'}">✎</button>
             <button type="button" class="icon-link-btn danger-hover" data-action="${item.spoolData ? 'delete-spool' : 'delete-inventory-item'}" data-id="${item.id}" title="Delete">×</button>
           </div>
@@ -1446,7 +1553,8 @@ function renderInventory() {
             <button type="button" class="small-action" data-action="open-tool-tag" data-id="${item.id}" title="Print tool asset tag with QR code">🏷️ Tag</button>
             <button type="button" class="small-action" data-action="schedule-tool-care" data-id="${item.id}" title="Open care schedule for this tool">🔧 Care</button>
           </div>
-          <div style="display:flex;gap:4px">
+          <div style="display:flex;gap:4px;align-items:center">
+            <button type="button" class="icon-link-btn copy-btn" data-action="copy-inventory-item" data-id="${item.id}" title="Copy equipment variant">⧉</button>
             <button type="button" class="icon-link-btn" data-action="edit-inventory-item" data-id="${item.id}" title="Edit tool">✎</button>
             <button type="button" class="icon-link-btn danger-hover" data-action="delete-inventory-item" data-id="${item.id}" title="Delete tool">×</button>
           </div>
@@ -1455,7 +1563,68 @@ function renderInventory() {
     `;
   };
 
-  // If "all" tab, render divided into two distinct sections
+  // Determine view mode: "folders" (default) or "grid"
+  const viewMode = state.inventoryViewMode || (typeof localStorage !== "undefined" && localStorage.getItem("workbench_inventory_view_mode")) || "folders";
+
+  // Update active state on view mode toggle buttons
+  const foldersBtn = $("#inv-view-folders-btn");
+  const gridBtn = $("#inv-view-grid-btn");
+  if (foldersBtn) foldersBtn.classList.toggle("active", viewMode === "folders");
+  if (gridBtn) gridBtn.classList.toggle("active", viewMode === "grid");
+
+  if (viewMode === "folders") {
+    const allFolders = getInventoryFolders();
+    state.collapsedInventoryFolders = state.collapsedInventoryFolders || new Set();
+
+    let foldersHtml = `<div class="inventory-folders-container">`;
+    allFolders.forEach(folderName => {
+      const folderItems = filtered.filter(i => (i.folder || i.category || "General Supplies") === folderName);
+      const count = folderItems.length;
+      if (search && count === 0) return; // Hide empty folders during active search
+
+      const folderValuation = folderItems.reduce((sum, i) => sum + (i.type === "equipment" ? (Number(i.cost || i.price) || 0) : ((Number(i.quantity) || 0) * (Number(i.price || i.cost) || 0))), 0);
+      const isCollapsed = state.collapsedInventoryFolders.has(folderName);
+      const folderIcon = typeof getGroupIcon === "function" ? getGroupIcon(folderName) : "📦";
+
+      foldersHtml += `
+        <div class="inventory-folder-card ${isCollapsed ? "is-collapsed" : ""}" data-folder="${escapeHTML(folderName)}">
+          <div class="inventory-folder-header" data-action="toggle-inventory-folder-collapse" data-folder="${escapeHTML(folderName)}" role="button" tabindex="0" aria-expanded="${!isCollapsed}">
+            <div class="inventory-folder-header-left">
+              <span class="inventory-folder-chevron">${isCollapsed ? "▶" : "▼"}</span>
+              <span class="inventory-folder-icon">${folderIcon}</span>
+              <span class="inventory-folder-title">${escapeHTML(folderName)}</span>
+              <span class="inventory-folder-count-badge">${count} ${count === 1 ? "item" : "items"}</span>
+              ${folderValuation > 0 ? `<span class="inventory-folder-cost-badge">${formatMoney(folderValuation)}</span>` : ""}
+            </div>
+            <div class="inventory-folder-header-right" onclick="event.stopPropagation()">
+              <button type="button" class="small-action" data-action="open-inventory-dialog-with-folder" data-folder="${escapeHTML(folderName)}" title="Add item to this folder">＋ Add item</button>
+              <button type="button" class="icon-link-btn" data-action="rename-inventory-folder" data-folder="${escapeHTML(folderName)}" title="Rename folder" aria-label="Rename folder">✎</button>
+              <button type="button" class="icon-link-btn danger-hover" data-action="delete-inventory-folder" data-folder="${escapeHTML(folderName)}" title="Delete folder" aria-label="Delete folder">×</button>
+            </div>
+          </div>
+          ${!isCollapsed ? `
+            <div class="inventory-folder-body">
+              ${count > 0 ? `
+                <div class="inventory-grid">
+                  ${folderItems.map(i => i.type === "equipment" ? renderEquipmentCard(i) : renderMaterialCard(i)).join("")}
+                </div>
+              ` : `
+                <div class="inventory-folder-empty-state">
+                  <span>No items in this folder yet.</span>
+                  <button type="button" class="small-action" data-action="open-inventory-dialog-with-folder" data-folder="${escapeHTML(folderName)}">＋ Add item here</button>
+                </div>
+              `}
+            </div>
+          ` : ""}
+        </div>
+      `;
+    });
+    foldersHtml += `</div>`;
+    grid.innerHTML = foldersHtml;
+    return;
+  }
+
+  // Flat grid view mode
   if (activeTab === "all") {
     let html = "";
     if (filteredMaterials.length > 0) {
@@ -1498,7 +1667,7 @@ function renderInventory() {
   }
 }
 
-function openInventoryDialog(item = null, initialType = "material") {
+function openInventoryDialog(item = null, initialType = "material", isCopy = false) {
   const form = $("#inventory-form");
   const dialog = $("#inventory-dialog");
   const delBtn = $("#delete-inventory-btn");
@@ -1508,9 +1677,15 @@ function openInventoryDialog(item = null, initialType = "material") {
 
   form.reset();
 
+  // Populate folder suggestions
+  const datalist = $("#inventory-folders-datalist");
+  if (datalist && typeof getInventoryFolders === "function") {
+    datalist.innerHTML = getInventoryFolders().map(f => `<option value="${escapeHTML(f)}">`).join("");
+  }
+
   const isEquip = item ? item.type === "equipment" : initialType === "equipment";
 
-  $$('#inventory-form input[name="itemType"]').forEach(r => {
+  $('#inventory-form input[name="itemType"]').forEach(r => {
     r.checked = r.value === (isEquip ? "equipment" : "material");
   });
 
@@ -1518,13 +1693,22 @@ function openInventoryDialog(item = null, initialType = "material") {
   $("#inventory-equipment-fields")?.classList.toggle("hidden", !isEquip);
 
   if (item && typeof item === "object") {
-    if (titleEl) titleEl.textContent = isEquip ? "Edit Tool / Equipment" : "Edit Material / Supply";
-    if (eyebrowEl) eyebrowEl.textContent = isEquip ? "WORKSHOP EQUIPMENT" : "WORKSHOP SUPPLIES";
-    form.elements.id.value = item.id || "";
+    if (isCopy) {
+      if (titleEl) titleEl.textContent = isEquip ? "Copy Tool / Equipment" : "Copy Material / Supply";
+      if (eyebrowEl) eyebrowEl.textContent = "CREATE INVENTORY VARIANT";
+      form.elements.id.value = ""; // Empty ID so it saves as new copy
+      if (delBtn) delBtn.classList.add("hidden");
+    } else {
+      if (titleEl) titleEl.textContent = isEquip ? "Edit Tool / Equipment" : "Edit Material / Supply";
+      if (eyebrowEl) eyebrowEl.textContent = isEquip ? "WORKSHOP EQUIPMENT" : "WORKSHOP SUPPLIES";
+      form.elements.id.value = item.id || "";
+      if (delBtn) delBtn.classList.remove("hidden");
+    }
 
     if (isEquip) {
       if (form.elements.equipName) form.elements.equipName.value = item.name || "";
       if (form.elements.equipCategory) form.elements.equipCategory.value = item.category || "Stationary Machinery";
+      if (form.elements.equipFolder) form.elements.equipFolder.value = item.folder || item.category || "";
       if (form.elements.equipCondition) form.elements.equipCondition.value = item.condition || "operational";
       if (form.elements.equipBrand) form.elements.equipBrand.value = item.brand || "";
       if (form.elements.equipModel) form.elements.equipModel.value = item.model || "";
@@ -1538,6 +1722,7 @@ function openInventoryDialog(item = null, initialType = "material") {
     } else {
       if (form.elements.name) form.elements.name.value = item.name || "";
       if (form.elements.category) form.elements.category.value = item.category || "Lumber / Scrap";
+      if (form.elements.folder) form.elements.folder.value = item.folder || item.category || "";
       if (form.elements.location) form.elements.location.value = item.location || "";
       if (form.elements.quantity) form.elements.quantity.value = item.quantity ?? 1;
       if (form.elements.unit) form.elements.unit.value = item.unit || "";
@@ -1556,6 +1741,13 @@ function openInventoryDialog(item = null, initialType = "material") {
   }
 
   dialog.showModal();
+  if (isCopy) {
+    const nameEl = isEquip ? form.elements.equipName : form.elements.name;
+    if (nameEl) {
+      nameEl.focus();
+      nameEl.select();
+    }
+  }
 }
 
 async function handleInventorySubmit(event) {
@@ -1589,6 +1781,7 @@ async function handleInventorySubmit(event) {
       specs: (form.elements.equipSpecs?.value || "").trim(),
       purchaseDate: form.elements.equipPurchaseDate?.value || "",
       notes: (form.elements.equipNotes?.value || "").trim(),
+      folder: (form.elements.equipFolder?.value || "").trim() || form.elements.equipCategory?.value || "Workshop Tools & Equipment",
       assignedProjectId: existing?.assignedProjectId || null,
       assignedProjectTitle: existing?.assignedProjectTitle || null,
       updatedAt: new Date().toISOString()
@@ -1628,6 +1821,7 @@ async function handleInventorySubmit(event) {
       price,
       cost: price,
       lowStockThreshold: parseInt(form.elements.lowStockThreshold?.value, 10) || 0,
+      folder: (form.elements.folder?.value || "").trim() || form.elements.category?.value || "General Supplies",
       supplier: (form.elements.supplier?.value || "").trim(),
       notes: (form.elements.notes?.value || "").trim(),
       updatedAt: new Date().toISOString()
@@ -1635,6 +1829,11 @@ async function handleInventorySubmit(event) {
   }
 
   state.inventory = state.inventory || [];
+  state.inventoryFolders = state.inventoryFolders || [];
+  if (item.folder && !state.inventoryFolders.includes(item.folder)) {
+    state.inventoryFolders.push(item.folder);
+  }
+
   if (existing) {
     if (existing.spoolData) item.spoolData = existing.spoolData;
     Object.assign(existing, item);
@@ -11865,6 +12064,10 @@ if (typeof window !== "undefined") {
   window.openToolsDialog = openToolsDialog;
   window.runCutListOptimizer = runCutListOptimizer;
   window.renderInventory = renderInventory;
+  window.getInventoryFolders = getInventoryFolders;
+  window.openInventoryFolderDialog = openInventoryFolderDialog;
+  window.handleInventoryFolderSubmit = handleInventoryFolderSubmit;
+  window.deleteInventoryFolder = deleteInventoryFolder;
   window.openInventoryDialog = openInventoryDialog;
   window.openWorkshopBlueprint = openWorkshopBlueprint;
   window.openQuoteDialog = openQuoteDialog;

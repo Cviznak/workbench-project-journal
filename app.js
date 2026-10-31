@@ -423,7 +423,7 @@ async function handleAction(action, target) {
       "new-skill", "edit-skill", "delete-skill", "delete-xp",
       "toggle-task", "delete-task", "move-task-up", "move-task-down", "edit-task",
       "dictate-task", "add-task", "assign-task-phase", "add-project-phase", "pick-from-inventory", "add-material",
-      "delete-material", "new-material-folder", "rename-material-folder", "delete-material-folder", "edit-material-folder", "copy-material", "edit-material", "add-journal", "delete-journal",
+      "delete-material", "new-material-folder", "rename-material-folder", "delete-material-folder", "edit-material-folder", "copy-material", "edit-material", "copy-spool", "copy-inventory-item", "new-inventory-folder", "rename-inventory-folder", "delete-inventory-folder", "add-journal", "delete-journal",
       "add-co-creator", "remove-co-creator", "toggle-co-creator-role", "pass-creator-status",
       "save-inventory", "delete-inventory", "commit-inventory-csv", "save-maintenance", "delete-maintenance"
     ];
@@ -803,6 +803,59 @@ async function handleAction(action, target) {
         console.error(e);
       }
     }
+    return;
+  }
+  if (action === "copy-spool") {
+    openAddSpoolDialog(target.dataset.id || id, true);
+    return;
+  }
+  if (action === "copy-inventory-item") {
+    const item = (state.inventory || []).find(i => i.id === (target.dataset.id || id));
+    if (item) {
+      if (item.spoolData) {
+        openAddSpoolDialog(item.id, true);
+      } else {
+        openInventoryDialog(item, item.type || "material", true);
+      }
+    }
+    return;
+  }
+  if (action === "set-inventory-view-mode") {
+    const mode = target.dataset.mode || "folders";
+    state.inventoryViewMode = mode;
+    try {
+      localStorage.setItem("workbench_inventory_view_mode", mode);
+    } catch (e) {}
+    renderInventory();
+    return;
+  }
+  if (action === "new-inventory-folder") {
+    openInventoryFolderDialog("");
+    return;
+  }
+  if (action === "rename-inventory-folder") {
+    openInventoryFolderDialog(target.dataset.folder);
+    return;
+  }
+  if (action === "delete-inventory-folder") {
+    void deleteInventoryFolder(target.dataset.folder);
+    return;
+  }
+  if (action === "toggle-inventory-folder-collapse") {
+    state.collapsedInventoryFolders = state.collapsedInventoryFolders || new Set();
+    const folder = target.dataset.folder;
+    if (state.collapsedInventoryFolders.has(folder)) {
+      state.collapsedInventoryFolders.delete(folder);
+    } else {
+      state.collapsedInventoryFolders.add(folder);
+    }
+    renderInventory();
+    return;
+  }
+  if (action === "open-inventory-dialog-with-folder") {
+    openInventoryDialog(null, "material");
+    const folderInput = $("#inventory-material-folder-input");
+    if (folderInput) folderInput.value = target.dataset.folder || "";
     return;
   }
   if (action === "open-inventory-dialog") {
@@ -3082,6 +3135,7 @@ async function initialize() {
           : []));
     saveIdeasBackup(state.ideas);
     state.inventory = Array.isArray(saved?.inventory) ? saved.inventory : [];
+    state.inventoryFolders = Array.isArray(saved?.inventoryFolders) ? saved.inventoryFolders.filter(Boolean) : [];
     state.customTemplates = Array.isArray(saved?.customTemplates) ? saved.customTemplates : [];
     state.makerGoals = Array.isArray(saved?.makerGoals) ? saved.makerGoals : [];
     state.maintenance = Array.isArray(saved?.maintenance) ? saved.maintenance : [];
@@ -3385,6 +3439,7 @@ $("#skill-form")?.addEventListener("submit", event => void handleSkillSubmit(eve
 $("#xp-form")?.addEventListener("submit", event => void handleXpSubmit(event));
 $("#folder-form")?.addEventListener("submit", event => void handleFolderSubmit(event));
 $("#material-folder-form")?.addEventListener("submit", event => void handleMaterialFolderSubmit(event));
+$("#inventory-folder-form")?.addEventListener("submit", event => void handleInventoryFolderSubmit(event));
 $("#material-edit-form")?.addEventListener("submit", event => void handleMaterialEditSubmit(event));
 $("#practice-filter")?.addEventListener("change", () => {
   practiceLogLimit = 12;

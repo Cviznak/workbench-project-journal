@@ -9,6 +9,7 @@ const state = {
   activity: [],
   practiceLog: [],
   inventory: [],
+  inventoryFolders: [],
   customTemplates: [],
   makerGoals: [],
   maintenance: [],
@@ -144,6 +145,7 @@ function resetWorkspaceStateToDefault() {
   state.activity = [];
   state.practiceLog = [];
   state.inventory = [];
+  state.inventoryFolders = [];
   state.depotRestockList = [];
   state.customTemplates = [];
   state.makerGoals = [];

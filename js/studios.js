@@ -7003,7 +7003,8 @@ function renderSpoolRack() {
             <button type="button" class="button button-small button-outline" data-action="load-spool-to-calc" data-id="${item.id}" title="Pre-fill 3D Print Cost Estimator with this spool">📥 Load to Calc</button>
           </div>
           <div style="display:flex;gap:4px">
-            <button type="button" class="icon-link-btn" data-action="edit-spool" data-id="${item.id}" title="Edit spool details">✎</button>
+            <button type="button" class="icon-link-btn copy-btn" data-action="copy-spool" data-id="${item.id}" title="Copy spool (new color / variant)">⧉</button>
+                    <button type="button" class="icon-link-btn" data-action="edit-spool" data-id="${item.id}" title="Edit spool details">✎</button>
             <button type="button" class="icon-link-btn danger-hover" data-action="delete-spool" data-id="${item.id}" title="Delete spool from rack & inventory">×</button>
           </div>
         </div>
@@ -7012,7 +7013,7 @@ function renderSpoolRack() {
   }).join("");
 }
 
-function openAddSpoolDialog(spoolId = null) {
+function openAddSpoolDialog(spoolId = null, isCopy = false) {
   const dialog = $("#spool-dialog");
   const form = $("#spool-form");
   if (!dialog || !form) return;
@@ -7021,20 +7022,36 @@ function openAddSpoolDialog(spoolId = null) {
   const idInput = form.querySelector("input[name='id']");
   const delBtn = $("#delete-spool-modal-btn");
   const titleEl = $("#spool-dialog-title");
+  const eyebrowEl = $("#spool-dialog-eyebrow");
+
+  // Populate folder suggestions
+  const datalist = $("#inventory-folders-datalist");
+  if (datalist && typeof getInventoryFolders === "function") {
+    datalist.innerHTML = getInventoryFolders().map(f => `<option value="${escapeHTML(f)}">`).join("");
+  }
 
   if (spoolId) {
     const existing = (state.inventory || []).find(i => i.id === spoolId);
     if (!existing) return;
     const sData = existing.spoolData || {};
 
-    if (idInput) idInput.value = existing.id;
-    if (titleEl) titleEl.innerHTML = `Edit Filament Spool<span class="heading-period">.</span>`;
-    if (delBtn) delBtn.classList.remove("hidden");
+    if (isCopy) {
+      if (idInput) idInput.value = ""; // Empty ID creates new spool
+      if (titleEl) titleEl.innerHTML = `Copy & Edit Spool<span class="heading-period">.</span>`;
+      if (eyebrowEl) eyebrowEl.textContent = "CREATE SPOOL VARIANT";
+      if (delBtn) delBtn.classList.add("hidden");
+    } else {
+      if (idInput) idInput.value = existing.id;
+      if (titleEl) titleEl.innerHTML = `Edit Filament Spool<span class="heading-period">.</span>`;
+      if (eyebrowEl) eyebrowEl.textContent = "3D PRINTING & FILAMENT DEPOT";
+      if (delBtn) delBtn.classList.remove("hidden");
+    }
 
     if (form.elements.material) form.elements.material.value = sData.material || "PLA";
     if (form.elements.brand) form.elements.brand.value = sData.brand || existing.supplier || "";
     if (form.elements.colorName) form.elements.colorName.value = sData.colorName || "";
     if (form.elements.colorHex) form.elements.colorHex.value = sData.colorHex || "#333333";
+    if (form.elements.folder) form.elements.folder.value = existing.folder || "3D Printing & Filament";
     if (form.elements.spoolCost) form.elements.spoolCost.value = sData.spoolCost ?? existing.cost ?? 21.99;
     if (form.elements.diameterMm) form.elements.diameterMm.value = sData.diameterMm || 1.75;
     if (form.elements.initialNetWeight) form.elements.initialNetWeight.value = sData.initialNetWeight || 1000;
@@ -7066,6 +7083,10 @@ function openAddSpoolDialog(spoolId = null) {
     dialog.showModal();
   } else {
     dialog.setAttribute("open", "");
+  }
+  if (isCopy && form.elements.colorName) {
+    form.elements.colorName.focus();
+    form.elements.colorName.select();
   }
 }
 
@@ -7113,11 +7134,18 @@ async function handleSpoolSubmit(event) {
   const pricePerGram = Number((spoolCost / initialNet).toFixed(4));
   const name = `${brand ? brand + ' ' : ''}${material} - ${colorName}`;
 
+  const folder = (form.elements.folder?.value || "").trim() || "3D Printing & Filament";
+  state.inventoryFolders = state.inventoryFolders || [];
+  if (!state.inventoryFolders.includes(folder)) {
+    state.inventoryFolders.push(folder);
+  }
+
   const spoolItem = {
     id: itemId,
     type: "material",
     name,
     category: "3D Printing & Filament",
+    folder,
     quantity: netWeight,
     unit: "g",
     price: pricePerGram,
