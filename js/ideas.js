@@ -1,572 +1,104 @@
-/* ============================================================
-   Workbench Project Journal - Project Ideas & Maker Sparks System
-   ============================================================ */
+/* ==========================================================================
+   Workbench 3.0 - Ideas Quick Capture & Conversion
+   ========================================================================== */
 
-/* ============================================================
-   💡 Project Ideas & Maker Sparks System
-   ============================================================ */
-
-
-
-const CURATED_SPARKS = [
-  {
-    id: "spark-1",
-    title: "Kumiko Lantern with Hinoki Cypress",
-    category: "woodworking",
-    effort: "weekend",
-    cost: "35",
-    supplies: "Basswood/Cypress strips, shoji paper, LED warm puck light, guide block",
-    notes: "Asa-no-ha (hemp leaf) pattern lattice frame with mitered half-lap corner joints."
-  },
-  {
-    id: "spark-2",
-    title: "Smart Workshop Dust Collector Gate",
-    category: "electronics",
-    effort: "weekend",
-    cost: "28",
-    supplies: "ESP32 MCU, current sensor CT clamp, MG996R servo motor, 4in blast gate",
-    notes: "Detects current draw when table saw runs, automatically swings blast gate open."
-  },
-  {
-    id: "spark-3",
-    title: "Hexagonal Wall Pegboard Modular Tool Grid",
-    category: "printing",
-    effort: "quick",
-    cost: "18",
-    supplies: "PLA+ filament spools, drywall anchors, M3 hex standoffs",
-    notes: "Interlocking honeycomb tiles with custom snap clips for calipers, pliers, and cutters."
-  },
-  {
-    id: "spark-4",
-    title: "Waxed Canvas & Horween Leather Shop Apron",
-    category: "leather",
-    effort: "weekend",
-    cost: "45",
-    supplies: "12oz waxed canvas, 5oz vegetable tanned leather straps, solid copper rivets",
-    notes: "Cross-back harness design to relieve neck strain; reinforced pockets for pencil, square, and phone."
-  },
-  {
-    id: "spark-5",
-    title: "Hand-Forged Damascus Steel EDC Bottle Opener",
-    category: "blacksmith",
-    effort: "quick",
-    cost: "15",
-    supplies: "1095 & 15N20 billet scrap, borax flux, ferric chloride etchant",
-    notes: "Folded 60-layer billet, full twist handle pattern, quenched in canola oil and acid etched."
-  },
-  {
-    id: "spark-6",
-    title: "Hand-Wound Single-Coil Guitar Pickup",
-    category: "luthier",
-    effort: "weekend",
-    cost: "30",
-    supplies: "Alnico 5 rod magnets, vulcanized fiber flatwork, 42 AWG plain enamel wire, paraffin wax",
-    notes: "Scatter-wound to ~6.4k ohms, potted in beeswax/paraffin 80/20 mix for vintage Strat chime."
-  },
-  {
-    id: "spark-7",
-    title: "Vacuum-Compacted Carbon Fiber Watch Travel Case",
-    category: "composites",
-    effort: "weekend",
-    cost: "50",
-    supplies: "3K 2x2 twill carbon, epoxy resin, high-density EVA foam, brass zipper",
-    notes: "Two-piece clamshell molded on 3D printed negative tool, polished with automotive clear coat."
-  },
-  {
-    id: "spark-8",
-    title: "Mechanical Watch Acoustic Pickup & Timegrapher Sensor",
-    category: "horology",
-    effort: "quick",
-    cost: "20",
-    supplies: "Piezo microphone pickup, op-amp preamp circuit, 3.5mm jack, watchmaker loupe",
-    notes: "Acoustic sensor feeding tick sounds into open-source software for daily rate balance regulation."
-  },
-  {
-    id: "spark-9",
-    title: "Articulated 2-DOF Scara Robotic Pen Plotter",
-    category: "robotics",
-    effort: "multi-week",
-    cost: "55",
-    supplies: "2x NEMA 17 steppers, GT2 timing belts, TMC2209 silent drivers, Arduino CNC shield",
-    notes: "Draws generative SVG vector artwork and schematics using technical fineliner pens."
-  },
-  {
-    id: "spark-10",
-    title: "Hand-Laced 32-Hole Tubeless Gravel Wheelset",
-    category: "bicycle",
-    effort: "weekend",
-    cost: "140",
-    supplies: "Alloy 25mm internal gravel rims, DT Swiss 350 hubs, Sapim double-butted spokes, brass nipples",
-    notes: "3-cross lacing, tensioned to 115 kgf drive side, dished to 0.2mm tolerance with spoke tensiometer."
-  },
-  {
-    id: "spark-11",
-    title: "Tiffany-Style Honeycomb Stained Glass Suncatcher",
-    category: "glass",
-    effort: "quick",
-    cost: "25",
-    supplies: "Amber & textured clear glass, 7/32in copper foil, 60/40 solder, black patina",
-    notes: "Hexagonal honeycomb cluster with wire-wrapped copper reinforcement and hanging rings."
-  },
-  {
-    id: "spark-12",
-    title: "Lost-Wax Cast Sterling Silver Branch Ring with Flush Gem",
-    category: "jewelry",
-    effort: "weekend",
-    cost: "35",
-    supplies: "Sculpting wax wire, 925 casting grain, 3mm synthetic sapphire, investment plaster",
-    notes: "Organic tree bark texture formed by flame manipulation, burnished bezel gem setting."
-  }
-];
-
-function saveIdeasBackup(ideas) {
-  if (!Array.isArray(ideas)) return;
-  try {
-    const json = JSON.stringify(ideas);
-    localStorage.setItem("workbench_saved_ideas", json);
-    const key = typeof getActiveStateKey === "function" ? getActiveStateKey() : "main";
-    localStorage.setItem(`workbench_saved_ideas_${key}`, json);
-  } catch (e) {
-    console.warn("Could not save ideas backup to localStorage:", e);
-  }
-}
-
-function readIdeasBackup() {
-  try {
-    const key = typeof getActiveStateKey === "function" ? getActiveStateKey() : "main";
-    const userRaw = localStorage.getItem(`workbench_saved_ideas_${key}`);
-    if (userRaw) {
-      const parsed = JSON.parse(userRaw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-    const globalRaw = localStorage.getItem("workbench_saved_ideas");
-    if (globalRaw) {
-      const parsed = JSON.parse(globalRaw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (e) {
-    console.warn("Could not read ideas backup from localStorage:", e);
-  }
-  return null;
-}
-
-function mergeIdeas(existingIdeas, newIdeas) {
-  const map = new Map();
-  for (const item of (Array.isArray(existingIdeas) ? existingIdeas : [])) {
-    if (item?.id) map.set(item.id, item);
-  }
-  for (const item of (Array.isArray(newIdeas) ? newIdeas : [])) {
-    if (!item?.id) continue;
-    const existing = map.get(item.id);
-    if (!existing) {
-      map.set(item.id, item);
-    } else {
-      const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-      const newTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
-      if (newTime >= existingTime) {
-        map.set(item.id, { ...existing, ...item });
-      }
-    }
-  }
-  return Array.from(map.values());
-}
-
-function renderIdeasView() {
-  const container = $("#ideas-grid");
+function renderIdeas() {
+  const container = document.getElementById("ideas-list");
   if (!container) return;
 
-  const ideas = state.ideas || [];
+  const ideas = Array.isArray(state.ideas) ? state.ideas : [];
 
-  // Update Stats
-  const totalCount = ideas.length;
-  const readyCount = ideas.filter(i => i.status === "ready").length;
-  const promotedCount = ideas.filter(i => i.status === "promoted").length;
-  const highCount = ideas.filter(i => i.priority === "high").length;
-
-  const statTotal = $("#stat-ideas-total");
-  if (statTotal) statTotal.textContent = totalCount;
-  const statReady = $("#stat-ideas-ready");
-  if (statReady) statReady.textContent = readyCount;
-  const statPromoted = $("#stat-ideas-promoted");
-  if (statPromoted) statPromoted.textContent = promotedCount;
-  const statHigh = $("#stat-ideas-high");
-  if (statHigh) statHigh.textContent = highCount;
-
-  // Filter values
-  const q = ($("#idea-search")?.value || "").toLowerCase().trim();
-  const cat = $("#idea-category-filter")?.value || "all";
-  const status = $("#idea-status-filter")?.value || "all";
-  const priority = $("#idea-priority-filter")?.value || "all";
-
-  const filtered = ideas.filter(item => {
-    if (cat !== "all" && item.category !== cat) return false;
-    if (status !== "all" && item.status !== status) return false;
-    if (priority !== "all" && item.priority !== priority) return false;
-    if (q) {
-      const title = (item.title || "").toLowerCase();
-      const notes = (item.notes || "").toLowerCase();
-      const supplies = (item.supplies || "").toLowerCase();
-      const category = (item.category || "").toLowerCase();
-      if (!title.includes(q) && !notes.includes(q) && !supplies.includes(q) && !category.includes(q)) {
-        return false;
-      }
-    }
-    return true;
-  });
-
-  const countBadge = $("#idea-result-count");
-  if (countBadge) countBadge.textContent = `${filtered.length} idea${filtered.length === 1 ? "" : "s"}`;
-
-  if (filtered.length === 0) {
+  if (ideas.length === 0) {
     container.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1; padding: 48px 16px">
-        <div class="empty-state-mark">💡</div>
-        <h3>No project ideas match your filter</h3>
-        <p>Brainstorm a fresh project build or adopt an idea from the curated sparks below!</p>
-        <button type="button" class="button button-primary" data-action="new-idea">＋ Create New Idea</button>
+      <div class="empty-state">
+        <div class="empty-icon">💡</div>
+        <h3>No project ideas yet</h3>
+        <p>Jot down your next build concept, inspiration, or workshop thought above.</p>
       </div>
     `;
-  } else {
-    container.innerHTML = filtered.map(idea => {
-      const catMeta = IDEA_CATEGORIES[idea.category] || { name: idea.category || "General", icon: "✨" };
-      const priorityLabel = idea.priority === "high" ? "★★★ High" : idea.priority === "low" ? "★ Low" : "★★ Normal";
-      const statusClass = idea.status === "promoted" ? "status-promoted" : idea.status === "ready" ? "status-ready" : "";
-      const statusText = idea.status === "promoted" ? "🚀 Promoted to Project" : idea.status === "ready" ? "⚡ Ready to Build" : "💭 Brainstorming";
-      const effortText = idea.effort === "quick" ? "⚡ Quick Build" : idea.effort === "multi-week" ? "🏔️ Multi-Week" : idea.effort === "long-term" ? "🌌 Long-Term" : "🔨 Weekend Build";
-      const costText = idea.cost ? formatMoney(idea.cost) : "";
-
-      const promoteBtn = idea.status === "promoted"
-        ? `<button type="button" class="button button-small button-outline" data-action="open-promoted-project" data-project-id="${escapeHtml(idea.promotedProjectId || "")}">↗ View Project</button>`
-        : `<button type="button" class="button button-small button-primary" data-action="promote-idea" data-idea-id="${escapeHtml(idea.id)}">🚀 Promote to Project</button>`;
-
-      return `
-        <article class="idea-card" data-id="${escapeHtml(idea.id)}">
-          <div class="idea-card-header">
-            <div class="idea-card-tags">
-              <span class="idea-category-tag">${catMeta.icon} ${escapeHtml(catMeta.name)}</span>
-              <span class="idea-priority-tag priority-${escapeHtml(idea.priority || "normal")}">${priorityLabel}</span>
-            </div>
-            <span class="idea-status-tag ${statusClass}">${statusText}</span>
-          </div>
-          <h3>${escapeHtml(idea.title)}</h3>
-          <p class="idea-card-desc">${escapeHtml(idea.notes || "No notes added yet.")}</p>
-          <div class="idea-card-meta">
-            <span class="idea-meta-item" title="Effort">${effortText}</span>
-            ${costText ? `<span class="idea-meta-item" title="Budget">💰 ~${costText}</span>` : ""}
-            ${idea.supplies ? `<span class="idea-meta-item" title="Key Supplies">📦 ${escapeHtml(idea.supplies)}</span>` : ""}
-          </div>
-          <div class="idea-card-actions">
-            ${promoteBtn}
-            <div style="display:flex;gap:6px">
-              <button type="button" class="icon-button" data-action="edit-idea" data-idea-id="${escapeHtml(idea.id)}" title="Edit Idea">✏️</button>
-              <button type="button" class="icon-button" data-action="delete-idea" data-idea-id="${escapeHtml(idea.id)}" title="Delete Idea">🗑️</button>
-            </div>
-          </div>
-        </article>
-      `;
-    }).join("");
+    return;
   }
 
-  renderCuratedSparks();
-}
-
-function renderCuratedSparks() {
-  const container = $("#ideas-sparks-grid");
-  if (!container) return;
-
-  const sparks = [...CURATED_SPARKS].sort(() => 0.5 - Math.random()).slice(0, 4);
-
-  container.innerHTML = sparks.map(spark => {
-    const cat = IDEA_CATEGORIES[spark.category] || { name: spark.category, icon: "✨" };
-    return `
-      <div class="spark-card">
-        <div class="spark-card-header">
-          <span>${cat.icon} ${cat.name}</span>
-          <span style="margin-left:auto;color:var(--muted)">~${formatMoney(spark.cost)}</span>
+  container.innerHTML = ideas.map(idea => `
+    <article class="idea-card">
+      <div class="card-header">
+        <h3 class="card-title">${escapeHTML(idea.title)}</h3>
+        <div class="row-actions">
+          <button type="button" class="btn btn-xs btn-primary" onclick="convertIdeaToProject('${idea.id}')" title="Turn idea into a project build">🚀 Make Project</button>
+          <button type="button" class="icon-btn danger" onclick="deleteIdea('${idea.id}')" title="Delete idea">×</button>
         </div>
-        <h4>${escapeHtml(spark.title)}</h4>
-        <p>${escapeHtml(spark.notes)}</p>
-        <button type="button" class="button button-small button-outline" data-action="adopt-spark" data-spark-id="${escapeHtml(spark.id)}" style="margin-top:auto">＋ Adopt This Idea</button>
       </div>
-    `;
-  }).join("");
-}
-
-function openIdeaDialog(ideaId = null) {
-  const dialog = $("#idea-dialog");
-  const form = $("#idea-form");
-  if (!dialog || !form) return;
-
-  form.reset();
-  const deleteBtn = $("#delete-idea-btn");
-  const el = form.elements || {};
-
-  const setVal = (name, val) => {
-    const field = el.namedItem ? el.namedItem(name) : el[name];
-    if (field) {
-      field.value = val;
-    } else {
-      const input = form.querySelector(`[name="${name}"]`);
-      if (input) input.value = val;
-    }
-  };
-  const setChecked = (name, val) => {
-    const field = el.namedItem ? el.namedItem(name) : el[name];
-    if (field) {
-      field.checked = Boolean(val);
-    } else {
-      const input = form.querySelector(`[name="${name}"]`);
-      if (input) input.checked = Boolean(val);
-    }
-  };
-
-  if (ideaId) {
-    const idea = (state.ideas || []).find(i => i.id === ideaId);
-    if (!idea) return;
-    const titleEl = $("#idea-dialog-title");
-    if (titleEl) titleEl.textContent = "Edit Project Idea";
-    setVal("id", idea.id);
-    setVal("title", idea.title || "");
-    setVal("category", idea.category || "");
-    setVal("priority", idea.priority || "");
-    setVal("effort", idea.effort || "");
-    setVal("cost", idea.cost || "");
-    setVal("supplies", idea.supplies || "");
-    setVal("notes", idea.notes || "");
-    setVal("status", idea.status || "");
-    setChecked("isGift", Boolean(idea.isGift));
-    setVal("giftRecipient", idea.giftRecipient || "");
-    if (deleteBtn) {
-      deleteBtn.classList.remove("hidden");
-      deleteBtn.dataset.ideaId = idea.id;
-    }
-  } else {
-    const titleEl = $("#idea-dialog-title");
-    if (titleEl) titleEl.textContent = "New Project Idea";
-    setVal("id", "");
-    setVal("title", "");
-    setVal("category", "");
-    setVal("priority", "");
-    setVal("effort", "");
-    setVal("cost", "");
-    setVal("supplies", "");
-    setVal("notes", "");
-    setVal("status", "");
-    setChecked("isGift", false);
-    setVal("giftRecipient", "");
-    if (deleteBtn) deleteBtn.classList.add("hidden");
-  }
-
-  if (typeof dialog.showModal === "function") {
-    dialog.showModal();
-  } else {
-    dialog.setAttribute("open", "");
-  }
-}
-
-let isSavingIdea = false;
-
-async function saveIdeaFromForm(form) {
-  if (typeof isSavingIdea !== "undefined" && isSavingIdea) return;
-  if (typeof isSavingIdea !== "undefined") isSavingIdea = true;
-  try {
-    const targetForm = (form && form.elements) ? form : $("#idea-form");
-    if (!targetForm) return;
-    const el = targetForm.elements || {};
-    const getVal = (name) => {
-      let field = null;
-      if (el) {
-        field = el.namedItem ? el.namedItem(name) : el[name];
-      }
-      return (field?.value || (typeof targetForm.querySelector === "function" ? targetForm.querySelector(`[name="${name}"]`)?.value : "") || "").trim();
-    };
-    const getChecked = (name) => {
-      let field = null;
-      if (el) {
-        field = el.namedItem ? el.namedItem(name) : el[name];
-      }
-      return Boolean(field?.checked ?? (typeof targetForm.querySelector === "function" ? targetForm.querySelector(`[name="${name}"]`)?.checked : false));
-    };
-
-    const id = getVal("id") || uid();
-    // Cache the assigned ID into the form controls immediately so that any subsequent read in the same lifecycle updates instead of re-creating
-    const idField = el.namedItem ? el.namedItem("id") : el["id"];
-    if (idField) idField.value = id;
-    const idInput = typeof targetForm.querySelector === "function" ? targetForm.querySelector('input[name="id"]') : null;
-    if (idInput) idInput.value = id;
-
-    const title = (el.namedItem ? el.namedItem("title")?.value : "") || getVal("title");
-    if (!title) {
-      showToast("Please enter an idea title.");
-      return;
-    }
-
-    state.ideas = state.ideas || [];
-    const existingIndex = state.ideas.findIndex(i => i.id === id);
-
-    const ideaData = {
-      id,
-      title,
-      category: getVal("category") || "",
-      priority: getVal("priority") || "",
-      effort: getVal("effort") || "",
-      cost: getVal("cost") ? String(getVal("cost")) : "",
-      supplies: getVal("supplies"),
-      notes: getVal("notes"),
-      isGift: getChecked("isGift"),
-      giftRecipient: getVal("giftRecipient"),
-      status: getVal("status") || "",
-      updatedAt: new Date().toISOString()
-    };
-
-    if (existingIndex >= 0) {
-      state.ideas[existingIndex] = { ...state.ideas[existingIndex], ...ideaData };
-      showToast(`Updated idea "${title}" 💡`);
-    } else {
-      ideaData.createdAt = new Date().toISOString();
-      state.ideas.unshift(ideaData);
-      makeActivity("idea", `Added project idea: ${title}`);
-      showToast(`Saved idea "${title}" to your queue! 💡`);
-    }
-
-    saveIdeasBackup(state.ideas);
-    await persistState({ syncCloud: true });
-    if (getCloudConfig() && getCloudSession() && !cloudWorking) {
-      void storeRemoteWorkspace().catch(err => console.warn("Direct idea cloud push notice:", err));
-    }
-    renderNavigation();
-    renderIdeasView();
-    $("#idea-dialog")?.close();
-  } finally {
-    if (typeof isSavingIdea !== "undefined") {
-      setTimeout(() => {
-        isSavingIdea = false;
-      }, 400);
-    }
-  }
+      ${idea.notes ? `<p class="idea-notes">${escapeHTML(idea.notes)}</p>` : ""}
+      <div class="card-footer">
+        <span class="inv-subtle">Captured ${relativeTime(idea.createdAt)}</span>
+      </div>
+    </article>
+  `).join("");
 }
 
 async function handleIdeaSubmit(event) {
-  if (event) {
-    if (typeof event.preventDefault === "function") event.preventDefault();
-    if (typeof event.stopPropagation === "function") event.stopPropagation();
-    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
-  }
-  if (isSavingIdea) return;
-  const form = $("#idea-form") || (event?.target?.closest ? event.target.closest("form") : null);
-  if (form) {
-    await saveIdeaFromForm(form);
-  }
+  event.preventDefault();
+  const form = event.target;
+  const title = (form.elements.title.value || "").trim();
+  const notes = (form.elements.notes.value || "").trim();
+  if (!title) return;
+
+  state.ideas = Array.isArray(state.ideas) ? state.ideas : [];
+  state.ideas.unshift({
+    id: uid(),
+    title,
+    notes,
+    createdAt: new Date().toISOString()
+  });
+
+  form.reset();
+  await persistState();
+  renderIdeas();
+  showToast(`Captured idea “${title}”!`);
 }
 
-async function deleteIdea(ideaId) {
-  const idea = (state.ideas || []).find(i => i.id === ideaId);
+async function deleteIdea(id) {
+  const idea = (state.ideas || []).find(i => i.id === id);
   if (!idea) return;
-  if (!confirm(`Delete project idea "${idea.title}"?`)) return;
-
-  state.ideas = (state.ideas || []).filter(i => i.id !== ideaId);
-  saveIdeasBackup(state.ideas);
-  await persistState({ syncCloud: true });
-  if (getCloudConfig() && getCloudSession() && !cloudWorking) {
-    void storeRemoteWorkspace().catch(err => console.warn("Direct idea delete cloud push notice:", err));
-  }
-  renderNavigation();
-  renderIdeasView();
-  $("#idea-dialog")?.close();
-  showToast(`Deleted idea "${idea.title}".`);
+  state.ideas = state.ideas.filter(i => i.id !== id);
+  await persistState();
+  renderIdeas();
+  showToast("Idea removed.");
 }
 
-async function promoteIdeaToProject(ideaId) {
-  const idea = (state.ideas || []).find(i => i.id === ideaId);
+async function convertIdeaToProject(id) {
+  const idea = (state.ideas || []).find(i => i.id === id);
   if (!idea) return;
 
   const project = {
     id: uid(),
     title: idea.title,
-    description: idea.notes || `Fabrication idea for ${idea.title}.`,
-    status: "in-progress",
-    priority: idea.priority || "normal",
-    budget: idea.cost ? Number(idea.cost) : undefined,
-    tags: [idea.category, "promoted-idea", idea.isGift ? "gift" : ""].filter(Boolean),
-    isGift: Boolean(idea.isGift),
-    giftRecipient: idea.giftRecipient || "",
-    giftOccasion: "birthday",
-    giftStatus: "planning",
-    folders: [{ id: uid(), name: "General", images: [] }],
-    tasks: [
-      { id: uid(), text: "Refine design specifications and CAD drawing", done: false },
-      { id: uid(), text: "Acquire materials and prepare workshop workspace", done: false },
-      { id: uid(), text: "Fabricate prototype and assemble build", done: false }
-    ],
-    materials: (idea.supplies || "").split(",").map(s => s.trim()).filter(Boolean).map(name => ({
-      id: uid(),
-      name,
-      status: "need",
-      cost: 0
-    })),
+    description: idea.notes || "",
+    status: "planned",
+    targetDate: "",
+    tasks: [],
+    materials: [],
+    materialFolders: [],
+    photos: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
 
-  idea.status = "promoted";
-  idea.promotedProjectId = project.id;
-  idea.updatedAt = new Date().toISOString();
-  saveIdeasBackup(state.ideas);
+  state.projects = state.projects || [];
   state.projects.unshift(project);
-  makeActivity("project", `Promoted idea "${idea.title}" into an active workshop project!`);
-  await persistState({ syncCloud: true });
-  renderNavigation();
-  renderIdeasView();
+  state.ideas = state.ideas.filter(i => i.id !== id);
+
+  await persistState();
+  renderIdeas();
   renderProjects();
-  showToast(`🚀 "${idea.title}" is now an active project!`);
   switchView("projects");
+  openProjectDetail(project.id);
+  showToast(`🚀 Converted “${idea.title}” into a project!`);
 }
-
-async function adoptSparkIdea(sparkId) {
-  const spark = CURATED_SPARKS.find(s => s.id === sparkId);
-  if (!spark) return;
-
-  state.ideas = state.ideas || [];
-  const newIdea = {
-    id: uid(),
-    title: spark.title,
-    category: spark.category,
-    priority: "normal",
-    effort: spark.effort,
-    cost: spark.cost,
-    supplies: spark.supplies,
-    notes: spark.notes,
-    status: "ready",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  state.ideas.unshift(newIdea);
-  saveIdeasBackup(state.ideas);
-  makeActivity("idea", `Adopted spark idea: ${spark.title}`);
-  await persistState({ syncCloud: true });
-  renderNavigation();
-  renderIdeasView();
-  showToast(`Adopted spark "${spark.title}" into your ideas!`);
-}
-
-function sparkRandomIdea() {
-  const randomSpark = CURATED_SPARKS[Math.floor(Math.random() * CURATED_SPARKS.length)];
-  if (!randomSpark) return;
-  adoptSparkIdea(randomSpark.id);
-}
-
 
 if (typeof window !== "undefined") {
-  window.saveIdeaFromForm = saveIdeaFromForm;
+  window.renderIdeas = renderIdeas;
   window.handleIdeaSubmit = handleIdeaSubmit;
-  window.openIdeaDialog = openIdeaDialog;
   window.deleteIdea = deleteIdea;
-  window.promoteIdeaToProject = promoteIdeaToProject;
-  window.renderIdeasView = renderIdeasView;
-  window.saveIdeasBackup = saveIdeasBackup;
-  window.readIdeasBackup = readIdeasBackup;
-  window.mergeIdeas = mergeIdeas;
-  window.adoptSparkIdea = adoptSparkIdea;
-  window.sparkRandomIdea = sparkRandomIdea;
+  window.convertIdeaToProject = convertIdeaToProject;
 }

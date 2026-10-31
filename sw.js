@@ -1,19 +1,14 @@
-const CACHE_NAME = "workbench-cache-v11";
+const CACHE_NAME = "workbench-cache-v12";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
-  "./qr-generator.js",
-  "./js/constants.js",
-  "./js/storage.js",
-  "./js/auth.js",
-  "./js/ideas.js",
-  "./js/projects.js",
-  "./js/skills.js",
-  "./js/tools.js",
-  "./js/studios.js",
-  "./js/advanced-suites.js",
   "./app.js",
+  "./js/storage.js",
+  "./js/projects.js",
+  "./js/inventory.js",
+  "./js/ideas.js",
+  "./js/audio.js",
   "./manifest.json",
   "./favicon.svg"
 ];
