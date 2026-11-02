@@ -1,17 +1,43 @@
 {
   "name": "Workbench — Gamified Productivity",
   "short_name": "Workbench",
-  "description": "Production-ready, globally secure project journal, Kanban task boards, and XP skill progression engine.",
+  "description": "Production-ready, globally secure project journal, task boards, and XP skill progression engine.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#090d16",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
   "theme_color": "#2563eb",
+  "categories": ["productivity", "utilities"],
   "icons": [
     {
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ideas & Notes",
+      "short_name": "Ideas",
+      "description": "Open your maker notebook",
+      "url": "/workspace",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Projects & Tasks",
+      "short_name": "Projects",
+      "description": "View active project boards",
+      "url": "/projects",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Skills & XP",
+      "short_name": "Skills",
+      "description": "Check skill levels & practice logs",
+      "url": "/skills",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
     }
   ]
 }

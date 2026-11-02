@@ -32,6 +32,7 @@ import {
   File,
   Eye,
   Check,
+  Lock,
 } from 'lucide-react';
 
 interface EditTaskModalProps {
@@ -39,6 +40,7 @@ interface EditTaskModalProps {
   projectId: string;
   projectMembers: any[];
   allSkills: SkillCatalog[];
+  allTasks?: ProjectTask[];
   currentUserId: string;
   isPM: boolean;
   onClose: () => void;
@@ -51,6 +53,7 @@ export default function EditTaskModal({
   projectId,
   projectMembers,
   allSkills,
+  allTasks,
   currentUserId,
   isPM,
   onClose,
@@ -70,6 +73,9 @@ export default function EditTaskModal({
   const [assigneeId, setAssigneeId] = useState<string>(task.assignee_id || '');
   const [xpReward, setXpReward] = useState<string>(String(task.xp_reward || 25));
   const [skillId, setSkillId] = useState<string>(task.skill_id || '');
+  const [prerequisiteTaskId, setPrerequisiteTaskId] = useState<string>(
+    task.prerequisite_task_id || ''
+  );
   const [subtasks, setSubtasks] = useState<TaskSubtask[]>(task.subtasks || []);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [saving, setSaving] = useState(false);
@@ -204,6 +210,7 @@ export default function EditTaskModal({
           assignee_id: assigneeId || null,
           xp_reward: parseInt(xpReward, 10) || 25,
           skill_id: skillId || null,
+          prerequisite_task_id: prerequisiteTaskId || null,
           subtasks,
           updated_at: new Date().toISOString(),
         })
@@ -559,6 +566,36 @@ export default function EditTaskModal({
                         {s.name} ({s.category})
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                {/* Prerequisite Task Dependency */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Prerequisite Task (Dependency)
+                    </label>
+                    {prerequisiteTaskId && (
+                      <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        <span>Requires completion first</span>
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={prerequisiteTaskId}
+                    onChange={(e) => setPrerequisiteTaskId(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs"
+                  >
+                    <option value="">None (Can be started immediately)</option>
+                    {(allTasks || [])
+                      .filter((t) => t.id !== task.id)
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.status === 'DONE' ? '✓ ' : '🔒 '} {t.title} (
+                          {t.status === 'DONE' ? 'Completed' : t.status})
+                        </option>
+                      ))}
                   </select>
                 </div>
 

@@ -133,6 +133,8 @@ export interface ProjectTask {
   subtasks?: TaskSubtask[];
   comments_count?: number;
   attachments_count?: number;
+  prerequisite_task_id?: string | null;
+  prerequisite_task?: { id: string; title: string; status: TaskStatus } | null;
   created_at: string;
   updated_at: string;
   assignee?: Profile | null;
@@ -163,6 +165,34 @@ export interface TaskAttachment {
   created_at: string;
   uploader?: Profile;
   signedUrl?: string;
+}
+
+export interface MakerArchiveExport {
+  version: string;
+  exported_at: string;
+  profile: Profile;
+  skills: Array<{
+    skill_id: string;
+    skill_name: string;
+    skill_slug: string;
+    category: string;
+    total_xp: number;
+    level: number;
+    last_practiced_at?: string | null;
+  }>;
+  practice_logs: Array<{
+    id: string;
+    skill_name: string;
+    duration_minutes: number;
+    xp_gained: number;
+    note: string;
+    created_at: string;
+  }>;
+  workspace_items: WorkspaceItem[];
+  projects: Project[];
+  tasks: ProjectTask[];
+  comments: TaskComment[];
+  activity_logs: any[];
 }
 
 export interface ActivityHeatmapDay {

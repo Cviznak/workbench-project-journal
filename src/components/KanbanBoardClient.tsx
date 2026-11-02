@@ -41,6 +41,7 @@ import {
   MoreVertical,
   MessageSquare,
   Paperclip,
+  Lock,
 } from 'lucide-react';
 import EditTaskModal from '@/components/EditTaskModal';
 
@@ -100,6 +101,7 @@ export default function KanbanBoardClient({
   const [taskPriority, setTaskPriority] = useState<TaskPriority>('MEDIUM');
   const [taskAssignee, setTaskAssignee] = useState<string>('');
   const [taskSkill, setTaskSkill] = useState<string>('');
+  const [taskPrereq, setTaskPrereq] = useState<string>('');
   const [taskXp, setTaskXp] = useState('25');
   const [taskLoading, setTaskLoading] = useState(false);
 
@@ -213,6 +215,15 @@ export default function KanbanBoardClient({
     if (!task || task.status === targetStatus) return;
 
     if (targetStatus === 'DONE') {
+      // Check prerequisite task status client-side before invoking RPC
+      if (task.prerequisite_task_id) {
+        const prereq = tasks.find((t) => t.id === task.prerequisite_task_id);
+        if (prereq && prereq.status !== 'DONE') {
+          alert(`Cannot complete task: prerequisite task "${prereq.title}" must be completed first.`);
+          return;
+        }
+      }
+
       try {
         const { error } = await supabase.rpc('complete_project_task', {
           p_task_id: taskId,
@@ -339,6 +350,7 @@ export default function KanbanBoardClient({
           priority: taskPriority,
           assignee_id: taskAssignee || null,
           skill_id: taskSkill || null,
+          prerequisite_task_id: taskPrereq || null,
           xp_reward: parseInt(taskXp, 10) || 25,
           subtasks: [],
           status: 'TODO',
@@ -353,6 +365,7 @@ export default function KanbanBoardClient({
         setTaskModalOpen(false);
         setTaskTitle('');
         setTaskDesc('');
+        setTaskPrereq('');
       }
     } catch (err: any) {
       alert(err.message || 'Failed to add task');
@@ -905,6 +918,37 @@ export default function KanbanBoardClient({
                         </div>
                       )}
 
+                      {/* Prerequisite Dependency Badge */}
+                      {task.prerequisite_task_id && (() => {
+                        const prereq = tasks.find((t) => t.id === task.prerequisite_task_id);
+                        if (!prereq) return null;
+                        const isDone = prereq.status === 'DONE';
+                        return (
+                          <div
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold transition ${
+                              isDone
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-500/20'
+                                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-500/25'
+                            }`}
+                            title={
+                              isDone
+                                ? `Prerequisite "${prereq.title}" completed!`
+                                : `Locked until "${prereq.title}" is completed.`
+                            }
+                          >
+                            {isDone ? (
+                              <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0" />
+                            ) : (
+                              <Lock className="w-3 h-3 text-amber-500 shrink-0" />
+                            )}
+                            <span className="truncate">
+                              {isDone ? 'Prereq met: ' : 'Blocked by: '}
+                              <span className="font-bold">{prereq.title}</span>
+                            </span>
+                          </div>
+                        );
+                      })()}
+
                       {/* Subtasks Progress Bar & Checklist */}
                       {hasSubtasks && (
                         <div className="pt-2">
@@ -1040,34 +1084,57 @@ export default function KanbanBoardClient({
                             </button>
                           )}
 
-                          {col.id !== 'DONE' && (
-                            <button
-                              onClick={() => {
-                                const nextStatus =
-                                  col.id === 'TODO'
-                                    ? 'IN_PROGRESS'
-                                    : col.id === 'IN_PROGRESS'
-                                    ? 'REVIEW'
-                                    : 'DONE';
-                                handleMoveTask(task.id, nextStatus);
-                              }}
-                              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
-                                col.id === 'REVIEW'
-                                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                              }`}
-                              title={col.id === 'REVIEW' ? 'Claim XP & Complete' : 'Move forward'}
-                            >
-                              {col.id === 'REVIEW' ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5" />
-                                  <span>Claim</span>
-                                </>
-                              ) : (
-                                <ArrowRight className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                          )}
+                          {col.id !== 'DONE' && (() => {
+                            const prereq = task.prerequisite_task_id
+                              ? tasks.find((t) => t.id === task.prerequisite_task_id)
+                              : null;
+                            const isBlockedFromDone =
+                              col.id === 'REVIEW' && prereq && prereq.status !== 'DONE';
+
+                            return (
+                              <button
+                                disabled={isBlockedFromDone}
+                                onClick={() => {
+                                  if (isBlockedFromDone) return;
+                                  const nextStatus =
+                                    col.id === 'TODO'
+                                      ? 'IN_PROGRESS'
+                                      : col.id === 'IN_PROGRESS'
+                                      ? 'REVIEW'
+                                      : 'DONE';
+                                  handleMoveTask(task.id, nextStatus);
+                                }}
+                                className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+                                  isBlockedFromDone
+                                    ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                    : col.id === 'REVIEW'
+                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                                }`}
+                                title={
+                                  isBlockedFromDone
+                                    ? `Locked: Must complete "${prereq?.title}" first`
+                                    : col.id === 'REVIEW'
+                                    ? 'Claim XP & Complete'
+                                    : 'Move forward'
+                                }
+                              >
+                                {isBlockedFromDone ? (
+                                  <>
+                                    <Lock className="w-3.5 h-3.5 text-amber-500" />
+                                    <span>Locked</span>
+                                  </>
+                                ) : col.id === 'REVIEW' ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Claim</span>
+                                  </>
+                                ) : (
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -1100,6 +1167,7 @@ export default function KanbanBoardClient({
           projectId={project.id}
           projectMembers={projectMembers}
           allSkills={allSkills}
+          allTasks={tasks}
           currentUserId={userId}
           isPM={isPM}
           onClose={() => {
@@ -1393,6 +1461,25 @@ export default function KanbanBoardClient({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Prerequisite Task (Optional Dependency)
+                </label>
+                <select
+                  value={taskPrereq}
+                  onChange={(e) => setTaskPrereq(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                >
+                  <option value="">None (Can start immediately)</option>
+                  {tasks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.status === 'DONE' ? '✓ ' : '🔒 '} {t.title} (
+                      {t.status === 'DONE' ? 'Completed' : t.status})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="pt-4 flex justify-end gap-3">

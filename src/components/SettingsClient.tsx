@@ -14,6 +14,9 @@ import {
   Lock,
   LogOut,
   AlertCircle,
+  Download,
+  Database,
+  FileText,
 } from 'lucide-react';
 
 interface SettingsClientProps {
@@ -33,6 +36,46 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // Data Export state
+  const [exporting, setExporting] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
+
+  async function handleExportData() {
+    setExporting(true);
+    setExportSuccess(false);
+
+    try {
+      const { data, error } = await supabase.rpc('export_user_maker_archive');
+      if (error) throw error;
+
+      if (!data) {
+        throw new Error('No data received from export function');
+      }
+
+      // Convert to formatted JSON
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      // Trigger timestamped download
+      const dateStr = new Date().toISOString().split('T')[0];
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `workbench_backup_${dateStr}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 4000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to export maker archive');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function handleUpdateProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -245,6 +288,60 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Data & Backup Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 shadow-sm space-y-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+            <Database className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="font-bold text-base text-slate-900 dark:text-white">
+              Data &amp; Backup (Portable Archive)
+            </h2>
+            <p className="text-xs text-slate-400">
+              Export your complete Workbench data ledger into a standardized portable JSON archive.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+          <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+            <FileText className="w-4 h-4 text-blue-500" />
+            <span>Maker Archive Contents</span>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+            Your export includes your complete profile data, unlocked skills &amp; XP progression, deliberate practice session logs, private workspace ideas &amp; notes, collaborative projects, assigned tasks, comments, and audit activity ledger.
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-xs text-slate-400">Format: Standard JSON (v1.3.0)</span>
+          <button
+            type="button"
+            onClick={handleExportData}
+            disabled={exporting}
+            className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm shadow-blue-500/20"
+          >
+            {exporting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Generating Archive...</span>
+              </>
+            ) : exportSuccess ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Archive Downloaded!</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                <span>Export Complete Maker Archive (JSON)</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Account Actions */}
