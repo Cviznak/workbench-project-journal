@@ -1,23 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { UserSkill, PracticeLog, SkillCatalog, getSkillTier } from '@/lib/types';
+import { UserSkill, PracticeLog, SkillCatalog, SkillRequest, getSkillTier } from '@/lib/types';
 import { getLevelProgress, formatDate, relativeTime } from '@/lib/utils';
-import { Target, Plus, Flame, Clock, Calendar, Sparkles, Search } from 'lucide-react';
+import { Target, Plus, Flame, Clock, Calendar, Sparkles, Search, CheckCircle2, Clock3, XCircle } from 'lucide-react';
 import PracticeModal from './PracticeModal';
+import SkillRequestModal from './SkillRequestModal';
 
 interface SkillsViewClientProps {
   initialUserSkills: UserSkill[];
   initialPracticeLogs: PracticeLog[];
   catalog: SkillCatalog[];
+  mySkillRequests?: SkillRequest[];
 }
 
 export default function SkillsViewClient({
   initialUserSkills,
   initialPracticeLogs,
   catalog,
+  mySkillRequests = [],
 }: SkillsViewClientProps) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [activeSkillPrefill, setActiveSkillPrefill] = useState('');
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -48,16 +52,26 @@ export default function SkillsViewClient({
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setActiveSkillPrefill('');
-            setModalOpen(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Log Practice Session</span>
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <button
+            onClick={() => setRequestModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-bold text-xs text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-sm transition"
+          >
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>Request New Skill</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveSkillPrefill('');
+              setModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Log Practice Session</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -235,10 +249,95 @@ export default function SkillsViewClient({
         )}
       </div>
 
+      {/* Requested Skills Status Section */}
+      {mySkillRequests && mySkillRequests.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  My Skill Requests
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Track the approval status of your custom skill submissions.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setRequestModalOpen(true)}
+              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              + Request Another
+            </button>
+          </div>
+
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {mySkillRequests.map((req) => (
+              <div key={req.id} className="py-3.5 first:pt-1 last:pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      {req.name}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
+                      {req.category}
+                    </span>
+                  </div>
+                  {req.reason && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      &ldquo;{req.reason}&rdquo;
+                    </p>
+                  )}
+                  {req.rejection_reason && (
+                    <p className="text-xs text-red-500 dark:text-red-400">
+                      Feedback: {req.rejection_reason}
+                    </p>
+                  )}
+                  <span className="text-[10px] text-slate-400 block">
+                    Requested {relativeTime(req.created_at)}
+                  </span>
+                </div>
+
+                <div className="flex-shrink-0">
+                  {req.status === 'PENDING' && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900">
+                      <Clock3 className="w-3.5 h-3.5" />
+                      <span>Under Review</span>
+                    </span>
+                  )}
+                  {req.status === 'APPROVED' && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Approved (+25 XP)</span>
+                    </span>
+                  )}
+                  {req.status === 'REJECTED' && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900">
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Declined</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {modalOpen && (
         <PracticeModal
           onClose={() => setModalOpen(false)}
           prefillSkill={activeSkillPrefill}
+        />
+      )}
+
+      {requestModalOpen && (
+        <SkillRequestModal
+          onClose={() => setRequestModalOpen(false)}
+          onSuccess={() => setRequestModalOpen(false)}
         />
       )}
     </div>

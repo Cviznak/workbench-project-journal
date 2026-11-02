@@ -35,11 +35,18 @@ export default async function AdminHubPage() {
     .order('created_at', { ascending: false })
     .limit(20);
 
+  // Fetch skill requests for admin review
+  const { data: skillRequests } = await supabase
+    .from('skill_requests')
+    .select('*, user:profiles!skill_requests_user_id_fkey(*)')
+    .order('created_at', { ascending: false });
+
   return (
     <AdminHubClient
       caller={callerProfile as Profile}
       initialProfiles={(profiles as Profile[]) || []}
       auditLogs={auditLogs || []}
+      initialSkillRequests={(skillRequests as any[]) || []}
     />
   );
 }

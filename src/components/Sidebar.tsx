@@ -31,7 +31,7 @@ export default function Sidebar({ profile }: SidebarProps) {
   ];
 
   return (
-    <aside className="hidden lg:flex flex-col w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 h-screen sticky top-0 z-30">
+    <aside className="hidden lg:flex flex-col w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 self-start sticky top-0 h-screen z-30">
       <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-md shadow-blue-500/20">

@@ -242,6 +242,7 @@ class SoundEngine {
 }
 
 export const sounds = new SoundEngine();
+export const soundEngine = sounds;
 
 // -------------------------------------------------------------
 // Confetti Celebration
@@ -275,3 +276,5 @@ export function triggerCelebrationConfetti() {
     });
   }, 250);
 }
+
+export const triggerConfetti = triggerCelebrationConfetti;

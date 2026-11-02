@@ -78,7 +78,19 @@ export default function SignUpPage() {
         {error && (
           <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 flex items-start gap-3 text-red-600 dark:text-red-400 text-sm">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <div className="flex-1">
+              <span>{error}</span>
+              {error.toLowerCase().includes('already registered') && (
+                <div className="mt-2">
+                  <Link
+                    href="/login"
+                    className="font-semibold underline hover:text-red-700 dark:hover:text-red-300 flex items-center gap-1"
+                  >
+                    Click here to Sign In with your existing account &rarr;
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

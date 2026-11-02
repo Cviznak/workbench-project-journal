@@ -38,11 +38,11 @@ export default async function DashboardLayout({
   const totalXp = (userSkills || []).reduce((acc, s) => acc + (s.total_xp || 0), 0);
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 max-w-full overflow-x-hidden">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
       <Sidebar profile={profile as Profile} />
-      <div className="flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
         <Navbar profile={profile as Profile} totalXp={totalXp} />
-        <main className="flex-1 p-3 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto min-w-0 overflow-x-hidden">
+        <main className="flex-1 p-3 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
           {children}
         </main>
       </div>

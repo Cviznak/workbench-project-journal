@@ -47,6 +47,23 @@ export interface PracticeLog {
   skill?: SkillCatalog;
 }
 
+export type SkillRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface SkillRequest {
+  id: string;
+  user_id: string;
+  name: string;
+  category: string;
+  reason?: string | null;
+  status: SkillRequestStatus;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  rejection_reason?: string | null;
+  created_at: string;
+  user?: Profile;
+  reviewer?: Profile;
+}
+
 export interface WorkspaceItem {
   id: string;
   user_id: string;

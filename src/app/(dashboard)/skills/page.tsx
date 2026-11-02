@@ -30,11 +30,19 @@ export default async function SkillsPage() {
     .select('*')
     .order('name');
 
+  // 4. Fetch user's skill requests
+  const { data: mySkillRequests } = await supabase
+    .from('skill_requests')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
   return (
     <SkillsViewClient
       initialUserSkills={userSkills || []}
       initialPracticeLogs={practiceLogs || []}
       catalog={catalog || []}
+      mySkillRequests={mySkillRequests || []}
     />
   );
 }
