@@ -44,6 +44,13 @@ export default function FocusAudioBar({ onOpenPractice }: FocusAudioBarProps) {
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Clean up soundscape on unmount
+  useEffect(() => {
+    return () => {
+      sounds.stopAmbient();
+    };
+  }, []);
+
   // Soundscape switcher
   function handleSelectMode(mode: SoundMode) {
     if (mode === soundMode) {
