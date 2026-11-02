@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
 import { getLevelProgress } from '@/lib/utils';
-import { Flame, Plus, LogOut, Settings, Shield, Menu, X } from 'lucide-react';
+import { Flame, Plus, LogOut, Settings, Shield, Menu, X, Search } from 'lucide-react';
 import PracticeModal from './PracticeModal';
+import FocusAudioBar from './FocusAudioBar';
+import ThemeToggle from './ThemeToggle';
+import SpotlightSearch from './SpotlightSearch';
 
 interface NavbarProps {
   profile: Profile | null;
@@ -20,9 +23,22 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [practiceModalOpen, setPracticeModalOpen] = useState(false);
+  const [spotlightOpen, setSpotlightOpen] = useState(false);
 
   const levelInfo = getLevelProgress(totalXp);
   const isAdmin = profile?.role === 'ROOT_ADMIN' || profile?.role === 'ADMIN';
+
+  // Global Ctrl+K / Cmd+K listener
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSpotlightOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -32,7 +48,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 lg:px-8 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 lg:px-8 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Mobile menu button */}
           <button
@@ -48,14 +64,32 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
               Workbench
             </span>
           </Link>
+
+          {/* Spotlight Search Trigger */}
+          <button
+            onClick={() => setSpotlightOpen(true)}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span className="text-slate-500 dark:text-slate-400">Search or jump to...</span>
+            <span className="ml-2 px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-[10px] text-slate-400">
+              Ctrl K
+            </span>
+          </button>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* Ambient Focus & Pomodoro Tool */}
+          <FocusAudioBar />
+
+          {/* Theme Switcher */}
+          <ThemeToggle />
+
           {/* Global User XP & Level Pill */}
-          <div className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+          <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
             <div className="flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
               <Flame className="w-3.5 h-3.5 fill-current text-blue-500" />
-              <span>Level {levelInfo.currentLevel}</span>
+              <span>Lv {levelInfo.currentLevel}</span>
             </div>
             <span className="text-slate-300 dark:text-slate-600">•</span>
             <span className="text-slate-600 dark:text-slate-300 font-semibold">
@@ -200,6 +234,13 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
       {practiceModalOpen && (
         <PracticeModal onClose={() => setPracticeModalOpen(false)} />
       )}
+
+      {/* Spotlight Command Palette */}
+      <SpotlightSearch
+        isOpen={spotlightOpen}
+        onClose={() => setSpotlightOpen(false)}
+        onOpenPractice={() => setPracticeModalOpen(true)}
+      />
     </>
   );
 }

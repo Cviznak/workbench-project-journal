@@ -88,6 +88,12 @@ export interface ProjectSkill {
   skill?: SkillCatalog;
 }
 
+export interface TaskSubtask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface ProjectTask {
   id: string;
   project_id: string;
@@ -100,11 +106,121 @@ export interface ProjectTask {
   xp_reward: number;
   xp_awarded: boolean;
   order_index: number;
+  subtasks?: TaskSubtask[];
   created_at: string;
   updated_at: string;
   assignee?: Profile | null;
   skill?: SkillCatalog | null;
 }
+
+export type SkillTier = 'Novice' | 'Apprentice' | 'Artisan' | 'Master' | 'Grandmaster';
+
+export function getSkillTier(level: number): {
+  tier: SkillTier;
+  color: string;
+  badgeBg: string;
+  borderColor: string;
+  gradient: string;
+} {
+  if (level >= 50) {
+    return {
+      tier: 'Grandmaster',
+      color: 'text-amber-400',
+      badgeBg: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+      borderColor: 'border-amber-500/40',
+      gradient: 'from-amber-500 to-yellow-600',
+    };
+  }
+  if (level >= 31) {
+    return {
+      tier: 'Master',
+      color: 'text-purple-400',
+      badgeBg: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+      borderColor: 'border-purple-500/40',
+      gradient: 'from-purple-500 to-indigo-600',
+    };
+  }
+  if (level >= 16) {
+    return {
+      tier: 'Artisan',
+      color: 'text-blue-400',
+      badgeBg: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+      borderColor: 'border-blue-500/40',
+      gradient: 'from-blue-500 to-cyan-600',
+    };
+  }
+  if (level >= 6) {
+    return {
+      tier: 'Apprentice',
+      color: 'text-emerald-400',
+      badgeBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+      borderColor: 'border-emerald-500/40',
+      gradient: 'from-emerald-500 to-teal-600',
+    };
+  }
+  return {
+    tier: 'Novice',
+    color: 'text-slate-400',
+    badgeBg: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
+    borderColor: 'border-slate-500/40',
+    gradient: 'from-slate-500 to-slate-600',
+  };
+}
+
+export function calculateStreak(dates: (string | Date)[]): number {
+  if (!dates || dates.length === 0) return 0;
+
+  const uniqueDays = Array.from(
+    new Set(
+      dates.map((d) => {
+        const dt = new Date(d);
+        return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(
+          dt.getDate()
+        ).padStart(2, '0')}`;
+      })
+    )
+  ).sort().reverse();
+
+  if (uniqueDays.length === 0) return 0;
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+    today.getDate()
+  ).padStart(2, '0')}`;
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(
+    yesterday.getDate()
+  ).padStart(2, '0')}`;
+
+  let currentStreak = 0;
+  let checkDate = new Date();
+
+  // If active today, start from today. If active yesterday, start from yesterday.
+  if (uniqueDays[0] === todayStr) {
+    checkDate = today;
+  } else if (uniqueDays[0] === yesterdayStr) {
+    checkDate = yesterday;
+  } else {
+    return 0; // streak broken
+  }
+
+  for (const day of uniqueDays) {
+    const expected = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(
+      checkDate.getDate()
+    ).padStart(2, '0')}`;
+    if (day === expected) {
+      currentStreak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return currentStreak;
+}
+
 
 export interface ActivityLog {
   id: string;

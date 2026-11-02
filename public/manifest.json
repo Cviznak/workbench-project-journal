@@ -1,0 +1,17 @@
+{
+  "name": "Workbench — Gamified Productivity",
+  "short_name": "Workbench",
+  "description": "Production-ready, globally secure project journal, Jira-style task boards, and XP skill progression engine.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

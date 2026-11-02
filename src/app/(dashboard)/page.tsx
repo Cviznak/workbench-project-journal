@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { getLevelProgress, relativeTime, formatDate } from '@/lib/utils';
+import { getSkillTier, calculateStreak } from '@/lib/types';
 import {
   Flame,
   Target,
@@ -11,6 +12,7 @@ import {
   Clock,
   Shield,
   Activity,
+  Zap,
 } from 'lucide-react';
 import TaskCompleteButton from '@/components/TaskCompleteButton';
 
@@ -36,11 +38,20 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .order('total_xp', { ascending: false });
 
-  // Compute overall XP
+  // Compute overall XP and Tier
   const totalXp = (userSkills || []).reduce((acc, s) => acc + (s.total_xp || 0), 0);
   const levelInfo = getLevelProgress(totalXp);
+  const overallTier = getSkillTier(levelInfo.currentLevel);
 
-  // 3. Fetch active assigned tasks
+  // 3. Fetch practice logs to calculate daily streak
+  const { data: userLogs } = await supabase
+    .from('practice_logs')
+    .select('created_at')
+    .eq('user_id', user.id);
+
+  const streakDays = calculateStreak((userLogs || []).map((l: any) => l.created_at));
+
+  // 4. Fetch active assigned tasks
   const { data: assignedTasks } = await supabase
     .from('project_tasks')
     .select('*, project:projects(id, name), skill:skill_catalog(id, name)')
@@ -49,7 +60,7 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(5);
 
-  // 4. Fetch recent activity logs
+  // 5. Fetch recent activity logs
   const { data: recentActivity } = await supabase
     .from('activity_logs')
     .select('*')
@@ -57,7 +68,7 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(8);
 
-  // 5. Fetch projects count
+  // 6. Fetch projects count
   const { count: projectCount } = await supabase
     .from('projects')
     .select('*', { count: 'exact', head: true });
@@ -67,12 +78,12 @@ export default async function DashboardPage() {
       {/* Header Welcome */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Welcome back, {profile?.display_name}!
             </h1>
             {profile?.is_immutable && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 Immutable Root Admin
               </span>
             )}
@@ -85,7 +96,7 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-2.5">
           <Link
             href="/workspace"
-            className="px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-sm"
           >
             💡 Ideas &amp; Notes
           </Link>
@@ -112,6 +123,9 @@ export default async function DashboardPage() {
                 <span className="text-xs font-bold tracking-widest uppercase text-blue-200">
                   Maker Mastery Rank
                 </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/30 uppercase tracking-wider">
+                  {overallTier.tier}
+                </span>
               </div>
               <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight mt-0.5">
                 Level {levelInfo.currentLevel}
@@ -119,11 +133,24 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <div className="text-left md:text-right">
-            <span className="text-xs text-blue-200 block">Total Experience</span>
-            <span className="text-2xl font-bold tracking-tight">
-              {totalXp.toLocaleString()} XP
-            </span>
+          <div className="flex items-center gap-6">
+            {/* Daily Streak Counter */}
+            <div className="text-left md:text-right px-4 py-2 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm">
+              <span className="text-[11px] text-blue-200 font-semibold block uppercase tracking-wider">
+                Daily Streak
+              </span>
+              <div className="flex items-center gap-1.5 text-xl font-extrabold tracking-tight">
+                <span className="text-amber-300">🔥</span>
+                <span>{streakDays} {streakDays === 1 ? 'Day' : 'Days'}</span>
+              </div>
+            </div>
+
+            <div className="text-left md:text-right">
+              <span className="text-xs text-blue-200 block">Total Experience</span>
+              <span className="text-2xl font-bold tracking-tight">
+                {totalXp.toLocaleString()} XP
+              </span>
+            </div>
           </div>
         </div>
 
@@ -131,7 +158,8 @@ export default async function DashboardPage() {
         <div className="mt-8 relative z-10 space-y-2">
           <div className="flex items-center justify-between text-xs text-blue-100 font-medium">
             <span>
-              {levelInfo.currentInLevel.toLocaleString()} / {levelInfo.neededInLevel.toLocaleString()} XP in Level {levelInfo.currentLevel}
+              {levelInfo.currentInLevel.toLocaleString()} / {levelInfo.neededInLevel.toLocaleString()}{' '}
+              XP in Level {levelInfo.currentLevel}
             </span>
             <span>{levelInfo.toNextLevel.toLocaleString()} XP to Level {levelInfo.currentLevel + 1}</span>
           </div>
@@ -142,7 +170,7 @@ export default async function DashboardPage() {
             />
           </div>
           <div className="flex items-center justify-between text-[11px] text-blue-200/80 pt-1">
-            <span>Deterministic Quadratic Curve: level = ⌊0.1 × √total_xp⌋ + 1</span>
+            <span>Deterministic Curve: level = ⌊0.1 × √total_xp⌋ + 1</span>
             <span>{levelInfo.progressPct}% Completed</span>
           </div>
         </div>
@@ -176,6 +204,7 @@ export default async function DashboardPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {userSkills.slice(0, 4).map((us: any) => {
                   const sInfo = getLevelProgress(us.total_xp);
+                  const skillTier = getSkillTier(us.level);
                   return (
                     <div
                       key={us.id}
@@ -190,9 +219,14 @@ export default async function DashboardPage() {
                             {us.skill?.category || 'Maker'}
                           </span>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
-                          Lvl {us.level}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${skillTier.badgeBg}`}>
+                            {skillTier.tier}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
+                            Lvl {us.level}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="space-y-1">
@@ -200,9 +234,9 @@ export default async function DashboardPage() {
                           <span>{us.total_xp} XP</span>
                           <span>{sInfo.progressPct}%</span>
                         </div>
-                        <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                        <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-blue-600 rounded-full"
+                            className="bg-blue-600 h-2 rounded-full transition-all"
                             style={{ width: `${sInfo.progressPct}%` }}
                           />
                         </div>
@@ -212,113 +246,107 @@ export default async function DashboardPage() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                <Target className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  No skills recorded yet
-                </h4>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                  Log your first deliberate practice session or complete project tasks to unlock skills and earn XP.
-                </p>
+              <div className="text-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                <p className="text-sm text-slate-400">No skills logged yet.</p>
                 <Link
                   href="/skills"
-                  className="inline-block mt-4 px-4 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700"
+                  className="mt-2 inline-block text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  ＋ Explore Skills Hub
+                  Log your first practice session →
                 </Link>
               </div>
             )}
           </div>
 
-          {/* Active Assigned Tasks */}
+          {/* Active Assigned Jira Tasks */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                    Assigned Jira Tasks
-                  </h3>
-                  <span className="text-xs text-slate-400">Complete tasks to claim skill XP</span>
-                </div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Active Tasks Awaiting Completion
+                </h3>
               </div>
               <Link
                 href="/projects"
                 className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                <span>All Boards</span>
+                <span>All Projects</span>
                 <ArrowUpRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             {assignedTasks && assignedTasks.length > 0 ? (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {assignedTasks.map((t: any) => (
-                  <div key={t.id} className="py-3.5 first:pt-0 last:pb-0 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {assignedTasks.map((task: any) => (
+                  <div
+                    key={task.id}
+                    className="py-3.5 flex items-center justify-between gap-4 first:pt-0 last:pb-0"
+                  >
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                          {t.project?.name || 'Project'}
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                          {task.status}
                         </span>
-                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
-                          +{t.xp_reward} XP
+                        <span className="text-xs font-semibold text-slate-400">
+                          {task.project?.name}
                         </span>
                       </div>
-                      <h4 className="font-medium text-sm text-slate-900 dark:text-white mt-1 truncate">
-                        {t.title}
+                      <h4 className="font-semibold text-sm text-slate-900 dark:text-white">
+                        {task.title}
                       </h4>
-                      {t.skill && (
-                        <span className="text-[11px] text-slate-400">
-                          Develops: {t.skill.name}
-                        </span>
-                      )}
                     </div>
 
-                    <TaskCompleteButton taskId={t.id} xpReward={t.xp_reward} />
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
+                        +{task.xp_reward} XP
+                      </span>
+                      <TaskCompleteButton taskId={task.id} xpReward={task.xp_reward} />
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                <CheckCircle2 className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                  All caught up!
-                </h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  You have no pending tasks assigned to you.
-                </p>
+              <div className="text-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                <p className="text-sm text-slate-400">No active tasks assigned to you right now.</p>
+                <Link
+                  href="/projects"
+                  className="mt-2 inline-block text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Browse projects &amp; pick up tasks →
+                </Link>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Col: Activity History Ledger */}
-        <div className="space-y-6">
+        {/* Right Col: Activity Log Feed */}
+        <div className="space-y-8">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
             <div className="flex items-center gap-2.5 mb-6">
               <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                 <Activity className="w-4 h-4" />
               </div>
               <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                Activity Ledger
+                Recent Activity
               </h3>
             </div>
 
             {recentActivity && recentActivity.length > 0 ? (
-              <div className="relative pl-4 space-y-4 before:absolute before:left-1 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
-                {recentActivity.map((act: any) => (
-                  <div key={act.id} className="relative text-xs">
-                    <div className="absolute -left-4 top-1 w-2 h-2 rounded-full bg-blue-600 ring-4 ring-white dark:ring-slate-900" />
-                    <p className="font-medium text-slate-800 dark:text-slate-200">
-                      {act.summary}
+              <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
+                {recentActivity.map((log: any) => (
+                  <div key={log.id} className="relative space-y-1">
+                    <div className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-white dark:ring-slate-900" />
+                    <p className="text-xs font-medium text-slate-800 dark:text-slate-200 leading-snug">
+                      {log.summary}
                     </p>
-                    <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
-                      <span>{relativeTime(act.created_at)}</span>
-                      {act.xp_delta > 0 && (
+                    <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                      <span>{relativeTime(log.created_at)}</span>
+                      {log.xp_delta > 0 && (
                         <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                          +{act.xp_delta} XP
+                          +{log.xp_delta} XP
                         </span>
                       )}
                     </div>
@@ -326,8 +354,8 @@ export default async function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-slate-400 text-center py-6">
-                No recent activity recorded yet.
+              <p className="text-xs text-slate-400 py-4 text-center">
+                No activity recorded yet.
               </p>
             )}
           </div>

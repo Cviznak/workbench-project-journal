@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
 import { X, Flame, CheckCircle2, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 interface PracticeModalProps {
@@ -53,8 +54,11 @@ export default function PracticeModal({ onClose, prefillSkill = '' }: PracticeMo
       if (rpcError) throw rpcError;
 
       if (data?.level_up) {
+        sounds.playLevelUp();
+        triggerCelebrationConfetti();
         setLevelUpData(data);
       } else {
+        sounds.playTaskComplete();
         router.refresh();
         onClose();
       }

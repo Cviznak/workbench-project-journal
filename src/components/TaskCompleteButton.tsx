@@ -3,14 +3,15 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
 import { Check, Loader2 } from 'lucide-react';
 
 interface TaskCompleteButtonProps {
   taskId: string;
-  xpReward: number;
+  xpReward?: number;
 }
 
-export default function TaskCompleteButton({ taskId, xpReward }: TaskCompleteButtonProps) {
+export default function TaskCompleteButton({ taskId, xpReward = 25 }: TaskCompleteButtonProps) {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
@@ -25,6 +26,8 @@ export default function TaskCompleteButton({ taskId, xpReward }: TaskCompleteBut
 
       if (error) throw error;
 
+      sounds.playTaskComplete();
+      triggerCelebrationConfetti();
       setCompleted(true);
       router.refresh();
     } catch (err: any) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { UserSkill, PracticeLog, SkillCatalog } from '@/lib/types';
+import { UserSkill, PracticeLog, SkillCatalog, getSkillTier } from '@/lib/types';
 import { getLevelProgress, formatDate, relativeTime } from '@/lib/utils';
 import { Target, Plus, Flame, Clock, Calendar, Sparkles, Search } from 'lucide-react';
 import PracticeModal from './PracticeModal';
@@ -95,6 +95,7 @@ export default function SkillsViewClient({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredSkills.map((us) => {
             const levelInfo = getLevelProgress(us.total_xp);
+            const tierInfo = getSkillTier(us.level);
             return (
               <div
                 key={us.id}
@@ -110,9 +111,14 @@ export default function SkillsViewClient({
                         {us.skill?.name}
                       </h3>
                     </div>
-                    <div className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 font-extrabold text-xs flex items-center gap-1 flex-shrink-0">
-                      <Flame className="w-3.5 h-3.5 fill-current text-blue-500" />
-                      <span>Level {us.level}</span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${tierInfo.badgeBg}`}>
+                        {tierInfo.tier}
+                      </span>
+                      <div className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 font-extrabold text-xs flex items-center gap-1">
+                        <Flame className="w-3.5 h-3.5 fill-current text-blue-500" />
+                        <span>Level {us.level}</span>
+                      </div>
                     </div>
                   </div>
 
