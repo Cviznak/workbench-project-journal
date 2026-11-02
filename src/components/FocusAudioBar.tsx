@@ -98,7 +98,7 @@ export default function FocusAudioBar() {
       {/* Trigger pill */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+        className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
           soundMode !== 'off' || isTimerRunning
             ? 'bg-blue-500/10 border-blue-500/30 text-blue-500 dark:text-blue-400 shadow-sm'
             : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
@@ -106,7 +106,7 @@ export default function FocusAudioBar() {
         title="Focus Soundscape & Pomodoro Timer"
       >
         <Headphones className={`w-3.5 h-3.5 ${soundMode !== 'off' ? 'animate-pulse text-blue-500' : ''}`} />
-        <span>
+        <span className="hidden sm:inline">
           {soundMode !== 'off'
             ? soundMode.toUpperCase()
             : isTimerRunning
@@ -124,7 +124,7 @@ export default function FocusAudioBar() {
 
       {/* Flyout panel */}
       {isOpen && (
-        <div className="absolute right-0 top-10 mt-1 w-80 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="fixed sm:absolute right-4 sm:right-0 top-16 sm:top-10 mt-1 w-[calc(100vw-2rem)] sm:w-80 max-w-sm p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-500" />

@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Workbench — Gamified Productivity & Project Management",
-  description: "Production-ready, globally secure project journal, Jira-style task boards, and XP skill progression engine.",
+  description: "Production-ready, globally secure project journal, Kanban task boards, and XP skill progression engine.",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.svg",

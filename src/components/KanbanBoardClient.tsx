@@ -4,7 +4,15 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { ProjectTask, TaskStatus, TaskPriority, SkillCatalog, TaskSubtask } from '@/lib/types';
+import {
+  Project,
+  ProjectTask,
+  TaskStatus,
+  TaskPriority,
+  ProjectStatus,
+  SkillCatalog,
+  TaskSubtask,
+} from '@/lib/types';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
 import {
   FolderKanban,
@@ -27,7 +35,10 @@ import {
   Filter,
   CheckSquare,
   Square,
-  Radio,
+  Edit2,
+  Trash2,
+  Settings,
+  MoreVertical,
 } from 'lucide-react';
 
 interface KanbanBoardClientProps {
@@ -47,9 +58,9 @@ const COLUMNS: { id: TaskStatus; label: string; color: string; accentBorder: str
 ];
 
 export default function KanbanBoardClient({
-  project,
+  project: initialProject,
   members,
-  skills,
+  skills: initialSkills,
   tasks: initialTasks,
   allSkills,
   userId,
@@ -57,8 +68,15 @@ export default function KanbanBoardClient({
   const router = useRouter();
   const supabase = createClient();
 
+  const [project, setProject] = useState<any>(initialProject);
   const [tasks, setTasks] = useState<any[]>(initialTasks);
+  const [projectSkillsList, setProjectSkillsList] = useState<any[]>(initialSkills);
+
+  // Modals state
   const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [editTaskModalOpen, setEditTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<any | null>(null);
+  const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [transferModalOpen, setTransferModalOpen] = useState(false);
 
@@ -82,6 +100,27 @@ export default function KanbanBoardClient({
   const [taskXp, setTaskXp] = useState('25');
   const [taskLoading, setTaskLoading] = useState(false);
 
+  // Edit Task form state
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editStatus, setEditStatus] = useState<TaskStatus>('TODO');
+  const [editPriority, setEditPriority] = useState<TaskPriority>('MEDIUM');
+  const [editAssignee, setEditAssignee] = useState('');
+  const [editSkill, setEditSkill] = useState('');
+  const [editXp, setEditXp] = useState('25');
+  const [editSubtasks, setEditSubtasks] = useState<TaskSubtask[]>([]);
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Edit Project form state
+  const [editProjectName, setEditProjectName] = useState(initialProject.name);
+  const [editProjectDesc, setEditProjectDesc] = useState(initialProject.description || '');
+  const [editProjectStatus, setEditProjectStatus] = useState<ProjectStatus>(initialProject.status);
+  const [editProjectXp, setEditProjectXp] = useState(String(initialProject.completion_xp_reward || 100));
+  const [editProjectSkillIds, setEditProjectSkillIds] = useState<string[]>(
+    initialSkills.map((s) => s.skill?.id || s.skill_id).filter(Boolean)
+  );
+  const [projectSaving, setProjectSaving] = useState(false);
+
   // Member invite state
   const [inviteUsername, setInviteUsername] = useState('');
   const [memberLoading, setMemberLoading] = useState(false);
@@ -96,7 +135,7 @@ export default function KanbanBoardClient({
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
 
   const isPM = project.pm_user_id === userId;
-  const projectSkills = skills.map((s) => s.skill).filter(Boolean);
+  const projectSkills = projectSkillsList.map((s) => s.skill).filter(Boolean);
   const projectMembers = members.map((m) => m.profile).filter(Boolean);
 
   // -------------------------------------------------------------
@@ -115,7 +154,6 @@ export default function KanbanBoardClient({
         },
         async (payload) => {
           if (payload.eventType === 'INSERT') {
-            // Fetch assignee and skill relations
             const { data } = await supabase
               .from('project_tasks')
               .select('*, assignee:profiles(*), skill:skill_catalog(*)')
@@ -147,6 +185,92 @@ export default function KanbanBoardClient({
   }, [project.id, supabase]);
 
   // -------------------------------------------------------------
+  // Open Task Edit Modal
+  // -------------------------------------------------------------
+  function openEditTask(task: any) {
+    setEditingTask(task);
+    setEditTitle(task.title || '');
+    setEditDesc(task.description || '');
+    setEditStatus(task.status || 'TODO');
+    setEditPriority(task.priority || 'MEDIUM');
+    setEditAssignee(task.assignee_id || '');
+    setEditSkill(task.skill_id || '');
+    setEditXp(String(task.xp_reward || 25));
+    setEditSubtasks(task.subtasks || []);
+    setEditTaskModalOpen(true);
+  }
+
+  // -------------------------------------------------------------
+  // Save Task Changes
+  // -------------------------------------------------------------
+  async function handleSaveTaskEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingTask) return;
+    setEditLoading(true);
+
+    try {
+      // If user moved to DONE directly from edit modal, execute RPC
+      if (editStatus === 'DONE' && !editingTask.xp_awarded) {
+        const { error: rpcError } = await supabase.rpc('complete_project_task', {
+          p_task_id: editingTask.id,
+        });
+        if (rpcError) throw rpcError;
+
+        sounds.playTaskComplete();
+        triggerCelebrationConfetti();
+      }
+
+      const { data, error } = await supabase
+        .from('project_tasks')
+        .update({
+          title: editTitle.trim(),
+          description: editDesc.trim(),
+          status: editStatus,
+          priority: editPriority,
+          assignee_id: editAssignee || null,
+          skill_id: editSkill || null,
+          xp_reward: parseInt(editXp, 10) || 25,
+          subtasks: editSubtasks,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingTask.id)
+        .select('*, assignee:profiles(*), skill:skill_catalog(*)')
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)));
+      }
+      setEditTaskModalOpen(false);
+      setEditingTask(null);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update task');
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Delete Task
+  // -------------------------------------------------------------
+  async function handleDeleteTask(taskId: string) {
+    if (!confirm('Are you sure you want to delete this task?')) return;
+
+    try {
+      const { error } = await supabase.from('project_tasks').delete().eq('id', taskId);
+      if (error) throw error;
+
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      setEditTaskModalOpen(false);
+      setEditingTask(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete task');
+    }
+  }
+
+  // -------------------------------------------------------------
   // Task Status Transition / Payout Execution
   // -------------------------------------------------------------
   async function handleMoveTask(taskId: string, targetStatus: TaskStatus) {
@@ -154,7 +278,6 @@ export default function KanbanBoardClient({
     if (!task || task.status === targetStatus) return;
 
     if (targetStatus === 'DONE') {
-      // Execute Payout 1 RPC: Individual Task Completion XP
       try {
         const { error } = await supabase.rpc('complete_project_task', {
           p_task_id: taskId,
@@ -162,7 +285,6 @@ export default function KanbanBoardClient({
 
         if (error) throw error;
 
-        // Visual and auditory celebration
         sounds.playTaskComplete();
         triggerCelebrationConfetti();
 
@@ -174,7 +296,6 @@ export default function KanbanBoardClient({
         alert(err.message || 'Failed to complete task');
       }
     } else {
-      // Normal status transition
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, status: targetStatus } : t))
       );
@@ -305,6 +426,75 @@ export default function KanbanBoardClient({
     }
   }
 
+  // -------------------------------------------------------------
+  // Save Project Changes
+  // -------------------------------------------------------------
+  async function handleSaveProject(e: React.FormEvent) {
+    e.preventDefault();
+    setProjectSaving(true);
+
+    try {
+      // 1. Update project details
+      const { data: updatedProj, error: projErr } = await supabase
+        .from('projects')
+        .update({
+          name: editProjectName.trim(),
+          description: editProjectDesc.trim(),
+          status: editProjectStatus,
+          completion_xp_reward: parseInt(editProjectXp, 10) || 100,
+        })
+        .eq('id', project.id)
+        .select()
+        .single();
+
+      if (projErr) throw projErr;
+
+      // 2. Sync project_skills
+      // Delete removed skills
+      await supabase.from('project_skills').delete().eq('project_id', project.id);
+
+      // Insert new skills
+      if (editProjectSkillIds.length > 0) {
+        const skillsToInsert = editProjectSkillIds.map((sid) => ({
+          project_id: project.id,
+          skill_id: sid,
+        }));
+        await supabase.from('project_skills').insert(skillsToInsert);
+      }
+
+      // Fetch fresh skills for state
+      const { data: freshSkills } = await supabase
+        .from('project_skills')
+        .select('*, skill:skill_catalog(*)')
+        .eq('project_id', project.id);
+
+      setProject({ ...project, ...updatedProj });
+      setProjectSkillsList(freshSkills || []);
+      setProjectModalOpen(false);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update project');
+    } finally {
+      setProjectSaving(false);
+    }
+  }
+
+  // Delete Entire Project
+  async function handleDeleteProject() {
+    if (!confirm('Are you absolutely sure you want to delete this project? All tasks will be deleted.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('projects').delete().eq('id', project.id);
+      if (error) throw error;
+
+      router.push('/projects');
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete project');
+    }
+  }
+
   // Add Project Member
   async function handleAddMember(e: React.FormEvent) {
     e.preventDefault();
@@ -411,12 +601,12 @@ export default function KanbanBoardClient({
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200 min-w-0 max-w-full overflow-x-hidden">
       {/* Project Overview Card */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <div className="flex items-center gap-2.5 mb-2 flex-wrap">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 lg:p-8 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Link
                 href="/projects"
                 className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
@@ -455,7 +645,7 @@ export default function KanbanBoardClient({
               </span>
             </div>
 
-            <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight truncate">
               {project.name}
             </h1>
 
@@ -467,20 +657,29 @@ export default function KanbanBoardClient({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setTaskModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition"
+              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition"
             >
               <Plus className="w-4 h-4" />
-              <span>＋ Add Task</span>
+              <span>Add Task</span>
             </button>
 
             {isPM && (
               <>
                 <button
+                  onClick={() => setProjectModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  title="Edit Project settings & skills"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>Edit Project</span>
+                </button>
+
+                <button
                   onClick={() => setMemberModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>Invite</span>
@@ -488,7 +687,7 @@ export default function KanbanBoardClient({
 
                 <button
                   onClick={() => setTransferModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
                   title="Transfer Project Manager ownership"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
@@ -499,14 +698,14 @@ export default function KanbanBoardClient({
                   <button
                     onClick={handleCompleteProject}
                     disabled={completingProj}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-500/20 disabled:opacity-50 transition"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-500/20 disabled:opacity-50 transition"
                   >
                     {completingProj ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Trophy className="w-3.5 h-3.5" />
                     )}
-                    <span>Complete Project &amp; Award XP</span>
+                    <span>Complete &amp; Award XP</span>
                   </button>
                 )}
               </>
@@ -574,14 +773,14 @@ export default function KanbanBoardClient({
 
       {/* Quick Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-2xl">
-        <div className="flex items-center gap-2 flex-1">
-          <Search className="w-4 h-4 text-slate-400 ml-1" />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Search className="w-4 h-4 text-slate-400 ml-1 shrink-0" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search board tasks..."
-            className="w-full bg-transparent text-xs text-slate-900 dark:text-white outline-none placeholder:text-slate-400"
+            className="w-full bg-transparent text-xs text-slate-900 dark:text-white outline-none placeholder:text-slate-400 min-w-0"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-slate-600">
@@ -619,14 +818,14 @@ export default function KanbanBoardClient({
             ))}
           </select>
 
-          <span className="text-[11px] text-slate-400 font-medium">
+          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
             Showing {filteredTasks.length} of {tasks.length}
           </span>
         </div>
       </div>
 
-      {/* Jira-Style Drag-and-Drop Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Interactive Kanban Board */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 min-w-0">
         {COLUMNS.map((col) => {
           const colTasks = filteredTasks.filter((t) => t.status === col.id);
           const isDropTarget = dragOverCol === col.id;
@@ -637,7 +836,7 @@ export default function KanbanBoardClient({
               onDragOver={(e) => handleDragOver(e, col.id)}
               onDragLeave={() => setDragOverCol(null)}
               onDrop={(e) => handleDrop(e, col.id)}
-              className={`bg-slate-100/70 dark:bg-slate-900/60 border rounded-3xl p-4 flex flex-col min-h-[500px] transition-all ${
+              className={`bg-slate-100/70 dark:bg-slate-900/60 border rounded-3xl p-4 flex flex-col min-h-[450px] transition-all min-w-0 ${
                 isDropTarget
                   ? 'border-blue-500 bg-blue-50/20 dark:bg-blue-950/20 ring-2 ring-blue-500/20 shadow-md'
                   : 'border-slate-200/80 dark:border-slate-800/80'
@@ -674,7 +873,7 @@ export default function KanbanBoardClient({
                       key={task.id}
                       draggable={true}
                       onDragStart={(e) => handleDragStart(e, task.id)}
-                      className={`group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:border-blue-400 dark:hover:border-blue-500/50 hover:shadow-md transition-all cursor-grab active:cursor-grabbing space-y-3 ${
+                      className={`group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm hover:border-blue-400 dark:hover:border-blue-500/50 hover:shadow-md transition-all cursor-grab active:cursor-grabbing space-y-3 min-w-0 ${
                         isDraggingThis ? 'opacity-40 scale-95 border-dashed border-blue-500' : ''
                       }`}
                     >
@@ -685,12 +884,24 @@ export default function KanbanBoardClient({
                           {task.priority}
                         </span>
 
-                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
-                          +{task.xp_reward} XP
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
+                            +{task.xp_reward} XP
+                          </span>
+                          <button
+                            onClick={() => openEditTask(task)}
+                            className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                            title="Edit Task"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white leading-snug">
+                      <h4
+                        onClick={() => openEditTask(task)}
+                        className="font-bold text-sm text-slate-900 dark:text-white leading-snug cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition"
+                      >
                         {task.title}
                       </h4>
 
@@ -759,7 +970,7 @@ export default function KanbanBoardClient({
                           />
                           <button
                             onClick={() => handleAddSubtask(task.id)}
-                            className="px-2 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+                            className="px-2 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold shrink-0"
                           >
                             Add
                           </button>
@@ -785,7 +996,7 @@ export default function KanbanBoardClient({
 
                       {/* Card Footer: Assignee & Column Mover buttons */}
                       <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                        <span className="text-slate-400">
+                        <span className="text-slate-400 truncate max-w-[120px]">
                           {task.assignee ? (
                             <span className="font-semibold text-slate-700 dark:text-slate-300">
                               @{task.assignee.username}
@@ -795,7 +1006,7 @@ export default function KanbanBoardClient({
                           )}
                         </span>
 
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0">
                           {col.id !== 'TODO' && (
                             <button
                               onClick={() => {
@@ -865,14 +1076,359 @@ export default function KanbanBoardClient({
         })}
       </div>
 
-      {/* Task Creation Modal */}
+      {/* -------------------------------------------------------- */}
+      {/* Edit Task Modal */}
+      {/* -------------------------------------------------------- */}
+      {editTaskModalOpen && editingTask && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setEditTaskModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-blue-600" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Edit Task</h2>
+              </div>
+              <button
+                onClick={() => setEditTaskModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTaskEdit} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Task Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Lane Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                  >
+                    <option value="TODO">To Do</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="REVIEW">Review</option>
+                    <option value="DONE">Done (Claim XP)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Priority
+                  </label>
+                  <select
+                    value={editPriority}
+                    onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                    <option value="CRITICAL">Critical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Assignee
+                  </label>
+                  <select
+                    value={editAssignee}
+                    onChange={(e) => setEditAssignee(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                  >
+                    <option value="">Unassigned</option>
+                    {projectMembers.map((m: any) => (
+                      <option key={m.id} value={m.id}>
+                        {m.display_name} (@{m.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Reward XP
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="500"
+                    value={editXp}
+                    onChange={(e) => setEditXp(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Skill Rewarded
+                </label>
+                <select
+                  value={editSkill}
+                  onChange={(e) => setEditSkill(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                >
+                  <option value="">Default (Project Skills / General)</option>
+                  {allSkills.map((s: any) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.category})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Subtasks manager in modal */}
+              <div className="pt-2">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                  Checklist Items ({editSubtasks.length})
+                </label>
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {editSubtasks.map((st, i) => (
+                    <div key={st.id || i} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-slate-700 dark:text-slate-300">
+                        {st.completed ? '✓ ' : '• '} {st.title}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditSubtasks((prev) => prev.filter((_, idx) => idx !== i))
+                        }
+                        className="text-slate-400 hover:text-red-500"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTask(editingTask.id)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Task</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditTaskModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editLoading}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {editLoading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------------------------------------------- */}
+      {/* Edit Project Settings Modal */}
+      {/* -------------------------------------------------------- */}
+      {projectModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setProjectModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Settings className="w-4 h-4 text-blue-600" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Edit Project Settings</h2>
+              </div>
+              <button
+                onClick={() => setProjectModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProject} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Project Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editProjectName}
+                  onChange={(e) => setEditProjectName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={editProjectDesc}
+                  onChange={(e) => setEditProjectDesc(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Project Status
+                  </label>
+                  <select
+                    value={editProjectStatus}
+                    onChange={(e) => setEditProjectStatus(e.target.value as ProjectStatus)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                  >
+                    <option value="PLANNING">Planning</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="ARCHIVED">Archived</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Completion XP Reward
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    max="2000"
+                    value={editProjectXp}
+                    onChange={(e) => setEditProjectXp(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Skills linked to project */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                  Linked Skills (Rewarded on Project Completion)
+                </label>
+                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+                  {allSkills.map((skill) => {
+                    const isChecked = editProjectSkillIds.includes(skill.id);
+                    return (
+                      <label
+                        key={skill.id}
+                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-900 cursor-pointer text-xs"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setEditProjectSkillIds((prev) => prev.filter((id) => id !== skill.id));
+                            } else {
+                              setEditProjectSkillIds((prev) => [...prev, skill.id]);
+                            }
+                          }}
+                          className="rounded text-blue-600 focus:ring-0"
+                        />
+                        <span className="truncate font-medium text-slate-700 dark:text-slate-300">
+                          {skill.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleDeleteProject}
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Project</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setProjectModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={projectSaving}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {projectSaving ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* -------------------------------------------------------- */}
+      {/* Create Task Modal */}
+      {/* -------------------------------------------------------- */}
       {taskModalOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setTaskModalOpen(false)}
         >
           <div
-            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl"
+            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
@@ -974,7 +1530,7 @@ export default function KanbanBoardClient({
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
                   >
                     <option value="">All Project Skills</option>
-                    {projectSkills.map((s: any) => (
+                    {allSkills.map((s: any) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
                       </option>

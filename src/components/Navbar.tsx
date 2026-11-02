@@ -48,19 +48,19 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 lg:px-8 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3 sm:px-4 lg:px-8 py-2.5 sm:py-3 flex items-center justify-between max-w-full overflow-x-hidden">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Mobile menu button */}
           <button
             onClick={() => setMobileNavOpen(!mobileNavOpen)}
-            className="lg:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="lg:hidden p-1.5 sm:p-2 rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <Link href="/" className="lg:hidden flex items-center gap-2">
-            <span className="text-xl">🪵</span>
-            <span className="font-bold text-base text-slate-900 dark:text-white">
+          <Link href="/" className="lg:hidden flex items-center gap-1.5">
+            <span className="text-lg">🪵</span>
+            <span className="font-bold text-sm sm:text-base text-slate-900 dark:text-white">
               Workbench
             </span>
           </Link>
@@ -78,7 +78,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
           </button>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Ambient Focus & Pomodoro Tool */}
           <FocusAudioBar />
 
@@ -100,7 +100,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
           {/* Quick Practice Trigger Button */}
           <button
             onClick={() => setPracticeModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-semibold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl font-semibold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Log Practice</span>

@@ -100,7 +100,7 @@ export default function ProjectsListClient({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Projects &amp; Jira Task Boards
+            Projects &amp; Task Boards
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Collaborative workspaces with role governance and dual task/project XP payouts.
@@ -202,7 +202,7 @@ export default function ProjectsListClient({
             No projects yet
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Create your first project to set up a Jira Kanban board, assign tasks, and award XP.
+            Create your first project to set up a Kanban task board, assign tasks, and award XP.
           </p>
           <button
             onClick={() => setModalOpen(true)}
