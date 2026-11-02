@@ -11,6 +11,7 @@ import PracticeModal from './PracticeModal';
 import FocusAudioBar from './FocusAudioBar';
 import ThemeToggle from './ThemeToggle';
 import SpotlightSearch from './SpotlightSearch';
+import NotificationBell from './NotificationBell';
 
 interface NavbarProps {
   profile: Profile | null;
@@ -23,6 +24,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [practiceModalOpen, setPracticeModalOpen] = useState(false);
+  const [practiceDuration, setPracticeDuration] = useState<number>(25);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
 
   const levelInfo = getLevelProgress(totalXp);
@@ -80,7 +82,15 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Ambient Focus & Pomodoro Tool */}
-          <FocusAudioBar />
+          <FocusAudioBar
+            onOpenPractice={(duration) => {
+              setPracticeDuration(duration);
+              setPracticeModalOpen(true);
+            }}
+          />
+
+          {/* Project & Skill Notifications */}
+          <NotificationBell profile={profile} />
 
           {/* Theme Switcher */}
           <ThemeToggle />
@@ -232,7 +242,10 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
 
       {/* Practice Logger Modal */}
       {practiceModalOpen && (
-        <PracticeModal onClose={() => setPracticeModalOpen(false)} />
+        <PracticeModal
+          onClose={() => setPracticeModalOpen(false)}
+          prefillDuration={practiceDuration}
+        />
       )}
 
       {/* Spotlight Command Palette */}

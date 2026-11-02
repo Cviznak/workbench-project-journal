@@ -69,10 +69,11 @@ export default function ProjectsListClient({
       if (projErr) throw projErr;
 
       if (project) {
-        // 2. Add creator to project_members
+        // 2. Add creator to project_members as ACCEPTED
         await supabase.from('project_members').insert({
           project_id: project.id,
           user_id: userId,
+          invitation_status: 'ACCEPTED',
         });
 
         // 3. Link selected skills
@@ -174,7 +175,7 @@ export default function ProjectsListClient({
                 </div>
 
                 <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <span className="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300">
                       <Users className="w-3.5 h-3.5 text-slate-400" />
                       <span>{members.length} members</span>
@@ -182,6 +183,11 @@ export default function ProjectsListClient({
                     {isPM && (
                       <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-1.5 py-0.5 rounded">
                         PM
+                      </span>
+                    )}
+                    {members.find((m: any) => m.user_id === userId)?.invitation_status === 'PENDING' && (
+                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 rounded">
+                        Invite Pending
                       </span>
                     )}
                   </div>

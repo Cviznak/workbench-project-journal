@@ -92,11 +92,15 @@ export interface Project {
   tasks?: ProjectTask[];
 }
 
+export type ProjectInvitationStatus = 'PENDING' | 'ACCEPTED';
+
 export interface ProjectMember {
   project_id: string;
   user_id: string;
+  invitation_status: ProjectInvitationStatus;
   joined_at: string;
   profile?: Profile;
+  project?: Project;
 }
 
 export interface ProjectSkill {

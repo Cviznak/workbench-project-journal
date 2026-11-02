@@ -17,19 +17,31 @@ import {
   ChevronUp,
   Sparkles,
   Timer,
+  X,
+  Flame,
 } from 'lucide-react';
 
 type SoundMode = 'off' | 'lofi' | 'rain' | 'brown' | 'binaural';
 
-export default function FocusAudioBar() {
+interface FocusAudioBarProps {
+  onOpenPractice?: (durationMinutes: number) => void;
+}
+
+export default function FocusAudioBar({ onOpenPractice }: FocusAudioBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [soundMode, setSoundMode] = useState<SoundMode>('off');
   const [volume, setVolume] = useState(0.35);
 
   // Pomodoro state
+  const [workDurationMinutes, setWorkDurationMinutes] = useState(25);
   const [timerSeconds, setTimerSeconds] = useState(25 * 60);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerMode, setTimerMode] = useState<'work' | 'break'>('work');
+  const [completedSessionToast, setCompletedSessionToast] = useState<{
+    duration: number;
+    id: number;
+  } | null>(null);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Soundscape switcher
@@ -60,12 +72,18 @@ export default function FocusAudioBar() {
           if (prev <= 1) {
             // Timer finished
             sounds.playTimerBell();
+
             if (timerMode === 'work') {
+              sounds.playTaskComplete();
+              setCompletedSessionToast({
+                duration: workDurationMinutes,
+                id: Date.now(),
+              });
               setTimerMode('break');
               return 5 * 60; // 5 min break
             } else {
               setTimerMode('work');
-              return 25 * 60; // back to work
+              return workDurationMinutes * 60; // back to work
             }
           }
           return prev - 1;
@@ -77,16 +95,22 @@ export default function FocusAudioBar() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isTimerRunning, timerMode]);
+  }, [isTimerRunning, timerMode, workDurationMinutes]);
 
   function toggleTimer() {
     setIsTimerRunning(!isTimerRunning);
   }
 
-  function resetTimer(mode: 'work' | 'break') {
+  function resetTimer(mode: 'work' | 'break', durationMins?: number) {
     setIsTimerRunning(false);
     setTimerMode(mode);
-    setTimerSeconds(mode === 'work' ? 25 * 60 : 5 * 60);
+    if (mode === 'work') {
+      const mins = durationMins || workDurationMinutes;
+      setWorkDurationMinutes(mins);
+      setTimerSeconds(mins * 60);
+    } else {
+      setTimerSeconds(5 * 60);
+    }
   }
 
   const minutes = Math.floor(timerSeconds / 60);
@@ -122,6 +146,42 @@ export default function FocusAudioBar() {
         {isOpen ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
       </button>
 
+      {/* Completion Toast Notification */}
+      {completedSessionToast && (
+        <div className="fixed top-16 right-4 sm:right-28 z-50 p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-blue-500/40 shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-3 duration-200 max-w-sm">
+          <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+            🎉
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-bold text-slate-900 dark:text-white">
+              Focus Interval Finished!
+            </div>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+              {completedSessionToast.duration}m deliberate session completed.
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={() => {
+                if (onOpenPractice) {
+                  onOpenPractice(completedSessionToast.duration);
+                }
+                setCompletedSessionToast(null);
+              }}
+              className="px-3 py-1.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition whitespace-nowrap"
+            >
+              Log {completedSessionToast.duration}m (+{completedSessionToast.duration * 2} XP)
+            </button>
+            <button
+              onClick={() => setCompletedSessionToast(null)}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Flyout panel */}
       {isOpen && (
         <div className="fixed sm:absolute right-4 sm:right-0 top-16 sm:top-10 mt-1 w-[calc(100vw-2rem)] sm:w-80 max-w-sm p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2 duration-150">
@@ -144,14 +204,24 @@ export default function FocusAudioBar() {
               </div>
               <div className="flex gap-1 text-[11px]">
                 <button
-                  onClick={() => resetTimer('work')}
+                  onClick={() => resetTimer('work', 25)}
                   className={`px-2 py-0.5 rounded-md font-medium transition ${
-                    timerMode === 'work'
+                    timerMode === 'work' && workDurationMinutes === 25
                       ? 'bg-blue-600 text-white'
                       : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                   }`}
                 >
                   25m
+                </button>
+                <button
+                  onClick={() => resetTimer('work', 50)}
+                  className={`px-2 py-0.5 rounded-md font-medium transition ${
+                    timerMode === 'work' && workDurationMinutes === 50
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  50m
                 </button>
                 <button
                   onClick={() => resetTimer('break')}
@@ -161,7 +231,7 @@ export default function FocusAudioBar() {
                       : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                   }`}
                 >
-                  5m
+                  5m Break
                 </button>
               </div>
             </div>
@@ -191,6 +261,26 @@ export default function FocusAudioBar() {
                 </button>
               </div>
             </div>
+
+            {/* Quick Practice Bridge inside Flyout */}
+            {completedSessionToast && (
+              <div className="mt-2.5 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
+                  {completedSessionToast.duration}m Completed
+                </span>
+                <button
+                  onClick={() => {
+                    if (onOpenPractice) {
+                      onOpenPractice(completedSessionToast.duration);
+                    }
+                    setCompletedSessionToast(null);
+                  }}
+                  className="px-2.5 py-1 rounded-md text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Log Practice (+{completedSessionToast.duration * 2} XP)
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Ambient Soundscapes */}

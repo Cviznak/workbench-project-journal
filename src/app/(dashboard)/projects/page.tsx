@@ -12,7 +12,7 @@ export default async function ProjectsPage() {
   // Fetch projects user is member of or PM
   const { data: projects } = await supabase
     .from('projects')
-    .select('*, pm:profiles!projects_pm_user_id_fkey(*), members:project_members(user_id, profile:profiles(*)), skills:project_skills(skill:skill_catalog(*))')
+    .select('*, pm:profiles!projects_pm_user_id_fkey(*), members:project_members(user_id, invitation_status, profile:profiles(*)), skills:project_skills(skill:skill_catalog(*))')
     .order('created_at', { ascending: false });
 
   // Fetch global skills for project creation
