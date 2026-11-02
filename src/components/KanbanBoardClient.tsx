@@ -128,11 +128,28 @@ export default function KanbanBoardClient({
 
   const isPM = project.pm_user_id === userId;
   const myMembership = members.find((m: any) => m.user_id === userId);
-  const isPendingInvite = myMembership?.invitation_status === 'PENDING';
+  const isPendingInvite = !isPM && myMembership?.invitation_status === 'PENDING';
   const projectSkills = projectSkillsList.map((s) => s.skill).filter(Boolean);
-  const projectMembers = members
-    .map((m) => (m.profile ? { ...m.profile, invitation_status: m.invitation_status } : null))
+
+  // Guarantee PM is always present in projectMembers with ACCEPTED status
+  const rawMemberProfiles = members
+    .map((m) =>
+      m.profile
+        ? {
+            ...m.profile,
+            invitation_status:
+              m.user_id === project.pm_user_id ? 'ACCEPTED' : (m.invitation_status || 'ACCEPTED'),
+          }
+        : null
+    )
     .filter(Boolean);
+
+  const hasPmInMembers = rawMemberProfiles.some((m) => m.id === project.pm_user_id);
+  const projectMembers = hasPmInMembers
+    ? rawMemberProfiles
+    : project.pm
+    ? [{ ...project.pm, invitation_status: 'ACCEPTED' }, ...rawMemberProfiles]
+    : rawMemberProfiles;
 
   // -------------------------------------------------------------
   // Realtime WebSocket Subscription
@@ -1347,8 +1364,13 @@ export default function KanbanBoardClient({
                   >
                     <option value="">Unassigned</option>
                     {projectMembers.map((m: any) => (
-                      <option key={m.id} value={m.id}>
+                      <option
+                        key={m.id}
+                        value={m.id}
+                        disabled={m.invitation_status === 'PENDING'}
+                      >
                         {m.display_name} (@{m.username})
+                        {m.invitation_status === 'PENDING' ? ' (Pending Invite)' : ''}
                       </option>
                     ))}
                   </select>

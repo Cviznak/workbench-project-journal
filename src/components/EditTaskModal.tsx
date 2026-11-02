@@ -517,8 +517,13 @@ export default function EditTaskModal({
                     >
                       <option value="">Unassigned</option>
                       {projectMembers.map((m: any) => (
-                        <option key={m.id} value={m.id}>
+                        <option
+                          key={m.id}
+                          value={m.id}
+                          disabled={m.invitation_status === 'PENDING'}
+                        >
                           {m.display_name} (@{m.username})
+                          {m.invitation_status === 'PENDING' ? ' (Pending Invite)' : ''}
                         </option>
                       ))}
                     </select>

@@ -166,12 +166,15 @@ export default function WorkspaceClient({ initialItems, userId }: WorkspaceClien
 
       if (projErr) throw projErr;
 
-      // Add user as project member as ACCEPTED
-      await supabase.from('project_members').insert({
-        project_id: newProject.id,
-        user_id: userId,
-        invitation_status: 'ACCEPTED',
-      });
+      // Add user as project member as ACCEPTED (upsert on conflict)
+      await supabase.from('project_members').upsert(
+        {
+          project_id: newProject.id,
+          user_id: userId,
+          invitation_status: 'ACCEPTED',
+        },
+        { onConflict: 'project_id,user_id' }
+      );
 
       // Mark Idea as PROMOTED
       await handleUpdateField('idea_status', 'PROMOTED');

@@ -35,6 +35,18 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
     .select('*, profile:profiles(*)')
     .eq('project_id', projectId);
 
+  // Guarantee PM is always present in members with ACCEPTED status
+  const safeMembers = [...(members || [])];
+  if (project.pm && !safeMembers.some((m) => m.user_id === project.pm_user_id)) {
+    safeMembers.unshift({
+      project_id: projectId,
+      user_id: project.pm_user_id,
+      invitation_status: 'ACCEPTED',
+      joined_at: project.created_at,
+      profile: project.pm,
+    });
+  }
+
   // 3. Fetch project skills
   const { data: skills } = await supabase
     .from('project_skills')
@@ -58,7 +70,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
   return (
     <KanbanBoardClient
       project={project}
-      members={members || []}
+      members={safeMembers}
       skills={skills || []}
       tasks={tasks || []}
       allSkills={allSkills || []}

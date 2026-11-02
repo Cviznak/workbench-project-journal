@@ -69,12 +69,15 @@ export default function ProjectsListClient({
       if (projErr) throw projErr;
 
       if (project) {
-        // 2. Add creator to project_members as ACCEPTED
-        await supabase.from('project_members').insert({
-          project_id: project.id,
-          user_id: userId,
-          invitation_status: 'ACCEPTED',
-        });
+        // 2. Add creator to project_members as ACCEPTED (upsert on conflict)
+        await supabase.from('project_members').upsert(
+          {
+            project_id: project.id,
+            user_id: userId,
+            invitation_status: 'ACCEPTED',
+          },
+          { onConflict: 'project_id,user_id' }
+        );
 
         // 3. Link selected skills
         if (selectedSkillIds.length > 0) {
