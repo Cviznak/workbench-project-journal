@@ -13,3 +13,6 @@ workbench-backup-*.json
 Thumbs.db
 desktop.ini
 scratch/
+
+.vercel
+.env*
