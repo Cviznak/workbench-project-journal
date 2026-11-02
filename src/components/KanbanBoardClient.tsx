@@ -39,7 +39,10 @@ import {
   Trash2,
   Settings,
   MoreVertical,
+  MessageSquare,
+  Paperclip,
 } from 'lucide-react';
+import EditTaskModal from '@/components/EditTaskModal';
 
 interface KanbanBoardClientProps {
   project: any;
@@ -99,17 +102,6 @@ export default function KanbanBoardClient({
   const [taskSkill, setTaskSkill] = useState<string>('');
   const [taskXp, setTaskXp] = useState('25');
   const [taskLoading, setTaskLoading] = useState(false);
-
-  // Edit Task form state
-  const [editTitle, setEditTitle] = useState('');
-  const [editDesc, setEditDesc] = useState('');
-  const [editStatus, setEditStatus] = useState<TaskStatus>('TODO');
-  const [editPriority, setEditPriority] = useState<TaskPriority>('MEDIUM');
-  const [editAssignee, setEditAssignee] = useState('');
-  const [editSkill, setEditSkill] = useState('');
-  const [editXp, setEditXp] = useState('25');
-  const [editSubtasks, setEditSubtasks] = useState<TaskSubtask[]>([]);
-  const [editLoading, setEditLoading] = useState(false);
 
   // Edit Project form state
   const [editProjectName, setEditProjectName] = useState(initialProject.name);
@@ -189,89 +181,11 @@ export default function KanbanBoardClient({
   }, [project.id, supabase]);
 
   // -------------------------------------------------------------
-  // Open Task Edit Modal
+  // Open Task Workshop Drawer / Modal
   // -------------------------------------------------------------
   function openEditTask(task: any) {
     setEditingTask(task);
-    setEditTitle(task.title || '');
-    setEditDesc(task.description || '');
-    setEditStatus(task.status || 'TODO');
-    setEditPriority(task.priority || 'MEDIUM');
-    setEditAssignee(task.assignee_id || '');
-    setEditSkill(task.skill_id || '');
-    setEditXp(String(task.xp_reward || 25));
-    setEditSubtasks(task.subtasks || []);
     setEditTaskModalOpen(true);
-  }
-
-  // -------------------------------------------------------------
-  // Save Task Changes
-  // -------------------------------------------------------------
-  async function handleSaveTaskEdit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editingTask) return;
-    setEditLoading(true);
-
-    try {
-      // If user moved to DONE directly from edit modal, execute RPC
-      if (editStatus === 'DONE' && !editingTask.xp_awarded) {
-        const { error: rpcError } = await supabase.rpc('complete_project_task', {
-          p_task_id: editingTask.id,
-        });
-        if (rpcError) throw rpcError;
-
-        sounds.playTaskComplete();
-        triggerCelebrationConfetti();
-      }
-
-      const { data, error } = await supabase
-        .from('project_tasks')
-        .update({
-          title: editTitle.trim(),
-          description: editDesc.trim(),
-          status: editStatus,
-          priority: editPriority,
-          assignee_id: editAssignee || null,
-          skill_id: editSkill || null,
-          xp_reward: parseInt(editXp, 10) || 25,
-          subtasks: editSubtasks,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', editingTask.id)
-        .select('*, assignee:profiles(*), skill:skill_catalog(*)')
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)));
-      }
-      setEditTaskModalOpen(false);
-      setEditingTask(null);
-      router.refresh();
-    } catch (err: any) {
-      alert(err.message || 'Failed to update task');
-    } finally {
-      setEditLoading(false);
-    }
-  }
-
-  // -------------------------------------------------------------
-  // Delete Task
-  // -------------------------------------------------------------
-  async function handleDeleteTask(taskId: string) {
-    if (!confirm('Are you sure you want to delete this task?')) return;
-
-    try {
-      const { error } = await supabase.from('project_tasks').delete().eq('id', taskId);
-      if (error) throw error;
-
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
-      setEditTaskModalOpen(false);
-      setEditingTask(null);
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete task');
-    }
   }
 
   // -------------------------------------------------------------
@@ -1053,15 +967,42 @@ export default function KanbanBoardClient({
 
                       {/* Card Footer: Assignee & Column Mover buttons */}
                       <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                        <span className="text-slate-400 truncate max-w-[120px]">
-                          {task.assignee ? (
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
-                              @{task.assignee.username}
-                            </span>
-                          ) : (
-                            <span className="italic text-slate-400">Unassigned</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-slate-400 truncate max-w-[100px]">
+                            {task.assignee ? (
+                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                @{task.assignee.username}
+                              </span>
+                            ) : (
+                              <span className="italic text-slate-400">Unassigned</span>
+                            )}
+                          </span>
+
+                          {/* Comments & Attachments count badges */}
+                          {((task.comments?.[0]?.count ?? 0) > 0 ||
+                            (task.attachments?.[0]?.count ?? 0) > 0) && (
+                            <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
+                              {(task.comments?.[0]?.count ?? 0) > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 hover:text-blue-500 transition"
+                                  title={`${task.comments[0].count} comments`}
+                                >
+                                  <MessageSquare className="w-3 h-3" />
+                                  <span>{task.comments[0].count}</span>
+                                </span>
+                              )}
+                              {(task.attachments?.[0]?.count ?? 0) > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 hover:text-blue-500 transition"
+                                  title={`${task.attachments[0].count} attachments`}
+                                >
+                                  <Paperclip className="w-3 h-3" />
+                                  <span>{task.attachments[0].count}</span>
+                                </span>
+                              )}
+                            </div>
                           )}
-                        </span>
+                        </div>
 
                         <div className="flex items-center gap-1 shrink-0">
                           {col.id !== 'TODO' && (
@@ -1134,197 +1075,33 @@ export default function KanbanBoardClient({
       </div>
 
       {/* -------------------------------------------------------- */}
-      {/* Edit Task Modal */}
+      {/* Edit Task Workshop Modal (Details, Comments, Attachments) */}
       {/* -------------------------------------------------------- */}
       {editTaskModalOpen && editingTask && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setEditTaskModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-blue-600" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Edit Task</h2>
-              </div>
-              <button
-                onClick={() => setEditTaskModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveTaskEdit} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  Task Title
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                    Lane Status
-                  </label>
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as TaskStatus)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
-                  >
-                    <option value="TODO">To Do</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="REVIEW">Review</option>
-                    <option value="DONE">Done (Claim XP)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                    Priority
-                  </label>
-                  <select
-                    value={editPriority}
-                    onChange={(e) => setEditPriority(e.target.value as TaskPriority)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                    <option value="CRITICAL">Critical</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                    Assignee
-                  </label>
-                  <select
-                    value={editAssignee}
-                    onChange={(e) => setEditAssignee(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
-                  >
-                    <option value="">Unassigned</option>
-                    {projectMembers.map((m: any) => (
-                      <option key={m.id} value={m.id}>
-                        {m.display_name} (@{m.username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                    Reward XP
-                  </label>
-                  <input
-                    type="number"
-                    min="5"
-                    max="500"
-                    value={editXp}
-                    onChange={(e) => setEditXp(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  Skill Rewarded
-                </label>
-                <select
-                  value={editSkill}
-                  onChange={(e) => setEditSkill(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
-                >
-                  <option value="">Default (Project Skills / General)</option>
-                  {allSkills.map((s: any) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.category})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Subtasks manager in modal */}
-              <div className="pt-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                  Checklist Items ({editSubtasks.length})
-                </label>
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {editSubtasks.map((st, i) => (
-                    <div key={st.id || i} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="truncate text-slate-700 dark:text-slate-300">
-                        {st.completed ? '✓ ' : '• '} {st.title}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditSubtasks((prev) => prev.filter((_, idx) => idx !== i))
-                        }
-                        className="text-slate-400 hover:text-red-500"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => handleDeleteTask(editingTask.id)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete Task</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditTaskModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={editLoading}
-                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {editLoading ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditTaskModal
+          task={editingTask}
+          projectId={project.id}
+          projectMembers={projectMembers}
+          allSkills={allSkills}
+          currentUserId={userId}
+          isPM={isPM}
+          onClose={() => {
+            setEditTaskModalOpen(false);
+            setEditingTask(null);
+          }}
+          onTaskUpdated={(updatedTask) => {
+            setTasks((prev) =>
+              prev.map((t) => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t))
+            );
+            setEditingTask(null);
+            setEditTaskModalOpen(false);
+          }}
+          onTaskDeleted={(taskId) => {
+            setTasks((prev) => prev.filter((t) => t.id !== taskId));
+            setEditingTask(null);
+            setEditTaskModalOpen(false);
+          }}
+        />
       )}
 
       {/* -------------------------------------------------------- */}

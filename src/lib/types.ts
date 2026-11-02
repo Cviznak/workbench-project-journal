@@ -13,6 +13,9 @@ export interface Profile {
   role: UserRole;
   is_immutable: boolean;
   is_suspended: boolean;
+  current_streak?: number;
+  longest_streak?: number;
+  last_active_date?: string | null;
   settings_json?: Record<string, any>;
   created_at: string;
 }
@@ -128,10 +131,46 @@ export interface ProjectTask {
   xp_awarded: boolean;
   order_index: number;
   subtasks?: TaskSubtask[];
+  comments_count?: number;
+  attachments_count?: number;
   created_at: string;
   updated_at: string;
   assignee?: Profile | null;
   skill?: SkillCatalog | null;
+}
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  project_id: string;
+  user_id: string;
+  content_md: string;
+  is_edited: boolean;
+  created_at: string;
+  updated_at: string;
+  author?: Profile;
+}
+
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  project_id: string;
+  uploader_id: string;
+  file_name: string;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at: string;
+  uploader?: Profile;
+  signedUrl?: string;
+}
+
+export interface ActivityHeatmapDay {
+  activity_date: string;
+  practice_minutes: number;
+  tasks_completed: number;
+  xp_earned: number;
+  intensity: number; // 0..4
 }
 
 export type SkillTier = 'Novice' | 'Apprentice' | 'Artisan' | 'Master' | 'Grandmaster';

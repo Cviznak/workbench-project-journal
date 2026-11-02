@@ -44,7 +44,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
   // 4. Fetch project tasks
   const { data: tasks } = await supabase
     .from('project_tasks')
-    .select('*, assignee:profiles(*), skill:skill_catalog(*)')
+    .select('*, assignee:profiles(*), skill:skill_catalog(*), comments:task_comments(count), attachments:task_attachments(count)')
     .eq('project_id', projectId)
     .order('order_index', { ascending: true })
     .order('created_at', { ascending: true });

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
 import { getLevelProgress } from '@/lib/utils';
-import { Flame, Plus, LogOut, Settings, Shield, Menu, X, Search } from 'lucide-react';
+import { Flame, Plus, LogOut, Settings, Shield, Menu, X, Search, Zap } from 'lucide-react';
 import PracticeModal from './PracticeModal';
 import FocusAudioBar from './FocusAudioBar';
 import ThemeToggle from './ThemeToggle';
@@ -95,10 +95,22 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
           {/* Theme Switcher */}
           <ThemeToggle />
 
+          {/* Daily Streak Pill */}
+          <div
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-xs font-bold text-amber-600 dark:text-amber-400"
+            title={`${profile?.current_streak || 0}-day active practice streak`}
+          >
+            <Flame className="w-3.5 h-3.5 fill-current text-amber-500 animate-pulse" />
+            <span>{profile?.current_streak || 0}</span>
+            <span className="hidden sm:inline text-[11px] font-semibold text-amber-600/80 dark:text-amber-400/80">
+              {(profile?.current_streak || 0) === 1 ? 'day' : 'days'}
+            </span>
+          </div>
+
           {/* Global User XP & Level Pill */}
           <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
             <div className="flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
-              <Flame className="w-3.5 h-3.5 fill-current text-blue-500" />
+              <Zap className="w-3.5 h-3.5 fill-current text-blue-500" />
               <span>Lv {levelInfo.currentLevel}</span>
             </div>
             <span className="text-slate-300 dark:text-slate-600">•</span>

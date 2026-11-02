@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { getLevelProgress, relativeTime, formatDate } from '@/lib/utils';
 import { getSkillTier, calculateStreak, TaskStatus } from '@/lib/types';
+import ActivityHeatmap from '@/components/ActivityHeatmap';
 import {
   Flame,
   Target,
@@ -173,6 +174,9 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Maker Consistency & 365-Day Activity Heatmap */}
+      <ActivityHeatmap profile={profile} />
 
       {/* Main Grid: Skills Summary + Active Tasks */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
