@@ -231,6 +231,13 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
               >
                 Projects &amp; Tasks
               </Link>
+              <Link
+                href="/inventory"
+                className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                Inventory
+              </Link>
               {isAdmin && (
                 <Link
                   href="/admin"

@@ -9,6 +9,7 @@ import {
   Flame,
   Lightbulb,
   FolderKanban,
+  Package,
   Settings,
   Shield,
   Plus,
@@ -40,6 +41,7 @@ export default function SpotlightSearch({ isOpen, onClose, onOpenPractice }: Spo
     { title: 'Skills & Progression', path: '/skills', icon: Flame, category: 'Navigation' },
     { title: 'Ideas & Notes Workspace', path: '/workspace', icon: Lightbulb, category: 'Navigation' },
     { title: 'Projects & Tasks', path: '/projects', icon: FolderKanban, category: 'Navigation' },
+    { title: 'Maker Inventory & Restock', path: '/inventory', icon: Package, category: 'Navigation' },
     { title: 'Account Settings', path: '/settings', icon: Settings, category: 'Navigation' },
     { title: 'Admin Hub', path: '/admin', icon: Shield, category: 'Navigation' },
   ];
@@ -64,6 +66,12 @@ export default function SpotlightSearch({ isOpen, onClose, onOpenPractice }: Spo
       title: 'Write New Idea / Note',
       path: '/workspace',
       icon: Lightbulb,
+      category: 'Actions',
+    },
+    {
+      title: 'Add / Manage Inventory Items',
+      path: '/inventory',
+      icon: Package,
       category: 'Actions',
     },
   ];

@@ -7,6 +7,7 @@ import {
   Target,
   Lightbulb,
   FolderKanban,
+  Package,
   ShieldAlert,
   Settings,
 } from 'lucide-react';
@@ -26,6 +27,7 @@ export default function Sidebar({ profile }: SidebarProps) {
     { label: 'Skills & XP', href: '/skills', icon: Target },
     { label: 'Ideas & Notes', href: '/workspace', icon: Lightbulb },
     { label: 'Projects & Tasks', href: '/projects', icon: FolderKanban },
+    { label: 'Inventory', href: '/inventory', icon: Package },
     ...(isAdmin ? [{ label: 'Admin Hub', href: '/admin', icon: ShieldAlert }] : []),
     { label: 'Settings', href: '/settings', icon: Settings },
   ];

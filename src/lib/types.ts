@@ -4,6 +4,9 @@ export type IdeaStatus = 'RAW' | 'PROTOTYPING' | 'PROMOTED' | 'SHELVED';
 export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type ItemType = 'MATERIAL' | 'EQUIPMENT';
+export type ItemCondition = 'GOOD' | 'NEEDS_MAINTENANCE' | 'REPLACE';
+export type Currency = 'ILS' | 'USD' | 'EUR';
 
 export interface Profile {
   id: string;
@@ -167,6 +170,38 @@ export interface TaskAttachment {
   signedUrl?: string;
 }
 
+export interface InventoryFolder {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string;
+  icon: string;
+  created_at: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  user_id: string;
+  folder_id?: string | null;
+  item_type: ItemType;
+  name: string;
+  description: string;
+  sku_or_location: string;
+  quantity: number;
+  unit: string;
+  low_stock_threshold: number;
+  unit_price: number;
+  currency: Currency;
+  condition: ItemCondition;
+  search_keyword: string;
+  reorder_url: string;
+  in_restock_cart: boolean;
+  restock_target_qty: number;
+  updated_at: string;
+  created_at: string;
+  folder?: InventoryFolder | null;
+}
+
 export interface MakerArchiveExport {
   version: string;
   exported_at: string;
@@ -192,6 +227,8 @@ export interface MakerArchiveExport {
   projects: Project[];
   tasks: ProjectTask[];
   comments: TaskComment[];
+  inventory_folders?: InventoryFolder[];
+  inventory_items?: InventoryItem[];
   activity_logs: any[];
 }
 
