@@ -39,6 +39,7 @@ import {
   HelpCircle,
   Clock,
   CheckCircle2,
+  Coins,
 } from 'lucide-react';
 
 interface InventoryClientProps {
@@ -160,7 +161,7 @@ export default function InventoryClient({
 
   // Filters
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'LOW_STOCK'>('ALL');
-  const [activeTab, setActiveTab] = useState<'ALL' | 'MATERIAL' | 'EQUIPMENT' | 'CART' | 'RECIPES'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'MATERIAL' | 'EQUIPMENT' | 'FINISHED_GOOD' | 'CART' | 'RECIPES'>('ALL');
   const [recipeCategory, setRecipeCategory] = useState<string>('All');
   const [search, setSearch] = useState('');
 
@@ -295,6 +296,7 @@ export default function InventoryClient({
     return items.filter((item) => {
       if (activeTab === 'MATERIAL' && item.item_type !== 'MATERIAL') return false;
       if (activeTab === 'EQUIPMENT' && item.item_type !== 'EQUIPMENT') return false;
+      if (activeTab === 'FINISHED_GOOD' && item.item_type !== 'FINISHED_GOOD') return false;
       if (activeTab === 'CART') return item.in_restock_cart;
 
       if (selectedFolderId === 'LOW_STOCK') {
@@ -536,9 +538,20 @@ export default function InventoryClient({
 
       if (error) throw error;
 
-      // Optimistically decrement local stock
+      // Optimistically decrement ingredient stock & increment finished good output stock
       setItems((prev) =>
         prev.map((item) => {
+          // If this is the linked output item
+          if (runningRecipe.output_item_id && item.id === runningRecipe.output_item_id) {
+            const addedUnits = (Number(runningRecipe.output_yield_qty) || 1) * batchMultiplier;
+            const newUnitPrice = data?.unit_cogs || item.unit_price;
+            return {
+              ...item,
+              quantity: (Number(item.quantity) || 0) + addedUnits,
+              unit_price: newUnitPrice,
+            };
+          }
+
           const ing = runningRecipe.ingredients?.find(
             (ri) => ri.inventory_item_id === item.id
           );
@@ -558,7 +571,8 @@ export default function InventoryClient({
 
       sounds.playLevelUp();
       triggerCelebrationConfetti();
-      showToast(`Executed "${runningRecipe.title}" (${batchMultiplier}x batch)! Materials deducted.`);
+      const producedMsg = data?.produced_qty > 0 ? ` Produced +${data.produced_qty} finished units!` : '';
+      showToast(`Executed "${runningRecipe.title}" (${batchMultiplier}x batch)!${producedMsg} (+15 XP)`);
       setRunBatchModalOpen(false);
       setRunningRecipe(null);
     } catch (err: any) {
@@ -858,6 +872,21 @@ export default function InventoryClient({
                 Equipment ({items.filter((i) => i.item_type === 'EQUIPMENT').length})
               </button>
               <button
+                onClick={() => setActiveTab('FINISHED_GOOD')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  activeTab === 'FINISHED_GOOD'
+                    ? 'bg-amber-600 text-white shadow-md shadow-amber-500/20'
+                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50'
+                )}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Finished Goods</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 text-[10px]">
+                  {items.filter((i) => i.item_type === 'FINISHED_GOOD').length}
+                </span>
+              </button>
+              <button
                 onClick={() => setActiveTab('RECIPES')}
                 className={cn(
                   'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
@@ -1080,6 +1109,67 @@ export default function InventoryClient({
                               );
                             })}
                           </div>
+                          {/* Output Finished Good Link & Unit Economics */}
+                          {(() => {
+                            const outputItem = items.find((i) => i.id === recipe.output_item_id) || recipe.output_item;
+                            const yieldQty = Number(recipe.output_yield_qty) || 1;
+                            const packaging = Number(recipe.packaging_overhead) || 4.5;
+                            const unitCOGS = (batchCost / yieldQty) + packaging;
+                            const retailPrice = Number(recipe.target_retail_price) || 0;
+                            const grossProfit = retailPrice > 0 ? retailPrice - unitCOGS : 0;
+                            const marginPct = retailPrice > 0 ? (grossProfit / retailPrice) * 100 : 0;
+
+                            return (
+                              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                                {outputItem ? (
+                                  <div className="flex items-center justify-between p-2.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 text-xs">
+                                    <div className="flex items-center gap-2 truncate mr-2">
+                                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                      <span className="font-bold text-amber-950 dark:text-amber-100 truncate">
+                                        Outputs: {outputItem.name}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0 text-[11px]">
+                                      <span className="text-amber-700 dark:text-amber-300">
+                                        Yield: <b>{yieldQty} {outputItem.unit || 'pcs'}</b>
+                                      </span>
+                                      <span>•</span>
+                                      <span className="text-slate-500 dark:text-slate-400">
+                                        In Stock: <b>{outputItem.quantity} {outputItem.unit || 'pcs'}</b>
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-[11px] text-slate-400 italic px-1">
+                                    Raw formula (no finished good output linked).
+                                  </div>
+                                )}
+
+                                {/* Unit Economics Mini Bar */}
+                                <div className="grid grid-cols-3 gap-2 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/50 text-center text-xs">
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Unit COGS</span>
+                                    <span className="font-bold text-slate-900 dark:text-white">{formatCurrency(unitCOGS, primaryCurrency)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Target Price</span>
+                                    <span className="font-bold text-slate-900 dark:text-white">
+                                      {retailPrice > 0 ? formatCurrency(retailPrice, primaryCurrency) : '—'}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-medium">Est. Margin</span>
+                                    <span className={cn(
+                                      'font-bold text-xs',
+                                      retailPrice === 0 ? 'text-slate-400' : marginPct >= 50 ? 'text-emerald-500' : marginPct >= 20 ? 'text-amber-500' : 'text-red-500'
+                                    )}>
+                                      {retailPrice > 0 ? `${marginPct.toFixed(0)}%` : '—'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {/* Batch Cost & Run Action */}
@@ -1597,6 +1687,7 @@ export default function InventoryClient({
           recipe={editingRecipe}
           inventoryItems={items}
           userId={userId}
+          onItemCreated={(newGood) => setItems((prev) => [newGood, ...prev])}
           onSaved={(savedRecipe) => {
             setRecipes((prev) => {
               const exists = prev.some((r) => r.id === savedRecipe.id);
@@ -1700,6 +1791,27 @@ export default function InventoryClient({
                   );
                 })}
               </div>
+
+              {/* Output Finished Goods to Produce */}
+              {runningRecipe.output_item_id && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 rounded-2xl space-y-1.5">
+                  <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider block">
+                    Finished Goods to be Produced:
+                  </span>
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-white">
+                    <span className="truncate mr-2">
+                      🎁 {items.find((i) => i.id === runningRecipe.output_item_id)?.name || 'Finished Creation'}
+                    </span>
+                    <span className="text-emerald-600 dark:text-emerald-400 shrink-0">
+                      +{(Number(runningRecipe.output_yield_qty) || 1) * batchMultiplier} {items.find((i) => i.id === runningRecipe.output_item_id)?.unit || 'units'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-amber-800 dark:text-amber-300">
+                    <span>Reward: <b>+15 XP Production Practice</b></span>
+                    <span>Auto-calculates unit COGS</span>
+                  </div>
+                </div>
+              )}
 
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 ⚠️ Executing this batch will immediately decrement inventory quantities and trigger restock alerts if thresholds are breached.
@@ -2022,6 +2134,7 @@ interface RecipeModalProps {
   inventoryItems: InventoryItem[];
   userId: string;
   onSaved: (recipe: MakerRecipe) => void;
+  onItemCreated?: (item: InventoryItem) => void;
 }
 
 function RecipeModal({
@@ -2031,6 +2144,7 @@ function RecipeModal({
   inventoryItems,
   userId,
   onSaved,
+  onItemCreated,
 }: RecipeModalProps) {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
@@ -2047,6 +2161,20 @@ function RecipeModal({
       quantity_required: Number(ri.quantity_required) || 1,
     })) || []
   );
+
+  // v1.6 Output Finished Good & Unit Economics state
+  const [outputItemId, setOutputItemId] = useState<string>(recipe?.output_item_id || '');
+  const [outputYieldQty, setOutputYieldQty] = useState<string>(
+    String(recipe?.output_yield_qty ?? 1)
+  );
+  const [packagingOverhead, setPackagingOverhead] = useState<string>(
+    String(recipe?.packaging_overhead ?? 4.5)
+  );
+  const [targetRetailPrice, setTargetRetailPrice] = useState<string>(
+    String(recipe?.target_retail_price ?? 0)
+  );
+  const [deductMarketplaceFee, setDeductMarketplaceFee] = useState<boolean>(true);
+  const [creatingGood, setCreatingGood] = useState(false);
 
   function addIngredientRow() {
     if (inventoryItems.length === 0) return;
@@ -2074,6 +2202,54 @@ function RecipeModal({
     }, 0);
   }, [ingredients, inventoryItems]);
 
+  // Unit Economics calculation
+  const yieldQty = Math.max(0.01, parseFloat(outputYieldQty) || 1);
+  const pkgOverhead = Math.max(0, parseFloat(packagingOverhead) || 0);
+  const retailPrice = Math.max(0, parseFloat(targetRetailPrice) || 0);
+  const unitIngredientsCost = estimatedCost / yieldQty;
+  const unitCOGS = unitIngredientsCost + pkgOverhead;
+  const marketplaceFee = deductMarketplaceFee ? retailPrice * 0.095 : 0;
+  const netProfit = retailPrice - unitCOGS - marketplaceFee;
+  const marginPercent = retailPrice > 0 ? (netProfit / retailPrice) * 100 : 0;
+
+  // Auto create Finished Good in inventory_items
+  async function handleAutoCreateFinishedGood() {
+    if (!title.trim()) {
+      alert('Please enter a formula title first');
+      return;
+    }
+    setCreatingGood(true);
+    try {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .insert({
+          user_id: userId,
+          name: title.trim(),
+          item_type: 'FINISHED_GOOD',
+          description: `Produced via formula: ${title.trim()}`,
+          quantity: 0,
+          unit: 'pcs',
+          unit_price: Math.round(unitCOGS * 100) / 100,
+          currency: 'ILS',
+          condition: 'GOOD',
+          in_restock_cart: false,
+          restock_target_qty: 1,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        if (onItemCreated) onItemCreated(data as InventoryItem);
+        setOutputItemId(data.id);
+      }
+    } catch (err: any) {
+      alert(`Failed to auto-create item: ${err.message}`);
+    } finally {
+      setCreatingGood(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) {
@@ -2094,6 +2270,10 @@ function RecipeModal({
             category,
             instructions_md: instructionsMd.trim(),
             rating,
+            output_item_id: outputItemId || null,
+            output_yield_qty: yieldQty,
+            packaging_overhead: pkgOverhead,
+            target_retail_price: retailPrice,
             updated_at: new Date().toISOString(),
           })
           .eq('id', recipe.id);
@@ -2111,6 +2291,10 @@ function RecipeModal({
             category,
             instructions_md: instructionsMd.trim(),
             rating,
+            output_item_id: outputItemId || null,
+            output_yield_qty: yieldQty,
+            packaging_overhead: pkgOverhead,
+            target_retail_price: retailPrice,
           })
           .select()
           .single();
@@ -2131,10 +2315,10 @@ function RecipeModal({
         if (ingErr) throw ingErr;
       }
 
-      // Fetch full recipe with joined ingredients
+      // Fetch full recipe with joined ingredients and output_item
       const { data: fullRecipe } = await supabase
         .from('maker_recipes')
-        .select('*, ingredients:recipe_ingredients(*, inventory_item:inventory_items(*))')
+        .select('*, output_item:inventory_items(*), ingredients:recipe_ingredients(*, inventory_item:inventory_items(*))')
         .eq('id', savedId!)
         .single();
 
@@ -2150,14 +2334,14 @@ function RecipeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
             <FlaskConical className="w-5 h-5 text-emerald-500" />
             <span>{recipe ? 'Edit Formula / Recipe' : 'New Workshop Formula'}</span>
           </div>
           <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-600">
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -2209,26 +2393,95 @@ function RecipeModal({
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Rating
-            </label>
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setRating(star)}
-                  className="p-1 text-amber-400 hover:scale-110 transition"
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Rating
+              </label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    className="p-1 text-amber-400 hover:scale-110 transition"
+                  >
+                    <Star
+                      className={cn(
+                        'w-4 h-4',
+                        star <= rating ? 'fill-current text-amber-400' : 'text-slate-300 dark:text-slate-700'
+                      )}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ================= v1.6 OUTPUT GOOD LINK & YIELD ================= */}
+          <div className="p-3.5 bg-violet-50/60 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900/60 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-violet-900 dark:text-violet-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                <span>Output Finished Creation (Stock Destination)</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleAutoCreateFinishedGood}
+                disabled={creatingGood}
+                className="text-[11px] font-bold text-violet-700 dark:text-violet-400 hover:underline flex items-center gap-1"
+              >
+                <Plus className="w-3 h-3" />
+                <span>{creatingGood ? 'Creating...' : '+ Auto-Create Creation Item'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Destination Finished Good (in Inventory)
+                </label>
+                <select
+                  value={outputItemId}
+                  onChange={(e) => setOutputItemId(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-violet-200 dark:border-violet-800 text-xs font-medium text-slate-900 dark:text-white"
                 >
-                  <Star
-                    className={cn(
-                      'w-4 h-4',
-                      star <= rating ? 'fill-current text-amber-400' : 'text-slate-300 dark:text-slate-700'
-                    )}
+                  <option value="">(None - Do not track finished stock)</option>
+                  {inventoryItems
+                    .filter((item) => item.item_type === 'FINISHED_GOOD')
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} ({item.quantity} {item.unit} in stock)
+                      </option>
+                    ))}
+                  {/* Also permit selecting any item if no finished good created yet */}
+                  {inventoryItems
+                    .filter((item) => item.item_type !== 'FINISHED_GOOD')
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        [Material/Equip] {item.name} ({item.quantity} {item.unit})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Yield per Batch
+                </label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.01"
+                    required
+                    value={outputYieldQty}
+                    onChange={(e) => setOutputYieldQty(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-violet-200 dark:border-violet-800 text-xs font-bold text-center text-slate-900 dark:text-white"
                   />
-                </button>
-              ))}
+                  <span className="text-xs text-slate-400">units</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -2300,18 +2553,104 @@ function RecipeModal({
                 })}
               </div>
             )}
+          </div>
 
-            {/* Estimated Batch Cost */}
-            {ingredients.length > 0 && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs mt-3">
-                <span className="font-semibold text-emerald-800 dark:text-emerald-300">
-                  Calculated Cost Per Batch:
-                </span>
-                <span className="font-bold text-emerald-700 dark:text-emerald-400 text-sm">
+          {/* ================= v1.6 UNIT ECONOMICS & MARGIN SIMULATOR ================= */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <Coins className="w-3.5 h-3.5 text-amber-500" />
+                <span>Unit Economics &amp; Pricing Margin Simulator</span>
+              </span>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <label className="flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={deductMarketplaceFee}
+                    onChange={(e) => setDeductMarketplaceFee(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-0"
+                  />
+                  <span>Simulate 9.5% Platform Fee (Etsy/Payment)</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Packaging &amp; Shipping Overhead (Box, Bubble Mailer, Bag)
+                </label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={packagingOverhead}
+                    onChange={(e) => setPackagingOverhead(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
+                  />
+                  <span className="text-xs text-slate-400">ILS</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                  Target Retail Sale Price
+                </label>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={targetRetailPrice}
+                    onChange={(e) => setTargetRetailPrice(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
+                  />
+                  <span className="text-xs text-slate-400">ILS</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 font-semibold block">Batch Ingredients</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                   {formatCurrency(estimatedCost, 'ILS')}
                 </span>
               </div>
-            )}
+
+              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 font-semibold block">Unit COGS (All-in)</span>
+                <span className="text-xs font-bold text-violet-600 dark:text-violet-400">
+                  {formatCurrency(unitCOGS, 'ILS')}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 font-semibold block">Net Margin / Unit</span>
+                <span className={cn(
+                  'text-xs font-bold',
+                  netProfit > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'
+                )}>
+                  {formatCurrency(netProfit, 'ILS')}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
+                <span className="text-[10px] text-slate-400 font-semibold block">Gross Margin %</span>
+                <span className={cn(
+                  'text-xs font-extrabold',
+                  marginPercent >= 50
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : marginPercent >= 20
+                    ? 'text-amber-500'
+                    : 'text-rose-500'
+                )}>
+                  {retailPrice > 0 ? `${marginPercent.toFixed(1)}%` : '—'}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -2459,6 +2798,7 @@ function ItemModal({ isOpen, onClose, item, folders, userId, onSaved }: ItemModa
               >
                 <option value="MATERIAL">Material (Consumable)</option>
                 <option value="EQUIPMENT">Equipment (Tool/Gear)</option>
+                <option value="FINISHED_GOOD">Finished Creation (Output)</option>
               </select>
             </div>
 
@@ -2565,7 +2905,11 @@ function ItemModal({ isOpen, onClose, item, folders, userId, onSaved }: ItemModa
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Unit Price
+                {itemType === 'FINISHED_GOOD'
+                  ? 'Unit Production Cost / COGS'
+                  : itemType === 'EQUIPMENT'
+                  ? 'Replacement Cost'
+                  : 'Unit Purchase Price'}
               </label>
               <input
                 type="number"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
@@ -17,6 +17,12 @@ import {
   Download,
   Database,
   FileText,
+  UploadCloud,
+  FolderTree,
+  Boxes,
+  Sparkles,
+  X,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface SettingsClientProps {
@@ -40,6 +46,246 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
   // Data Export state
   const [exporting, setExporting] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
+
+  // Data Restore state
+  const [restoring, setRestoring] = useState(false);
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+  const [archiveData, setArchiveData] = useState<any | null>(null);
+  const [restoreStats, setRestoreStats] = useState<{
+    folders: number;
+    items: number;
+    recipes: number;
+    notes: number;
+  }>({ folders: 0, items: 0, recipes: 0, notes: 0 });
+  const [restoreSuccess, setRestoreSuccess] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+
+        if (!parsed || typeof parsed !== 'object' || !parsed.version) {
+          throw new Error('Invalid archive format. Missing version header.');
+        }
+
+        const foldersCount = Array.isArray(parsed.inventory_folders) ? parsed.inventory_folders.length : 0;
+        const itemsCount = Array.isArray(parsed.inventory_items) ? parsed.inventory_items.length : 0;
+        const recipesCount = Array.isArray(parsed.maker_recipes) ? parsed.maker_recipes.length : 0;
+        const notesCount = Array.isArray(parsed.workspace_items) ? parsed.workspace_items.length : 0;
+
+        setArchiveData(parsed);
+        setRestoreStats({
+          folders: foldersCount,
+          items: itemsCount,
+          recipes: recipesCount,
+          notes: notesCount,
+        });
+        setRestoreModalOpen(true);
+      } catch (err: any) {
+        alert(`Archive parse error: ${err.message || 'Invalid JSON file'}`);
+      }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  async function handleExecuteRestore() {
+    if (!archiveData) return;
+    setRestoring(true);
+
+    try {
+      const mappedFolderIds: Record<string, string> = {};
+      const mappedItemIds: Record<string, string> = {};
+      const mappedRecipeIds: Record<string, string> = {};
+
+      // 1. Fetch user's existing folders and items to avoid duplicate conflicts
+      const { data: existingFolders } = await supabase
+        .from('inventory_folders')
+        .select('id, name')
+        .eq('user_id', profile.id);
+
+      const { data: existingItems } = await supabase
+        .from('inventory_items')
+        .select('id, name, item_type')
+        .eq('user_id', profile.id);
+
+      const { data: existingRecipes } = await supabase
+        .from('maker_recipes')
+        .select('id, title')
+        .eq('user_id', profile.id);
+
+      const { data: existingNotes } = await supabase
+        .from('workspace_items')
+        .select('id, title')
+        .eq('user_id', profile.id);
+
+      // 2. Restore Inventory Folders
+      if (Array.isArray(archiveData.inventory_folders)) {
+        for (const f of archiveData.inventory_folders) {
+          const matched = existingFolders?.find(
+            (ef) => ef.name.trim().toLowerCase() === f.name.trim().toLowerCase()
+          );
+          if (matched) {
+            mappedFolderIds[f.id] = matched.id;
+          } else {
+            const { data: newF, error: fErr } = await supabase
+              .from('inventory_folders')
+              .insert({
+                user_id: profile.id,
+                name: f.name.trim(),
+                color: f.color || '#6366f1',
+                icon: f.icon || 'folder',
+              })
+              .select('id')
+              .single();
+
+            if (!fErr && newF) {
+              mappedFolderIds[f.id] = newF.id;
+            }
+          }
+        }
+      }
+
+      // 3. Restore Inventory Items
+      if (Array.isArray(archiveData.inventory_items)) {
+        for (const item of archiveData.inventory_items) {
+          const matched = existingItems?.find(
+            (ei) =>
+              ei.name.trim().toLowerCase() === item.name.trim().toLowerCase() &&
+              ei.item_type === item.item_type
+          );
+          if (matched) {
+            mappedItemIds[item.id] = matched.id;
+          } else {
+            const targetFolderId = item.folder_id ? mappedFolderIds[item.folder_id] || null : null;
+            const { data: newItem, error: iErr } = await supabase
+              .from('inventory_items')
+              .insert({
+                user_id: profile.id,
+                name: item.name.trim(),
+                folder_id: targetFolderId,
+                item_type: item.item_type || 'MATERIAL',
+                description: item.description || '',
+                sku_or_location: item.sku_or_location || '',
+                quantity: Number(item.quantity) || 0,
+                unit: item.unit || 'pcs',
+                low_stock_threshold: Number(item.low_stock_threshold) || 0,
+                unit_price: Number(item.unit_price) || 0,
+                currency: item.currency || 'ILS',
+                condition: item.condition || 'GOOD',
+                search_keyword: item.search_keyword || '',
+                reorder_url: item.reorder_url || '',
+                in_restock_cart: Boolean(item.in_restock_cart),
+                restock_target_qty: Number(item.restock_target_qty) || 1,
+              })
+              .select('id')
+              .single();
+
+            if (!iErr && newItem) {
+              mappedItemIds[item.id] = newItem.id;
+            }
+          }
+        }
+      }
+
+      // 4. Restore Maker Recipes
+      if (Array.isArray(archiveData.maker_recipes)) {
+        for (const r of archiveData.maker_recipes) {
+          const matched = existingRecipes?.find(
+            (er) => er.title.trim().toLowerCase() === r.title.trim().toLowerCase()
+          );
+          if (matched) {
+            mappedRecipeIds[r.id] = matched.id;
+          } else {
+            const targetOutputItemId = r.output_item_id ? mappedItemIds[r.output_item_id] || null : null;
+            const { data: newR, error: rErr } = await supabase
+              .from('maker_recipes')
+              .insert({
+                user_id: profile.id,
+                title: r.title.trim(),
+                category: r.category || 'General',
+                instructions_md: r.instructions_md || '',
+                rating: r.rating || 5,
+                output_item_id: targetOutputItemId,
+                output_yield_qty: Number(r.output_yield_qty) || 1,
+                packaging_overhead: Number(r.packaging_overhead) ?? 4.5,
+                target_retail_price: Number(r.target_retail_price) || 0,
+              })
+              .select('id')
+              .single();
+
+            if (!rErr && newR) {
+              mappedRecipeIds[r.id] = newR.id;
+            }
+          }
+        }
+      }
+
+      // 5. Restore Recipe Ingredients
+      if (Array.isArray(archiveData.recipe_ingredients)) {
+        for (const ing of archiveData.recipe_ingredients) {
+          const newRecipeId = mappedRecipeIds[ing.recipe_id];
+          const newItemId = mappedItemIds[ing.inventory_item_id];
+          if (newRecipeId && newItemId) {
+            await supabase
+              .from('recipe_ingredients')
+              .upsert(
+                {
+                  recipe_id: newRecipeId,
+                  inventory_item_id: newItemId,
+                  quantity_required: Number(ing.quantity_required) || 1,
+                },
+                { onConflict: 'recipe_id,inventory_item_id' }
+              );
+          }
+        }
+      }
+
+      // 6. Restore Workspace Notes
+      if (Array.isArray(archiveData.workspace_items)) {
+        for (const wi of archiveData.workspace_items) {
+          const matched = existingNotes?.find(
+            (en) => en.title.trim().toLowerCase() === wi.title.trim().toLowerCase()
+          );
+          if (!matched) {
+            await supabase.from('workspace_items').insert({
+              user_id: profile.id,
+              title: wi.title.trim(),
+              content: wi.content || '',
+              category: wi.category || 'GENERAL',
+            });
+          }
+        }
+      }
+
+      // 7. Log Restore event to activity ledger
+      await supabase.from('activity_logs').insert({
+        user_id: profile.id,
+        event_type: 'ARCHIVE_RESTORED',
+        summary: `Restored Maker Archive JSON (v${archiveData.version || '1.6.0'})`,
+        metadata: {
+          restored_stats: restoreStats,
+          version: archiveData.version,
+        },
+      });
+
+      setRestoreSuccess('Archive restored successfully! Folders, items, and formulas have been merged.');
+      setRestoreModalOpen(false);
+      setArchiveData(null);
+      router.refresh();
+      setTimeout(() => setRestoreSuccess(null), 5000);
+    } catch (err: any) {
+      alert(`Restore failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   async function handleExportData() {
     setExporting(true);
@@ -312,37 +558,168 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
             <span>Maker Archive Contents</span>
           </div>
           <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
-            Your export includes your complete profile data, unlocked skills &amp; XP progression, deliberate practice session logs, private workspace ideas &amp; notes, collaborative projects, assigned tasks, comments, and audit activity ledger.
+            Your export includes your complete profile data, unlocked skills &amp; XP progression, deliberate practice session logs, private workspace ideas &amp; notes, collaborative projects, assigned tasks, comments, inventory items &amp; folders, workshop formulas &amp; ingredients, and audit activity ledger.
           </p>
         </div>
 
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-xs text-slate-400">Format: Standard JSON (v1.3.0)</span>
-          <button
-            type="button"
-            onClick={handleExportData}
-            disabled={exporting}
-            className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm shadow-blue-500/20"
-          >
-            {exporting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Generating Archive...</span>
-              </>
-            ) : exportSuccess ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Archive Downloaded!</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                <span>Export Complete Maker Archive (JSON)</span>
-              </>
-            )}
-          </button>
+        {restoreSuccess && (
+          <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{restoreSuccess}</span>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+          <span className="text-xs text-slate-400">Format: Standard JSON (v1.6.0)</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={restoring}
+              className="px-4 py-2.5 rounded-xl font-bold text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 transition flex items-center gap-2 border border-slate-200 dark:border-slate-700"
+            >
+              <UploadCloud className="w-4 h-4 text-violet-500" />
+              <span>Verify &amp; Restore Maker Archive</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportData}
+              disabled={exporting}
+              className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm shadow-blue-500/20"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Generating Archive...</span>
+                </>
+              ) : exportSuccess ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Archive Downloaded!</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  <span>Export Complete Maker Archive (JSON)</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Restore Confirmation Modal */}
+      {restoreModalOpen && archiveData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-lg p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                <UploadCloud className="w-5 h-5 text-violet-500" />
+                <span>Verify &amp; Restore Maker Archive</span>
+              </div>
+              <button
+                onClick={() => {
+                  setRestoreModalOpen(false);
+                  setArchiveData(null);
+                }}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-violet-50/60 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 rounded-2xl text-xs space-y-1 text-slate-600 dark:text-slate-300">
+              <div className="font-bold text-violet-900 dark:text-violet-300">
+                Archive Schema Verified: v{archiveData.version || '1.6.0'}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Workbench will safely restore and merge these records into your account. Existing records with matching names will not be duplicated.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 flex items-center gap-3">
+                <FolderTree className="w-5 h-5 text-indigo-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Folders</span>
+                  <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                    {restoreStats.folders}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 flex items-center gap-3">
+                <Boxes className="w-5 h-5 text-blue-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Inventory Items</span>
+                  <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                    {restoreStats.items}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 flex items-center gap-3">
+                <Sparkles className="w-5 h-5 text-emerald-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Formulas / Recipes</span>
+                  <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                    {restoreStats.recipes}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 flex items-center gap-3">
+                <FileText className="w-5 h-5 text-amber-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Workspace Notes</span>
+                  <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                    {restoreStats.notes}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setRestoreModalOpen(false);
+                  setArchiveData(null);
+                }}
+                className="px-4 py-2 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteRestore}
+                disabled={restoring}
+                className="px-5 py-2 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs shadow-md transition disabled:opacity-50 flex items-center gap-2"
+              >
+                {restoring ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Restoring Ledger...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Confirm &amp; Restore Archive</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Account Actions */}
       <div className="pt-4 flex justify-end">

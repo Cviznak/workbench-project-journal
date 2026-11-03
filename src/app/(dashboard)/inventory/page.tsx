@@ -31,7 +31,7 @@ export default async function InventoryPage() {
       .order('name', { ascending: true }),
     supabase
       .from('maker_recipes')
-      .select('*, ingredients:recipe_ingredients(*, inventory_item:inventory_items(*))')
+      .select('*, output_item:inventory_items(*), ingredients:recipe_ingredients(*, inventory_item:inventory_items(*))')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
   ]);

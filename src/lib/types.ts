@@ -4,7 +4,7 @@ export type IdeaStatus = 'RAW' | 'PROTOTYPING' | 'PROMOTED' | 'SHELVED';
 export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type ItemType = 'MATERIAL' | 'EQUIPMENT';
+export type ItemType = 'MATERIAL' | 'EQUIPMENT' | 'FINISHED_GOOD';
 export type ItemCondition = 'GOOD' | 'NEEDS_MAINTENANCE' | 'REPLACE';
 export type Currency = 'ILS' | 'USD' | 'EUR';
 
@@ -230,6 +230,11 @@ export interface MakerRecipe {
   category: string;
   instructions_md: string;
   rating?: number | null;
+  output_item_id?: string | null;
+  output_yield_qty?: number;
+  packaging_overhead?: number;
+  target_retail_price?: number;
+  output_item?: InventoryItem | null;
   created_at: string;
   updated_at: string;
   ingredients?: RecipeIngredient[];
