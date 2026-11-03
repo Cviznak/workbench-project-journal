@@ -14,6 +14,7 @@ import {
   TaskSubtask,
 } from '@/lib/types';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
+import { formatCurrency } from '@/lib/utils';
 import {
   FolderKanban,
   CheckCircle,
@@ -42,6 +43,7 @@ import {
   MessageSquare,
   Paperclip,
   Lock,
+  Boxes,
 } from 'lucide-react';
 import EditTaskModal from '@/components/EditTaskModal';
 
@@ -1041,7 +1043,8 @@ export default function KanbanBoardClient({
 
                           {/* Comments & Attachments count badges */}
                           {((task.comments?.[0]?.count ?? 0) > 0 ||
-                            (task.attachments?.[0]?.count ?? 0) > 0) && (
+                            (task.attachments?.[0]?.count ?? 0) > 0 ||
+                            (task.task_materials?.length ?? 0) > 0) && (
                             <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
                               {(task.comments?.[0]?.count ?? 0) > 0 && (
                                 <span
@@ -1061,6 +1064,25 @@ export default function KanbanBoardClient({
                                   <span>{task.attachments[0].count}</span>
                                 </span>
                               )}
+                              {task.task_materials && task.task_materials.length > 0 && (() => {
+                                const cost = task.task_materials.reduce(
+                                  (acc: number, m: any) =>
+                                    acc +
+                                    (Number(m.quantity_required) || 0) *
+                                      (Number(m.inventory_item?.unit_price) || 0),
+                                  0
+                                );
+                                const curr = task.task_materials[0]?.inventory_item?.currency || 'ILS';
+                                return (
+                                  <span
+                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-900/40"
+                                    title={`${task.task_materials.length} Materials linked (Est. BOM: ${formatCurrency(cost, curr)})`}
+                                  >
+                                    <Boxes className="w-3 h-3" />
+                                    <span>{formatCurrency(cost, curr)}</span>
+                                  </span>
+                                );
+                              })()}
                             </div>
                           )}
                         </div>

@@ -138,6 +138,8 @@ export interface ProjectTask {
   attachments_count?: number;
   prerequisite_task_id?: string | null;
   prerequisite_task?: { id: string; title: string; status: TaskStatus } | null;
+  task_materials?: TaskMaterial[];
+  material_cost?: number;
   created_at: string;
   updated_at: string;
   assignee?: Profile | null;
@@ -202,6 +204,37 @@ export interface InventoryItem {
   folder?: InventoryFolder | null;
 }
 
+export interface TaskMaterial {
+  id: string;
+  task_id: string;
+  project_id: string;
+  inventory_item_id: string;
+  quantity_required: number;
+  deducted: boolean;
+  created_at: string;
+  inventory_item?: InventoryItem;
+}
+
+export interface RecipeIngredient {
+  id: string;
+  recipe_id: string;
+  inventory_item_id: string;
+  quantity_required: number;
+  inventory_item?: InventoryItem;
+}
+
+export interface MakerRecipe {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  instructions_md: string;
+  rating?: number | null;
+  created_at: string;
+  updated_at: string;
+  ingredients?: RecipeIngredient[];
+}
+
 export interface MakerArchiveExport {
   version: string;
   exported_at: string;
@@ -229,6 +262,9 @@ export interface MakerArchiveExport {
   comments: TaskComment[];
   inventory_folders?: InventoryFolder[];
   inventory_items?: InventoryItem[];
+  task_materials?: TaskMaterial[];
+  maker_recipes?: MakerRecipe[];
+  recipe_ingredients?: RecipeIngredient[];
   activity_logs: any[];
 }
 
