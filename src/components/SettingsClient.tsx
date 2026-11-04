@@ -23,6 +23,7 @@ import {
   Sparkles,
   X,
   CheckCircle2,
+  Clock,
 } from 'lucide-react';
 
 interface SettingsClientProps {
@@ -56,7 +57,8 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
     items: number;
     recipes: number;
     notes: number;
-  }>({ folders: 0, items: 0, recipes: 0, notes: 0 });
+    runs: number;
+  }>({ folders: 0, items: 0, recipes: 0, notes: 0, runs: 0 });
   const [restoreSuccess, setRestoreSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +80,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
         const itemsCount = Array.isArray(parsed.inventory_items) ? parsed.inventory_items.length : 0;
         const recipesCount = Array.isArray(parsed.maker_recipes) ? parsed.maker_recipes.length : 0;
         const notesCount = Array.isArray(parsed.workspace_items) ? parsed.workspace_items.length : 0;
+        const runsCount = Array.isArray(parsed.recipe_runs) ? parsed.recipe_runs.length : 0;
 
         setArchiveData(parsed);
         setRestoreStats({
@@ -85,6 +88,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
           items: itemsCount,
           recipes: recipesCount,
           notes: notesCount,
+          runs: runsCount,
         });
         setRestoreModalOpen(true);
       } catch (err: any) {
@@ -247,6 +251,26 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
         }
       }
 
+      // 5b. Restore Recipe Batch Run History
+      if (Array.isArray(archiveData.recipe_runs)) {
+        for (const run of archiveData.recipe_runs) {
+          const newRecipeId = mappedRecipeIds[run.recipe_id];
+          if (newRecipeId) {
+            await supabase.from('recipe_runs').insert({
+              recipe_id: newRecipeId,
+              user_id: profile.id,
+              batch_multiplier: Number(run.batch_multiplier) || 1,
+              units_produced: Number(run.units_produced) || 1,
+              total_batch_cost: Number(run.total_batch_cost) || 0,
+              unit_cogs: Number(run.unit_cogs) || 0,
+              outcome_rating: run.outcome_rating || null,
+              batch_notes: run.batch_notes || '',
+              created_at: run.created_at || new Date().toISOString(),
+            });
+          }
+        }
+      }
+
       // 6. Restore Workspace Notes
       if (Array.isArray(archiveData.workspace_items)) {
         for (const wi of archiveData.workspace_items) {
@@ -256,9 +280,13 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
           if (!matched) {
             await supabase.from('workspace_items').insert({
               user_id: profile.id,
+              item_type: wi.item_type || 'IDEA',
               title: wi.title.trim(),
-              content: wi.content || '',
-              category: wi.category || 'GENERAL',
+              content_md: wi.content_md || wi.content || '',
+              tags: wi.tags || [],
+              idea_status: wi.idea_status || 'RAW',
+              is_pinned: Boolean(wi.is_pinned),
+              metadata_json: wi.metadata_json || {},
             });
           }
         }
@@ -268,7 +296,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
       await supabase.from('activity_logs').insert({
         user_id: profile.id,
         event_type: 'ARCHIVE_RESTORED',
-        summary: `Restored Maker Archive JSON (v${archiveData.version || '1.6.0'})`,
+        summary: `Restored Maker Archive JSON (v${archiveData.version || '1.7.0'})`,
         metadata: {
           restored_stats: restoreStats,
           version: archiveData.version,
@@ -570,7 +598,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
         )}
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-          <span className="text-xs text-slate-400">Format: Standard JSON (v1.6.0)</span>
+          <span className="text-xs text-slate-400">Format: Standard JSON (v1.7.0)</span>
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="file"
@@ -645,7 +673,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 flex items-center gap-3">
                 <FolderTree className="w-5 h-5 text-indigo-500 shrink-0" />
                 <div>
@@ -682,6 +710,16 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
                   <span className="text-[10px] text-slate-400 uppercase font-bold block">Workspace Notes</span>
                   <span className="text-base font-extrabold text-slate-900 dark:text-white">
                     {restoreStats.notes}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-800 flex items-center gap-3 col-span-2 sm:col-span-1">
+                <Clock className="w-5 h-5 text-purple-500 shrink-0" />
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold block">Batch Run Logs</span>
+                  <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                    {restoreStats.runs}
                   </span>
                 </div>
               </div>

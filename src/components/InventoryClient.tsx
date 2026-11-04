@@ -40,6 +40,7 @@ import {
   Clock,
   CheckCircle2,
   Coins,
+  Calculator,
 } from 'lucide-react';
 
 interface InventoryClientProps {
@@ -161,7 +162,9 @@ export default function InventoryClient({
 
   // Filters
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'LOW_STOCK'>('ALL');
-  const [activeTab, setActiveTab] = useState<'ALL' | 'MATERIAL' | 'EQUIPMENT' | 'FINISHED_GOOD' | 'CART' | 'RECIPES'>('ALL');
+  const [activeTab, setActiveTab] = useState<
+    'ALL' | 'MATERIAL' | 'EQUIPMENT' | 'FINISHED_GOOD' | 'CART' | 'RECIPES' | 'CALCULATORS'
+  >('ALL');
   const [recipeCategory, setRecipeCategory] = useState<string>('All');
   const [search, setSearch] = useState('');
 
@@ -180,7 +183,42 @@ export default function InventoryClient({
   const [runBatchModalOpen, setRunBatchModalOpen] = useState(false);
   const [runningRecipe, setRunningRecipe] = useState<MakerRecipe | null>(null);
   const [batchMultiplier, setBatchMultiplier] = useState<number>(1);
+  const [batchNotes, setBatchNotes] = useState<string>('');
+  const [batchRating, setBatchRating] = useState<number | null>(5);
   const [executingBatch, setExecutingBatch] = useState(false);
+  const [expandedRuns, setExpandedRuns] = useState<Record<string, boolean>>({});
+
+  // Lab Calculators State
+  const [calcActiveTool, setCalcActiveTool] = useState<'RESIN' | 'PERFUME' | '3D_PRINT'>('RESIN');
+
+  // 1. Epoxy Resin Calculator State
+  const [resinShape, setResinShape] = useState<'RECTANGLE' | 'CYLINDER' | 'CUSTOM'>('RECTANGLE');
+  const [resinLengthMm, setResinLengthMm] = useState<number>(100);
+  const [resinWidthMm, setResinWidthMm] = useState<number>(100);
+  const [resinDepthMm, setResinDepthMm] = useState<number>(20);
+  const [resinDiameterMm, setResinDiameterMm] = useState<number>(80);
+  const [resinCustomVolMl, setResinCustomVolMl] = useState<number>(200);
+  const [resinDensity, setResinDensity] = useState<number>(1.12);
+  const [resinRatioPreset, setResinRatioPreset] = useState<'1:1_VOL' | '2:1_WT' | '3:1_WT' | '100:44_WT'>('1:1_VOL');
+
+  // 2. Perfume Dilution Calculator State
+  const [perfumeBottleMl, setPerfumeBottleMl] = useState<number>(50);
+  const [perfumeConcentration, setPerfumeConcentration] = useState<'EXTRAIT' | 'EDP' | 'EDT' | 'EDC' | 'CUSTOM'>('EDP');
+  const [perfumeCustomPct, setPerfumeCustomPct] = useState<number>(18);
+  const [fragranceOilDensity, setFragranceOilDensity] = useState<number>(0.95);
+  const [alcoholDensity, setAlcoholDensity] = useState<number>(0.789);
+
+  // 3. 3D Print Costing Calculator State
+  const [printMaterial, setPrintMaterial] = useState<string>('PLA');
+  const [partWeightG, setPartWeightG] = useState<number>(120);
+  const [spoolCost, setSpoolCost] = useState<number>(85);
+  const [spoolWeightG, setSpoolWeightG] = useState<number>(1000);
+  const [printHours, setPrintHours] = useState<number>(6);
+  const [printMinutes, setPrintMinutes] = useState<number>(30);
+  const [printerWatts, setPrinterWatts] = useState<number>(150);
+  const [kwhRate, setKwhRate] = useState<number>(0.65);
+  const [printFailureBuffer, setPrintFailureBuffer] = useState<number>(5);
+  const [targetMarginPct, setTargetMarginPct] = useState<number>(65);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -534,9 +572,35 @@ export default function InventoryClient({
       const { data, error } = await supabase.rpc('execute_maker_recipe', {
         p_recipe_id: runningRecipe.id,
         p_batch_multiplier: batchMultiplier,
+        p_batch_notes: batchNotes,
+        p_outcome_rating: batchRating || null,
       });
 
       if (error) throw error;
+
+      // Optimistically append newly recorded batch run to recipe history
+      if (data?.run_id) {
+        const newRun = {
+          id: data.run_id,
+          recipe_id: runningRecipe.id,
+          user_id: userId,
+          batch_multiplier: batchMultiplier,
+          units_produced: data.units_produced || 1,
+          total_batch_cost: data.total_batch_cost || 0,
+          unit_cogs: data.unit_cogs || 0,
+          outcome_rating: batchRating || null,
+          batch_notes: batchNotes || '',
+          created_at: new Date().toISOString(),
+        };
+
+        setRecipes((prev) =>
+          prev.map((r) =>
+            r.id === runningRecipe.id
+              ? { ...r, runs: [newRun, ...(r.runs || [])] }
+              : r
+          )
+        );
+      }
 
       // Optimistically decrement ingredient stock & increment finished good output stock
       setItems((prev) =>
@@ -916,6 +980,18 @@ export default function InventoryClient({
                   {cartItems.length}
                 </span>
               </button>
+              <button
+                onClick={() => setActiveTab('CALCULATORS')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  activeTab === 'CALCULATORS'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                    : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50'
+                )}
+              >
+                <Calculator className="w-3.5 h-3.5" />
+                <span>Calculators &amp; Lab</span>
+              </button>
             </div>
 
             {/* Search Input */}
@@ -1187,6 +1263,8 @@ export default function InventoryClient({
                             onClick={() => {
                               setRunningRecipe(recipe);
                               setBatchMultiplier(1);
+                              setBatchNotes('');
+                              setBatchRating(5);
                               setRunBatchModalOpen(true);
                             }}
                             className={cn(
@@ -1200,6 +1278,72 @@ export default function InventoryClient({
                             <span>Run Batch</span>
                           </button>
                         </div>
+
+                        {/* Past Batch Runs Collapsible Timeline */}
+                        {recipe.runs && recipe.runs.length > 0 && (
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedRuns((prev) => ({
+                                  ...prev,
+                                  [recipe.id]: !prev[recipe.id],
+                                }))
+                              }
+                              className="w-full flex items-center justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 py-1 transition"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                                <span>Past Batch Runs ({recipe.runs.length})</span>
+                              </div>
+                              {expandedRuns[recipe.id] ? (
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              ) : (
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+
+                            {expandedRuns[recipe.id] && (
+                              <div className="space-y-2 mt-2 max-h-56 overflow-y-auto pr-1">
+                                {recipe.runs.map((run) => (
+                                  <div
+                                    key={run.id}
+                                    className="p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/50 dark:border-slate-800 text-xs space-y-1"
+                                  >
+                                    <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px]">
+                                          {run.batch_multiplier}x
+                                        </span>
+                                        <span>
+                                          {formatCurrency(run.total_batch_cost, primaryCurrency)}
+                                        </span>
+                                      </div>
+                                      {run.outcome_rating && (
+                                        <div className="flex items-center text-amber-400 text-[11px]">
+                                          {Array.from({ length: run.outcome_rating }).map((_, i) => (
+                                            <Star key={i} className="w-2.5 h-2.5 fill-current" />
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                      <span>
+                                        Yield: {run.units_produced} pcs (COGS: {formatCurrency(run.unit_cogs, primaryCurrency)}/ea)
+                                      </span>
+                                      <span>{new Date(run.created_at).toLocaleDateString()}</span>
+                                    </div>
+                                    {run.batch_notes && (
+                                      <p className="text-[11px] text-slate-600 dark:text-slate-300 italic pt-0.5 border-t border-slate-200/40 dark:border-slate-700/50">
+                                        &ldquo;{run.batch_notes}&rdquo;
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1399,6 +1543,769 @@ export default function InventoryClient({
                   })}
                 </div>
               )}
+            </div>
+          ) : activeTab === 'CALCULATORS' ? (
+            /* ================= VIEW: INTERACTIVE MAKER CALCULATORS & LAB ================= */
+            <div className="space-y-6">
+              {/* Header Banner & Sub-tool Selector */}
+              <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                    <Calculator className="w-5 h-5 text-indigo-500" />
+                    <span className="text-base">Maker Calculators &amp; Lab Tools</span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+                    Formulate precise chemical mixtures, calculate mold volumes, dilution ratios, and 3D printing batch economics with 1-click recipe export.
+                  </p>
+                </div>
+
+                {/* Sub-tool Selector Pills */}
+                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold shrink-0">
+                  <button
+                    onClick={() => setCalcActiveTool('RESIN')}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl transition',
+                      calcActiveTool === 'RESIN'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    Epoxy Resin Mold
+                  </button>
+                  <button
+                    onClick={() => setCalcActiveTool('PERFUME')}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl transition',
+                      calcActiveTool === 'PERFUME'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    Perfume Dilution
+                  </button>
+                  <button
+                    onClick={() => setCalcActiveTool('3D_PRINT')}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl transition',
+                      calcActiveTool === '3D_PRINT'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    3D Print Costing
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. EPOXY RESIN CALCULATOR */}
+              {calcActiveTool === 'RESIN' && (() => {
+                let volCm3 = 0;
+                if (resinShape === 'RECTANGLE') {
+                  volCm3 = (resinLengthMm * resinWidthMm * resinDepthMm) / 1000;
+                } else if (resinShape === 'CYLINDER') {
+                  const radiusCm = (resinDiameterMm / 2) / 10;
+                  const depthCm = resinDepthMm / 10;
+                  volCm3 = Math.PI * radiusCm * radiusCm * depthCm;
+                } else {
+                  volCm3 = Number(resinCustomVolMl) || 0;
+                }
+
+                const totalWeightG = volCm3 * resinDensity;
+                let partAWeightG = 0;
+                let partBWeightG = 0;
+                let ratioLabel = '';
+
+                if (resinRatioPreset === '1:1_VOL') {
+                  ratioLabel = '1:1 by Volume (approx. 52% A / 48% B by weight)';
+                  partAWeightG = totalWeightG * 0.52;
+                  partBWeightG = totalWeightG * 0.48;
+                } else if (resinRatioPreset === '2:1_WT') {
+                  ratioLabel = '2:1 by Weight (66.7% A / 33.3% B)';
+                  partAWeightG = (totalWeightG / 3) * 2;
+                  partBWeightG = (totalWeightG / 3) * 1;
+                } else if (resinRatioPreset === '3:1_WT') {
+                  ratioLabel = '3:1 by Weight (75% A / 25% B)';
+                  partAWeightG = (totalWeightG / 4) * 3;
+                  partBWeightG = (totalWeightG / 4) * 1;
+                } else {
+                  ratioLabel = '100:44 by Weight (69.4% A / 30.6% B - Deep Pour)';
+                  partAWeightG = totalWeightG * (100 / 144);
+                  partBWeightG = totalWeightG * (44 / 144);
+                }
+
+                const isExothermicRisk = totalWeightG > 100 && resinDepthMm > 20;
+                const isPrecisionScaleNotice = totalWeightG < 20 && totalWeightG > 0;
+
+                function handleSaveResinRecipe() {
+                  const prefill: any = {
+                    id: '',
+                    user_id: userId,
+                    title: `Epoxy Mold Cast (${Math.round(volCm3)}ml)`,
+                    category: 'Epoxy & Molds',
+                    instructions_md: `Epoxy Mix Ratio: ${ratioLabel}\n- Part A (Resin): ${partAWeightG.toFixed(1)}g\n- Part B (Hardener): ${partBWeightG.toFixed(1)}g\n- Total Volume: ${volCm3.toFixed(1)}ml (${totalWeightG.toFixed(1)}g)\n\nStir slowly for 3 minutes scraping sides and bottom. Vacuum degas or torch micro-bubbles. Demold after 24h at 22-25°C ambient.`,
+                    rating: 5,
+                    output_yield_qty: 1,
+                    packaging_overhead: 4.5,
+                    target_retail_price: Math.round(totalWeightG * 0.4 + 30),
+                  };
+                  setEditingRecipe(prefill);
+                  setRecipeModalOpen(true);
+                }
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left: Input Parameters */}
+                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>Mold Dimensions &amp; Mix Ratio</span>
+                        </h3>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          Density: {resinDensity} g/cm³
+                        </span>
+                      </div>
+
+                      {/* Shape Selector */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                          Cavity Geometry
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['RECTANGLE', 'CYLINDER', 'CUSTOM'] as const).map((shape) => (
+                            <button
+                              key={shape}
+                              type="button"
+                              onClick={() => setResinShape(shape)}
+                              className={cn(
+                                'py-2 px-3 rounded-2xl text-xs font-bold transition text-center',
+                                resinShape === shape
+                                  ? 'bg-indigo-600 text-white shadow-sm'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              )}
+                            >
+                              {shape === 'RECTANGLE' ? 'Rectangular Block' : shape === 'CYLINDER' ? 'Cylinder / Disc' : 'Direct Volume (ml)'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Dimensions Input Fields */}
+                      {resinShape === 'RECTANGLE' && (
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Length (mm)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={resinLengthMm}
+                              onChange={(e) => setResinLengthMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                              className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Width (mm)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={resinWidthMm}
+                              onChange={(e) => setResinWidthMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                              className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Depth / Height (mm)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={resinDepthMm}
+                              onChange={(e) => setResinDepthMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                              className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {resinShape === 'CYLINDER' && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Diameter (mm)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={resinDiameterMm}
+                              onChange={(e) => setResinDiameterMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                              className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Depth / Thickness (mm)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={resinDepthMm}
+                              onChange={(e) => setResinDepthMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                              className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {resinShape === 'CUSTOM' && (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Known Mold Volume (ml / cm³)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={resinCustomVolMl}
+                            onChange={(e) => setResinCustomVolMl(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      )}
+
+                      {/* Resin Mix Ratio Preset */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                          Epoxy System Ratio Formula
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { id: '1:1_VOL', label: '1:1 by Vol', desc: 'Standard Craft' },
+                            { id: '2:1_WT', label: '2:1 by Wt', desc: 'Tabletop / Art' },
+                            { id: '3:1_WT', label: '3:1 by Wt', desc: 'Crystal Clear' },
+                            { id: '100:44_WT', label: '100:44 by Wt', desc: 'Deep Cast 50mm' },
+                          ].map((r) => (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => setResinRatioPreset(r.id as any)}
+                              className={cn(
+                                'p-2.5 rounded-2xl text-left border transition',
+                                resinRatioPreset === r.id
+                                  ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200'
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400'
+                              )}
+                            >
+                              <span className="font-bold text-xs block">{r.label}</span>
+                              <span className="text-[10px] text-slate-400">{r.desc}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Warnings / Safety Alerts */}
+                      {isExothermicRisk && (
+                        <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-300">
+                          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold block">⚠️ Exothermic Thermal Runaway Risk</span>
+                            <span className="text-[11px] leading-relaxed">
+                              Batches over 100g with depth &gt;20mm produce intense exothermic heat that can crack or yellow resin. Use slow deep-pour hardener (e.g. 100:44) or pour in multiple &lt;15mm layers.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {isPrecisionScaleNotice && (
+                        <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-2xl flex items-start gap-2.5 text-xs text-blue-800 dark:text-blue-300">
+                          <Sparkles className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold block">⚖️ Micro-Batch Scale Precision Notice</span>
+                            <span className="text-[11px] leading-relaxed">
+                              Batches under 20g are extremely sensitive to ±1g scale inaccuracies. Use a 0.01g jeweler scale to prevent sticky uncured resin.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right: Mix Breakdown & 1-Click Recipe Export */}
+                    <div className="bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-blue-500/5 dark:from-slate-900 dark:to-slate-900 border border-indigo-200/80 dark:border-indigo-900/60 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-indigo-100 dark:border-slate-800">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Scale Batch Results
+                          </span>
+                          <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
+                            {volCm3.toFixed(1)} ml
+                          </span>
+                        </div>
+
+                        {/* Part A Card */}
+                        <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700 dark:text-slate-300">Part A (Resin Base)</span>
+                            <span className="text-base font-extrabold text-indigo-600 dark:text-indigo-400">
+                              {partAWeightG.toFixed(1)} g
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block">
+                            Weigh on calibrated digital scale
+                          </span>
+                        </div>
+
+                        {/* Part B Card */}
+                        <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700 dark:text-slate-300">Part B (Hardener)</span>
+                            <span className="text-base font-extrabold text-purple-600 dark:text-purple-400">
+                              {partBWeightG.toFixed(1)} g
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block">
+                            Add Part B directly to Part A
+                          </span>
+                        </div>
+
+                        {/* Total Summary */}
+                        <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between font-bold text-indigo-950 dark:text-indigo-200">
+                            <span>Total Mixture Weight:</span>
+                            <span className="text-sm font-extrabold">{totalWeightG.toFixed(1)} g</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-indigo-700 dark:text-indigo-300">
+                            <span>Mold Volume:</span>
+                            <span>{volCm3.toFixed(1)} ml / cm³</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-indigo-700 dark:text-indigo-300">
+                            <span>Pot Life / Working Time:</span>
+                            <span>~30–45 mins</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveResinRecipe}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition transform active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save as New Formula</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 2. PERFUME CONCENTRATION & DILUTION CALCULATOR */}
+              {calcActiveTool === 'PERFUME' && (() => {
+                let concPct = 18;
+                let concLabel = 'Eau de Parfum (EDP)';
+                if (perfumeConcentration === 'EXTRAIT') {
+                  concPct = 25;
+                  concLabel = 'Extrait de Parfum (25%)';
+                } else if (perfumeConcentration === 'EDP') {
+                  concPct = 18;
+                  concLabel = 'Eau de Parfum (18%)';
+                } else if (perfumeConcentration === 'EDT') {
+                  concPct = 12;
+                  concLabel = 'Eau de Toilette (12%)';
+                } else if (perfumeConcentration === 'EDC') {
+                  concPct = 5;
+                  concLabel = 'Eau de Cologne (5%)';
+                } else {
+                  concPct = Number(perfumeCustomPct) || 15;
+                  concLabel = `Custom Concentration (${concPct}%)`;
+                }
+
+                const fragranceVolMl = perfumeBottleMl * (concPct / 100);
+                const alcoholVolMl = perfumeBottleMl - fragranceVolMl;
+
+                const fragranceWeightG = fragranceVolMl * fragranceOilDensity;
+                const alcoholWeightG = alcoholVolMl * alcoholDensity;
+                const totalWeightG = fragranceWeightG + alcoholWeightG;
+
+                function handleSavePerfumeRecipe() {
+                  const prefill: any = {
+                    id: '',
+                    user_id: userId,
+                    title: `Perfume Accord (${perfumeConcentration} ${perfumeBottleMl}ml)`,
+                    category: 'Perfume Lab',
+                    instructions_md: `Perfume Concentration Formula (${concLabel}):\n- Bottle Size: ${perfumeBottleMl}ml\n- Fragrance Oil Concentrate: ${fragranceVolMl.toFixed(1)}ml (${fragranceWeightG.toFixed(1)}g)\n- Perfumer's Alcohol (96%): ${alcoholVolMl.toFixed(1)}ml (${alcoholWeightG.toFixed(1)}g)\n\nMaceration Guide: Shake well and rest in dark amber glass at 18-21°C for 3 to 6 weeks. Chill filter before final bottling.`,
+                    rating: 5,
+                    output_yield_qty: 1,
+                    packaging_overhead: 8.5,
+                    target_retail_price: Math.round(perfumeBottleMl * 2.5 + 50),
+                  };
+                  setEditingRecipe(prefill);
+                  setRecipeModalOpen(true);
+                }
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>Fragrance Architecture &amp; Dilution</span>
+                        </h3>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          Alcohol Density: {alcoholDensity} g/ml
+                        </span>
+                      </div>
+
+                      {/* Bottle Size Selector */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                          Target Bottle Volume (ml)
+                        </label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[10, 30, 50, 100].map((size) => (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => setPerfumeBottleMl(size)}
+                              className={cn(
+                                'py-2 px-3 rounded-2xl text-xs font-bold transition text-center',
+                                perfumeBottleMl === size
+                                  ? 'bg-indigo-600 text-white shadow-sm'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              )}
+                            >
+                              {size} ml
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Concentration Class Selector */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                          Concentration Class
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { id: 'EXTRAIT', label: 'Extrait', pct: '25%', longevity: '10–14 hrs' },
+                            { id: 'EDP', label: 'Eau de Parfum', pct: '18%', longevity: '6–8 hrs' },
+                            { id: 'EDT', label: 'Eau de Toilette', pct: '12%', longevity: '4–6 hrs' },
+                            { id: 'EDC', label: 'Cologne', pct: '5%', longevity: '2–3 hrs' },
+                          ].map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setPerfumeConcentration(c.id as any)}
+                              className={cn(
+                                'p-2.5 rounded-2xl text-left border transition',
+                                perfumeConcentration === c.id
+                                  ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200'
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400'
+                              )}
+                            >
+                              <div className="flex items-center justify-between font-bold text-xs">
+                                <span>{c.label}</span>
+                                <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{c.pct}</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400">{c.longevity}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Maceration & Maturation Notice */}
+                      <div className="p-3.5 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-2xl flex items-start gap-2.5 text-xs text-purple-900 dark:text-purple-300">
+                        <FlaskConical className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold block">✨ Maceration &amp; Maturation Protocol</span>
+                          <span className="text-[11px] leading-relaxed">
+                            For smooth, non-pungent scent evolution, allow the mixed perfume to macerate in amber glass in a dark, cool cupboard (18–20°C) for at least 3 weeks before first use.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Dilution Breakdown & Export */}
+                    <div className="bg-gradient-to-br from-purple-500/5 via-indigo-500/5 to-pink-500/5 dark:from-slate-900 dark:to-slate-900 border border-purple-200/80 dark:border-purple-900/60 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-purple-100 dark:border-slate-800">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Batch Volume
+                          </span>
+                          <span className="text-xs font-extrabold text-purple-600 dark:text-purple-400">
+                            {perfumeBottleMl} ml
+                          </span>
+                        </div>
+
+                        {/* Fragrance Oil Card */}
+                        <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700 dark:text-slate-300">Fragrance Compound</span>
+                            <span className="text-base font-extrabold text-purple-600 dark:text-purple-400">
+                              {fragranceWeightG.toFixed(1)} g
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block">
+                            {fragranceVolMl.toFixed(1)} ml ({concPct}% concentration)
+                          </span>
+                        </div>
+
+                        {/* Perfumers Alcohol Card */}
+                        <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-bold text-slate-700 dark:text-slate-300">Perfumer's Alcohol (96%)</span>
+                            <span className="text-base font-extrabold text-indigo-600 dark:text-indigo-400">
+                              {alcoholWeightG.toFixed(1)} g
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block">
+                            {alcoholVolMl.toFixed(1)} ml base carrier
+                          </span>
+                        </div>
+
+                        {/* Total Summary */}
+                        <div className="p-3.5 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between font-bold text-purple-950 dark:text-purple-200">
+                            <span>Total Bottle Liquid Weight:</span>
+                            <span className="text-sm font-extrabold">{totalWeightG.toFixed(1)} g</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-purple-700 dark:text-purple-300">
+                            <span>Concentration Class:</span>
+                            <span>{concLabel}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSavePerfumeRecipe}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md shadow-purple-500/20 transition transform active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save as New Formula</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 3. 3D PRINT COSTING CALCULATOR */}
+              {calcActiveTool === '3D_PRINT' && (() => {
+                const totalHours = printHours + (printMinutes / 60);
+                const filamentCost = (partWeightG / spoolWeightG) * spoolCost * (1 + printFailureBuffer / 100);
+                const kwhConsumed = (printerWatts / 1000) * totalHours;
+                const powerCost = kwhConsumed * kwhRate;
+                const totalMfgCost = filamentCost + powerCost;
+                const suggestedPrice = targetMarginPct >= 95 ? totalMfgCost * 2 : totalMfgCost / (1 - (targetMarginPct / 100));
+                const estProfit = suggestedPrice - totalMfgCost;
+
+                function handleSavePrintRecipe() {
+                  const prefill: any = {
+                    id: '',
+                    user_id: userId,
+                    title: `3D Print: ${printMaterial} (${partWeightG}g, ${printHours}h${printMinutes}m)`,
+                    category: '3D Printing',
+                    instructions_md: `3D Printing Cost Sheet (${printMaterial}):\n- Sliced Weight: ${partWeightG}g (Spool: ${formatCurrency(spoolCost, 'ILS')}/kg)\n- Print Duration: ${printHours}h ${printMinutes}m\n- Machine Power: ${printerWatts}W (${kwhConsumed.toFixed(2)} kWh)\n- Filament Cost: ${formatCurrency(filamentCost, 'ILS')}\n- Electricity Cost: ${formatCurrency(powerCost, 'ILS')}\n- Base Unit Cost: ${formatCurrency(totalMfgCost, 'ILS')}\n- Target Retail Price (${targetMarginPct}% margin): ${formatCurrency(suggestedPrice, 'ILS')}`,
+                    rating: 5,
+                    output_yield_qty: 1,
+                    packaging_overhead: 4.5,
+                    target_retail_price: Math.round(suggestedPrice),
+                  };
+                  setEditingRecipe(prefill);
+                  setRecipeModalOpen(true);
+                }
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>Print Parameters &amp; Machine Overhead</span>
+                        </h3>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          Electricity Rate: ₪{kwhRate}/kWh
+                        </span>
+                      </div>
+
+                      {/* Material Selector */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                          Filament Polymer
+                        </label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {['PLA', 'PETG', 'ABS', 'TPU', 'Resin'].map((mat) => (
+                            <button
+                              key={mat}
+                              type="button"
+                              onClick={() => setPrintMaterial(mat)}
+                              className={cn(
+                                'py-2 px-2.5 rounded-2xl text-xs font-bold transition text-center',
+                                printMaterial === mat
+                                  ? 'bg-indigo-600 text-white shadow-sm'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              )}
+                            >
+                              {mat}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Weight & Spool Pricing */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Model Weight (g)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={partWeightG}
+                            onChange={(e) => setPartWeightG(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Spool Price (₪)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={spoolCost}
+                            onChange={(e) => setSpoolCost(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Failure Buffer (%)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="50"
+                            value={printFailureBuffer}
+                            onChange={(e) => setPrintFailureBuffer(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Print Duration & Machine Power */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Print Hours
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={printHours}
+                            onChange={(e) => setPrintHours(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Print Minutes
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            value={printMinutes}
+                            onChange={(e) => setPrintMinutes(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Printer Power (W)
+                          </label>
+                          <input
+                            type="number"
+                            min="20"
+                            value={printerWatts}
+                            onChange={(e) => setPrinterWatts(Math.max(20, parseInt(e.target.value, 10) || 150))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Target Margin (%)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            max="90"
+                            value={targetMarginPct}
+                            onChange={(e) => setTargetMarginPct(Math.max(10, Math.min(90, parseInt(e.target.value, 10) || 60)))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Costing Breakdown */}
+                    <div className="bg-gradient-to-br from-indigo-500/5 via-blue-500/5 to-cyan-500/5 dark:from-slate-900 dark:to-slate-900 border border-indigo-200/80 dark:border-indigo-900/60 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-indigo-100 dark:border-slate-800">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Total Manufacturing Cost
+                          </span>
+                          <span className="text-base font-extrabold text-indigo-600 dark:text-indigo-400">
+                            {formatCurrency(totalMfgCost, 'ILS')}
+                          </span>
+                        </div>
+
+                        {/* Breakdown line items */}
+                        <div className="space-y-2 text-xs">
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">
+                              Filament ({partWeightG}g + {printFailureBuffer}% purge)
+                            </span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {formatCurrency(filamentCost, 'ILS')}
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">
+                              Electricity ({kwhConsumed.toFixed(2)} kWh)
+                            </span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {formatCurrency(powerCost, 'ILS')}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Suggested Selling Price Card */}
+                        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between font-bold text-emerald-950 dark:text-emerald-200">
+                            <span>Suggested Selling Price ({targetMarginPct}% margin):</span>
+                            <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
+                              {formatCurrency(suggestedPrice, 'ILS')}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-300">
+                            <span>Estimated Gross Profit:</span>
+                            <span>{formatCurrency(estProfit, 'ILS')} / unit</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSavePrintRecipe}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition transform active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save as New Formula</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             /* ================= VIEW: INVENTORY ITEMS GRID ================= */
@@ -1812,6 +2719,47 @@ export default function InventoryClient({
                   </div>
                 </div>
               )}
+
+              {/* Batch Outcome Rating */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Outcome Quality Rating (Optional)
+                </label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setBatchRating(star === batchRating ? null : star)}
+                      className="p-1 hover:scale-110 transition text-amber-400"
+                    >
+                      <Star
+                        className={cn(
+                          'w-5 h-5',
+                          batchRating && star <= batchRating ? 'fill-current' : 'text-slate-300 dark:text-slate-600'
+                        )}
+                      />
+                    </button>
+                  ))}
+                  <span className="text-[11px] text-slate-400 ml-2">
+                    {batchRating ? `${batchRating} Stars` : 'Unrated'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Batch Notes */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Batch Notes &amp; Observations
+                </label>
+                <textarea
+                  value={batchNotes}
+                  onChange={(e) => setBatchNotes(e.target.value)}
+                  placeholder="e.g. Ambient temp 23°C, cured in pressure pot at 45 psi, zero bubbles..."
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 outline-none resize-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
 
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 ⚠️ Executing this batch will immediately decrement inventory quantities and trigger restock alerts if thresholds are breached.

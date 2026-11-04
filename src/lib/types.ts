@@ -70,6 +70,18 @@ export interface SkillRequest {
   reviewer?: Profile;
 }
 
+export interface WorkspaceChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+export interface WorkspaceMetadata {
+  color_swatches?: string[];
+  checklist?: WorkspaceChecklistItem[];
+  reference_links?: Array<{ title: string; url: string }>;
+}
+
 export interface WorkspaceItem {
   id: string;
   user_id: string;
@@ -79,6 +91,7 @@ export interface WorkspaceItem {
   tags: string[];
   idea_status: IdeaStatus;
   is_pinned: boolean;
+  metadata_json?: WorkspaceMetadata;
   created_at: string;
   updated_at: string;
 }
@@ -223,6 +236,19 @@ export interface RecipeIngredient {
   inventory_item?: InventoryItem;
 }
 
+export interface RecipeRun {
+  id: string;
+  recipe_id: string;
+  user_id: string;
+  batch_multiplier: number;
+  units_produced: number;
+  total_batch_cost: number;
+  unit_cogs: number;
+  outcome_rating: number | null;
+  batch_notes: string;
+  created_at: string;
+}
+
 export interface MakerRecipe {
   id: string;
   user_id: string;
@@ -238,6 +264,7 @@ export interface MakerRecipe {
   created_at: string;
   updated_at: string;
   ingredients?: RecipeIngredient[];
+  runs?: RecipeRun[];
 }
 
 export interface MakerArchiveExport {
@@ -270,6 +297,7 @@ export interface MakerArchiveExport {
   task_materials?: TaskMaterial[];
   maker_recipes?: MakerRecipe[];
   recipe_ingredients?: RecipeIngredient[];
+  recipe_runs?: RecipeRun[];
   activity_logs: any[];
 }
 

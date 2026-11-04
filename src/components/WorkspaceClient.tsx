@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { WorkspaceItem, WorkspaceItemType, IdeaStatus } from '@/lib/types';
-import { formatDate, relativeTime } from '@/lib/utils';
+import { formatDate, relativeTime, cn } from '@/lib/utils';
 import {
   Lightbulb,
   FileText,
@@ -23,6 +23,11 @@ import {
   Tag,
   X,
   Hash,
+  Palette,
+  CheckSquare,
+  Copy,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface WorkspaceClientProps {
@@ -45,7 +50,80 @@ export default function WorkspaceClient({ initialItems, userId }: WorkspaceClien
   const [newTagInput, setNewTagInput] = useState('');
   const [promoting, setPromoting] = useState(false);
 
+  // Blueprint Metadata Tools State
+  const [showBlueprintTools, setShowBlueprintTools] = useState(true);
+  const [newColorHex, setNewColorHex] = useState('#6366f1');
+  const [copiedHex, setCopiedHex] = useState<string | null>(null);
+  const [newChecklistText, setNewChecklistText] = useState('');
+
   const selectedItem = items.find((i) => i.id === selectedId) || null;
+
+  // Swatch helpers
+  function handleAddSwatch(hex: string) {
+    if (!selectedItem) return;
+    const current = selectedItem.metadata_json?.color_swatches || [];
+    if (current.includes(hex)) return;
+    const updatedMeta = {
+      ...selectedItem.metadata_json,
+      color_swatches: [...current, hex],
+    };
+    handleUpdateField('metadata_json', updatedMeta);
+  }
+
+  function handleRemoveSwatch(hex: string) {
+    if (!selectedItem) return;
+    const current = selectedItem.metadata_json?.color_swatches || [];
+    const updatedMeta = {
+      ...selectedItem.metadata_json,
+      color_swatches: current.filter((c) => c !== hex),
+    };
+    handleUpdateField('metadata_json', updatedMeta);
+  }
+
+  function handleCopyHex(hex: string) {
+    navigator.clipboard.writeText(hex);
+    setCopiedHex(hex);
+    setTimeout(() => setCopiedHex(null), 2000);
+  }
+
+  // Checklist helpers
+  function handleAddChecklistItem() {
+    if (!selectedItem || !newChecklistText.trim()) return;
+    const current = selectedItem.metadata_json?.checklist || [];
+    const newItem = {
+      id: crypto.randomUUID(),
+      text: newChecklistText.trim(),
+      done: false,
+    };
+    const updatedMeta = {
+      ...selectedItem.metadata_json,
+      checklist: [...current, newItem],
+    };
+    handleUpdateField('metadata_json', updatedMeta);
+    setNewChecklistText('');
+  }
+
+  function handleToggleChecklistItem(itemId: string) {
+    if (!selectedItem) return;
+    const current = selectedItem.metadata_json?.checklist || [];
+    const updatedMeta = {
+      ...selectedItem.metadata_json,
+      checklist: current.map((item) =>
+        item.id === itemId ? { ...item, done: !item.done } : item
+      ),
+    };
+    handleUpdateField('metadata_json', updatedMeta);
+  }
+
+  function handleRemoveChecklistItem(itemId: string) {
+    if (!selectedItem) return;
+    const current = selectedItem.metadata_json?.checklist || [];
+    const updatedMeta = {
+      ...selectedItem.metadata_json,
+      checklist: current.filter((item) => item.id !== itemId),
+    };
+    handleUpdateField('metadata_json', updatedMeta);
+  }
 
   // Extract all unique tags
   const allTags = useMemo(() => {
@@ -583,6 +661,191 @@ export default function WorkspaceClient({ initialItems, userId }: WorkspaceClien
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Blueprint Tools: Color Swatches & Interactive Checklist */}
+            <div className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
+              <div className="px-6 py-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowBlueprintTools(!showBlueprintTools)}
+                  className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition"
+                >
+                  <Palette className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Blueprint Palette &amp; Checklist</span>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    ({(selectedItem.metadata_json?.color_swatches || []).length} colors,{' '}
+                    {(selectedItem.metadata_json?.checklist || []).filter((c) => c.done).length}/
+                    {(selectedItem.metadata_json?.checklist || []).length} done)
+                  </span>
+                  {showBlueprintTools ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                </button>
+              </div>
+
+              {showBlueprintTools && (
+                <div className="px-6 pb-4 pt-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Color Palette Swatches */}
+                  <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Palette className="w-3 h-3 text-indigo-500" />
+                        <span>Color Swatches</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={newColorHex}
+                          onChange={(e) => setNewColorHex(e.target.value)}
+                          className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent"
+                          title="Pick custom hex color"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddSwatch(newColorHex)}
+                          className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-bold text-[10px] hover:bg-indigo-100"
+                        >
+                          + Add Swatch
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Preset Swatch Chips */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-[10px] text-slate-400 mr-1">Presets:</span>
+                      {['#1e293b', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#a855f7', '#eab308'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => handleAddSwatch(preset)}
+                          className="w-4 h-4 rounded-full border border-black/10 hover:scale-125 transition"
+                          style={{ backgroundColor: preset }}
+                          title={`Add ${preset}`}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Active Swatches List */}
+                    <div className="flex items-center gap-2 flex-wrap pt-1 min-h-[32px]">
+                      {(selectedItem.metadata_json?.color_swatches || []).map((hex) => (
+                        <div
+                          key={hex}
+                          className="flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-mono group"
+                        >
+                          <span
+                            className="w-3.5 h-3.5 rounded-full shadow-inner border border-black/10 shrink-0"
+                            style={{ backgroundColor: hex }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleCopyHex(hex)}
+                            className="hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 font-semibold"
+                            title="Click to copy hex"
+                          >
+                            <span>{hex}</span>
+                            {copiedHex === hex ? (
+                              <Check className="w-2.5 h-2.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-slate-400" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSwatch(hex)}
+                            className="text-slate-400 hover:text-red-500 ml-0.5"
+                            title="Remove swatch"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {(selectedItem.metadata_json?.color_swatches || []).length === 0 && (
+                        <span className="text-[11px] text-slate-400 italic">No color swatches pinned to this blueprint.</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Interactive Checklist */}
+                  <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <CheckSquare className="w-3 h-3 text-indigo-500" />
+                        <span>Interactive Checklist</span>
+                      </span>
+                      {(() => {
+                        const list = selectedItem.metadata_json?.checklist || [];
+                        const doneCount = list.filter((c) => c.done).length;
+                        const pct = list.length > 0 ? Math.round((doneCount / list.length) * 100) : 0;
+                        return (
+                          <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                            {doneCount}/{list.length} ({pct}%)
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Add Checklist Item */}
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={newChecklistText}
+                        onChange={(e) => setNewChecklistText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddChecklistItem();
+                          }
+                        }}
+                        placeholder="Add subtask checklist item..."
+                        className="flex-1 px-2.5 py-1 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddChecklistItem}
+                        className="px-2.5 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs"
+                      >
+                        + Add
+                      </button>
+                    </div>
+
+                    {/* Checklist Items List */}
+                    <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                      {(selectedItem.metadata_json?.checklist || []).map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between text-xs py-1 px-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 group"
+                        >
+                          <label className="flex items-center gap-2 cursor-pointer flex-1 truncate mr-2">
+                            <input
+                              type="checkbox"
+                              checked={c.done}
+                              onChange={() => handleToggleChecklistItem(c.id)}
+                              className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
+                            />
+                            <span className={cn('truncate', c.done ? 'line-through text-slate-400' : 'text-slate-800 dark:text-slate-200')}>
+                              {c.text}
+                            </span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveChecklistItem(c.id)}
+                            className="text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
+                            title="Delete item"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {(selectedItem.metadata_json?.checklist || []).length === 0 && (
+                        <span className="text-[11px] text-slate-400 italic block py-1">No checklist items yet.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Body: Split View / Edit / Preview */}
