@@ -35,7 +35,7 @@ export default function PublicLandingPage({
   recentProjects = [],
 }: PublicLandingPageProps) {
   const buyMeACoffeeUrl =
-    process.env.NEXT_PUBLIC_BUYMEACOFFEE_URL || 'https://www.buymeacoffee.com';
+    process.env.NEXT_PUBLIC_BUYMEACOFFEE_URL || 'https://buymeacoffee.com/orjustdosomething';
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-blue-600 selection:text-white">

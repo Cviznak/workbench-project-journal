@@ -820,7 +820,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
           </div>
 
           <a
-            href={process.env.NEXT_PUBLIC_BUYMEACOFFEE_URL || 'https://www.buymeacoffee.com'}
+            href={process.env.NEXT_PUBLIC_BUYMEACOFFEE_URL || 'https://buymeacoffee.com/orjustdosomething'}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-amber-950 bg-amber-400 hover:bg-amber-300 dark:bg-amber-400 dark:hover:bg-amber-300 shadow-md shadow-amber-400/20 transition transform hover:-translate-y-0.5 shrink-0"

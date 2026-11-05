@@ -103,7 +103,7 @@ export default function Sidebar({ profile }: SidebarProps) {
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
             {/* Buy Me a Coffee Support Button */}
             <a
-              href={process.env.NEXT_PUBLIC_BUYMEACOFFEE_URL || 'https://www.buymeacoffee.com'}
+              href={process.env.NEXT_PUBLIC_BUYMEACOFFEE_URL || 'https://buymeacoffee.com/orjustdosomething'}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 text-amber-950 dark:text-amber-300 border border-amber-400/40 dark:border-amber-500/30 text-xs font-bold transition shadow-sm group/coffee"
