@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
@@ -70,7 +71,8 @@ export async function POST(request: NextRequest) {
 
     const resendApiKey = process.env.RESEND_API_KEY;
     const fromEmail =
-      process.env.RESEND_FROM_EMAIL || 'Workbench <onboarding@resend.dev>';
+      process.env.RESEND_FROM_EMAIL ||
+      'Workbench <notifications@mail.workbenchsoc.com>';
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       request.nextUrl.origin ||
@@ -89,93 +91,48 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 5. Send transactional email via Resend HTTP REST API
-    const subject = `[Workbench] New Skill Requested: ${skill_name} (${skill_category})`;
+    // 5. Send transactional email via official Resend SDK using published template
+    const resend = new Resend(resendApiKey);
+    const templateId =
+      process.env.RESEND_TEMPLATE_SKILL_ALERT ||
+      '02ae3cb7-3584-4cdb-bd67-d6b6918bbde1';
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>${subject}</title>
-        </head>
-        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f17; color: #f8fafc; padding: 24px; margin: 0;">
-          <div style="max-width: 560px; margin: 0 auto; background-color: #111827; border: 1px solid #1f2937; border-radius: 20px; overflow: hidden; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-            <div style="margin-bottom: 24px; border-bottom: 1px solid #1f2937; padding-bottom: 16px;">
-              <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: #60a5fa; text-transform: uppercase;">Workbench Admin Alerts</span>
-              <h1 style="font-size: 20px; font-weight: 800; color: #ffffff; margin: 8px 0 0 0;">New Skill Proposal Submitted</h1>
-            </div>
-
-            <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1; margin-bottom: 20px;">
-              A maker in the community has submitted a new skill proposal for catalog review:
-            </p>
-
-            <div style="background-color: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 18px; margin-bottom: 24px;">
-              <div style="margin-bottom: 10px;">
-                <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Skill Name</span>
-                <div style="font-size: 16px; font-weight: 800; color: #ffffff; margin-top: 2px;">${skill_name}</div>
-              </div>
-              <div style="margin-bottom: 10px;">
-                <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Category</span>
-                <div style="font-size: 14px; font-weight: 600; color: #60a5fa; margin-top: 2px;">${skill_category}</div>
-              </div>
-              <div style="margin-bottom: 10px;">
-                <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Requester</span>
-                <div style="font-size: 14px; font-weight: 600; color: #e2e8f0; margin-top: 2px;">@${requester_username}</div>
-              </div>
-              <div>
-                <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Reason / Justification</span>
-                <div style="font-size: 13px; color: #cbd5e1; margin-top: 2px; font-style: italic;">
-                  &ldquo;${skill_reason || 'No justification provided'}&rdquo;
-                </div>
-              </div>
-            </div>
-
-            <div style="text-align: center; margin-bottom: 28px;">
-              <a href="${adminUrl}" style="display: inline-block; background-color: #2563eb; color: #ffffff; font-size: 13px; font-weight: 700; text-decoration: none; padding: 12px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);">
-                Review &amp; Approve in Admin Hub &rarr;
-              </a>
-            </div>
-
-            <p style="font-size: 11px; color: #64748b; text-align: center; margin: 0; line-height: 1.5;">
-              You received this alert because you are an Administrator on Workbench with email alerts enabled.<br />
-              Manage notification preferences in your Account Settings.
-            </p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const { data, error } = await resend.emails.send(
+      {
         from: fromEmail,
         to: recipientEmails,
-        subject,
-        html: htmlContent,
-      }),
-    });
+        template: {
+          id: templateId,
+          variables: {
+            SKILL_NAME: skill_name,
+            SKILL_CATEGORY: skill_category,
+            REQUESTER_USERNAME: requester_username,
+            SKILL_REASON: skill_reason || 'No justification provided',
+            ADMIN_URL: adminUrl,
+          },
+        },
+      },
+      {
+        idempotencyKey: `skill-request/${requestId}`,
+      }
+    );
 
-    if (!resendResponse.ok) {
-      const errText = await resendResponse.text();
-      console.error('[SkillRequestAlert] Resend API Error:', errText);
+    if (error) {
+      console.error('[SkillRequestAlert] Resend SDK Error:', error.message);
       return NextResponse.json({
         sent: false,
-        error: `Resend HTTP ${resendResponse.status}: ${errText}`,
+        error: error.message,
         fallbackDelivered: true,
       });
     }
 
-    const resendResult = await resendResponse.json();
+    console.info(
+      `[SkillRequestAlert] Email delivered successfully. ID: ${data?.id}`
+    );
 
     return NextResponse.json({
       sent: true,
-      id: resendResult.id,
+      id: data?.id,
       recipients: recipientEmails,
     });
   } catch (err: any) {
