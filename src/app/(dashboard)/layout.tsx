@@ -42,7 +42,7 @@ export default async function DashboardLayout({
       <Sidebar profile={profile as Profile} />
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar profile={profile as Profile} totalXp={totalXp} />
-        <main className="flex-1 p-3 sm:p-4 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
+        <main className="flex-1 p-3 sm:p-4 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto min-w-0">
           {children}
         </main>
       </div>

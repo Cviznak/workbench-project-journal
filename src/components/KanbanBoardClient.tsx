@@ -46,6 +46,7 @@ import {
   Boxes,
 } from 'lucide-react';
 import EditTaskModal from '@/components/EditTaskModal';
+import EditProjectModal from '@/components/EditProjectModal';
 
 interface KanbanBoardClientProps {
   project: any;
@@ -65,7 +66,7 @@ const COLUMNS: { id: TaskStatus; label: string; color: string; accentBorder: str
 
 export default function KanbanBoardClient({
   project: initialProject,
-  members,
+  members: initialMembers,
   skills: initialSkills,
   tasks: initialTasks,
   allSkills,
@@ -77,13 +78,14 @@ export default function KanbanBoardClient({
   const [project, setProject] = useState<any>(initialProject);
   const [tasks, setTasks] = useState<any[]>(initialTasks);
   const [projectSkillsList, setProjectSkillsList] = useState<any[]>(initialSkills);
+  const [membersList, setMembersList] = useState<any[]>(initialMembers);
 
   // Modals state
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editTaskModalOpen, setEditTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<any | null>(null);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
-  const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [projectModalTab, setProjectModalTab] = useState<'team' | 'settings'>('team');
   const [transferModalOpen, setTransferModalOpen] = useState(false);
 
   // Drag and Drop State
@@ -107,21 +109,6 @@ export default function KanbanBoardClient({
   const [taskXp, setTaskXp] = useState('25');
   const [taskLoading, setTaskLoading] = useState(false);
 
-  // Edit Project form state
-  const [editProjectName, setEditProjectName] = useState(initialProject.name);
-  const [editProjectDesc, setEditProjectDesc] = useState(initialProject.description || '');
-  const [editProjectStatus, setEditProjectStatus] = useState<ProjectStatus>(initialProject.status);
-  const [editProjectXp, setEditProjectXp] = useState(String(initialProject.completion_xp_reward || 100));
-  const [editProjectSkillIds, setEditProjectSkillIds] = useState<string[]>(
-    initialSkills.map((s) => s.skill?.id || s.skill_id).filter(Boolean)
-  );
-  const [projectSaving, setProjectSaving] = useState(false);
-
-  // Member invite state
-  const [inviteUsername, setInviteUsername] = useState('');
-  const [memberLoading, setMemberLoading] = useState(false);
-  const [memberError, setMemberError] = useState<string | null>(null);
-
   // PM Transfer state
   const [newPmId, setNewPmId] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
@@ -131,12 +118,12 @@ export default function KanbanBoardClient({
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
 
   const isPM = project.pm_user_id === userId;
-  const myMembership = members.find((m: any) => m.user_id === userId);
+  const myMembership = membersList.find((m: any) => m.user_id === userId);
   const isPendingInvite = !isPM && myMembership?.invitation_status === 'PENDING';
   const projectSkills = projectSkillsList.map((s) => s.skill).filter(Boolean);
 
   // Guarantee PM is always present in projectMembers with ACCEPTED status
-  const rawMemberProfiles = members
+  const rawMemberProfiles = membersList
     .map((m) =>
       m.profile
         ? {
@@ -376,110 +363,6 @@ export default function KanbanBoardClient({
     }
   }
 
-  // -------------------------------------------------------------
-  // Save Project Changes
-  // -------------------------------------------------------------
-  async function handleSaveProject(e: React.FormEvent) {
-    e.preventDefault();
-    setProjectSaving(true);
-
-    try {
-      // 1. Update project details
-      const { data: updatedProj, error: projErr } = await supabase
-        .from('projects')
-        .update({
-          name: editProjectName.trim(),
-          description: editProjectDesc.trim(),
-          status: editProjectStatus,
-          completion_xp_reward: parseInt(editProjectXp, 10) || 100,
-        })
-        .eq('id', project.id)
-        .select()
-        .single();
-
-      if (projErr) throw projErr;
-
-      // 2. Sync project_skills
-      // Delete removed skills
-      await supabase.from('project_skills').delete().eq('project_id', project.id);
-
-      // Insert new skills
-      if (editProjectSkillIds.length > 0) {
-        const skillsToInsert = editProjectSkillIds.map((sid) => ({
-          project_id: project.id,
-          skill_id: sid,
-        }));
-        await supabase.from('project_skills').insert(skillsToInsert);
-      }
-
-      // Fetch fresh skills for state
-      const { data: freshSkills } = await supabase
-        .from('project_skills')
-        .select('*, skill:skill_catalog(*)')
-        .eq('project_id', project.id);
-
-      setProject({ ...project, ...updatedProj });
-      setProjectSkillsList(freshSkills || []);
-      setProjectModalOpen(false);
-      router.refresh();
-    } catch (err: any) {
-      alert(err.message || 'Failed to update project');
-    } finally {
-      setProjectSaving(false);
-    }
-  }
-
-  // Delete Entire Project
-  async function handleDeleteProject() {
-    if (!confirm('Are you absolutely sure you want to delete this project? All tasks will be deleted.')) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase.from('projects').delete().eq('id', project.id);
-      if (error) throw error;
-
-      router.push('/projects');
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete project');
-    }
-  }
-
-  // Add Project Member
-  async function handleAddMember(e: React.FormEvent) {
-    e.preventDefault();
-    setMemberLoading(true);
-    setMemberError(null);
-
-    try {
-      const cleanU = inviteUsername.toLowerCase().trim();
-      const { data: targetProfile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .eq('username', cleanU)
-        .single();
-
-      if (profileErr || !targetProfile) {
-        throw new Error(`User @${cleanU} not found`);
-      }
-
-      const { error: memberErr } = await supabase.from('project_members').insert({
-        project_id: project.id,
-        user_id: targetProfile.id,
-        invitation_status: 'PENDING',
-      });
-
-      if (memberErr) throw memberErr;
-
-      setMemberModalOpen(false);
-      setInviteUsername('');
-      router.refresh();
-    } catch (err: any) {
-      setMemberError(err.message || 'Failed to add member');
-    } finally {
-      setMemberLoading(false);
-    }
-  }
 
   // Transfer PM Role
   async function handleTransferPM(e: React.FormEvent) {
@@ -617,10 +500,13 @@ export default function KanbanBoardClient({
               <span>Add Task</span>
             </button>
 
-            {isPM && (
+            {isPM ? (
               <>
                 <button
-                  onClick={() => setProjectModalOpen(true)}
+                  onClick={() => {
+                    setProjectModalTab('settings');
+                    setProjectModalOpen(true);
+                  }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
                   title="Edit Project settings & skills"
                 >
@@ -629,11 +515,15 @@ export default function KanbanBoardClient({
                 </button>
 
                 <button
-                  onClick={() => setMemberModalOpen(true)}
+                  onClick={() => {
+                    setProjectModalTab('team');
+                    setProjectModalOpen(true);
+                  }}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                  title="Search & invite teammates, view roster"
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Invite</span>
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Team ({membersList.length})</span>
                 </button>
 
                 <button
@@ -660,6 +550,18 @@ export default function KanbanBoardClient({
                   </button>
                 )}
               </>
+            ) : (
+              <button
+                onClick={() => {
+                  setProjectModalTab('team');
+                  setProjectModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                title="View team roster or leave project"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Team ({membersList.length})</span>
+              </button>
             )}
           </div>
         </div>
@@ -1212,153 +1114,26 @@ export default function KanbanBoardClient({
       )}
 
       {/* -------------------------------------------------------- */}
-      {/* Edit Project Settings Modal */}
+      {/* Edit Project Settings & Team Modal */}
       {/* -------------------------------------------------------- */}
-      {projectModalOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setProjectModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <Settings className="w-4 h-4 text-blue-600" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Edit Project Settings</h2>
-              </div>
-              <button
-                onClick={() => setProjectModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProject} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  Project Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editProjectName}
-                  onChange={(e) => setEditProjectName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={editProjectDesc}
-                  onChange={(e) => setEditProjectDesc(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                    Project Status
-                  </label>
-                  <select
-                    value={editProjectStatus}
-                    onChange={(e) => setEditProjectStatus(e.target.value as ProjectStatus)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
-                  >
-                    <option value="PLANNING">Planning</option>
-                    <option value="ACTIVE">Active</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="ARCHIVED">Archived</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                    Completion XP Reward
-                  </label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="2000"
-                    value={editProjectXp}
-                    onChange={(e) => setEditProjectXp(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Skills linked to project */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-                  Linked Skills (Rewarded on Project Completion)
-                </label>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                  {allSkills.map((skill) => {
-                    const isChecked = editProjectSkillIds.includes(skill.id);
-                    return (
-                      <label
-                        key={skill.id}
-                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-900 cursor-pointer text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            if (isChecked) {
-                              setEditProjectSkillIds((prev) => prev.filter((id) => id !== skill.id));
-                            } else {
-                              setEditProjectSkillIds((prev) => [...prev, skill.id]);
-                            }
-                          }}
-                          className="rounded text-blue-600 focus:ring-0"
-                        />
-                        <span className="truncate font-medium text-slate-700 dark:text-slate-300">
-                          {skill.name}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={handleDeleteProject}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete Project</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setProjectModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={projectSaving}
-                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {projectSaving ? 'Saving...' : 'Save Settings'}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EditProjectModal
+        isOpen={projectModalOpen}
+        onClose={() => setProjectModalOpen(false)}
+        project={project}
+        members={membersList}
+        skills={projectSkillsList}
+        allSkills={allSkills}
+        userId={userId}
+        initialTab={projectModalTab}
+        onProjectUpdated={(updated) => {
+          setProject(updated);
+          router.refresh();
+        }}
+        onMembersUpdated={(newMembers) => {
+          setMembersList(newMembers);
+          router.refresh();
+        }}
+      />
 
       {/* -------------------------------------------------------- */}
       {/* Create Task Modal */}
@@ -1525,67 +1300,6 @@ export default function KanbanBoardClient({
         </div>
       )}
 
-      {/* Member Invite Modal */}
-      {memberModalOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setMemberModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Invite Team Member</h2>
-              <button
-                onClick={() => setMemberModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddMember} className="mt-4 space-y-4">
-              {memberError && (
-                <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-400">
-                  {memberError}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                  Member Username
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={inviteUsername}
-                  onChange={(e) => setInviteUsername(e.target.value)}
-                  placeholder="e.g. cviznak"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMemberModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={memberLoading}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {memberLoading ? 'Inviting...' : 'Add to Project'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Transfer PM Modal */}
       {transferModalOpen && (
