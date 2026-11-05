@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.2.0 Production  
+> **Version:** 2.2.1 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -20,6 +20,7 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - **Threaded Comment Discussions & Comment Likes** *(v2.2)*: Community posts and task discussions feature nested replies (`parent_comment_id`) with inline reply targeting, and heart/like toggle (`toggle_comment_like` RPC) with real-time notification dispatch (`COMMENT_LIKED`, `COMMENT_REPLIED`).
 - **Strict Project Tab Isolation** *(v2.2)*: Personal `/projects` board strictly isolates user-owned and joined projects, keeping public showcase projects confined to direct links and community feeds.
 - **Email Verification Guard & Security Hardening** *(v2.2)*: Dedicated `/verify-email` notice route with resend link capabilities and middleware session enforcement guarding unconfirmed accounts, backed by strict comment length constraints and parent-child validation triggers.
+- **Security Advisors & Exploit Hardening** *(v2.2.1)*: Fully remediated Supabase security linter findings by revoking public/anon execution across all internal `SECURITY DEFINER` RPCs and setting immutable `search_path` on mathematical functions. Enforced database-level bounds on `projects.completion_xp_reward` (max 5,000 XP) and `project_tasks.xp_reward` (max 1,000 XP) to prevent arbitrary leveling exploits, added input string length constraints, implemented a 15-minute anti-spam cooldown on transactional emails, and enabled strict HTTP security headers (HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy) in Next.js.
 - **Task Bill of Materials (BOM) & Auto-Stock Deduction** *(v1.5)*: Projects track exact consumable usage and unit economics. Upon task completion, material stock is automatically deducted from `inventory_items`, with low-stock alerts auto-filling the restock cart.
 - **Finished Creations Gallery, Unit Economics & Margin Simulator** *(v1.6)*: Workshop formulas link directly to `'FINISHED_GOOD'` items. Executing a batch automatically deducts raw materials, calculates all-in unit Cost of Goods Sold (COGS = ingredients + packaging overhead), increments finished product inventory stock, touches consistency streaks, and awards `+15 XP`. The Formula Editor features a live Unit Economics & Margin Simulator with gross profit margins and optional 9.5% marketplace fee deductions (e.g. Etsy/Stripe).
 - **Interactive Maker Calculators & Lab Tools** *(v1.7)*: Dedicated lab suite with 3 specialized calculators: Epoxy Resin & Mold Volume (with exothermic thermal runaway warnings for pours >100g, micro-batch scale notices, and part A/B weight breakdown), Perfume Dilution & Concentration (Extrait, EDP, EDT, EDC with fragrance oil & ethanol density weighting and maceration guidance), and 3D Print Costing (filament material, purge allowance, machine electricity consumption, and target gross margin slider). All 3 feature 1-click "Save as New Formula" export.
@@ -499,7 +500,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 016_security_guards_and_avatars.sql    # v1.9.1: Role/streak guards, post counter locks, avatar URL validation & WebP uploads
 │       ├── 017_notifications_and_admin_email.sql # v2.0.0: Unified real-time notifications engine & admin email RPC
 │       ├── 018_public_launch_and_coffee.sql      # v2.1.0: Creator tip jar, anon showcase RLS & project invite email RPC
-│       └── 019_email_auth_comments_and_security.sql # v2.2.0: Threaded comments, comment likes, strict project isolation & security guards
+│       ├── 019_email_auth_comments_and_security.sql # v2.2.0: Threaded comments, comment likes, strict project isolation & security guards
+│       └── 020_security_advisors_and_xp_bounds.sql  # v2.2.1: Revoke anon RPCs, lock search_path, cap XP rewards & anti-spam cooldown
 ├── package.json
 └── tailwind.config.ts
 ```

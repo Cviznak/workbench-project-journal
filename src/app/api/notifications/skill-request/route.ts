@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       request.nextUrl.origin ||
-      'https://workbench.build';
+      'https://www.workbenchsoc.com';
     const adminUrl = `${siteUrl}/admin`;
 
     // 4. Graceful fallback if RESEND_API_KEY is not yet configured
