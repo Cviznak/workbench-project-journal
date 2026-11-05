@@ -171,7 +171,9 @@ export interface TaskComment {
   is_edited: boolean;
   created_at: string;
   updated_at: string;
+  parent_comment_id?: string | null;
   author?: Profile;
+  replies?: TaskComment[];
 }
 
 export interface TaskAttachment {
@@ -463,7 +465,17 @@ export interface PostComment {
   user_id: string;
   content: string;
   created_at: string;
+  parent_comment_id?: string | null;
+  likes_count?: number;
+  is_liked?: boolean;
   author?: Profile;
+  replies?: PostComment[];
+}
+
+export interface CommentLike {
+  comment_id: string;
+  user_id: string;
+  created_at: string;
 }
 
 export type NotificationType =
@@ -471,6 +483,8 @@ export type NotificationType =
   | 'SKILL_REQUEST_REVIEWED'
   | 'POST_LIKED'
   | 'POST_COMMENTED'
+  | 'COMMENT_LIKED'
+  | 'COMMENT_REPLIED'
   | 'TASK_ASSIGNED'
   | 'PROJECT_INVITE';
 

@@ -25,6 +25,7 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  CornerDownRight,
 } from 'lucide-react';
 
 interface CommunityFeedClientProps {
@@ -70,6 +71,7 @@ export default function CommunityFeedClient({
   const [postCommentsMap, setPostCommentsMap] = useState<Record<string, any[]>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState<Record<string, boolean>>({});
+  const [replyingTo, setReplyingTo] = useState<Record<string, { commentId: string; authorName: string } | null>>({});
 
   const isAdmin = currentProfile?.role === 'ROOT_ADMIN' || currentProfile?.role === 'ADMIN';
 
@@ -347,18 +349,84 @@ export default function CommunityFeedClient({
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
 
+      const commentIds = (comments || []).map((c) => c.id);
+      let userLikedCommentIds = new Set<string>();
+      if (commentIds.length > 0 && currentUserId) {
+        const { data: likes } = await supabase
+          .from('comment_likes')
+          .select('comment_id')
+          .in('comment_id', commentIds)
+          .eq('user_id', currentUserId);
+        if (likes) {
+          userLikedCommentIds = new Set(likes.map((l) => l.comment_id));
+        }
+      }
+
+      const enrichedComments = (comments || []).map((c) => ({
+        ...c,
+        is_liked: userLikedCommentIds.has(c.id),
+      }));
+
       setPostCommentsMap((prev) => ({
         ...prev,
-        [postId]: comments || [],
+        [postId]: enrichedComments,
       }));
     }
   }
 
-  // Submit Comment
+  // Toggle Comment Like
+  async function handleToggleCommentLike(postId: string, commentId: string) {
+    if (!currentUserId) return;
+
+    // Optimistic toggle
+    setPostCommentsMap((prev) => {
+      const list = prev[postId] || [];
+      return {
+        ...prev,
+        [postId]: list.map((c) => {
+          if (c.id === commentId) {
+            const currentlyLiked = Boolean(c.is_liked);
+            return {
+              ...c,
+              is_liked: !currentlyLiked,
+              likes_count: Math.max(0, (c.likes_count || 0) + (currentlyLiked ? -1 : 1)),
+            };
+          }
+          return c;
+        }),
+      };
+    });
+
+    try {
+      const { data, error } = await supabase.rpc('toggle_comment_like', {
+        p_comment_id: commentId,
+      });
+      if (error) throw error;
+      if (data) {
+        setPostCommentsMap((prev) => {
+          const list = prev[postId] || [];
+          return {
+            ...prev,
+            [postId]: list.map((c) =>
+              c.id === commentId
+                ? { ...c, is_liked: data.liked, likes_count: data.likes_count }
+                : c
+            ),
+          };
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle comment like:', err);
+    }
+  }
+
+  // Submit Comment or Threaded Reply
   async function handleAddComment(postId: string, e: React.FormEvent) {
     e.preventDefault();
     const text = (commentInputs[postId] || '').trim();
     if (!text) return;
+
+    const parent = replyingTo[postId] || null;
 
     setSubmittingComment((prev) => ({ ...prev, [postId]: true }));
 
@@ -369,6 +437,7 @@ export default function CommunityFeedClient({
           post_id: postId,
           user_id: currentUserId,
           content: text,
+          parent_comment_id: parent?.commentId || null,
         })
         .select('*, author:profiles!post_comments_user_id_fkey(*)')
         .single();
@@ -378,7 +447,7 @@ export default function CommunityFeedClient({
       // Update comments list and post comments_count
       setPostCommentsMap((prev) => ({
         ...prev,
-        [postId]: [...(prev[postId] || []), newComment],
+        [postId]: [...(prev[postId] || []), { ...newComment, is_liked: false, likes_count: 0 }],
       }));
 
       setPosts((prev) =>
@@ -388,6 +457,7 @@ export default function CommunityFeedClient({
       );
 
       setCommentInputs((prev) => ({ ...prev, [postId]: '' }));
+      setReplyingTo((prev) => ({ ...prev, [postId]: null }));
     } catch (err: any) {
       alert(err.message || 'Failed to submit comment');
     } finally {
@@ -897,67 +967,214 @@ export default function CommunityFeedClient({
                 {commentsOpen && (
                   <div className="p-5 pt-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 space-y-3">
                     {/* Comments List */}
-                    <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                    <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                       {postComments.length === 0 ? (
                         <p className="text-xs text-slate-400 italic py-2">
                           No comments yet. Start the conversation!
                         </p>
                       ) : (
-                        postComments.map((comment) => {
-                          const canDeleteComment =
-                            comment.user_id === currentUserId || isAuthor || isAdmin;
+                        (() => {
+                          const rootComments = postComments.filter((c) => !c.parent_comment_id);
+                          const repliesByParent = postComments.reduce((acc: Record<string, any[]>, c) => {
+                            if (c.parent_comment_id) {
+                              acc[c.parent_comment_id] = acc[c.parent_comment_id] || [];
+                              acc[c.parent_comment_id].push(c);
+                            }
+                            return acc;
+                          }, {});
 
-                          return (
-                            <div
-                              key={comment.id}
-                              className="flex items-start justify-between gap-2 p-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800"
-                            >
-                              <div className="flex items-start gap-2.5">
-                                <Link href={`/makers/${comment.author?.username || 'maker'}`}>
-                                  <UserAvatar
-                                    src={comment.author?.avatar_url}
-                                    name={comment.author?.display_name || comment.author?.username}
-                                    size="sm"
-                                    shape="circle"
-                                  />
-                                </Link>
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <Link
-                                      href={`/makers/${comment.author?.username || 'maker'}`}
-                                      className="text-xs font-bold text-slate-900 dark:text-white hover:underline"
-                                    >
-                                      {comment.author?.display_name || 'Maker'}
-                                    </Link>
-                                    <span className="text-[10px] text-slate-400">
-                                      {relativeTime(comment.created_at)}
-                                    </span>
+                          return rootComments.map((comment) => {
+                            const canDeleteComment =
+                              comment.user_id === currentUserId || isAuthor || isAdmin;
+                            const replies = repliesByParent[comment.id] || [];
+
+                            return (
+                              <div key={comment.id} className="space-y-2">
+                                <div className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 space-y-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-start gap-2.5">
+                                      <Link href={`/makers/${comment.author?.username || 'maker'}`}>
+                                        <UserAvatar
+                                          src={comment.author?.avatar_url}
+                                          name={comment.author?.display_name || comment.author?.username}
+                                          size="sm"
+                                          shape="circle"
+                                        />
+                                      </Link>
+                                      <div>
+                                        <div className="flex items-center gap-1.5">
+                                          <Link
+                                            href={`/makers/${comment.author?.username || 'maker'}`}
+                                            className="text-xs font-bold text-slate-900 dark:text-white hover:underline"
+                                          >
+                                            {comment.author?.display_name || 'Maker'}
+                                          </Link>
+                                          <span className="text-[10px] text-slate-400">
+                                            {relativeTime(comment.created_at)}
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap mt-0.5 leading-relaxed">
+                                          {comment.content}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {canDeleteComment && (
+                                      <button
+                                        onClick={() => handleDeleteComment(post.id, comment.id)}
+                                        className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition shrink-0"
+                                        title="Delete comment"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                   </div>
-                                  <p className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap mt-0.5">
-                                    {comment.content}
-                                  </p>
-                                </div>
-                              </div>
 
-                              {canDeleteComment && (
-                                <button
-                                  onClick={() => handleDeleteComment(post.id, comment.id)}
-                                  className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition shrink-0"
-                                  title="Delete comment"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })
+                                  {/* Comment Action Bar: Like & Reply */}
+                                  <div className="flex items-center gap-3 pt-1 border-t border-slate-100 dark:border-slate-800/60 pl-9">
+                                    <button
+                                      onClick={() => handleToggleCommentLike(post.id, comment.id)}
+                                      className={cn(
+                                        'flex items-center gap-1 text-[11px] font-medium transition',
+                                        comment.is_liked
+                                          ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                                          : 'text-slate-400 hover:text-rose-600'
+                                      )}
+                                    >
+                                      <Heart
+                                        className={cn(
+                                          'w-3.5 h-3.5',
+                                          comment.is_liked && 'fill-rose-500 text-rose-500'
+                                        )}
+                                      />
+                                      <span>{comment.likes_count || 0}</span>
+                                    </button>
+
+                                    <button
+                                      onClick={() =>
+                                        setReplyingTo((prev) => ({
+                                          ...prev,
+                                          [post.id]: {
+                                            commentId: comment.id,
+                                            authorName:
+                                              comment.author?.display_name ||
+                                              comment.author?.username ||
+                                              'Maker',
+                                          },
+                                        }))
+                                      }
+                                      className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-blue-600 font-medium transition"
+                                    >
+                                      <CornerDownRight className="w-3.5 h-3.5" />
+                                      <span>Reply</span>
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Threaded Replies Indented */}
+                                {replies.length > 0 && (
+                                  <div className="ml-6 pl-3 border-l-2 border-blue-500/20 dark:border-blue-500/20 space-y-2">
+                                    {replies.map((reply) => {
+                                      const canDeleteReply =
+                                        reply.user_id === currentUserId || isAuthor || isAdmin;
+
+                                      return (
+                                        <div
+                                          key={reply.id}
+                                          className="p-2.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800/80 space-y-1.5"
+                                        >
+                                          <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-start gap-2">
+                                              <Link href={`/makers/${reply.author?.username || 'maker'}`}>
+                                                <UserAvatar
+                                                  src={reply.author?.avatar_url}
+                                                  name={reply.author?.display_name || reply.author?.username}
+                                                  size="xs"
+                                                  shape="circle"
+                                                />
+                                              </Link>
+                                              <div>
+                                                <div className="flex items-center gap-1.5">
+                                                  <Link
+                                                    href={`/makers/${reply.author?.username || 'maker'}`}
+                                                    className="text-xs font-bold text-slate-900 dark:text-white hover:underline"
+                                                  >
+                                                    {reply.author?.display_name || 'Maker'}
+                                                  </Link>
+                                                  <span className="text-[10px] text-slate-400">
+                                                    {relativeTime(reply.created_at)}
+                                                  </span>
+                                                </div>
+                                                <p className="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap mt-0.5">
+                                                  {reply.content}
+                                                </p>
+                                              </div>
+                                            </div>
+
+                                            {canDeleteReply && (
+                                              <button
+                                                onClick={() => handleDeleteComment(post.id, reply.id)}
+                                                className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition shrink-0"
+                                                title="Delete reply"
+                                              >
+                                                <Trash2 className="w-3 h-3" />
+                                              </button>
+                                            )}
+                                          </div>
+
+                                          {/* Reply Action Bar: Like */}
+                                          <div className="flex items-center gap-3 pt-1 border-t border-slate-100 dark:border-slate-800/50 pl-7">
+                                            <button
+                                              onClick={() => handleToggleCommentLike(post.id, reply.id)}
+                                              className={cn(
+                                                'flex items-center gap-1 text-[10px] font-medium transition',
+                                                reply.is_liked
+                                                  ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                                                  : 'text-slate-400 hover:text-rose-600'
+                                              )}
+                                            >
+                                              <Heart
+                                                className={cn(
+                                                  'w-3 h-3',
+                                                  reply.is_liked && 'fill-rose-500 text-rose-500'
+                                                )}
+                                              />
+                                              <span>{reply.likes_count || 0}</span>
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()
                       )}
                     </div>
+
+                    {/* Replying Banner */}
+                    {replyingTo[post.id] && (
+                      <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/60 dark:border-blue-900/60 text-blue-700 dark:text-blue-300 rounded-xl text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <CornerDownRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          <span>Replying to <strong>@{replyingTo[post.id]?.authorName}</strong></span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setReplyingTo((prev) => ({ ...prev, [post.id]: null }))}
+                          className="p-0.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-500"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
 
                     {/* New Comment Input Form */}
                     <form
                       onSubmit={(e) => handleAddComment(post.id, e)}
-                      className="flex items-center gap-2 pt-2"
+                      className="flex items-center gap-2 pt-1"
                     >
                       <input
                         type="text"
@@ -968,7 +1185,11 @@ export default function CommunityFeedClient({
                             [post.id]: e.target.value,
                           }))
                         }
-                        placeholder="Write a supportive reply or ask a maker question..."
+                        placeholder={
+                          replyingTo[post.id]
+                            ? `Replying to @${replyingTo[post.id]?.authorName}...`
+                            : 'Write a supportive reply or ask a maker question...'
+                        }
                         className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-none focus:ring-1 focus:ring-blue-500"
                         maxLength={2000}
                       />
@@ -981,8 +1202,10 @@ export default function CommunityFeedClient({
                       >
                         {submittingComment[post.id] ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
+                        ) : replyingTo[post.id] ? (
                           'Reply'
+                        ) : (
+                          'Comment'
                         )}
                       </button>
                     </form>

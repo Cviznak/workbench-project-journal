@@ -37,6 +37,7 @@ import {
   Lock,
   Boxes,
   AlertTriangle,
+  CornerDownRight,
 } from 'lucide-react';
 import SkillSelector from '@/components/SkillSelector';
 import UserAvatar from '@/components/UserAvatar';
@@ -96,6 +97,7 @@ export default function EditTaskModal({
   const [postingComment, setPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
+  const [replyingToComment, setReplyingToComment] = useState<{ id: string; authorName: string } | null>(null);
 
   // Attachments state
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
@@ -394,10 +396,12 @@ export default function EditTaskModal({
         project_id: projectId,
         user_id: currentUserId,
         content_md: newComment.trim(),
+        parent_comment_id: replyingToComment?.id || null,
       });
 
       if (error) throw error;
       setNewComment('');
+      setReplyingToComment(null);
     } catch (err: any) {
       alert(err.message || 'Failed to post comment');
     } finally {
@@ -900,91 +904,208 @@ export default function EditTaskModal({
                 {/* Comments List */}
                 <div className="flex-1 space-y-3 overflow-y-auto max-h-[350px] pr-1">
                   {comments.length > 0 ? (
-                    comments.map((comment) => {
-                      const isAuthor = comment.user_id === currentUserId;
-                      const author = comment.author;
-                      const isEditing = editingCommentId === comment.id;
+                    (() => {
+                      const rootComments = comments.filter((c) => !c.parent_comment_id);
+                      const repliesByParent = comments.reduce((acc: Record<string, TaskComment[]>, c) => {
+                        if (c.parent_comment_id) {
+                          acc[c.parent_comment_id] = acc[c.parent_comment_id] || [];
+                          acc[c.parent_comment_id].push(c);
+                        }
+                        return acc;
+                      }, {});
 
-                      return (
-                        <div
-                          key={comment.id}
-                          className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200/70 dark:border-slate-800 space-y-2 text-xs"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <UserAvatar
-                                src={author?.avatar_url}
-                                name={author?.display_name || author?.username}
-                                size="xs"
-                                shape="circle"
-                              />
-                              <span className="font-bold text-slate-900 dark:text-white">
-                                {author?.display_name || 'Maker'}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                @{author?.username || 'user'} • {relativeTime(comment.created_at)}
-                              </span>
-                              {comment.is_edited && (
-                                <span className="text-[9px] text-slate-400 italic">(edited)</span>
+                      return rootComments.map((comment) => {
+                        const isAuthor = comment.user_id === currentUserId;
+                        const author = comment.author;
+                        const isEditing = editingCommentId === comment.id;
+                        const replies = repliesByParent[comment.id] || [];
+
+                        return (
+                          <div key={comment.id} className="space-y-2">
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200/70 dark:border-slate-800 space-y-2 text-xs">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <UserAvatar
+                                    src={author?.avatar_url}
+                                    name={author?.display_name || author?.username}
+                                    size="xs"
+                                    shape="circle"
+                                  />
+                                  <span className="font-bold text-slate-900 dark:text-white">
+                                    {author?.display_name || 'Maker'}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    @{author?.username || 'user'} • {relativeTime(comment.created_at)}
+                                  </span>
+                                  {comment.is_edited && (
+                                    <span className="text-[9px] text-slate-400 italic">(edited)</span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() =>
+                                      setReplyingToComment({
+                                        id: comment.id,
+                                        authorName: author?.display_name || author?.username || 'Maker',
+                                      })
+                                    }
+                                    className="text-[11px] text-slate-400 hover:text-blue-600 flex items-center gap-1"
+                                  >
+                                    <CornerDownRight className="w-3 h-3" />
+                                    <span>Reply</span>
+                                  </button>
+
+                                  {(isAuthor || isPM) && (
+                                    <div className="flex items-center gap-1.5 ml-1">
+                                      {isAuthor && !isEditing && (
+                                        <button
+                                          onClick={() => {
+                                            setEditingCommentId(comment.id);
+                                            setEditingCommentText(comment.content_md);
+                                          }}
+                                          className="text-[11px] text-slate-400 hover:text-blue-600"
+                                        >
+                                          Edit
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => handleDeleteComment(comment.id)}
+                                        className="text-[11px] text-slate-400 hover:text-red-500"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {isEditing ? (
+                                <div className="space-y-2 mt-2">
+                                  <textarea
+                                    rows={2}
+                                    value={editingCommentText}
+                                    onChange={(e) => setEditingCommentText(e.target.value)}
+                                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs"
+                                  />
+                                  <div className="flex items-center gap-2 justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingCommentId(null)}
+                                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-500"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateComment(comment.id)}
+                                      className="px-3 py-1 rounded-lg text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700"
+                                    >
+                                      Save
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                                  {comment.content_md}
+                                </p>
                               )}
                             </div>
 
-                            {(isAuthor || isPM) && (
-                              <div className="flex items-center gap-1.5">
-                                {isAuthor && !isEditing && (
-                                  <button
-                                    onClick={() => {
-                                      setEditingCommentId(comment.id);
-                                      setEditingCommentText(comment.content_md);
-                                    }}
-                                    className="text-[11px] text-slate-400 hover:text-blue-600"
-                                  >
-                                    Edit
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleDeleteComment(comment.id)}
-                                  className="text-[11px] text-slate-400 hover:text-red-500"
-                                >
-                                  Delete
-                                </button>
+                            {/* Nested Replies */}
+                            {replies.length > 0 && (
+                              <div className="ml-6 pl-3 border-l-2 border-blue-500/20 dark:border-blue-500/20 space-y-2">
+                                {replies.map((reply) => {
+                                  const isReplyAuthor = reply.user_id === currentUserId;
+                                  const replyAuthor = reply.author;
+                                  const isReplyEditing = editingCommentId === reply.id;
+
+                                  return (
+                                    <div
+                                      key={reply.id}
+                                      className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-950/50 border border-slate-200/60 dark:border-slate-800/80 space-y-1.5 text-xs"
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <UserAvatar
+                                            src={replyAuthor?.avatar_url}
+                                            name={replyAuthor?.display_name || replyAuthor?.username}
+                                            size="xs"
+                                            shape="circle"
+                                          />
+                                          <span className="font-bold text-slate-900 dark:text-white">
+                                            {replyAuthor?.display_name || 'Maker'}
+                                          </span>
+                                          <span className="text-[10px] text-slate-400">
+                                            @{replyAuthor?.username || 'user'} • {relativeTime(reply.created_at)}
+                                          </span>
+                                          {reply.is_edited && (
+                                            <span className="text-[9px] text-slate-400 italic">(edited)</span>
+                                          )}
+                                        </div>
+
+                                        {(isReplyAuthor || isPM) && (
+                                          <div className="flex items-center gap-1.5">
+                                            {isReplyAuthor && !isReplyEditing && (
+                                              <button
+                                                onClick={() => {
+                                                  setEditingCommentId(reply.id);
+                                                  setEditingCommentText(reply.content_md);
+                                                }}
+                                                className="text-[11px] text-slate-400 hover:text-blue-600"
+                                              >
+                                                Edit
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={() => handleDeleteComment(reply.id)}
+                                              className="text-[11px] text-slate-400 hover:text-red-500"
+                                            >
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {isReplyEditing ? (
+                                        <div className="space-y-2 mt-2">
+                                          <textarea
+                                            rows={2}
+                                            value={editingCommentText}
+                                            onChange={(e) => setEditingCommentText(e.target.value)}
+                                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs"
+                                          />
+                                          <div className="flex items-center gap-2 justify-end">
+                                            <button
+                                              type="button"
+                                              onClick={() => setEditingCommentId(null)}
+                                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-500"
+                                            >
+                                              Cancel
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUpdateComment(reply.id)}
+                                              className="px-3 py-1 rounded-lg text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700"
+                                            >
+                                              Save
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                                          {reply.content_md}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
-
-                          {isEditing ? (
-                            <div className="space-y-2 mt-2">
-                              <textarea
-                                rows={2}
-                                value={editingCommentText}
-                                onChange={(e) => setEditingCommentText(e.target.value)}
-                                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs"
-                              />
-                              <div className="flex items-center gap-2 justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingCommentId(null)}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-slate-500"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateComment(comment.id)}
-                                  className="px-3 py-1 rounded-lg text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700"
-                                >
-                                  Save
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
-                              {comment.content_md}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })
+                        );
+                      });
+                    })()
                   ) : (
                     <div className="text-center py-12 text-slate-400 text-xs">
                       <MessageSquare className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
@@ -994,14 +1115,35 @@ export default function EditTaskModal({
                   )}
                 </div>
 
+                {/* Replying Banner */}
+                {replyingToComment && (
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/60 dark:border-blue-900/60 text-blue-700 dark:text-blue-300 rounded-xl text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <CornerDownRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>Replying to <strong>@{replyingToComment.authorName}</strong></span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyingToComment(null)}
+                      className="p-0.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-500"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 {/* New Comment Input */}
-                <form onSubmit={handlePostComment} className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <form onSubmit={handlePostComment} className="pt-2 border-t border-slate-100 dark:border-slate-800">
                   <div className="flex gap-2">
                     <textarea
                       rows={2}
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Write a message in this task discussion..."
+                      placeholder={
+                        replyingToComment
+                          ? `Replying to @${replyingToComment.authorName}...`
+                          : 'Write a message in this task discussion...'
+                      }
                       className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <button
@@ -1010,7 +1152,7 @@ export default function EditTaskModal({
                       className="px-4 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-1.5 self-end py-2.5 shadow-sm shadow-blue-500/20"
                     >
                       {postingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                      <span>Post</span>
+                      <span>{replyingToComment ? 'Reply' : 'Post'}</span>
                     </button>
                   </div>
                 </form>

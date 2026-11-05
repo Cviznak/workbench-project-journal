@@ -47,8 +47,13 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isAuthPage = path.startsWith('/login') || path.startsWith('/signup') || path.startsWith('/auth');
+  const isAuthPage =
+    path.startsWith('/login') ||
+    path.startsWith('/signup') ||
+    path.startsWith('/auth') ||
+    path.startsWith('/verify-email');
   const isSuspendedPage = path === '/suspended';
+  const isVerifyEmailPage = path.startsWith('/verify-email');
   const isPublicPage =
     path === '/' ||
     path.startsWith('/makers/') ||
@@ -57,8 +62,14 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/opengraph-image');
 
   if (user) {
-    // If logged in and hitting login/signup, redirect to dashboard immediately without DB lookup
-    if (isAuthPage && !path.startsWith('/auth/callback')) {
+    // If user has an active session but email is unconfirmed, route to /verify-email
+    if (!user.email_confirmed_at && !isVerifyEmailPage && !path.startsWith('/auth')) {
+      const emailParam = user.email ? `?email=${encodeURIComponent(user.email)}` : '';
+      return NextResponse.redirect(new URL(`/verify-email${emailParam}`, request.url));
+    }
+
+    // If logged in with confirmed email and hitting auth pages, redirect to dashboard
+    if (user.email_confirmed_at && isAuthPage && !path.startsWith('/auth/callback')) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 

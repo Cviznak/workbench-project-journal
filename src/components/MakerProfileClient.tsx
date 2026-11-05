@@ -29,6 +29,7 @@ import {
   Target,
   Image as ImageIcon,
   Coffee,
+  CornerDownRight,
 } from 'lucide-react';
 
 interface MakerProfileClientProps {
@@ -80,6 +81,7 @@ export default function MakerProfileClient({
   const [postCommentsMap, setPostCommentsMap] = useState<Record<string, any[]>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState<Record<string, boolean>>({});
+  const [replyingTo, setReplyingTo] = useState<Record<string, { commentId: string; authorName: string } | null>>({});
 
   // Compute total XP across all skills
   const totalXp = userSkills.reduce((sum, s) => sum + (s.total_xp || 0), 0);
@@ -236,11 +238,78 @@ export default function MakerProfileClient({
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
 
-      setPostCommentsMap((prev) => ({ ...prev, [postId]: comments || [] }));
+      const commentIds = (comments || []).map((c) => c.id);
+      let userLikedCommentIds = new Set<string>();
+      if (commentIds.length > 0 && currentUserId) {
+        const { data: likes } = await supabase
+          .from('comment_likes')
+          .select('comment_id')
+          .in('comment_id', commentIds)
+          .eq('user_id', currentUserId);
+        if (likes) {
+          userLikedCommentIds = new Set(likes.map((l) => l.comment_id));
+        }
+      }
+
+      const enrichedComments = (comments || []).map((c) => ({
+        ...c,
+        is_liked: userLikedCommentIds.has(c.id),
+      }));
+
+      setPostCommentsMap((prev) => ({ ...prev, [postId]: enrichedComments }));
     }
   }
 
-  // Add Comment
+  // Toggle Comment Like
+  async function handleToggleCommentLike(postId: string, commentId: string) {
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
+
+    // Optimistic toggle
+    setPostCommentsMap((prev) => {
+      const list = prev[postId] || [];
+      return {
+        ...prev,
+        [postId]: list.map((c) => {
+          if (c.id === commentId) {
+            const currentlyLiked = Boolean(c.is_liked);
+            return {
+              ...c,
+              is_liked: !currentlyLiked,
+              likes_count: Math.max(0, (c.likes_count || 0) + (currentlyLiked ? -1 : 1)),
+            };
+          }
+          return c;
+        }),
+      };
+    });
+
+    try {
+      const { data, error } = await supabase.rpc('toggle_comment_like', {
+        p_comment_id: commentId,
+      });
+      if (error) throw error;
+      if (data) {
+        setPostCommentsMap((prev) => {
+          const list = prev[postId] || [];
+          return {
+            ...prev,
+            [postId]: list.map((c) =>
+              c.id === commentId
+                ? { ...c, is_liked: data.liked, likes_count: data.likes_count }
+                : c
+            ),
+          };
+        });
+      }
+    } catch (err: any) {
+      console.error('Failed to toggle comment like:', err);
+    }
+  }
+
+  // Add Comment or Reply
   async function handleAddComment(postId: string, e: React.FormEvent) {
     e.preventDefault();
     if (!currentUserId) {
@@ -250,6 +319,8 @@ export default function MakerProfileClient({
     const text = (commentInputs[postId] || '').trim();
     if (!text) return;
 
+    const parent = replyingTo[postId] || null;
+
     setSubmittingComment((prev) => ({ ...prev, [postId]: true }));
     try {
       const { data: newComment, error } = await supabase
@@ -258,6 +329,7 @@ export default function MakerProfileClient({
           post_id: postId,
           user_id: currentUserId,
           content: text,
+          parent_comment_id: parent?.commentId || null,
         })
         .select('*, author:profiles!post_comments_user_id_fkey(*)')
         .single();
@@ -266,7 +338,7 @@ export default function MakerProfileClient({
 
       setPostCommentsMap((prev) => ({
         ...prev,
-        [postId]: [...(prev[postId] || []), newComment],
+        [postId]: [...(prev[postId] || []), { ...newComment, is_liked: false, likes_count: 0 }],
       }));
       setPosts((prev) =>
         prev.map((p) =>
@@ -274,6 +346,7 @@ export default function MakerProfileClient({
         )
       );
       setCommentInputs((prev) => ({ ...prev, [postId]: '' }));
+      setReplyingTo((prev) => ({ ...prev, [postId]: null }));
     } catch (err: any) {
       alert(err.message || 'Failed to submit comment');
     } finally {
@@ -668,32 +741,166 @@ export default function MakerProfileClient({
                   {/* Inline Comments */}
                   {commentsOpen && (
                     <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                        {postComments.map((c) => (
-                          <div
-                            key={c.id}
-                            className="p-2 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs flex items-start justify-between gap-2"
-                          >
-                            <div className="flex items-start gap-2 min-w-0">
-                              <UserAvatar
-                                src={c.author?.avatar_url}
-                                name={c.author?.display_name || c.author?.username}
-                                size="xs"
-                                shape="circle"
-                              />
-                              <div className="min-w-0">
-                                <span className="font-bold text-slate-900 dark:text-white mr-1.5">
-                                  {c.author?.display_name || 'Maker'}:
-                                </span>
-                                <span className="text-slate-700 dark:text-slate-300">{c.content}</span>
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {(() => {
+                          const rootComments = postComments.filter((c) => !c.parent_comment_id);
+                          const repliesByParent = postComments.reduce((acc: Record<string, any[]>, c) => {
+                            if (c.parent_comment_id) {
+                              acc[c.parent_comment_id] = acc[c.parent_comment_id] || [];
+                              acc[c.parent_comment_id].push(c);
+                            }
+                            return acc;
+                          }, {});
+
+                          if (rootComments.length === 0) {
+                            return (
+                              <p className="text-xs text-slate-400 italic py-1">
+                                No comments yet. Start the conversation!
+                              </p>
+                            );
+                          }
+
+                          return rootComments.map((c) => {
+                            const replies = repliesByParent[c.id] || [];
+
+                            return (
+                              <div key={c.id} className="space-y-1.5">
+                                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs space-y-1.5 border border-slate-200/50 dark:border-slate-800/50">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-start gap-2 min-w-0">
+                                      <UserAvatar
+                                        src={c.author?.avatar_url}
+                                        name={c.author?.display_name || c.author?.username}
+                                        size="xs"
+                                        shape="circle"
+                                      />
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-bold text-slate-900 dark:text-white">
+                                            {c.author?.display_name || 'Maker'}
+                                          </span>
+                                          <span className="text-[10px] text-slate-400">
+                                            {relativeTime(c.created_at)}
+                                          </span>
+                                        </div>
+                                        <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap mt-0.5">
+                                          {c.content}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Action Bar: Like & Reply */}
+                                  <div className="flex items-center gap-3 pt-1 border-t border-slate-200/40 dark:border-slate-800/40 pl-6">
+                                    <button
+                                      onClick={() => handleToggleCommentLike(post.id, c.id)}
+                                      className={cn(
+                                        'flex items-center gap-1 text-[10px] font-medium transition',
+                                        c.is_liked
+                                          ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                                          : 'text-slate-400 hover:text-rose-600'
+                                      )}
+                                    >
+                                      <Heart
+                                        className={cn('w-3 h-3', c.is_liked && 'fill-rose-500 text-rose-500')}
+                                      />
+                                      <span>{c.likes_count || 0}</span>
+                                    </button>
+
+                                    <button
+                                      onClick={() =>
+                                        setReplyingTo((prev) => ({
+                                          ...prev,
+                                          [post.id]: {
+                                            commentId: c.id,
+                                            authorName:
+                                              c.author?.display_name || c.author?.username || 'Maker',
+                                          },
+                                        }))
+                                      }
+                                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-blue-600 font-medium transition"
+                                    >
+                                      <CornerDownRight className="w-3 h-3" />
+                                      <span>Reply</span>
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Nested Replies */}
+                                {replies.length > 0 && (
+                                  <div className="ml-5 pl-2.5 border-l-2 border-blue-500/20 space-y-1.5">
+                                    {replies.map((reply) => (
+                                      <div
+                                        key={reply.id}
+                                        className="p-2 rounded-xl bg-slate-50/80 dark:bg-slate-950/80 text-xs space-y-1 border border-slate-200/40 dark:border-slate-800/40"
+                                      >
+                                        <div className="flex items-start gap-2 min-w-0">
+                                          <UserAvatar
+                                            src={reply.author?.avatar_url}
+                                            name={reply.author?.display_name || reply.author?.username}
+                                            size="xs"
+                                            shape="circle"
+                                          />
+                                          <div className="min-w-0">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="font-bold text-slate-900 dark:text-white">
+                                                {reply.author?.display_name || 'Maker'}
+                                              </span>
+                                              <span className="text-[10px] text-slate-400">
+                                                {relativeTime(reply.created_at)}
+                                              </span>
+                                            </div>
+                                            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap mt-0.5">
+                                              {reply.content}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 pt-0.5 pl-6">
+                                          <button
+                                            onClick={() => handleToggleCommentLike(post.id, reply.id)}
+                                            className={cn(
+                                              'flex items-center gap-1 text-[10px] font-medium transition',
+                                              reply.is_liked
+                                                ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                                                : 'text-slate-400 hover:text-rose-600'
+                                            )}
+                                          >
+                                            <Heart
+                                              className={cn(
+                                                'w-3 h-3',
+                                                reply.is_liked && 'fill-rose-500 text-rose-500'
+                                              )}
+                                            />
+                                            <span>{reply.likes_count || 0}</span>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                            <span className="text-[10px] text-slate-400 shrink-0">
-                              {relativeTime(c.created_at)}
-                            </span>
-                          </div>
-                        ))}
+                            );
+                          });
+                        })()}
                       </div>
+
+                      {/* Replying Banner */}
+                      {replyingTo[post.id] && (
+                        <div className="flex items-center justify-between px-2.5 py-1 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/60 dark:border-blue-900/60 text-blue-700 dark:text-blue-300 rounded-lg text-xs">
+                          <div className="flex items-center gap-1 text-[11px]">
+                            <CornerDownRight className="w-3 h-3 text-blue-600" />
+                            <span>Replying to <strong>@{replyingTo[post.id]?.authorName}</strong></span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setReplyingTo((prev) => ({ ...prev, [post.id]: null }))}
+                            className="p-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-500 rounded"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
 
                       <form
                         onSubmit={(e) => handleAddComment(post.id, e)}
@@ -705,7 +912,11 @@ export default function MakerProfileClient({
                           onChange={(e) =>
                             setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
                           }
-                          placeholder="Write a comment..."
+                          placeholder={
+                            replyingTo[post.id]
+                              ? `Replying to @${replyingTo[post.id]?.authorName}...`
+                              : 'Write a comment...'
+                          }
                           className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs outline-none"
                         />
                         <button
@@ -713,7 +924,13 @@ export default function MakerProfileClient({
                           disabled={submittingComment[post.id] || !(commentInputs[post.id] || '').trim()}
                           className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition"
                         >
-                          Send
+                          {submittingComment[post.id] ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : replyingTo[post.id] ? (
+                            'Reply'
+                          ) : (
+                            'Send'
+                          )}
                         </button>
                       </form>
                     </div>

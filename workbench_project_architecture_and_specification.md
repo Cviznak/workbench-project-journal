@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.1.0 Production  
+> **Version:** 2.2.0 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -17,6 +17,9 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
 - **Collaborative Task Workshop**: Tasks feature live-updating Markdown discussion threads, private multi-file attachments (up to 5MB, served via secure temporary signed URLs), and **Task Dependencies** (`prerequisite_task_id` with execution locks).
+- **Threaded Comment Discussions & Comment Likes** *(v2.2)*: Community posts and task discussions feature nested replies (`parent_comment_id`) with inline reply targeting, and heart/like toggle (`toggle_comment_like` RPC) with real-time notification dispatch (`COMMENT_LIKED`, `COMMENT_REPLIED`).
+- **Strict Project Tab Isolation** *(v2.2)*: Personal `/projects` board strictly isolates user-owned and joined projects, keeping public showcase projects confined to direct links and community feeds.
+- **Email Verification Guard & Security Hardening** *(v2.2)*: Dedicated `/verify-email` notice route with resend link capabilities and middleware session enforcement guarding unconfirmed accounts, backed by strict comment length constraints and parent-child validation triggers.
 - **Task Bill of Materials (BOM) & Auto-Stock Deduction** *(v1.5)*: Projects track exact consumable usage and unit economics. Upon task completion, material stock is automatically deducted from `inventory_items`, with low-stock alerts auto-filling the restock cart.
 - **Finished Creations Gallery, Unit Economics & Margin Simulator** *(v1.6)*: Workshop formulas link directly to `'FINISHED_GOOD'` items. Executing a batch automatically deducts raw materials, calculates all-in unit Cost of Goods Sold (COGS = ingredients + packaging overhead), increments finished product inventory stock, touches consistency streaks, and awards `+15 XP`. The Formula Editor features a live Unit Economics & Margin Simulator with gross profit margins and optional 9.5% marketplace fee deductions (e.g. Etsy/Stripe).
 - **Interactive Maker Calculators & Lab Tools** *(v1.7)*: Dedicated lab suite with 3 specialized calculators: Epoxy Resin & Mold Volume (with exothermic thermal runaway warnings for pours >100g, micro-batch scale notices, and part A/B weight breakdown), Perfume Dilution & Concentration (Extrait, EDP, EDT, EDC with fragrance oil & ethanol density weighting and maceration guidance), and 3D Print Costing (filament material, purge allowance, machine electricity consumption, and target gross margin slider). All 3 feature 1-click "Save as New Formula" export.
@@ -347,26 +350,36 @@ Unique like ledger preventing multiple likes per user per post.
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 - Primary Key: `(post_id, user_id)`
 
-#### 20. `public.post_comments` *(v1.9)*
-Maker community commentary and replies.
+#### 20. `public.post_comments` *(v1.9, v2.2)*
+Maker community commentary and threaded replies.
 - `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
 - `post_id` (`UUID`, NOT NULL, references `community_posts.id` ON DELETE CASCADE)
 - `user_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
-- `content` (`TEXT`, NOT NULL)
+- `content` (`TEXT`, NOT NULL, CHECK `char_length(trim(content)) BETWEEN 1 AND 2000`)
+- `parent_comment_id` (`UUID`, nullable, references `post_comments.id` ON DELETE CASCADE) *(v2.2)*
+- `likes_count` (`INT`, NOT NULL, DEFAULT `0`, CHECK `likes_count >= 0`) *(v2.2)*
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 
-#### 21. `public.notifications` *(v2.0)*
+#### 21. `public.notifications` *(v2.0, v2.2)*
 Unified in-app notification inbox with Realtime WebSocket push.
 - `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
 - `recipient_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
 - `actor_id` (`UUID`, references `profiles.id` ON DELETE SET NULL, nullable)
-- `notification_type` (`TEXT`, NOT NULL) — `SKILL_REQUEST_ADMIN`, `SKILL_REQUEST_REVIEWED`, `POST_COMMENTED`, `POST_LIKED`, `TASK_ASSIGNED`, `PROJECT_INVITE`
+- `notification_type` (`TEXT`, NOT NULL) — `SKILL_REQUEST_ADMIN`, `SKILL_REQUEST_REVIEWED`, `POST_COMMENTED`, `POST_LIKED`, `COMMENT_LIKED`, `COMMENT_REPLIED`, `TASK_ASSIGNED`, `PROJECT_INVITE`
 - `title` (`TEXT`, NOT NULL)
 - `body` (`TEXT`, DEFAULT `''`)
 - `link_url` (`TEXT`, DEFAULT `'/dashboard'`)
 - `is_read` (`BOOLEAN`, NOT NULL, DEFAULT `false`)
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 - RLS: Strict recipient-only read/write (`(SELECT auth.uid()) = recipient_id`).
+
+#### 22. `public.comment_likes` *(v2.2)*
+Atomic like ledger for community post comments.
+- `comment_id` (`UUID`, NOT NULL, references `post_comments.id` ON DELETE CASCADE)
+- `user_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- Primary Key: `(comment_id, user_id)`
+- RLS: Viewable by all; inserts/deletes managed atomically via `toggle_comment_like`.
 
 ---
 
@@ -387,6 +400,7 @@ Unified in-app notification inbox with Realtime WebSocket push.
 | `get_project_invite_email_payload` *(v2.1)* | `p_project_id UUID, p_target_user_id UUID` | Callable only by project PM or admin. Validates `auth.uid()`. Returns invitee email from `auth.users` joined with `profiles` (honoring `email_project_invites` opt-out), project name, and inviter username. |
 | `mark_all_notifications_read` *(v2.0)* | None | Validates `auth.uid()`. Sets `is_read = true` for all unread notifications belonging to the calling user. |
 | `toggle_post_like` *(v1.9)* | `p_post_id UUID` | Validates `auth.uid()`. Atomically toggles like row in `public.post_likes` and updates `community_posts.likes_count`. |
+| `toggle_comment_like` *(v2.2)* | `p_comment_id UUID` | Validates `auth.uid()`. Atomically toggles like row in `public.comment_likes`, updates `post_comments.likes_count`, and triggers in-app notification to comment author if not self-liked. |
 | `search_makers_for_invite` *(v1.8)* | `p_query TEXT, p_project_id UUID DEFAULT NULL` | Validates `auth.uid()`. Searches non-suspended profiles by username/display_name up to 8 rows, flagging if already a member. Never exposes email or private settings. |
 
 ---
@@ -405,6 +419,7 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   ├── (auth)/                # Public authentication routes
 │   │   │   ├── login/page.tsx     # Sign in with email + password
 │   │   │   ├── signup/page.tsx    # Sign up with existing-account redirect helper
+│   │   │   ├── verify-email/page.tsx # Email confirmation notice with resend button (v2.2)
 │   │   │   └── suspended/page.tsx # Account suspension landing page
 │   │   ├── (dashboard)/           # Authenticated application shell
 │   │   │   ├── loading.tsx        # Instant navigation skeleton placeholder (v1.7.1)
@@ -483,7 +498,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 015_social_feed_profiles_and_skill_search.sql # v1.9.0: Community posts, likes, comments, public profiles & searchable skill selector
 │       ├── 016_security_guards_and_avatars.sql    # v1.9.1: Role/streak guards, post counter locks, avatar URL validation & WebP uploads
 │       ├── 017_notifications_and_admin_email.sql # v2.0.0: Unified real-time notifications engine & admin email RPC
-│       └── 018_public_launch_and_coffee.sql      # v2.1.0: Creator tip jar, anon showcase RLS & project invite email RPC
+│       ├── 018_public_launch_and_coffee.sql      # v2.1.0: Creator tip jar, anon showcase RLS & project invite email RPC
+│       └── 019_email_auth_comments_and_security.sql # v2.2.0: Threaded comments, comment likes, strict project isolation & security guards
 ├── package.json
 └── tailwind.config.ts
 ```
