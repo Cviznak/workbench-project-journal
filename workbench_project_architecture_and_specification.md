@@ -1,8 +1,8 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.0.0 Production  
+> **Version:** 2.0.1 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
-> **Live Production URL:** [https://workbench-project-journal.vercel.app](https://workbench-project-journal.vercel.app)  
+> **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
 
 ---
@@ -34,7 +34,8 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - **Zero-Client-Trust Security Guards & Profile/Post Protection** *(v1.9.1)*: BEFORE UPDATE trigger `guard_profile_client_updates()` prevents client tampering with `role`, `is_immutable`, `is_suspended`, `current_streak`, `longest_streak`, or `last_active_date` by requiring an internal transaction setting `workbench.internal_rpc = 'true'` set exclusively by verified `SECURITY DEFINER` RPCs (`promote_to_admin`, `demote_to_user`, `toggle_user_suspension`, `touch_user_streak`). BEFORE INSERT OR UPDATE trigger `guard_community_posts()` prevents tampering with `likes_count` and `comments_count` and enforces project membership on linked projects. `chk_profiles_avatar_url` enforces valid HTTPS avatar links.
 - **WebP Avatar Auto-Crop & Image Optimization** *(v1.9.1)*: Client-side offscreen canvas utility (`cropAndCompressAvatar`) auto-crops any uploaded photo to a 1:1 center square at 256x256, exported as high-efficiency WebP (<35KB). Uploaded directly to `community-media` storage at `${userId}/avatar_${Date.now()}.webp`. Reusable `UserAvatar` component renders crisp avatars with automatic initial-letter fallbacks across all views.
 - **Unified In-App Real-Time Notification Engine** *(v2.0)*: Realtime-enabled `public.notifications` table tracking unread notifications across 6 system events (`SKILL_REQUEST_ADMIN`, `SKILL_REQUEST_REVIEWED`, `POST_LIKED`, `POST_COMMENTED`, `TASK_ASSIGNED`, `PROJECT_INVITE`). Powered by automatic database triggers, unread ping badges, one-click "Mark all read" RPC (`mark_all_notifications_read`), and direct navigation to destination views.
-- **Admin Email Alert Dispatch via Resend HTTP API** *(v2.0)*: Server API route (`/api/notifications/skill-request`) coupled with a `SECURITY DEFINER` RPC (`get_admin_emails_for_skill_request`) that fetches active administrator emails from `auth.users` (honoring opt-out preferences in `settings_json`). Sends branded, responsive HTML notifications via Resend HTTP API with graceful fallback when `RESEND_API_KEY` is omitted.
+- **Admin Email Alert Dispatch via Official Resend SDK & Custom Subdomain** *(v2.0.1)*: Server API route (`/api/notifications/skill-request`) coupled with a `SECURITY DEFINER` RPC (`get_admin_emails_for_skill_request`) that fetches active administrator emails from `auth.users` (honoring opt-out preferences in `settings_json`). Powered by the official `resend` Node.js SDK and a published Resend template (`Skill Request Proposal Alert`, ID: `02ae3cb7-3584-4cdb-bd67-d6b6918bbde1`, alias: `skill-request-alert`). Sends from verified subdomain `Workbench <notifications@mail.workbenchsoc.com>` with DNS (DKIM, SPF MX/TXT, CNAME, DMARC) verified on Vercel DNS. Enforces per-request idempotency keys (`skill-request/${requestId}`) to prevent duplicate email transmissions, and graceful fallback when credentials are unconfigured.
+- **Custom Production Domain & DNS Infrastructure** *(v2.0.1)*: Fully mapped apex domain `workbenchsoc.com` and `www.workbenchsoc.com` to Vercel production edge, with isolated mail subdomain `mail.workbenchsoc.com` configured for high-deliverability transactional messaging with 100% verified DKIM and DMARC policies.
 - **Notification & Admin Preferences** *(v2.0)*: Granular preferences saved in `profiles.settings_json` for both Makers (in-app social notifications) and Admins (transactional email alerts & in-app bell badges for skill proposals).
 - **Vercel Analytics** *(v2.0)*: Integrated `@vercel/analytics` directly into root application layout for real-time web telemetry and performance insights.
 - **Portable Data Sovereignty & Relational Restore** *(v1.7)*: One-click **"Export Complete Maker Archive"** exports complete user records into a standardized portable JSON archive (v1.7.0). **"Verify & Restore Maker Archive"** enables seamless relational data recovery with JSON schema validation, itemized count preview modal, and conflict-free foreign key re-mapping.
@@ -78,6 +79,9 @@ flowchart TD
 | **Backend & Database** | **Supabase (PostgreSQL 17)** | Row Level Security (RLS), Triggers, Stored Procedures (`SECURITY DEFINER`) |
 | **Storage** | **Supabase Storage** | Private bucket `'project-attachments'` with folder RLS and temporary signed URLs |
 | **Authentication** | **Supabase Auth + `@supabase/ssr`** | HttpOnly cookie-based session management across SSR, Route Handlers, and Middleware |
+| **Email & Delivery** | **Resend SDK (`resend@^3.17.0`)** | Official Node.js SDK, published HTML templates, verified DKIM/SPF/DMARC on `mail.workbenchsoc.com`, idempotency keys |
+| **Domain & DNS** | **Vercel DNS (`workbenchsoc.com`)** | Dual nameservers (`ns1/ns2.vercel-dns.com`), apex ALIAS, DKIM TXT, SPF MX, routing CNAME, and DMARC policies |
+| **Web Telemetry** | **Vercel Analytics (`@vercel/analytics`)** | Real-time performance insights, Core Web Vitals, visitor telemetry in root layout |
 | **Hosting & CDN** | **Vercel** | Automated CI/CD, production edge routing, global CDN caching |
 
 ---
@@ -414,7 +418,7 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   │   └── settings/page.tsx  # Profile settings, password change, Data & Backup export (v1.3)
 │   │   ├── api/                   # Server API route handlers (v2.0)
 │   │   │   └── notifications/
-│   │   │       └── skill-request/route.ts # Resend HTTP email dispatch for skill requests (v2.0)
+│   │   │       └── skill-request/route.ts # Resend Node.js SDK email dispatch with published template & idempotency (v2.0.1)
 │   │   ├── auth/callback/route.ts # Supabase Auth code exchange handler
 │   │   ├── globals.css            # Tailwind base, dark palette, overflow-x: clip
 │   │   └── layout.tsx             # Root layout, manifest metadata, ServiceWorkerRegister
