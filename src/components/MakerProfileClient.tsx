@@ -28,6 +28,7 @@ import {
   FolderKanban,
   Target,
   Image as ImageIcon,
+  Coffee,
 } from 'lucide-react';
 
 interface MakerProfileClientProps {
@@ -136,6 +137,10 @@ export default function MakerProfileClient({
   // Handle Post Creation on Profile
   async function handleCreatePost(e: React.FormEvent) {
     e.preventDefault();
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
     if (!postContent.trim()) return;
 
     setIsPublishing(true);
@@ -176,6 +181,10 @@ export default function MakerProfileClient({
 
   // Toggle Like on Post
   async function handleToggleLike(postId: string) {
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
     const postIndex = posts.findIndex((p) => p.id === postId);
     if (postIndex === -1) return;
 
@@ -234,6 +243,10 @@ export default function MakerProfileClient({
   // Add Comment
   async function handleAddComment(postId: string, e: React.FormEvent) {
     e.preventDefault();
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
     const text = (commentInputs[postId] || '').trim();
     if (!text) return;
 
@@ -404,7 +417,20 @@ export default function MakerProfileClient({
           </div>
 
           {/* Header Action Buttons */}
-          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0 flex-wrap">
+            {profile.support_url && (
+              <a
+                href={profile.support_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-300 dark:bg-amber-400 dark:hover:bg-amber-300 shadow-sm transition transform hover:-translate-y-0.5"
+                title={`Buy @${profile.username} a Coffee`}
+              >
+                <Coffee className="w-3.5 h-3.5 fill-current" />
+                <span>Buy @{profile.username} a Coffee</span>
+              </a>
+            )}
+
             <button
               onClick={handleCopyShareLink}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"

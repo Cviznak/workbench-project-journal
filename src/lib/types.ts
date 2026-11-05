@@ -14,6 +14,7 @@ export interface Profile {
   display_name: string;
   avatar_url?: string | null;
   bio?: string | null;
+  support_url?: string | null;
   role: UserRole;
   is_immutable: boolean;
   is_suspended: boolean;

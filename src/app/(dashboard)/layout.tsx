@@ -15,7 +15,11 @@ export default async function DashboardLayout({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login');
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col min-w-0">
+        {children}
+      </div>
+    );
   }
 
   // Fetch user profile and skills concurrently

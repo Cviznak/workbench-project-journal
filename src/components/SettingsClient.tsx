@@ -26,6 +26,7 @@ import {
   Clock,
   Bell,
   Mail,
+  Coffee,
 } from 'lucide-react';
 import AvatarUploader from '@/components/AvatarUploader';
 
@@ -39,6 +40,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
   const supabase = createClient();
 
   const [displayName, setDisplayName] = useState(profile.display_name || '');
+  const [supportUrl, setSupportUrl] = useState(profile.support_url || '');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url || null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
@@ -388,10 +390,27 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
     setProfileSaving(true);
     setProfileSuccess(false);
 
+    const cleanUrl = supportUrl.trim();
+    if (
+      cleanUrl &&
+      !cleanUrl.match(
+        /^https:\/\/(www\.)?(buymeacoffee\.com|ko-fi\.com|patreon\.com)\/[A-Za-z0-9_.-]+\/?$/
+      )
+    ) {
+      alert(
+        'Creator tip link must be a valid Buy Me a Coffee, Ko-fi, or Patreon URL (e.g. https://buymeacoffee.com/username)'
+      );
+      setProfileSaving(false);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ display_name: displayName.trim() })
+        .update({
+          display_name: displayName.trim(),
+          support_url: cleanUrl,
+        })
         .eq('id', profile.id);
 
       if (error) throw error;
@@ -518,6 +537,26 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
               onChange={(e) => setDisplayName(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Coffee className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                <span>Creator Tip Jar / Buy Me a Coffee URL</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal lowercase">optional &bull; shown on public profile</span>
+            </label>
+            <input
+              type="url"
+              placeholder="https://buymeacoffee.com/yourhandle (or Ko-fi / Patreon)"
+              value={supportUrl}
+              onChange={(e) => setSupportUrl(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              When configured, a &quot;Buy @{profile.username} a Coffee&quot; button will appear on your Public Maker Profile.
+            </p>
           </div>
 
           <div className="flex items-center justify-between pt-2">
@@ -732,6 +771,63 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
               <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
             </label>
           </div>
+
+          {/* Project Invitation Emails */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 mt-0.5">
+                <Mail className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                  Project Invitation Emails
+                </span>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Receive transactional email alerts when project managers invite you to collaborate on projects.
+                </p>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+              <input
+                type="checkbox"
+                disabled={settingsSaving}
+                checked={settings.email_project_invites !== false}
+                onChange={(e) => handleToggleSetting('email_project_invites', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Support Workbench Development Card (Buy Me a Coffee) */}
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center font-bold">
+                <Coffee className="w-4 h-4 fill-current" />
+              </div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Support Workbench Development
+              </h2>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl leading-relaxed">
+              Workbench is an independent, creator-first productivity platform built without paywalled core features. If Workbench helps you stay organized and level up your craft, consider buying us a coffee!
+            </p>
+          </div>
+
+          <a
+            href={process.env.NEXT_PUBLIC_BUYMEACOFFEE_URL || 'https://www.buymeacoffee.com'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs text-amber-950 bg-amber-400 hover:bg-amber-300 dark:bg-amber-400 dark:hover:bg-amber-300 shadow-md shadow-amber-400/20 transition transform hover:-translate-y-0.5 shrink-0"
+          >
+            <Coffee className="w-4 h-4 fill-current" />
+            <span>Buy Me a Coffee &rarr;</span>
+          </a>
         </div>
       </div>
 

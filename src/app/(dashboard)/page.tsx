@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getLevelProgress, relativeTime, formatDate } from '@/lib/utils';
 import { getSkillTier, calculateStreak, TaskStatus } from '@/lib/types';
 import ActivityHeatmap from '@/components/ActivityHeatmap';
+import PublicLandingPage from '@/components/PublicLandingPage';
 import {
   Flame,
   Target,
@@ -22,7 +23,44 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const [{ data: recentPosts }, { data: recentProjects }] = await Promise.all([
+      supabase
+        .from('community_posts')
+        .select(`
+          id,
+          content_md,
+          media_urls,
+          created_at,
+          likes_count,
+          comments_count,
+          author:profiles!community_posts_author_id_fkey(username, display_name, avatar_url, role),
+          skill:skill_catalog(name, category)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(3),
+      supabase
+        .from('projects')
+        .select(`
+          id,
+          name,
+          description,
+          status,
+          created_at,
+          pm:profiles!projects_pm_user_id_fkey(username, display_name, avatar_url)
+        `)
+        .eq('is_public', true)
+        .order('created_at', { ascending: false })
+        .limit(3),
+    ]);
+
+    return (
+      <PublicLandingPage
+        recentPosts={recentPosts || []}
+        recentProjects={recentProjects || []}
+      />
+    );
+  }
 
   // Fetch all dashboard metrics concurrently
   const [

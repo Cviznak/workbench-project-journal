@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.0.1 Production  
+> **Version:** 2.1.0 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -36,6 +36,10 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - **Unified In-App Real-Time Notification Engine** *(v2.0)*: Realtime-enabled `public.notifications` table tracking unread notifications across 6 system events (`SKILL_REQUEST_ADMIN`, `SKILL_REQUEST_REVIEWED`, `POST_LIKED`, `POST_COMMENTED`, `TASK_ASSIGNED`, `PROJECT_INVITE`). Powered by automatic database triggers, unread ping badges, one-click "Mark all read" RPC (`mark_all_notifications_read`), and direct navigation to destination views.
 - **Admin Email Alert Dispatch via Official Resend SDK & Custom Subdomain** *(v2.0.1)*: Server API route (`/api/notifications/skill-request`) coupled with a `SECURITY DEFINER` RPC (`get_admin_emails_for_skill_request`) that fetches active administrator emails from `auth.users` (honoring opt-out preferences in `settings_json`). Powered by the official `resend` Node.js SDK and a published Resend template (`Skill Request Proposal Alert`, ID: `02ae3cb7-3584-4cdb-bd67-d6b6918bbde1`, alias: `skill-request-alert`). Sends from verified subdomain `Workbench <notifications@mail.workbenchsoc.com>` with DNS (DKIM, SPF MX/TXT, CNAME, DMARC) verified on Vercel DNS. Enforces per-request idempotency keys (`skill-request/${requestId}`) to prevent duplicate email transmissions, and graceful fallback when credentials are unconfigured.
 - **Custom Production Domain & DNS Infrastructure** *(v2.0.1)*: Fully mapped apex domain `workbenchsoc.com` and `www.workbenchsoc.com` to Vercel production edge, with isolated mail subdomain `mail.workbenchsoc.com` configured for high-deliverability transactional messaging with 100% verified DKIM and DMARC policies.
+- **Buy Me a Coffee Monetization & Creator Tip Jar** *(v2.1)*: Platform-wide developer support button (configurable via `NEXT_PUBLIC_BUYMEACOFFEE_URL`) rendered in Sidebar footer, Public Landing Page, and Account Settings. Public Maker Profiles (`/makers/[username]`) feature an optional "Buy @[username] a Coffee" tip link stored in `profiles.support_url` (guarded by regex constraint for Buy Me a Coffee, Ko-fi, and Patreon).
+- **High-Converting Public Landing Page & Guest Showcase** *(v2.1)*: Visual landing page (`PublicLandingPage.tsx`) displayed to unauthenticated visitors at `workbenchsoc.com`. Features an interactive 5-pillar Feature Bento Grid, hero CTA flows, and live preview cards pulling recent public posts and showcase projects. Middleware (`src/lib/supabase/middleware.ts`) allows guests to view `/`, `/makers/[username]`, and public project showcases (`is_public = true`) with an unauthenticated welcome banner.
+- **OpenGraph & Twitter/X Social Share Cards** *(v2.1)*: Edge-rendered dynamic OpenGraph social preview (`opengraph-image.tsx`) generating 1200x630 rich image cards with feature pills and brand glow, coupled with full Twitter summary_large_image and SEO metadata in `src/app/layout.tsx`.
+- **Project Invitation Transactional Emails via Resend** *(v2.1)*: Server route (`/api/notifications/project-invite`) coupled with a `SECURITY DEFINER` RPC (`get_project_invite_email_payload`) that queries `auth.users` for the invitee's email address (honoring `settings_json->>'email_project_invites'`). Dispatches branded invitation emails from `notifications@mail.workbenchsoc.com` when PMs invite teammates in `EditProjectModal.tsx`.
 - **Notification & Admin Preferences** *(v2.0)*: Granular preferences saved in `profiles.settings_json` for both Makers (in-app social notifications) and Admins (transactional email alerts & in-app bell badges for skill proposals).
 - **Vercel Analytics** *(v2.0)*: Integrated `@vercel/analytics` directly into root application layout for real-time web telemetry and performance insights.
 - **Portable Data Sovereignty & Relational Restore** *(v1.7)*: One-click **"Export Complete Maker Archive"** exports complete user records into a standardized portable JSON archive (v1.7.0). **"Verify & Restore Maker Archive"** enables seamless relational data recovery with JSON schema validation, itemized count preview modal, and conflict-free foreign key re-mapping.
@@ -380,6 +384,7 @@ Unified in-app notification inbox with Realtime WebSocket push.
 | `accept_project_invite` | `p_project_id UUID` | Validates `auth.uid()`. Transitions member `invitation_status` from `'PENDING'` to `'ACCEPTED'`. |
 | `decline_project_invite` | `p_project_id UUID` | Validates `auth.uid()`. Deletes member row where `invitation_status = 'PENDING'`. |
 | `get_admin_emails_for_skill_request` *(v2.0)* | `p_request_id UUID` | Callable by skill requester or admin. Validates `auth.uid()`. Returns active admin emails and names from `auth.users` joined with `profiles`, honoring `settings_json->>'email_skill_requests'` opt-outs. |
+| `get_project_invite_email_payload` *(v2.1)* | `p_project_id UUID, p_target_user_id UUID` | Callable only by project PM or admin. Validates `auth.uid()`. Returns invitee email from `auth.users` joined with `profiles` (honoring `email_project_invites` opt-out), project name, and inviter username. |
 | `mark_all_notifications_read` *(v2.0)* | None | Validates `auth.uid()`. Sets `is_read = true` for all unread notifications belonging to the calling user. |
 | `toggle_post_like` *(v1.9)* | `p_post_id UUID` | Validates `auth.uid()`. Atomically toggles like row in `public.post_likes` and updates `community_posts.likes_count`. |
 | `search_makers_for_invite` *(v1.8)* | `p_query TEXT, p_project_id UUID DEFAULT NULL` | Validates `auth.uid()`. Searches non-suspended profiles by username/display_name up to 8 rows, flagging if already a member. Never exposes email or private settings. |
@@ -418,7 +423,9 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   │   └── settings/page.tsx  # Profile settings, password change, Data & Backup export (v1.3)
 │   │   ├── api/                   # Server API route handlers (v2.0)
 │   │   │   └── notifications/
+│   │   │       ├── project-invite/route.ts # Resend email dispatch for project invitations (v2.1)
 │   │   │       └── skill-request/route.ts # Resend Node.js SDK email dispatch with published template & idempotency (v2.0.1)
+│   │   ├── opengraph-image.tsx    # Edge-rendered dynamic OpenGraph & Twitter/X 1200x630 social card (v2.1)
 │   │   ├── auth/callback/route.ts # Supabase Auth code exchange handler
 │   │   ├── globals.css            # Tailwind base, dark palette, overflow-x: clip
 │   │   └── layout.tsx             # Root layout, manifest metadata, ServiceWorkerRegister
@@ -436,6 +443,7 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   ├── Navbar.tsx             # Sticky header, search, audio bar, streak & level pills, bell
 │   │   ├── NotificationBell.tsx   # Project invitation handshake & skill requests inbox
 │   │   ├── PracticeModal.tsx      # Deliberate practice logging modal with SkillSelector (v1.9)
+│   │   ├── PublicLandingPage.tsx  # Unauthenticated public landing page with Bento grid & showcase preview (v2.1)
 │   │   ├── ServiceWorkerRegister.tsx # Client service worker registration for PWA (v1.3)
 │   │   ├── SettingsClient.tsx     # Account settings & Portable Archive JSON exporter (v1.3)
 │   │   ├── Sidebar.tsx            # Full-height pinned navigation sidebar
@@ -474,7 +482,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 014_teammate_search_and_templates.sql  # v1.8.0: Teammate search RPC, safe invite/remove RPCs, starter blueprints & mobile PWA bottom nav
 │       ├── 015_social_feed_profiles_and_skill_search.sql # v1.9.0: Community posts, likes, comments, public profiles & searchable skill selector
 │       ├── 016_security_guards_and_avatars.sql    # v1.9.1: Role/streak guards, post counter locks, avatar URL validation & WebP uploads
-│       └── 017_notifications_and_admin_email.sql # v2.0.0: Unified real-time notifications engine & admin email RPC
+│       ├── 017_notifications_and_admin_email.sql # v2.0.0: Unified real-time notifications engine & admin email RPC
+│       └── 018_public_launch_and_coffee.sql      # v2.1.0: Creator tip jar, anon showcase RLS & project invite email RPC
 ├── package.json
 └── tailwind.config.ts
 ```

@@ -1,4 +1,5 @@
-import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import MakerProfileClient from '@/components/MakerProfileClient';
 
@@ -32,8 +33,6 @@ export default async function MakerProfilePage({ params }: MakerProfilePageProps
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect('/login');
-
   const username = decodeURIComponent(params.username);
 
   // 1. Fetch target maker profile
@@ -47,7 +46,7 @@ export default async function MakerProfilePage({ params }: MakerProfilePageProps
     notFound();
   }
 
-  const isOwnProfile = user.id === targetProfile.id;
+  const isOwnProfile = user ? user.id === targetProfile.id : false;
 
   // 2. Fetch maker's community posts, projects, skills, and catalog
   let projectsQuery = supabase
@@ -91,23 +90,51 @@ export default async function MakerProfilePage({ params }: MakerProfilePageProps
       .from('skill_catalog')
       .select('*')
       .order('name'),
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single(),
+    user
+      ? supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+      : Promise.resolve({ data: null }),
   ]);
 
   return (
-    <MakerProfileClient
-      targetProfile={targetProfile}
-      isOwnProfile={isOwnProfile}
-      initialPosts={posts || []}
-      initialProjects={projects || []}
-      userSkills={userSkills || []}
-      allSkills={allSkills || []}
-      currentUserId={user.id}
-      currentUserProfile={currentUserProfile}
-    />
+    <div className="space-y-6">
+      {!user && (
+        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-2 font-extrabold text-white text-sm">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-black">
+              W
+            </div>
+            <span>Workbench</span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white border border-slate-800 hover:bg-slate-800 transition"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/signup"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition"
+            >
+              Start Free Workshop
+            </Link>
+          </div>
+        </div>
+      )}
+      <MakerProfileClient
+        targetProfile={targetProfile}
+        isOwnProfile={isOwnProfile}
+        initialPosts={posts || []}
+        initialProjects={projects || []}
+        userSkills={userSkills || []}
+        allSkills={allSkills || []}
+        currentUserId={user?.id || ''}
+        currentUserProfile={currentUserProfile}
+      />
+    </div>
   );
 }

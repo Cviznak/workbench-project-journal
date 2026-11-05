@@ -4,17 +4,51 @@ import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Workbench — Gamified Productivity & Project Management",
-  description: "Production-ready, globally secure maker project hub, Kanban task boards, and XP skill progression engine.",
-  manifest: "/manifest.json",
+  metadataBase: new URL('https://www.workbenchsoc.com'),
+  title: {
+    default: 'Workbench — The RPG Operating System for Makers & Creators',
+    template: '%s | Workbench',
+  },
+  description:
+    'The RPG Operating System for Makers, Engineers & Creators. Track builds, manage maker inventory, level up craft skills with deterministic RPG progression, and calculate lab formulas with precision.',
+  keywords: [
+    'maker inventory',
+    'gamified project management',
+    'RPG productivity',
+    '3D print calculator',
+    'resin calculator',
+    'perfume formulation',
+    'deliberate practice',
+    'maker community',
+    'workbench',
+  ],
+  authors: [{ name: 'Workbench' }],
+  creator: 'Workbench',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://www.workbenchsoc.com',
+    siteName: 'Workbench',
+    title: 'Workbench — The RPG Operating System for Makers & Creators',
+    description:
+      'Gamify your workshop. Track builds, manage maker inventory, level up craft skills with deterministic RPG progression, and calculate lab formulas with precision.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Workbench — The RPG Operating System for Makers & Creators',
+    description:
+      'The RPG Operating System for Makers, Engineers & Creators. Track builds, manage inventory, and level up your skills.',
+    creator: '@workbenchsoc',
+  },
+  manifest: '/manifest.json',
   icons: {
-    icon: "/favicon.svg",
-    apple: "/favicon.svg",
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Workbench",
+    statusBarStyle: 'default',
+    title: 'Workbench',
   },
 };
 

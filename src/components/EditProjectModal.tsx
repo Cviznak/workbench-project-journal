@@ -167,6 +167,18 @@ export default function EditProjectModal({
 
       if (error) throw error;
 
+      // Dispatch transactional invite email alert non-blockingly via Resend
+      fetch('/api/notifications/project-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: project.id,
+          targetUserId: targetUser.id,
+        }),
+      }).catch((err) => {
+        console.warn('[EditProjectModal] Invite email trigger error:', err);
+      });
+
       setActionMessage({
         text: `Invited @${targetUser.username} to the team!`,
         type: 'success',

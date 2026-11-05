@@ -49,6 +49,12 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isAuthPage = path.startsWith('/login') || path.startsWith('/signup') || path.startsWith('/auth');
   const isSuspendedPage = path === '/suspended';
+  const isPublicPage =
+    path === '/' ||
+    path.startsWith('/makers/') ||
+    path.startsWith('/projects/') ||
+    path.startsWith('/api/') ||
+    path.startsWith('/opengraph-image');
 
   if (user) {
     // If logged in and hitting login/signup, redirect to dashboard immediately without DB lookup
@@ -78,7 +84,7 @@ export async function updateSession(request: NextRequest) {
     }
   } else {
     // Unauthenticated user trying to access protected route
-    if (!isAuthPage && !isSuspendedPage) {
+    if (!isAuthPage && !isSuspendedPage && !isPublicPage) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }
