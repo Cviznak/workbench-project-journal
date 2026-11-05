@@ -9,17 +9,17 @@ export default async function ProjectsPage() {
 
   if (!user) return null;
 
-  // Fetch projects user is member of or PM
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('*, pm:profiles!projects_pm_user_id_fkey(*), members:project_members(user_id, invitation_status, profile:profiles(*)), skills:project_skills(skill:skill_catalog(*))')
-    .order('created_at', { ascending: false });
-
-  // Fetch global skills for project creation
-  const { data: skills } = await supabase
-    .from('skill_catalog')
-    .select('*')
-    .order('name');
+  // Fetch projects user is member of or PM, and global catalog skills concurrently
+  const [{ data: projects }, { data: skills }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select('*, pm:profiles!projects_pm_user_id_fkey(*), members:project_members(user_id, invitation_status, profile:profiles(*)), skills:project_skills(skill:skill_catalog(*))')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('skill_catalog')
+      .select('*')
+      .order('name'),
+  ]);
 
   return (
     <ProjectsListClient

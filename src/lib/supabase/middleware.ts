@@ -51,29 +51,30 @@ export async function updateSession(request: NextRequest) {
   const isSuspendedPage = path === '/suspended';
 
   if (user) {
-    // Check suspension status
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_suspended, role')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.is_suspended && !isSuspendedPage) {
-      return NextResponse.redirect(new URL('/suspended', request.url));
-    }
-
-    if (!profile?.is_suspended && isSuspendedPage) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-
-    // If logged in and hitting login/signup, redirect to dashboard
+    // If logged in and hitting login/signup, redirect to dashboard immediately without DB lookup
     if (isAuthPage && !path.startsWith('/auth/callback')) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    // Role gate for /admin
-    if (path.startsWith('/admin') && profile?.role !== 'ROOT_ADMIN' && profile?.role !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/', request.url));
+    // Role check for /admin or state check for /suspended
+    if (path.startsWith('/admin') || isSuspendedPage) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_suspended, role')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.is_suspended && !isSuspendedPage) {
+        return NextResponse.redirect(new URL('/suspended', request.url));
+      }
+
+      if (!profile?.is_suspended && isSuspendedPage) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+
+      if (path.startsWith('/admin') && profile?.role !== 'ROOT_ADMIN' && profile?.role !== 'ADMIN') {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
     }
   } else {
     // Unauthenticated user trying to access protected route

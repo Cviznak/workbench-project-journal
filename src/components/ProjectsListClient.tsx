@@ -49,48 +49,33 @@ export default function ProjectsListClient({
 
   async function handleCreateProject(e: React.FormEvent) {
     e.preventDefault();
+    if (!name.trim()) return;
     setLoading(true);
     setError(null);
 
     try {
-      // 1. Create project
-      const { data: project, error: projErr } = await supabase
-        .from('projects')
-        .insert({
-          name: name.trim(),
-          description: description.trim(),
-          pm_user_id: userId,
-          status: 'ACTIVE',
-          completion_xp_reward: parseInt(xpReward, 10) || 100,
-        })
-        .select()
-        .single();
+      // 1. Atomic project creation RPC
+      const { data: newProjectId, error: rpcErr } = await supabase.rpc('create_maker_project', {
+        p_name: name.trim(),
+        p_description: description.trim(),
+        p_completion_xp_reward: parseInt(xpReward, 10) || 100,
+        p_skill_ids: selectedSkillIds,
+        p_member_user_ids: [],
+      });
 
-      if (projErr) throw projErr;
+      if (rpcErr) throw rpcErr;
+      if (!newProjectId) throw new Error('Project creation failed: no ID returned');
 
-      if (project) {
-        // 2. Add creator to project_members as ACCEPTED (upsert on conflict)
-        await supabase.from('project_members').upsert(
-          {
-            project_id: project.id,
-            user_id: userId,
-            invitation_status: 'ACCEPTED',
-          },
-          { onConflict: 'project_id,user_id' }
-        );
+      // 2. Immediately close modal and reset form
+      setModalOpen(false);
+      setName('');
+      setDescription('');
+      setXpReward('100');
+      setSelectedSkillIds([]);
 
-        // 3. Link selected skills
-        if (selectedSkillIds.length > 0) {
-          const skillRows = selectedSkillIds.map((sid) => ({
-            project_id: project.id,
-            skill_id: sid,
-          }));
-          await supabase.from('project_skills').insert(skillRows);
-        }
-
-        router.push(`/projects/${project.id}`);
-        router.refresh();
-      }
+      // 3. Navigate directly to new project
+      router.push(`/projects/${newProjectId}`);
+      router.refresh();
     } catch (err: any) {
       setError(err.message || 'Failed to create project');
     } finally {

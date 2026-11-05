@@ -9,33 +9,34 @@ export default async function SkillsPage() {
 
   if (!user) return null;
 
-  // 1. Fetch user skills
-  const { data: userSkills } = await supabase
-    .from('user_skills')
-    .select('*, skill:skill_catalog(*)')
-    .eq('user_id', user.id)
-    .order('total_xp', { ascending: false });
-
-  // 2. Fetch practice logs
-  const { data: practiceLogs } = await supabase
-    .from('practice_logs')
-    .select('*, skill:skill_catalog(*)')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(30);
-
-  // 3. Fetch global catalog for discovery
-  const { data: catalog } = await supabase
-    .from('skill_catalog')
-    .select('*')
-    .order('name');
-
-  // 4. Fetch user's skill requests
-  const { data: mySkillRequests } = await supabase
-    .from('skill_requests')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+  // Fetch user skills, practice logs, catalog, and skill requests concurrently
+  const [
+    { data: userSkills },
+    { data: practiceLogs },
+    { data: catalog },
+    { data: mySkillRequests },
+  ] = await Promise.all([
+    supabase
+      .from('user_skills')
+      .select('*, skill:skill_catalog(*)')
+      .eq('user_id', user.id)
+      .order('total_xp', { ascending: false }),
+    supabase
+      .from('practice_logs')
+      .select('*, skill:skill_catalog(*)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(30),
+    supabase
+      .from('skill_catalog')
+      .select('*')
+      .order('name'),
+    supabase
+      .from('skill_requests')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }),
+  ]);
 
   return (
     <SkillsViewClient

@@ -18,22 +18,22 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  // Fetch user profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
+  // Fetch user profile and skills concurrently
+  const [{ data: profile }, { data: userSkills }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('user_skills')
+      .select('total_xp')
+      .eq('user_id', user.id),
+  ]);
 
   if (profile?.is_suspended) {
     redirect('/suspended');
   }
-
-  // Compute total user XP across all user_skills
-  const { data: userSkills } = await supabase
-    .from('user_skills')
-    .select('total_xp')
-    .eq('user_id', user.id);
 
   const totalXp = (userSkills || []).reduce((acc, s) => acc + (s.total_xp || 0), 0);
 

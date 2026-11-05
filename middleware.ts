@@ -12,8 +12,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico, favicon.svg
+     * - PWA assets: manifest.json, sw.js, workbox-*, icons/
      * - Static asset files (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|favicon.svg|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|favicon\\.svg|manifest\\.json|manifest\\.webmanifest|sw\\.js|workbox-[a-zA-Z0-9]+\\.js|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

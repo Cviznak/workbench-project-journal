@@ -230,34 +230,22 @@ export default function WorkspaceClient({ initialItems, userId }: WorkspaceClien
     setPromoting(true);
 
     try {
-      const { data: newProject, error: projErr } = await supabase
-        .from('projects')
-        .insert({
-          name: idea.title,
-          description: idea.content_md.slice(0, 500),
-          pm_user_id: userId,
-          status: 'PLANNING',
-          completion_xp_reward: 100,
-        })
-        .select()
-        .single();
+      const { data: newProjectId, error: rpcErr } = await supabase.rpc('create_maker_project', {
+        p_name: idea.title.trim(),
+        p_description: (idea.content_md || '').slice(0, 500),
+        p_completion_xp_reward: 100,
+        p_skill_ids: [],
+        p_member_user_ids: [],
+      });
 
-      if (projErr) throw projErr;
-
-      // Add user as project member as ACCEPTED (upsert on conflict)
-      await supabase.from('project_members').upsert(
-        {
-          project_id: newProject.id,
-          user_id: userId,
-          invitation_status: 'ACCEPTED',
-        },
-        { onConflict: 'project_id,user_id' }
-      );
+      if (rpcErr) throw rpcErr;
+      if (!newProjectId) throw new Error('Failed to create project from idea: no ID returned');
 
       // Mark Idea as PROMOTED
       await handleUpdateField('idea_status', 'PROMOTED');
 
-      router.push(`/projects/${newProject.id}`);
+      router.push(`/projects/${newProjectId}`);
+      router.refresh();
     } catch (err: any) {
       alert(err.message || 'Failed to promote idea to project');
       setPromoting(false);

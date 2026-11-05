@@ -2,7 +2,7 @@
 -- Supabase Migration: 001_init_schema_and_rls.sql
 -- Production-Ready Gamified Productivity & Project Management Architecture
 -- Includes: Profiles, Genesis Admin, Immutability Guards, Skills Catalog,
---           XP Engine, Private Workspace, Jira-Style Projects, and RLS.
+--           XP Engine, Private Workspace, Projects, and RLS.
 -- ============================================================================
 
 -- 1. EXTENSIONS & PREREQUISITES
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS public.workspace_items (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- F. PROJECTS (Collaborative Jira-Style Workspaces)
+-- F. PROJECTS (Collaborative Maker Workspaces)
 CREATE TABLE IF NOT EXISTS public.projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,

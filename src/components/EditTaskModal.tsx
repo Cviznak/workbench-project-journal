@@ -339,7 +339,7 @@ export default function EditTaskModal({
         })
         .eq('id', task.id)
         .select(
-          '*, assignee:profiles(*), skill:skill_catalog(*), comments:task_comments(count), attachments:task_attachments(count), task_materials(*, inventory_item:inventory_items(*))'
+          '*, assignee:profiles!project_tasks_assignee_id_fkey(*), skill:skill_catalog(*), comments:task_comments(count), attachments:task_attachments(count), task_materials(*, inventory_item:inventory_items(*))'
         )
         .single();
 

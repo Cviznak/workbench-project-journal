@@ -24,53 +24,51 @@ export default async function DashboardPage() {
 
   if (!user) return null;
 
-  // 1. Fetch user profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-
-  // 2. Fetch user skills with catalog names
-  const { data: userSkills } = await supabase
-    .from('user_skills')
-    .select('*, skill:skill_catalog(*)')
-    .eq('user_id', user.id)
-    .order('total_xp', { ascending: false });
+  // Fetch all dashboard metrics concurrently
+  const [
+    { data: profile },
+    { data: userSkills },
+    { data: userLogs },
+    { data: userTasks },
+    { data: recentActivity },
+    { count: projectCount },
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('user_skills')
+      .select('*, skill:skill_catalog(*)')
+      .eq('user_id', user.id)
+      .order('total_xp', { ascending: false }),
+    supabase
+      .from('practice_logs')
+      .select('created_at')
+      .eq('user_id', user.id),
+    supabase
+      .from('project_tasks')
+      .select('*, project:projects(id, name), skill:skill_catalog(id, name)')
+      .eq('assignee_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10),
+    supabase
+      .from('activity_logs')
+      .select('*')
+      .or(`user_id.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(8),
+    supabase
+      .from('projects')
+      .select('*', { count: 'exact', head: true }),
+  ]);
 
   // Compute overall XP and Tier
   const totalXp = (userSkills || []).reduce((acc, s) => acc + (s.total_xp || 0), 0);
   const levelInfo = getLevelProgress(totalXp);
   const overallTier = getSkillTier(levelInfo.currentLevel);
-
-  // 3. Fetch practice logs to calculate daily streak
-  const { data: userLogs } = await supabase
-    .from('practice_logs')
-    .select('created_at')
-    .eq('user_id', user.id);
-
   const streakDays = calculateStreak((userLogs || []).map((l: any) => l.created_at));
-
-  // 4. Fetch user's assigned tasks (both active and completed)
-  const { data: userTasks } = await supabase
-    .from('project_tasks')
-    .select('*, project:projects(id, name), skill:skill_catalog(id, name)')
-    .eq('assignee_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  // 5. Fetch recent activity logs
-  const { data: recentActivity } = await supabase
-    .from('activity_logs')
-    .select('*')
-    .or(`user_id.eq.${user.id}`)
-    .order('created_at', { ascending: false })
-    .limit(8);
-
-  // 6. Fetch projects count
-  const { count: projectCount } = await supabase
-    .from('projects')
-    .select('*', { count: 'exact', head: true });
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200 min-w-0 max-w-full overflow-x-hidden">

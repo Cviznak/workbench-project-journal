@@ -22,24 +22,26 @@ export default async function AdminHubPage() {
     redirect('/');
   }
 
-  // Fetch all user profiles
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: true });
-
-  // Fetch all activity logs for system audit
-  const { data: auditLogs } = await supabase
-    .from('activity_logs')
-    .select('*, profile:profiles(*)')
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  // Fetch skill requests for admin review
-  const { data: skillRequests } = await supabase
-    .from('skill_requests')
-    .select('*, user:profiles!skill_requests_user_id_fkey(*)')
-    .order('created_at', { ascending: false });
+  // Fetch profiles, audit logs, and skill requests concurrently
+  const [
+    { data: profiles },
+    { data: auditLogs },
+    { data: skillRequests },
+  ] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('activity_logs')
+      .select('*, profile:profiles(*)')
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('skill_requests')
+      .select('*, user:profiles!skill_requests_user_id_fkey(*)')
+      .order('created_at', { ascending: false }),
+  ]);
 
   return (
     <AdminHubClient

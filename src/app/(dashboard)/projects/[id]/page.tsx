@@ -29,11 +29,32 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
     notFound();
   }
 
-  // 2. Fetch project members
-  const { data: members } = await supabase
-    .from('project_members')
-    .select('*, profile:profiles(*)')
-    .eq('project_id', projectId);
+  // 2. Fetch project members, skills, tasks, and catalog skills concurrently
+  const [
+    { data: members },
+    { data: skills },
+    { data: tasks },
+    { data: allSkills },
+  ] = await Promise.all([
+    supabase
+      .from('project_members')
+      .select('*, profile:profiles(*)')
+      .eq('project_id', projectId),
+    supabase
+      .from('project_skills')
+      .select('*, skill:skill_catalog(*)')
+      .eq('project_id', projectId),
+    supabase
+      .from('project_tasks')
+      .select('*, assignee:profiles!project_tasks_assignee_id_fkey(*), skill:skill_catalog(*), comments:task_comments(count), attachments:task_attachments(count), task_materials(*, inventory_item:inventory_items(*))')
+      .eq('project_id', projectId)
+      .order('order_index', { ascending: true })
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('skill_catalog')
+      .select('*')
+      .order('name'),
+  ]);
 
   // Guarantee PM is always present in members with ACCEPTED status
   const safeMembers = [...(members || [])];
@@ -46,26 +67,6 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
       profile: project.pm,
     });
   }
-
-  // 3. Fetch project skills
-  const { data: skills } = await supabase
-    .from('project_skills')
-    .select('*, skill:skill_catalog(*)')
-    .eq('project_id', projectId);
-
-  // 4. Fetch project tasks
-  const { data: tasks } = await supabase
-    .from('project_tasks')
-    .select('*, assignee:profiles(*), skill:skill_catalog(*), comments:task_comments(count), attachments:task_attachments(count), task_materials(*, inventory_item:inventory_items(*))')
-    .eq('project_id', projectId)
-    .order('order_index', { ascending: true })
-    .order('created_at', { ascending: true });
-
-  // 5. Fetch all catalog skills for task tagging
-  const { data: allSkills } = await supabase
-    .from('skill_catalog')
-    .select('*')
-    .order('name');
 
   return (
     <KanbanBoardClient
