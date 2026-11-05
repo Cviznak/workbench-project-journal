@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Profile, SkillRequest } from '@/lib/types';
-import { relativeTime } from '@/lib/utils';
+import { Profile, AppNotification } from '@/lib/types';
+import { relativeTime, cn } from '@/lib/utils';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
+import UserAvatar from '@/components/UserAvatar';
 import {
   Bell,
   Check,
@@ -16,6 +17,11 @@ import {
   XCircle,
   Clock,
   Loader2,
+  Heart,
+  MessageSquare,
+  CheckSquare,
+  CheckCheck,
+  ExternalLink,
 } from 'lucide-react';
 
 interface NotificationBellProps {
@@ -34,6 +40,7 @@ interface PendingProjectInvite {
       id: string;
       username: string;
       display_name: string;
+      avatar_url?: string | null;
     };
   };
 }
@@ -44,11 +51,12 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
 
   const [isOpen, setIsOpen] = useState(false);
   const [invites, setInvites] = useState<PendingProjectInvite[]>([]);
-  const [skillRequests, setSkillRequests] = useState<SkillRequest[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close when clicking outside
+  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -59,8 +67,8 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch notifications
-  async function fetchNotifications() {
+  // Fetch invites and in-app notifications
+  async function fetchAllNotifications() {
     if (!profile?.id) return;
 
     try {
@@ -78,7 +86,8 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
             pm:profiles!projects_pm_user_id_fkey (
               id,
               username,
-              display_name
+              display_name,
+              avatar_url
             )
           )
         `)
@@ -89,16 +98,16 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
         setInvites(inviteData as any);
       }
 
-      // 2. Skill request updates
-      const { data: requestData } = await supabase
-        .from('skill_requests')
-        .select('*')
-        .eq('user_id', profile.id)
+      // 2. In-App Notifications table
+      const { data: notifData } = await supabase
+        .from('notifications')
+        .select('*, actor:profiles!notifications_actor_id_fkey(*)')
+        .eq('recipient_id', profile.id)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(25);
 
-      if (requestData) {
-        setSkillRequests(requestData as SkillRequest[]);
+      if (notifData) {
+        setNotifications(notifData as AppNotification[]);
       }
     } catch (err) {
       console.error('Failed to load notifications:', err);
@@ -106,13 +115,25 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
   }
 
   useEffect(() => {
-    fetchNotifications();
+    fetchAllNotifications();
 
-    // Supabase Realtime subscription for invites
     if (!profile?.id) return;
 
+    // Realtime subscriptions for both project_members and notifications
     const channel = supabase
-      .channel(`notifications-${profile.id}`)
+      .channel(`user-notifications-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_id=eq.${profile.id}`,
+        },
+        () => {
+          fetchAllNotifications();
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -122,19 +143,7 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
           filter: `user_id=eq.${profile.id}`,
         },
         () => {
-          fetchNotifications();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'skill_requests',
-          filter: `user_id=eq.${profile.id}`,
-        },
-        () => {
-          fetchNotifications();
+          fetchAllNotifications();
         }
       )
       .subscribe();
@@ -156,7 +165,6 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
       sounds.playTaskComplete();
       triggerCelebrationConfetti();
 
-      // Remove from pending list
       setInvites((prev) => prev.filter((i) => i.project_id !== projectId));
       router.refresh();
     } catch (err: any) {
@@ -175,7 +183,6 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
 
       if (error) throw error;
 
-      // Remove from pending list
       setInvites((prev) => prev.filter((i) => i.project_id !== projectId));
       router.refresh();
     } catch (err: any) {
@@ -185,7 +192,60 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
     }
   }
 
-  const unreadCount = invites.length;
+  async function handleNotificationClick(notification: AppNotification) {
+    // Optimistically mark as read
+    if (!notification.is_read) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
+      );
+
+      supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notification.id)
+        .then();
+    }
+
+    setIsOpen(false);
+
+    if (notification.link_url) {
+      router.push(notification.link_url);
+    }
+  }
+
+  async function handleMarkAllRead() {
+    setMarkingAllRead(true);
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+
+    try {
+      await supabase.rpc('mark_all_notifications_read');
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    } finally {
+      setMarkingAllRead(false);
+    }
+  }
+
+  const unreadInvites = invites.length;
+  const unreadNotifications = notifications.filter((n) => !n.is_read).length;
+  const totalUnread = unreadInvites + unreadNotifications;
+
+  function renderNotificationIcon(type: string) {
+    switch (type) {
+      case 'SKILL_REQUEST_ADMIN':
+        return <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+      case 'SKILL_REQUEST_REVIEWED':
+        return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+      case 'POST_LIKED':
+        return <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 shrink-0" />;
+      case 'POST_COMMENTED':
+        return <MessageSquare className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
+      case 'TASK_ASSIGNED':
+        return <CheckSquare className="w-3.5 h-3.5 text-indigo-500 shrink-0" />;
+      default:
+        return <Bell className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
+    }
+  }
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -197,45 +257,60 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
         aria-label="Notifications"
       >
         <Bell className="w-4 h-4" />
-        {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+        {totalUnread > 0 && (
+          <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600"></span>
           </span>
         )}
       </button>
 
       {/* Flyout Menu */}
       {isOpen && (
-        <div className="fixed sm:absolute right-4 sm:right-0 top-16 sm:top-12 mt-1 w-[calc(100vw-2rem)] sm:w-96 max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="fixed sm:absolute right-4 sm:right-0 top-16 sm:top-12 mt-1 w-[calc(100vw-2rem)] sm:w-[420px] max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+          {/* Header Bar */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-xs uppercase tracking-wider text-slate-900 dark:text-white">
+              <span className="font-extrabold text-xs uppercase tracking-wider text-slate-900 dark:text-white">
                 Notifications
               </span>
-              {unreadCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-blue-600 text-white">
-                  {unreadCount} pending
+              {totalUnread > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-600 text-white shadow-sm">
+                  {totalUnread} new
                 </span>
               )}
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              {unreadNotifications > 0 && (
+                <button
+                  onClick={handleMarkAllRead}
+                  disabled={markingAllRead}
+                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 transition"
+                  title="Mark all notifications as read"
+                >
+                  <CheckCheck className="w-3 h-3" />
+                  <span>Mark all read</span>
+                </button>
+              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
-          <div className="mt-3 space-y-4 max-h-96 overflow-y-auto">
+          <div className="mt-3 space-y-4 max-h-[460px] overflow-y-auto pr-1">
             {/* Section 1: Project Invitations */}
-            <div>
-              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                <FolderKanban className="w-3.5 h-3.5" />
-                <span>Project Invitations ({invites.length})</span>
-              </div>
+            {invites.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  <FolderKanban className="w-3.5 h-3.5" />
+                  <span>Project Invitations ({invites.length})</span>
+                </div>
 
-              {invites.length > 0 ? (
                 <div className="space-y-2">
                   {invites.map((invite) => {
                     const isAccepting = loadingActionId === `accept-${invite.project_id}`;
@@ -248,14 +323,22 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
                     return (
                       <div
                         key={invite.project_id}
-                        className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2.5"
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 space-y-2.5"
                       >
-                        <div>
-                          <div className="font-bold text-xs text-slate-900 dark:text-white">
-                            {invite.project?.name || 'Collaborative Project'}
-                          </div>
-                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            Invited by <strong className="text-slate-700 dark:text-slate-300">{pmName}</strong> • {relativeTime(invite.joined_at)}
+                        <div className="flex items-start gap-2.5">
+                          <UserAvatar
+                            src={invite.project?.pm?.avatar_url}
+                            name={pmName}
+                            size="sm"
+                            shape="circle"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                              {invite.project?.name || 'Collaborative Project'}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Invited by <strong className="text-slate-700 dark:text-slate-300">{pmName}</strong> • {relativeTime(invite.joined_at)}
+                            </div>
                           </div>
                         </div>
 
@@ -269,7 +352,7 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
                           <button
                             onClick={() => handleAcceptInvite(invite.project_id)}
                             disabled={isAccepting || isDeclining}
-                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 disabled:opacity-50 transition"
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 disabled:opacity-50 transition"
                           >
                             {isAccepting ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
@@ -282,7 +365,7 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
                           <button
                             onClick={() => handleDeclineInvite(invite.project_id)}
                             disabled={isAccepting || isDeclining}
-                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 transition"
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-3 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 transition"
                           >
                             {isDeclining ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
@@ -296,61 +379,83 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
                     );
                   })}
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400 py-1 italic">
-                  No pending project invitations.
-                </p>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Section 2: Skill Request Updates */}
-            {skillRequests.length > 0 && (
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>My Skill Requests</span>
-                </div>
+            {/* Section 2: In-App Activity & System Notifications */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                <span>Activity &amp; Alerts</span>
+                {notifications.length > 0 && (
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    {notifications.length} recent
+                  </span>
+                )}
+              </div>
 
+              {notifications.length > 0 ? (
                 <div className="space-y-1.5">
-                  {skillRequests.map((req) => (
+                  {notifications.map((n) => (
                     <div
-                      key={req.id}
-                      className="p-2 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800 text-xs flex items-center justify-between gap-2"
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={cn(
+                        'group flex items-start gap-3 p-3 rounded-2xl border transition cursor-pointer text-left',
+                        n.is_read
+                          ? 'bg-transparent border-slate-100 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/40 opacity-80 hover:opacity-100'
+                          : 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-200/70 dark:border-blue-900/50 hover:bg-blue-50 dark:hover:bg-blue-950/50'
+                      )}
                     >
-                      <div className="overflow-hidden">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 truncate block">
-                          {req.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 block">
-                          {req.category}
-                        </span>
+                      {/* Avatar or Icon */}
+                      <div className="relative shrink-0 mt-0.5">
+                        {n.actor ? (
+                          <UserAvatar
+                            src={n.actor.avatar_url}
+                            name={n.actor.display_name || n.actor.username}
+                            size="sm"
+                            shape="circle"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                            {renderNotificationIcon(n.notification_type)}
+                          </div>
+                        )}
+                        {!n.is_read && (
+                          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-slate-900" />
+                        )}
                       </div>
 
-                      <div className="flex-shrink-0">
-                        {req.status === 'APPROVED' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>+25 XP</span>
+                      {/* Content */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className={cn(
+                            'text-xs line-clamp-1 block',
+                            n.is_read
+                              ? 'font-semibold text-slate-800 dark:text-slate-200'
+                              : 'font-bold text-slate-900 dark:text-white'
+                          )}>
+                            {n.title}
                           </span>
-                        )}
-                        {req.status === 'PENDING' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
-                            <Clock className="w-3 h-3" />
-                            <span>Reviewing</span>
+                          <span className="text-[10px] text-slate-400 shrink-0">
+                            {relativeTime(n.created_at)}
                           </span>
-                        )}
-                        {req.status === 'REJECTED' && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 px-2 py-0.5 rounded-full border border-red-200 dark:border-red-800">
-                            <XCircle className="w-3 h-3" />
-                            <span>Declined</span>
-                          </span>
+                        </div>
+
+                        {n.body && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
+                            {n.body}
+                          </p>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="py-6 text-center text-slate-400 text-xs italic">
+                  No notifications yet. You are all caught up!
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

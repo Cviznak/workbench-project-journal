@@ -465,3 +465,24 @@ export interface PostComment {
   author?: Profile;
 }
 
+export type NotificationType =
+  | 'SKILL_REQUEST_ADMIN'
+  | 'SKILL_REQUEST_REVIEWED'
+  | 'POST_LIKED'
+  | 'POST_COMMENTED'
+  | 'TASK_ASSIGNED'
+  | 'PROJECT_INVITE';
+
+export interface AppNotification {
+  id: string;
+  recipient_id: string;
+  actor_id?: string | null;
+  notification_type: NotificationType | string;
+  title: string;
+  body: string;
+  link_url: string;
+  is_read: boolean;
+  created_at: string;
+  actor?: Profile;
+}
+

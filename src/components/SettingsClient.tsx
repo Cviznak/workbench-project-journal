@@ -24,6 +24,8 @@ import {
   X,
   CheckCircle2,
   Clock,
+  Bell,
+  Mail,
 } from 'lucide-react';
 import AvatarUploader from '@/components/AvatarUploader';
 
@@ -40,6 +42,34 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url || null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
+
+  // Notification Preferences state (saved to profiles.settings_json)
+  const isAdmin = profile.role === 'ROOT_ADMIN' || profile.role === 'ADMIN';
+  const [settings, setSettings] = useState<Record<string, any>>(profile.settings_json || {});
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState(false);
+
+  async function handleToggleSetting(key: string, value: boolean) {
+    const nextSettings = { ...settings, [key]: value };
+    setSettings(nextSettings);
+    setSettingsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ settings_json: nextSettings })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+      setSettingsSuccess(true);
+      setTimeout(() => setSettingsSuccess(false), 2500);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to update preferences');
+      setSettings(settings); // revert on error
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
 
   const [password, setPassword] = useState('');
   const [passwordSaving, setPasswordSaving] = useState(false);
@@ -582,6 +612,127 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Notifications & Admin Alerts Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 shadow-sm space-y-6">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-slate-900 dark:text-white">
+                Notifications &amp; Alerts
+              </h2>
+              <p className="text-xs text-slate-400">
+                Configure your real-time notification feed and administrator email alerts.
+              </p>
+            </div>
+          </div>
+
+          {settingsSuccess && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800 animate-in fade-in">
+              <Check className="w-3.5 h-3.5" />
+              <span>Saved!</span>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {/* Admin Email Skill Requests Toggle (Only shown to Admins) */}
+          {isAdmin && (
+            <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 mt-0.5">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-xs text-slate-900 dark:text-white">
+                      Admin Email: New Skill Requests
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500 text-white">
+                      ADMIN
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                    Receive immediate transactional email alerts to your registered email when a maker submits a new skill proposal for catalog review.
+                  </p>
+                </div>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                <input
+                  type="checkbox"
+                  disabled={settingsSaving}
+                  checked={settings.email_skill_requests !== false}
+                  onChange={(e) => handleToggleSetting('email_skill_requests', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          )}
+
+          {/* In-App Skill Requests for Admins */}
+          {isAdmin && (
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 mt-0.5">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                    In-App Bell: Skill Proposal Alerts
+                  </span>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Show unread notification bell badges when new skills require review in the Admin Hub.
+                  </p>
+                </div>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                <input
+                  type="checkbox"
+                  disabled={settingsSaving}
+                  checked={settings.in_app_skill_requests !== false}
+                  onChange={(e) => handleToggleSetting('in_app_skill_requests', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          )}
+
+          {/* In-App Post Likes & Comments for All Users */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 mt-0.5">
+                <Bell className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                  Community Social Activity
+                </span>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Receive notifications when other makers like your posts or leave comments on your updates.
+                </p>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+              <input
+                type="checkbox"
+                disabled={settingsSaving}
+                checked={settings.in_app_social !== false}
+                onChange={(e) => handleToggleSetting('in_app_social', e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+        </div>
       </div>
 
       {/* Data & Backup Card */}

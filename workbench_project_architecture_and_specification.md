@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 1.9.0 Production  
+> **Version:** 2.0.0 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://workbench-project-journal.vercel.app](https://workbench-project-journal.vercel.app)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -31,6 +31,12 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - **Maker Community Social Feed** *(v1.9)*: Public social hub (`/community`) powered by `public.community_posts`, `public.post_likes`, `public.post_comments`, and storage bucket `'community-media'`. Features Markdown post composer, media uploads up to 5MB, skill tagging, linked projects with auto-showcase opt-in, optimistic likes (`toggle_post_like` RPC), and nested comments.
 - **Public Maker Profiles** *(v1.9)*: Discoverable profiles (`/makers/[username]`) showcasing a maker's biography (`profiles.bio`), total XP, maker level, consistency streaks, authored community posts, leveled skill mastery bars, and showcase projects. Includes an inline bio editor and one-click profile link sharing.
 - **Public Project Showcase Mode** *(v1.9)*: Opt-in public visibility (`is_public = true` on `public.projects`). Non-members can view project milestones, task progress bars, and read-only Kanban board blueprints. Also displays a dedicated "Project Updates & Community Activity" feed stream.
+- **Zero-Client-Trust Security Guards & Profile/Post Protection** *(v1.9.1)*: BEFORE UPDATE trigger `guard_profile_client_updates()` prevents client tampering with `role`, `is_immutable`, `is_suspended`, `current_streak`, `longest_streak`, or `last_active_date` by requiring an internal transaction setting `workbench.internal_rpc = 'true'` set exclusively by verified `SECURITY DEFINER` RPCs (`promote_to_admin`, `demote_to_user`, `toggle_user_suspension`, `touch_user_streak`). BEFORE INSERT OR UPDATE trigger `guard_community_posts()` prevents tampering with `likes_count` and `comments_count` and enforces project membership on linked projects. `chk_profiles_avatar_url` enforces valid HTTPS avatar links.
+- **WebP Avatar Auto-Crop & Image Optimization** *(v1.9.1)*: Client-side offscreen canvas utility (`cropAndCompressAvatar`) auto-crops any uploaded photo to a 1:1 center square at 256x256, exported as high-efficiency WebP (<35KB). Uploaded directly to `community-media` storage at `${userId}/avatar_${Date.now()}.webp`. Reusable `UserAvatar` component renders crisp avatars with automatic initial-letter fallbacks across all views.
+- **Unified In-App Real-Time Notification Engine** *(v2.0)*: Realtime-enabled `public.notifications` table tracking unread notifications across 6 system events (`SKILL_REQUEST_ADMIN`, `SKILL_REQUEST_REVIEWED`, `POST_LIKED`, `POST_COMMENTED`, `TASK_ASSIGNED`, `PROJECT_INVITE`). Powered by automatic database triggers, unread ping badges, one-click "Mark all read" RPC (`mark_all_notifications_read`), and direct navigation to destination views.
+- **Admin Email Alert Dispatch via Resend HTTP API** *(v2.0)*: Server API route (`/api/notifications/skill-request`) coupled with a `SECURITY DEFINER` RPC (`get_admin_emails_for_skill_request`) that fetches active administrator emails from `auth.users` (honoring opt-out preferences in `settings_json`). Sends branded, responsive HTML notifications via Resend HTTP API with graceful fallback when `RESEND_API_KEY` is omitted.
+- **Notification & Admin Preferences** *(v2.0)*: Granular preferences saved in `profiles.settings_json` for both Makers (in-app social notifications) and Admins (transactional email alerts & in-app bell badges for skill proposals).
+- **Vercel Analytics** *(v2.0)*: Integrated `@vercel/analytics` directly into root application layout for real-time web telemetry and performance insights.
 - **Portable Data Sovereignty & Relational Restore** *(v1.7)*: One-click **"Export Complete Maker Archive"** exports complete user records into a standardized portable JSON archive (v1.7.0). **"Verify & Restore Maker Archive"** enables seamless relational data recovery with JSON schema validation, itemized count preview modal, and conflict-free foreign key re-mapping.
 - **Progressive Web App (PWA)**: Full standalone installability with Service Worker shell caching for offline navigation.
 
@@ -313,6 +319,47 @@ Immutable system audit ledger.
 - `metadata` (`JSONB`, DEFAULT `'{}'::jsonb`)
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 
+#### 18. `public.community_posts` *(v1.9)*
+Public social feed posts for maker projects and deliberate practice milestones.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `author_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
+- `content` (`TEXT`, NOT NULL)
+- `media_urls` (`TEXT[]`, DEFAULT `'{}'`)
+- `skill_id` (`UUID`, references `skill_catalog.id` ON DELETE SET NULL)
+- `project_id` (`UUID`, references `projects.id` ON DELETE SET NULL)
+- `likes_count` (`INT`, DEFAULT `0`)
+- `comments_count` (`INT`, DEFAULT `0`)
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- `updated_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+
+#### 19. `public.post_likes` *(v1.9)*
+Unique like ledger preventing multiple likes per user per post.
+- `post_id` (`UUID`, NOT NULL, references `community_posts.id` ON DELETE CASCADE)
+- `user_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- Primary Key: `(post_id, user_id)`
+
+#### 20. `public.post_comments` *(v1.9)*
+Maker community commentary and replies.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `post_id` (`UUID`, NOT NULL, references `community_posts.id` ON DELETE CASCADE)
+- `user_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
+- `content` (`TEXT`, NOT NULL)
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+
+#### 21. `public.notifications` *(v2.0)*
+Unified in-app notification inbox with Realtime WebSocket push.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `recipient_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
+- `actor_id` (`UUID`, references `profiles.id` ON DELETE SET NULL, nullable)
+- `notification_type` (`TEXT`, NOT NULL) — `SKILL_REQUEST_ADMIN`, `SKILL_REQUEST_REVIEWED`, `POST_COMMENTED`, `POST_LIKED`, `TASK_ASSIGNED`, `PROJECT_INVITE`
+- `title` (`TEXT`, NOT NULL)
+- `body` (`TEXT`, DEFAULT `''`)
+- `link_url` (`TEXT`, DEFAULT `'/dashboard'`)
+- `is_read` (`BOOLEAN`, NOT NULL, DEFAULT `false`)
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- RLS: Strict recipient-only read/write (`(SELECT auth.uid()) = recipient_id`).
+
 ---
 
 ## 4. PostgreSQL `SECURITY DEFINER` RPCs
@@ -328,6 +375,10 @@ Immutable system audit ledger.
 | `log_skill_practice` | `p_skill_name TEXT, p_duration_minutes INT, p_xp INT, p_note TEXT, p_skill_id UUID` | Requires skill to exist in `skill_catalog`. Validates `duration BETWEEN 1 AND 600`. Computes deterministic XP (`duration * 2`) inside PostgreSQL, touches daily streak, recalculates level, and records practice log. |
 | `accept_project_invite` | `p_project_id UUID` | Validates `auth.uid()`. Transitions member `invitation_status` from `'PENDING'` to `'ACCEPTED'`. |
 | `decline_project_invite` | `p_project_id UUID` | Validates `auth.uid()`. Deletes member row where `invitation_status = 'PENDING'`. |
+| `get_admin_emails_for_skill_request` *(v2.0)* | `p_request_id UUID` | Callable by skill requester or admin. Validates `auth.uid()`. Returns active admin emails and names from `auth.users` joined with `profiles`, honoring `settings_json->>'email_skill_requests'` opt-outs. |
+| `mark_all_notifications_read` *(v2.0)* | None | Validates `auth.uid()`. Sets `is_read = true` for all unread notifications belonging to the calling user. |
+| `toggle_post_like` *(v1.9)* | `p_post_id UUID` | Validates `auth.uid()`. Atomically toggles like row in `public.post_likes` and updates `community_posts.likes_count`. |
+| `search_makers_for_invite` *(v1.8)* | `p_query TEXT, p_project_id UUID DEFAULT NULL` | Validates `auth.uid()`. Searches non-suspended profiles by username/display_name up to 8 rows, flagging if already a member. Never exposes email or private settings. |
 
 ---
 
@@ -361,12 +412,16 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   │   ├── inventory/page.tsx # Maker Inventory & Smart Restock Cart (v1.4)
 │   │   │   ├── admin/page.tsx     # Security & Admin Hub (role-gated)
 │   │   │   └── settings/page.tsx  # Profile settings, password change, Data & Backup export (v1.3)
+│   │   ├── api/                   # Server API route handlers (v2.0)
+│   │   │   └── notifications/
+│   │   │       └── skill-request/route.ts # Resend HTTP email dispatch for skill requests (v2.0)
 │   │   ├── auth/callback/route.ts # Supabase Auth code exchange handler
 │   │   ├── globals.css            # Tailwind base, dark palette, overflow-x: clip
 │   │   └── layout.tsx             # Root layout, manifest metadata, ServiceWorkerRegister
 │   ├── components/
 │   │   ├── ActivityHeatmap.tsx    # Responsive 52-week contribution heatmap & streak cards
 │   │   ├── AdminHubClient.tsx     # User directory, Skill Request approvals, Audit logs
+│   │   ├── AvatarUploader.tsx     # Client-side 1:1 square crop to WebP & avatar storage uploader (v1.9.1)
 │   │   ├── CommunityFeedClient.tsx # Social feed: posts, photos, likes, comments (v1.9)
 │   │   ├── EditProjectModal.tsx   # Project settings, skills & Public Showcase toggle (v1.9)
 │   │   ├── EditTaskModal.tsx      # Workshop modal: Details, Prerequisite dependency, Comments, Files
@@ -385,8 +440,10 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   ├── SkillsViewClient.tsx   # Skills grid, tier badges, practice history ledger
 │   │   ├── SpotlightSearch.tsx    # Global Ctrl+K / Cmd+K command palette
 │   │   ├── TaskCompleteButton.tsx # One-click task resolution with XP animation
-│   │   └── ThemeToggle.tsx        # Dark / Light mode toggle
+│   │   ├── ThemeToggle.tsx        # Dark / Light mode toggle
+│   │   └── UserAvatar.tsx         # Universal responsive avatar with initial badge fallback (v1.9.1)
 │   ├── lib/
+│   │   ├── imageUtils.ts          # Offscreen canvas 1:1 auto-crop & WebP compression (v1.9.1)
 │   │   ├── soundEffects.ts        # Web Audio procedural synthesizer & confetti triggers
 │   │   ├── supabase/
 │   │   │   ├── client.ts          # Client-side Supabase browser client
@@ -411,7 +468,9 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 012_calculators_and_batch_logs.sql     # v1.7: Interactive maker calculators, recipe batch run logs & workspace blueprints
 │       ├── 013_fix_privacy_modal_and_latency.sql  # v1.7.1: Project privacy lockdown, create_maker_project RPC & latency optimization
 │       ├── 014_teammate_search_and_templates.sql  # v1.8.0: Teammate search RPC, safe invite/remove RPCs, starter blueprints & mobile PWA bottom nav
-│       └── 015_social_feed_profiles_and_skill_search.sql # v1.9.0: Community posts, likes, comments, public profiles & searchable skill selector
+│       ├── 015_social_feed_profiles_and_skill_search.sql # v1.9.0: Community posts, likes, comments, public profiles & searchable skill selector
+│       ├── 016_security_guards_and_avatars.sql    # v1.9.1: Role/streak guards, post counter locks, avatar URL validation & WebP uploads
+│       └── 017_notifications_and_admin_email.sql # v2.0.0: Unified real-time notifications engine & admin email RPC
 ├── package.json
 └── tailwind.config.ts
 ```

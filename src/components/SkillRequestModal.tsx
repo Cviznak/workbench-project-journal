@@ -61,16 +61,29 @@ export default function SkillRequestModal({
         throw new Error('You must be signed in to request a skill.');
       }
 
-      const { error: insertError } = await supabase
+      const { data: requestRecord, error: insertError } = await supabase
         .from('skill_requests')
         .insert({
           user_id: user.id,
           name: name.trim(),
           category: finalCategory,
           reason: reason.trim() || null,
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertError) throw insertError;
+
+      // Non-blocking trigger for admin email alert dispatch
+      if (requestRecord?.id) {
+        fetch('/api/notifications/skill-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId: requestRecord.id }),
+        }).catch((err) => {
+          console.warn('[SkillRequestModal] Admin email trigger failed:', err);
+        });
+      }
 
       soundEngine.playTaskComplete();
       setSubmitted(true);
