@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import EditTaskModal from '@/components/EditTaskModal';
 import EditProjectModal from '@/components/EditProjectModal';
+import UserAvatar from '@/components/UserAvatar';
 
 interface KanbanBoardClientProps {
   project: any;
@@ -660,9 +661,12 @@ export default function KanbanBoardClient({
               Project Manager
             </span>
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
-                {project.pm?.display_name?.charAt(0).toUpperCase() || 'P'}
-              </div>
+              <UserAvatar
+                src={project.pm?.avatar_url}
+                name={project.pm?.display_name || project.pm?.username}
+                size="sm"
+                shape="circle"
+              />
               <div>
                 <span className="font-bold text-slate-900 dark:text-white block">
                   {project.pm?.display_name}
@@ -1020,15 +1024,21 @@ export default function KanbanBoardClient({
                       {/* Card Footer: Assignee & Column Mover buttons */}
                       <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-slate-400 truncate max-w-[100px]">
-                            {task.assignee ? (
-                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          {task.assignee ? (
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <UserAvatar
+                                src={task.assignee.avatar_url}
+                                name={task.assignee.display_name || task.assignee.username}
+                                size="xs"
+                                shape="circle"
+                              />
+                              <span className="text-slate-700 dark:text-slate-300 font-semibold truncate max-w-[100px]">
                                 @{task.assignee.username}
                               </span>
-                            ) : (
-                              <span className="italic text-slate-400">Unassigned</span>
-                            )}
-                          </span>
+                            </div>
+                          ) : (
+                            <span className="italic text-slate-400">Unassigned</span>
+                          )}
 
                           {/* Comments & Attachments count badges */}
                           {((task.comments?.[0]?.count ?? 0) > 0 ||
@@ -1212,9 +1222,13 @@ export default function KanbanBoardClient({
                     href={`/makers/${post.author?.username || 'maker'}`}
                     className="flex items-center gap-2 group"
                   >
-                    <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[10px]">
-                      {post.author?.display_name?.charAt(0).toUpperCase() || 'M'}
-                    </div>
+                    <UserAvatar
+                      src={post.author?.avatar_url}
+                      name={post.author?.display_name || post.author?.username}
+                      size="xs"
+                      shape="circle"
+                      className="group-hover:scale-105 transition-transform"
+                    />
                     <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:underline">
                       @{post.author?.username || 'maker'}
                     </span>

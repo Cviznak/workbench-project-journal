@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Clock,
 } from 'lucide-react';
+import AvatarUploader from '@/components/AvatarUploader';
 
 interface SettingsClientProps {
   profile: Profile;
@@ -36,6 +37,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
   const supabase = createClient();
 
   const [displayName, setDisplayName] = useState(profile.display_name || '');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url || null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
 
@@ -428,6 +430,24 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
               Your name as shown on project boards, task cards, and XP leaderboards.
             </p>
           </div>
+        </div>
+
+        {/* Profile Avatar Uploader */}
+        <div className="pb-4 border-b border-slate-100 dark:border-slate-800">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-2">
+            Profile Picture
+          </label>
+          <AvatarUploader
+            userId={profile.id}
+            username={profile.username}
+            currentAvatarUrl={avatarUrl}
+            onAvatarUpdated={(newUrl) => {
+              setAvatarUrl(newUrl);
+              router.refresh();
+            }}
+            size="xl"
+            shape="circle"
+          />
         </div>
 
         <form onSubmit={handleUpdateProfile} className="space-y-4">

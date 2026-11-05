@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Profile } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import UserAvatar from '@/components/UserAvatar';
 
 interface SidebarProps {
   profile: Profile | null;
@@ -104,9 +105,13 @@ export default function Sidebar({ profile }: SidebarProps) {
               className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition group"
               title="View your public maker profile"
             >
-              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0 group-hover:scale-105 transition-transform">
-                {profile.display_name?.charAt(0).toUpperCase() || 'U'}
-              </div>
+              <UserAvatar
+                src={profile.avatar_url}
+                name={profile.display_name || profile.username}
+                size="lg"
+                shape="circle"
+                className="group-hover:scale-105 transition-transform"
+              />
               <div className="overflow-hidden flex-1">
                 <div className="flex items-center gap-1.5">
                   <span className="font-semibold text-xs text-slate-900 dark:text-white truncate block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">

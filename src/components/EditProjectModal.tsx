@@ -22,6 +22,7 @@ import {
   Lock,
 } from 'lucide-react';
 import SkillSelector from '@/components/SkillSelector';
+import UserAvatar from '@/components/UserAvatar';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -463,9 +464,12 @@ export default function EditProjectModal({
                                 className="flex items-center justify-between p-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition"
                               >
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                                    {result.display_name?.charAt(0).toUpperCase() || result.username.charAt(0).toUpperCase()}
-                                  </div>
+                                  <UserAvatar
+                                    src={result.avatar_url}
+                                    name={result.display_name || result.username}
+                                    size="md"
+                                    shape="circle"
+                                  />
                                   <div className="truncate">
                                     <span className="font-bold text-xs text-slate-900 dark:text-white block truncate">
                                       {result.display_name}
@@ -550,9 +554,12 @@ export default function EditProjectModal({
                         className="flex items-center justify-between p-3.5 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                            {profile.display_name?.charAt(0).toUpperCase() || profile.username?.charAt(0).toUpperCase() || 'M'}
-                          </div>
+                          <UserAvatar
+                            src={profile.avatar_url}
+                            name={profile.display_name || profile.username}
+                            size="lg"
+                            shape="circle"
+                          />
                           <div className="truncate">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-xs text-slate-900 dark:text-white truncate">

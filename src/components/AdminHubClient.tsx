@@ -26,6 +26,7 @@ import {
   Users,
 } from 'lucide-react';
 import { soundEngine, triggerConfetti } from '@/lib/soundEffects';
+import UserAvatar from '@/components/UserAvatar';
 
 interface AdminHubClientProps {
   caller: Profile;
@@ -332,9 +333,12 @@ export default function AdminHubClient({
                     <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
                       <td className="py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
-                            {user.display_name?.charAt(0).toUpperCase() || 'U'}
-                          </div>
+                          <UserAvatar
+                            src={user.avatar_url}
+                            name={user.display_name || user.username}
+                            size="lg"
+                            shape="circle"
+                          />
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className="font-bold text-slate-900 dark:text-white text-xs">

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Profile, SkillCatalog } from '@/lib/types';
 import { relativeTime, cn } from '@/lib/utils';
 import SkillSelector from '@/components/SkillSelector';
+import UserAvatar from '@/components/UserAvatar';
 import {
   Heart,
   MessageSquare,
@@ -478,9 +479,12 @@ export default function CommunityFeedClient({
       <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <form onSubmit={handlePublishPost} className="space-y-4">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center shrink-0 text-sm shadow-sm">
-              {currentProfile?.display_name?.charAt(0).toUpperCase() || 'M'}
-            </div>
+            <UserAvatar
+              src={currentProfile?.avatar_url}
+              name={currentProfile?.display_name || currentProfile?.username}
+              size="xl"
+              shape="circle"
+            />
             <div className="flex-1">
               <textarea
                 value={postContent}
@@ -732,9 +736,13 @@ export default function CommunityFeedClient({
                       href={`/makers/${post.author?.username || 'maker'}`}
                       className="group flex items-center gap-3"
                     >
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
-                        {post.author?.display_name?.charAt(0).toUpperCase() || 'M'}
-                      </div>
+                      <UserAvatar
+                        src={post.author?.avatar_url}
+                        name={post.author?.display_name || post.author?.username}
+                        size="xl"
+                        shape="circle"
+                        className="group-hover:scale-105 transition-transform"
+                      />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
@@ -906,9 +914,12 @@ export default function CommunityFeedClient({
                             >
                               <div className="flex items-start gap-2.5">
                                 <Link href={`/makers/${comment.author?.username || 'maker'}`}>
-                                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold flex items-center justify-center text-xs shrink-0">
-                                    {comment.author?.display_name?.charAt(0).toUpperCase() || 'M'}
-                                  </div>
+                                  <UserAvatar
+                                    src={comment.author?.avatar_url}
+                                    name={comment.author?.display_name || comment.author?.username}
+                                    size="sm"
+                                    shape="circle"
+                                  />
                                 </Link>
                                 <div>
                                   <div className="flex items-center gap-1.5">

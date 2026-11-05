@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client';
 import { Profile, SkillCatalog } from '@/lib/types';
 import { relativeTime, getLevelProgress, cn } from '@/lib/utils';
 import SkillSelector from '@/components/SkillSelector';
+import UserAvatar from '@/components/UserAvatar';
+import AvatarUploader from '@/components/AvatarUploader';
 import {
   Sparkles,
   Flame,
@@ -284,9 +286,28 @@ export default function MakerProfileClient({
 
         <div className="relative pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="flex items-start sm:items-center gap-4">
-            <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white font-black text-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 border-4 border-white dark:border-slate-900 shrink-0">
-              {profile.display_name?.charAt(0).toUpperCase() || 'M'}
-            </div>
+            {isOwnProfile ? (
+              <AvatarUploader
+                userId={profile.id}
+                username={profile.username}
+                currentAvatarUrl={profile.avatar_url || null}
+                onAvatarUpdated={(newUrl) => {
+                  setProfile((prev) => ({ ...prev, avatar_url: newUrl }));
+                  router.refresh();
+                }}
+                size="2xl"
+                shape="rounded-3xl"
+                showControls={false}
+              />
+            ) : (
+              <UserAvatar
+                src={profile.avatar_url}
+                name={profile.display_name || profile.username}
+                size="2xl"
+                shape="rounded-3xl"
+                className="shadow-lg shadow-blue-500/20 border-4 border-white dark:border-slate-900 shrink-0"
+              />
+            )}
 
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -627,11 +648,19 @@ export default function MakerProfileClient({
                             key={c.id}
                             className="p-2 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs flex items-start justify-between gap-2"
                           >
-                            <div>
-                              <span className="font-bold text-slate-900 dark:text-white mr-1.5">
-                                {c.author?.display_name || 'Maker'}:
-                              </span>
-                              <span className="text-slate-700 dark:text-slate-300">{c.content}</span>
+                            <div className="flex items-start gap-2 min-w-0">
+                              <UserAvatar
+                                src={c.author?.avatar_url}
+                                name={c.author?.display_name || c.author?.username}
+                                size="xs"
+                                shape="circle"
+                              />
+                              <div className="min-w-0">
+                                <span className="font-bold text-slate-900 dark:text-white mr-1.5">
+                                  {c.author?.display_name || 'Maker'}:
+                                </span>
+                                <span className="text-slate-700 dark:text-slate-300">{c.content}</span>
+                              </div>
                             </div>
                             <span className="text-[10px] text-slate-400 shrink-0">
                               {relativeTime(c.created_at)}

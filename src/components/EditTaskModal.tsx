@@ -39,6 +39,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import SkillSelector from '@/components/SkillSelector';
+import UserAvatar from '@/components/UserAvatar';
 
 interface EditTaskModalProps {
   task: ProjectTask;
@@ -911,9 +912,12 @@ export default function EditTaskModal({
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[10px]">
-                                {author?.display_name?.charAt(0).toUpperCase() || 'U'}
-                              </div>
+                              <UserAvatar
+                                src={author?.avatar_url}
+                                name={author?.display_name || author?.username}
+                                size="xs"
+                                shape="circle"
+                              />
                               <span className="font-bold text-slate-900 dark:text-white">
                                 {author?.display_name || 'Maker'}
                               </span>

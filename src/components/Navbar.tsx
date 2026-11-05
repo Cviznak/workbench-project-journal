@@ -12,6 +12,7 @@ import FocusAudioBar from './FocusAudioBar';
 import ThemeToggle from './ThemeToggle';
 import SpotlightSearch from './SpotlightSearch';
 import NotificationBell from './NotificationBell';
+import UserAvatar from './UserAvatar';
 
 interface NavbarProps {
   profile: Profile | null;
@@ -132,9 +133,15 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center ring-2 ring-slate-100 dark:ring-slate-800"
+              className="rounded-full ring-2 ring-slate-100 dark:ring-slate-800 transition hover:opacity-90"
+              title={profile?.display_name || 'User Menu'}
             >
-              {profile?.display_name?.charAt(0).toUpperCase() || 'U'}
+              <UserAvatar
+                src={profile?.avatar_url}
+                name={profile?.display_name || profile?.username}
+                size="md"
+                shape="circle"
+              />
             </button>
 
             {menuOpen && (
@@ -142,13 +149,21 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                 className="absolute right-0 mt-2 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-2 z-50 text-sm"
                 onClick={() => setMenuOpen(false)}
               >
-                <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
-                  <p className="font-semibold text-slate-900 dark:text-white truncate">
-                    {profile?.display_name}
-                  </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
-                    @{profile?.username}
-                  </p>
+                <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                  <UserAvatar
+                    src={profile?.avatar_url}
+                    name={profile?.display_name || profile?.username}
+                    size="sm"
+                    shape="circle"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-slate-900 dark:text-white truncate text-xs">
+                      {profile?.display_name}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                      @{profile?.username}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="py-1">
