@@ -22,6 +22,7 @@ import {
   Printer,
   Palette,
 } from 'lucide-react';
+import SkillSelector from '@/components/SkillSelector';
 
 interface ProjectsListClientProps {
   initialProjects: any[];
@@ -655,25 +656,13 @@ export default function ProjectsListClient({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
                   Link Developing Skills
                 </label>
-                <div className="flex items-center gap-1.5 flex-wrap max-h-32 overflow-y-auto p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                  {catalogSkills.map((cs) => {
-                    const isSelected = selectedSkillIds.includes(cs.id);
-                    return (
-                      <button
-                        key={cs.id}
-                        type="button"
-                        onClick={() => toggleSkill(cs.id)}
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition ${
-                          isSelected
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                        }`}
-                      >
-                        {cs.name}
-                      </button>
-                    );
-                  })}
-                </div>
+                <SkillSelector
+                  skills={catalogSkills}
+                  mode="multi"
+                  selectedIds={selectedSkillIds}
+                  onChangeMulti={(ids) => setSelectedSkillIds(ids)}
+                  placeholder="Search and link skills rewarded on completion..."
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">

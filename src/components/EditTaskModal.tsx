@@ -38,6 +38,7 @@ import {
   Boxes,
   AlertTriangle,
 } from 'lucide-react';
+import SkillSelector from '@/components/SkillSelector';
 
 interface EditTaskModalProps {
   task: ProjectTask;
@@ -50,6 +51,7 @@ interface EditTaskModalProps {
   onClose: () => void;
   onTaskUpdated?: (updatedTask: ProjectTask) => void;
   onTaskDeleted?: (taskId: string) => void;
+  isReadOnly?: boolean;
 }
 
 export default function EditTaskModal({
@@ -63,6 +65,7 @@ export default function EditTaskModal({
   onClose,
   onTaskUpdated,
   onTaskDeleted,
+  isReadOnly = false,
 }: EditTaskModalProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -338,15 +341,18 @@ export default function EditTaskModal({
           updated_at: new Date().toISOString(),
         })
         .eq('id', task.id)
-        .select(
-          '*, assignee:profiles!project_tasks_assignee_id_fkey(*), skill:skill_catalog(*), comments:task_comments(count), attachments:task_attachments(count), task_materials(*, inventory_item:inventory_items(*))'
-        )
+        .select('*, assignee:profiles!project_tasks_assignee_id_fkey(*), skill:skill_catalog(*)')
         .single();
 
       if (error) throw error;
 
       if (onTaskUpdated && updated) {
-        onTaskUpdated(updated as ProjectTask);
+        onTaskUpdated({
+          ...updated,
+          comments: [{ count: comments.length }],
+          attachments: [{ count: attachments.length }],
+          task_materials: materials,
+        } as any);
       }
       router.refresh();
       onClose();
@@ -545,41 +551,45 @@ export default function EditTaskModal({
               <span>Details &amp; Checklist</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('discussion')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                activeTab === 'discussion'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-              <span>Discussion ({comments.length})</span>
-            </button>
+            {!isReadOnly && (
+              <>
+                <button
+                  onClick={() => setActiveTab('discussion')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    activeTab === 'discussion'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Discussion ({comments.length})</span>
+                </button>
 
-            <button
-              onClick={() => setActiveTab('attachments')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                activeTab === 'attachments'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Paperclip className="w-3.5 h-3.5" />
-              <span>Attachments ({attachments.length})</span>
-            </button>
+                <button
+                  onClick={() => setActiveTab('attachments')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    activeTab === 'attachments'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                  <span>Attachments ({attachments.length})</span>
+                </button>
 
-            <button
-              onClick={() => setActiveTab('materials')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                activeTab === 'materials'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
-            >
-              <Boxes className="w-3.5 h-3.5" />
-              <span>Materials ({materials.length})</span>
-            </button>
+                <button
+                  onClick={() => setActiveTab('materials')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                    activeTab === 'materials'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Boxes className="w-3.5 h-3.5" />
+                  <span>Materials ({materials.length})</span>
+                </button>
+              </>
+            )}
           </div>
 
           {/* Modal Content */}
@@ -589,6 +599,12 @@ export default function EditTaskModal({
             {/* -------------------------------------------------------------- */}
             {activeTab === 'details' && (
               <form onSubmit={handleSaveDetails} className="space-y-4">
+                {isReadOnly && (
+                  <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                    <Boxes className="w-4 h-4 shrink-0" />
+                    <span>Viewing task blueprint from public showcase (Read-Only).</span>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                     Task Title *
@@ -692,18 +708,13 @@ export default function EditTaskModal({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
                     Associated Skill
                   </label>
-                  <select
-                    value={skillId}
-                    onChange={(e) => setSkillId(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs"
-                  >
-                    <option value="">General Crafting / Project Default</option>
-                    {allSkills.map((s: any) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.category})
-                      </option>
-                    ))}
-                  </select>
+                  <SkillSelector
+                    mode="single"
+                    skills={allSkills}
+                    selectedId={skillId}
+                    onChangeSingle={(id) => setSkillId(id || '')}
+                    placeholder="General Crafting / Project Default"
+                  />
                 </div>
 
                 {/* Prerequisite Task Dependency */}
@@ -833,32 +844,49 @@ export default function EditTaskModal({
 
                 {/* Footer Buttons */}
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={handleDeleteTask}
-                    className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Task</span>
-                  </button>
+                  {isReadOnly ? (
+                    <>
+                      <span className="text-xs font-semibold text-slate-400">
+                        Public Showcase · Read-Only
+                      </span>
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition"
+                      >
+                        Close
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleDeleteTask}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Task</span>
+                      </button>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 disabled:opacity-50 transition flex items-center gap-1.5"
-                    >
-                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                      <span>Save Changes</span>
-                    </button>
-                  </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={saving}
+                          className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 disabled:opacity-50 transition flex items-center gap-1.5"
+                        >
+                          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                          <span>Save Changes</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </form>
             )}

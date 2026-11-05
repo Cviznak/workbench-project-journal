@@ -18,7 +18,10 @@ import {
   Loader2,
   ShieldAlert,
   Sparkles,
+  Globe,
+  Lock,
 } from 'lucide-react';
+import SkillSelector from '@/components/SkillSelector';
 
 interface EditProjectModalProps {
   isOpen: boolean;
@@ -64,6 +67,7 @@ export default function EditProjectModal({
   const [description, setDescription] = useState(project.description || '');
   const [status, setStatus] = useState<ProjectStatus>(project.status);
   const [xpReward, setXpReward] = useState(String(project.completion_xp_reward || 100));
+  const [isPublic, setIsPublic] = useState(Boolean(project.is_public));
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(
     skills.map((s) => s.skill_id)
   );
@@ -287,6 +291,7 @@ export default function EditProjectModal({
           description: description.trim(),
           status,
           completion_xp_reward: parseInt(xpReward, 10) || 100,
+          is_public: isPublic,
         })
         .eq('id', project.id)
         .select()
@@ -715,33 +720,58 @@ export default function EditProjectModal({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
                   Linked Skills (Rewarded on Project Completion)
                 </label>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                  {allSkills.map((skill) => {
-                    const isChecked = selectedSkillIds.includes(skill.id);
-                    return (
-                      <label
-                        key={skill.id}
-                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-900 cursor-pointer text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            if (isChecked) {
-                              setSelectedSkillIds((prev) => prev.filter((id) => id !== skill.id));
-                            } else {
-                              setSelectedSkillIds((prev) => [...prev, skill.id]);
-                            }
-                          }}
-                          className="rounded text-blue-600 focus:ring-0"
-                        />
-                        <span className="truncate font-medium text-slate-700 dark:text-slate-300">
-                          {skill.name}
+                <SkillSelector
+                  mode="multi"
+                  skills={allSkills}
+                  selectedIds={selectedSkillIds}
+                  onChangeMulti={setSelectedSkillIds}
+                  placeholder="Search and link skills..."
+                />
+              </div>
+
+              {/* Public Project Showcase Toggle */}
+              <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                      isPublic
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    {isPublic ? <Globe className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>Public Project Showcase</span>
+                      {isPublic ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                          Public
                         </span>
-                      </label>
-                    );
-                  })}
+                      ) : (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          Private
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      When enabled, anyone in the community can view this project showcase and follow its updates.
+                    </p>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPublic(!isPublic)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isPublic ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      isPublic ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
               {/* Settings Action Footer */}

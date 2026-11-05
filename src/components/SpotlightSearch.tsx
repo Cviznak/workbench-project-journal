@@ -15,6 +15,7 @@ import {
   Plus,
   ArrowRight,
   X,
+  Sparkles,
 } from 'lucide-react';
 
 interface SpotlightSearchProps {
@@ -38,6 +39,7 @@ export default function SpotlightSearch({ isOpen, onClose, onOpenPractice }: Spo
 
   const navigationItems: SearchItem[] = [
     { title: 'Dashboard', path: '/', icon: LayoutDashboard, category: 'Navigation' },
+    { title: 'Maker Community Feed', path: '/community', icon: Sparkles, category: 'Navigation' },
     { title: 'Skills & Progression', path: '/skills', icon: Flame, category: 'Navigation' },
     { title: 'Ideas & Notes Workspace', path: '/workspace', icon: Lightbulb, category: 'Navigation' },
     { title: 'Projects & Tasks', path: '/projects', icon: FolderKanban, category: 'Navigation' },

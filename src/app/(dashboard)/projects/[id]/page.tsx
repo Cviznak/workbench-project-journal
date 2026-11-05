@@ -29,12 +29,13 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
     notFound();
   }
 
-  // 2. Fetch project members, skills, tasks, and catalog skills concurrently
+  // 2. Fetch project members, skills, tasks, catalog skills, and community posts concurrently
   const [
     { data: members },
     { data: skills },
     { data: tasks },
     { data: allSkills },
+    { data: projectPosts },
   ] = await Promise.all([
     supabase
       .from('project_members')
@@ -54,6 +55,16 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
       .from('skill_catalog')
       .select('*')
       .order('name'),
+    supabase
+      .from('community_posts')
+      .select(`
+        *,
+        author:profiles!community_posts_author_id_fkey(*),
+        skill:skill_catalog(*),
+        likes:post_likes(user_id)
+      `)
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false }),
   ]);
 
   // Guarantee PM is always present in members with ACCEPTED status
@@ -68,6 +79,12 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
     });
   }
 
+  const isMember =
+    project.pm_user_id === user.id ||
+    safeMembers.some((m) => m.user_id === user.id && m.invitation_status === 'ACCEPTED');
+
+  const isPublicShowcase = !isMember && Boolean(project.is_public);
+
   return (
     <KanbanBoardClient
       project={project}
@@ -76,6 +93,8 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
       tasks={tasks || []}
       allSkills={allSkills || []}
       userId={user.id}
+      isPublicShowcase={isPublicShowcase}
+      projectPosts={projectPosts || []}
     />
   );
 }

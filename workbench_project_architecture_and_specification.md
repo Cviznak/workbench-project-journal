@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 1.8.0 Production  
+> **Version:** 1.9.0 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://workbench-project-journal.vercel.app](https://workbench-project-journal.vercel.app)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -26,7 +26,11 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - **Maker Inventory, Formulas & Recipes** *(v1.4, v1.5 & v1.6)*: Realtime inventory management for materials, equipment, and finished goods with custom folder categorization, stock steppers, automated low-stock warnings, 1-click AliExpress / Temu restock links, repeatable maker recipes (with batch multipliers and 1-click stock deduction), and bulk preset quick-adding.
 - **Teammate @Username Discovery & Project Roster Management** *(v1.8)*: Live debounced teammate search (`search_makers_for_invite`) with instant invite (`invite_user_to_project`) and leave/revoke/remove controls (`remove_project_member`) in a unified, tabbed `EditProjectModal`. Incomplete assigned tasks are cleanly unassigned on member departure.
 - **1-Click Project Starter Blueprints** *(v1.8)*: Choose from Blank Project or 4 pre-built maker workflows (Resin & Mold Casting, Perfume Accord Lab, 3D Print Prototype, Illustration Tabletop Pack) that auto-seed initial tasks, descriptions, priorities, and subtask checklists upon creation.
-- **Mobile PWA Native Bottom Navigation** *(v1.8)*: Responsive fixed bottom bar on mobile (< lg breakpoint) providing 1-tap navigation across Dashboard, Projects, Skills, Inventory, and Ideas, with safe-area bottom clearance (`pb-24 lg:pb-8`).
+- **Mobile PWA Native Bottom Navigation** *(v1.8)*: Responsive fixed bottom bar on mobile (< lg breakpoint) providing 1-tap navigation across Dashboard, Community, Projects, Skills, and Inventory, with safe-area bottom clearance (`pb-24 lg:pb-8`).
+- **Universal Searchable Skill Picker** *(v1.9)*: Combobox (`SkillSelector.tsx`) with single and multi-selection, live query filtering across 40+ maker skills, category pills, and practiced skill indicators integrated across Practice Logger, Project Creator, Edit Project, and Task Edit modals.
+- **Maker Community Social Feed** *(v1.9)*: Public social hub (`/community`) powered by `public.community_posts`, `public.post_likes`, `public.post_comments`, and storage bucket `'community-media'`. Features Markdown post composer, media uploads up to 5MB, skill tagging, linked projects with auto-showcase opt-in, optimistic likes (`toggle_post_like` RPC), and nested comments.
+- **Public Maker Profiles** *(v1.9)*: Discoverable profiles (`/makers/[username]`) showcasing a maker's biography (`profiles.bio`), total XP, maker level, consistency streaks, authored community posts, leveled skill mastery bars, and showcase projects. Includes an inline bio editor and one-click profile link sharing.
+- **Public Project Showcase Mode** *(v1.9)*: Opt-in public visibility (`is_public = true` on `public.projects`). Non-members can view project milestones, task progress bars, and read-only Kanban board blueprints. Also displays a dedicated "Project Updates & Community Activity" feed stream.
 - **Portable Data Sovereignty & Relational Restore** *(v1.7)*: One-click **"Export Complete Maker Archive"** exports complete user records into a standardized portable JSON archive (v1.7.0). **"Verify & Restore Maker Archive"** enables seamless relational data recovery with JSON schema validation, itemized count preview modal, and conflict-free foreign key re-mapping.
 - **Progressive Web App (PWA)**: Full standalone installability with Service Worker shell caching for offline navigation.
 
@@ -346,11 +350,14 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   │   ├── loading.tsx        # Instant navigation skeleton placeholder (v1.7.1)
 │   │   │   ├── layout.tsx         # Dashboard layout, SSR session & XP calculation
 │   │   │   ├── page.tsx           # Home Dashboard: XP progress, Heatmap, active tasks, activity
+│   │   │   ├── community/page.tsx # Maker Community Social Feed (v1.9)
+│   │   │   ├── makers/
+│   │   │   │   └── [username]/page.tsx # Public Maker Profile & Project Showcase (v1.9)
 │   │   │   ├── skills/page.tsx    # Skills Hub: Catalog, requests, practice ledger
 │   │   │   ├── workspace/page.tsx # Ideas & Notes: Split-pane markdown workspace
 │   │   │   ├── projects/
 │   │   │   │   ├── page.tsx       # Projects list and Create Project modal
-│   │   │   │   └── [id]/page.tsx  # Interactive Kanban board & PM controls
+│   │   │   │   └── [id]/page.tsx  # Interactive Kanban board & PM controls (Public Showcase mode v1.9)
 │   │   │   ├── inventory/page.tsx # Maker Inventory & Smart Restock Cart (v1.4)
 │   │   │   ├── admin/page.tsx     # Security & Admin Hub (role-gated)
 │   │   │   └── settings/page.tsx  # Profile settings, password change, Data & Backup export (v1.3)
@@ -360,18 +367,21 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   ├── components/
 │   │   ├── ActivityHeatmap.tsx    # Responsive 52-week contribution heatmap & streak cards
 │   │   ├── AdminHubClient.tsx     # User directory, Skill Request approvals, Audit logs
-│   │   ├── EditProjectModal.tsx   # Project settings & metadata editor
+│   │   ├── CommunityFeedClient.tsx # Social feed: posts, photos, likes, comments (v1.9)
+│   │   ├── EditProjectModal.tsx   # Project settings, skills & Public Showcase toggle (v1.9)
 │   │   ├── EditTaskModal.tsx      # Workshop modal: Details, Prerequisite dependency, Comments, Files
 │   │   ├── FocusAudioBar.tsx      # Pomodoro timer + procedural ambient noise / lofi
 │   │   ├── InventoryClient.tsx    # Maker Inventory Hub: Folders, steppers, low stock, AliExpress/Temu (v1.4)
 │   │   ├── KanbanBoardClient.tsx  # Drag-and-drop board with Realtime sync, subtasks & task lock badges
+│   │   ├── MakerProfileClient.tsx # Public maker profiles, bio editor & public showcase projects (v1.9)
 │   │   ├── Navbar.tsx             # Sticky header, search, audio bar, streak & level pills, bell
 │   │   ├── NotificationBell.tsx   # Project invitation handshake & skill requests inbox
-│   │   ├── PracticeModal.tsx      # Deliberate practice logging modal (+XP feedback)
+│   │   ├── PracticeModal.tsx      # Deliberate practice logging modal with SkillSelector (v1.9)
 │   │   ├── ServiceWorkerRegister.tsx # Client service worker registration for PWA (v1.3)
 │   │   ├── SettingsClient.tsx     # Account settings & Portable Archive JSON exporter (v1.3)
 │   │   ├── Sidebar.tsx            # Full-height pinned navigation sidebar
 │   │   ├── SkillRequestModal.tsx  # Maker proposal modal for new skills
+│   │   ├── SkillSelector.tsx      # Universal searchable skill combobox (single/multi) (v1.9)
 │   │   ├── SkillsViewClient.tsx   # Skills grid, tier badges, practice history ledger
 │   │   ├── SpotlightSearch.tsx    # Global Ctrl+K / Cmd+K command palette
 │   │   ├── TaskCompleteButton.tsx # One-click task resolution with XP animation
@@ -400,7 +410,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 011_finished_goods_and_pricing.sql     # v1.6: Finished creations gallery, unit economics & margin simulator
 │       ├── 012_calculators_and_batch_logs.sql     # v1.7: Interactive maker calculators, recipe batch run logs & workspace blueprints
 │       ├── 013_fix_privacy_modal_and_latency.sql  # v1.7.1: Project privacy lockdown, create_maker_project RPC & latency optimization
-│       └── 014_teammate_search_and_templates.sql  # v1.8.0: Teammate search RPC, safe invite/remove RPCs, starter blueprints & mobile PWA bottom nav
+│       ├── 014_teammate_search_and_templates.sql  # v1.8.0: Teammate search RPC, safe invite/remove RPCs, starter blueprints & mobile PWA bottom nav
+│       └── 015_social_feed_profiles_and_skill_search.sql # v1.9.0: Community posts, likes, comments, public profiles & searchable skill selector
 ├── package.json
 └── tailwind.config.ts
 ```

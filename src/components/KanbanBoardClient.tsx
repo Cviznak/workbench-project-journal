@@ -14,7 +14,7 @@ import {
   TaskSubtask,
 } from '@/lib/types';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, relativeTime } from '@/lib/utils';
 import {
   FolderKanban,
   CheckCircle,
@@ -43,6 +43,7 @@ import {
   MessageSquare,
   Paperclip,
   Lock,
+  Globe,
   Boxes,
 } from 'lucide-react';
 import EditTaskModal from '@/components/EditTaskModal';
@@ -55,6 +56,8 @@ interface KanbanBoardClientProps {
   tasks: any[];
   allSkills: SkillCatalog[];
   userId: string;
+  isPublicShowcase?: boolean;
+  projectPosts?: any[];
 }
 
 const COLUMNS: { id: TaskStatus; label: string; color: string; accentBorder: string }[] = [
@@ -71,6 +74,8 @@ export default function KanbanBoardClient({
   tasks: initialTasks,
   allSkills,
   userId,
+  isPublicShowcase = false,
+  projectPosts = [],
 }: KanbanBoardClientProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -200,6 +205,7 @@ export default function KanbanBoardClient({
   // Task Status Transition / Payout Execution
   // -------------------------------------------------------------
   async function handleMoveTask(taskId: string, targetStatus: TaskStatus) {
+    if (isPublicShowcase) return;
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === targetStatus) return;
 
@@ -251,6 +257,7 @@ export default function KanbanBoardClient({
   // Subtasks & Checklists Management
   // -------------------------------------------------------------
   async function handleToggleSubtask(taskId: string, subtaskId: string) {
+    if (isPublicShowcase) return;
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
@@ -272,6 +279,7 @@ export default function KanbanBoardClient({
   }
 
   async function handleAddSubtask(taskId: string) {
+    if (isPublicShowcase) return;
     if (!newSubtaskTitle.trim()) return;
 
     const task = tasks.find((t) => t.id === taskId);
@@ -301,11 +309,13 @@ export default function KanbanBoardClient({
   // Drag and Drop Event Handlers
   // -------------------------------------------------------------
   function handleDragStart(e: React.DragEvent, taskId: string) {
+    if (isPublicShowcase) return;
     e.dataTransfer.setData('text/plain', taskId);
     setDraggedTaskId(taskId);
   }
 
   function handleDragOver(e: React.DragEvent, colId: TaskStatus) {
+    if (isPublicShowcase) return;
     e.preventDefault();
     if (dragOverCol !== colId) {
       setDragOverCol(colId);
@@ -313,6 +323,7 @@ export default function KanbanBoardClient({
   }
 
   function handleDrop(e: React.DragEvent, colId: TaskStatus) {
+    if (isPublicShowcase) return;
     e.preventDefault();
     const taskId = e.dataTransfer.getData('text/plain') || draggedTaskId;
     if (taskId) {
@@ -436,6 +447,43 @@ export default function KanbanBoardClient({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200 min-w-0 max-w-full overflow-x-hidden">
+      {/* Public Showcase Banner (Read-Only Mode) */}
+      {isPublicShowcase && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-purple-600/10 border border-blue-500/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-blue-500/20 shrink-0">
+              🌍
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                  Public Project Showcase
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  Read-Only Blueprint
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Created and managed by{' '}
+                <Link
+                  href={`/makers/${project.pm?.username || 'maker'}`}
+                  className="font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  @{project.pm?.username || 'maker'}
+                </Link>
+                . Explore task milestones, progress, and workshop updates.
+              </p>
+            </div>
+          </div>
+          <Link
+            href={`/makers/${project.pm?.username || 'maker'}`}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 shadow-sm shrink-0 hover:bg-blue-50 dark:hover:bg-slate-700 transition"
+          >
+            View Maker Profile
+          </Link>
+        </div>
+      )}
+
       {/* Project Overview Card */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 lg:p-8 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
@@ -492,76 +540,115 @@ export default function KanbanBoardClient({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setTaskModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Task</span>
-            </button>
-
-            {isPM ? (
+            {isPublicShowcase ? (
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  alert('Showcase link copied to clipboard!');
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              >
+                <span>Share Showcase</span>
+              </button>
+            ) : (
               <>
                 <button
-                  onClick={() => {
-                    setProjectModalTab('settings');
-                    setProjectModalOpen(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-                  title="Edit Project settings & skills"
+                  onClick={() => setTaskModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition"
                 >
-                  <Settings className="w-3.5 h-3.5" />
-                  <span>Edit Project</span>
+                  <Plus className="w-4 h-4" />
+                  <span>Add Task</span>
                 </button>
 
-                <button
-                  onClick={() => {
-                    setProjectModalTab('team');
-                    setProjectModalOpen(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-                  title="Search & invite teammates, view roster"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Team ({membersList.length})</span>
-                </button>
+                {isPM ? (
+                  <>
+                    <button
+                      onClick={async () => {
+                        const target = !project.is_public;
+                        setProject((p: any) => ({ ...p, is_public: target }));
+                        await supabase
+                          .from('projects')
+                          .update({ is_public: target })
+                          .eq('id', project.id);
+                        router.refresh();
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition border ${
+                        project.is_public
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+                      }`}
+                      title="Toggle public showcase on community feed"
+                    >
+                      {project.is_public ? (
+                        <Globe className="w-3.5 h-3.5" />
+                      ) : (
+                        <Lock className="w-3.5 h-3.5" />
+                      )}
+                      <span>{project.is_public ? 'Public (ON)' : 'Private (OFF)'}</span>
+                    </button>
 
-                <button
-                  onClick={() => setTransferModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-                  title="Transfer Project Manager ownership"
-                >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Transfer PM</span>
-                </button>
+                    <button
+                      onClick={() => {
+                        setProjectModalTab('settings');
+                        setProjectModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                      title="Edit Project settings & skills"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      <span>Edit Project</span>
+                    </button>
 
-                {project.status !== 'COMPLETED' && (
-                  <button
-                    onClick={handleCompleteProject}
-                    disabled={completingProj}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-500/20 disabled:opacity-50 transition"
-                  >
-                    {completingProj ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Trophy className="w-3.5 h-3.5" />
+                    <button
+                      onClick={() => {
+                        setProjectModalTab('team');
+                        setProjectModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                      title="Search & invite teammates, view roster"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>Team ({membersList.length})</span>
+                    </button>
+
+                    <button
+                      onClick={() => setTransferModalOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                      title="Transfer Project Manager ownership"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      <span>Transfer PM</span>
+                    </button>
+
+                    {project.status !== 'COMPLETED' && (
+                      <button
+                        onClick={handleCompleteProject}
+                        disabled={completingProj}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-500/20 disabled:opacity-50 transition"
+                      >
+                        {completingProj ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trophy className="w-3.5 h-3.5" />
+                        )}
+                        <span>Complete &amp; Award XP</span>
+                      </button>
                     )}
-                    <span>Complete &amp; Award XP</span>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setProjectModalTab('team');
+                      setProjectModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+                    title="View team roster or leave project"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Team ({membersList.length})</span>
                   </button>
                 )}
               </>
-            ) : (
-              <button
-                onClick={() => {
-                  setProjectModalTab('team');
-                  setProjectModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-                title="View team roster or leave project"
-              >
-                <Users className="w-3.5 h-3.5" />
-                <span>Team ({membersList.length})</span>
-              </button>
             )}
           </div>
         </div>
@@ -1083,6 +1170,76 @@ export default function KanbanBoardClient({
       </div>
 
       {/* -------------------------------------------------------- */}
+      {/* Project Updates & Community Activity                      */}
+      {/* -------------------------------------------------------- */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 text-white flex items-center justify-center text-sm font-bold shadow-sm">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                Project Updates &amp; Community Activity
+              </h2>
+              <p className="text-xs text-slate-400">
+                Workshop posts and progress logs linked to this project.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/community"
+            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+          >
+            <span>Community Feed</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {projectPosts.length === 0 ? (
+          <p className="text-xs text-slate-400 italic py-2">
+            No community updates linked to this project yet. Share a post on the community feed and tag this project!
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {projectPosts.map((post) => (
+              <div
+                key={post.id}
+                className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <Link
+                    href={`/makers/${post.author?.username || 'maker'}`}
+                    className="flex items-center gap-2 group"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-[10px]">
+                      {post.author?.display_name?.charAt(0).toUpperCase() || 'M'}
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:underline">
+                      @{post.author?.username || 'maker'}
+                    </span>
+                  </Link>
+                  <span className="text-[10px] text-slate-400">
+                    {relativeTime(post.created_at)}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-3 leading-relaxed">
+                  {post.content_md}
+                </p>
+                {post.image_url && (
+                  <img
+                    src={post.image_url}
+                    alt="Update media"
+                    className="w-full h-36 object-cover rounded-xl"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* -------------------------------------------------------- */}
       {/* Edit Task Workshop Modal (Details, Comments, Attachments) */}
       {/* -------------------------------------------------------- */}
       {editTaskModalOpen && editingTask && (
@@ -1094,6 +1251,7 @@ export default function KanbanBoardClient({
           allTasks={tasks}
           currentUserId={userId}
           isPM={isPM}
+          isReadOnly={isPublicShowcase}
           onClose={() => {
             setEditTaskModalOpen(false);
             setEditingTask(null);

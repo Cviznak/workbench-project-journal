@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
 import { getLevelProgress } from '@/lib/utils';
-import { Flame, Plus, LogOut, Settings, Shield, Menu, X, Search, Zap } from 'lucide-react';
+import { Flame, Plus, LogOut, Settings, Shield, Menu, X, Search, Zap, User, Sparkles } from 'lucide-react';
 import PracticeModal from './PracticeModal';
 import FocusAudioBar from './FocusAudioBar';
 import ThemeToggle from './ThemeToggle';
@@ -152,6 +152,24 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                 </div>
 
                 <div className="py-1">
+                  {profile?.username && (
+                    <Link
+                      href={`/makers/${profile.username}`}
+                      className="flex items-center gap-2.5 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold"
+                    >
+                      <User className="w-4 h-4 text-slate-400" />
+                      <span>My Public Profile</span>
+                    </Link>
+                  )}
+
+                  <Link
+                    href="/community"
+                    className="flex items-center gap-2.5 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold"
+                  >
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <span>Community Feed</span>
+                  </Link>
+
                   <Link
                     href="/settings"
                     className="flex items-center gap-2.5 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold"
@@ -210,6 +228,22 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
               >
                 Dashboard
               </Link>
+              <Link
+                href="/community"
+                className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                Community
+              </Link>
+              {profile?.username && (
+                <Link
+                  href={`/makers/${profile.username}`}
+                  className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  onClick={() => setMobileNavOpen(false)}
+                >
+                  My Public Profile
+                </Link>
+              )}
               <Link
                 href="/skills"
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"

@@ -13,6 +13,7 @@ export interface Profile {
   username: string;
   display_name: string;
   avatar_url?: string | null;
+  bio?: string | null;
   role: UserRole;
   is_immutable: boolean;
   is_suspended: boolean;
@@ -104,6 +105,7 @@ export interface Project {
   status: ProjectStatus;
   completion_xp_reward: number;
   xp_awarded: boolean;
+  is_public?: boolean;
   created_at: string;
   pm?: Profile;
   members?: Profile[];
@@ -429,3 +431,37 @@ export interface ActivityLog {
   created_at: string;
   profile?: Profile;
 }
+
+export interface CommunityPost {
+  id: string;
+  author_id: string;
+  title?: string;
+  content_md: string;
+  image_url?: string | null;
+  skill_id?: string | null;
+  project_id?: string | null;
+  likes_count: number;
+  comments_count: number;
+  created_at: string;
+  updated_at: string;
+  author?: Profile;
+  skill?: SkillCatalog | null;
+  project?: Project | null;
+  user_has_liked?: boolean;
+}
+
+export interface PostLike {
+  post_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface PostComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  author?: Profile;
+}
+

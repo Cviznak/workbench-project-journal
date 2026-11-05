@@ -7,6 +7,7 @@ import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
 import { SkillCatalog } from '@/lib/types';
 import { X, Flame, CheckCircle2, Loader2, Sparkles, AlertCircle, PlusCircle, Search } from 'lucide-react';
 import SkillRequestModal from './SkillRequestModal';
+import SkillSelector from './SkillSelector';
 
 interface PracticeModalProps {
   onClose: () => void;
@@ -23,6 +24,7 @@ export default function PracticeModal({
   const supabase = createClient();
 
   const [catalog, setCatalog] = useState<SkillCatalog[]>([]);
+  const [userSkillIds, setUserSkillIds] = useState<string[]>([]);
   const [skillName, setSkillName] = useState(prefillSkill);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [duration, setDuration] = useState(String(prefillDuration || 25));
@@ -32,17 +34,18 @@ export default function PracticeModal({
   const [levelUpData, setLevelUpData] = useState<any | null>(null);
   const [showRequestModal, setShowRequestModal] = useState(false);
 
-  // Load catalog skills for selection
+  // Load catalog skills and user practiced skills
   useEffect(() => {
     async function fetchCatalog() {
-      const { data } = await supabase
-        .from('skill_catalog')
-        .select('*')
-        .order('name');
-      if (data) {
-        setCatalog(data as SkillCatalog[]);
+      const [{ data: catalogData }, { data: userSkillsData }] = await Promise.all([
+        supabase.from('skill_catalog').select('*').order('name'),
+        supabase.from('user_skills').select('skill_id'),
+      ]);
+
+      if (catalogData) {
+        setCatalog(catalogData as SkillCatalog[]);
         if (prefillSkill) {
-          const match = data.find(
+          const match = catalogData.find(
             (s) =>
               s.name.toLowerCase() === prefillSkill.toLowerCase() ||
               s.slug === prefillSkill.toLowerCase()
@@ -52,6 +55,9 @@ export default function PracticeModal({
             setSkillName(match.name);
           }
         }
+      }
+      if (userSkillsData) {
+        setUserSkillIds(userSkillsData.map((us: any) => us.skill_id));
       }
     }
     fetchCatalog();
@@ -212,27 +218,16 @@ export default function PracticeModal({
                     </button>
                   </div>
 
-                  <select
-                    value={matchedSkill?.id || ''}
-                    onChange={(e) => {
-                      const found = catalog.find((s) => s.id === e.target.value);
-                      if (found) {
-                        setSelectedSkillId(found.id);
-                        setSkillName(found.name);
-                      } else {
-                        setSelectedSkillId(null);
-                        setSkillName('');
-                      }
+                  <SkillSelector
+                    skills={catalog}
+                    userSkillIds={userSkillIds}
+                    selectedId={matchedSkill?.id || null}
+                    onChangeSingle={(id, skill) => {
+                      setSelectedSkillId(id);
+                      setSkillName(skill?.name || '');
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-- Choose an approved skill --</option>
-                    {catalog.map((catSkill) => (
-                      <option key={catSkill.id} value={catSkill.id}>
-                        {catSkill.name} ({catSkill.category})
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Search or select an approved skill..."
+                  />
 
                   {/* Quick Catalog Chips */}
                   {catalog.length > 0 && (

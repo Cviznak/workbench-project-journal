@@ -10,6 +10,8 @@ import {
   Package,
   ShieldAlert,
   Settings,
+  Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { Profile } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -24,6 +26,7 @@ export default function Sidebar({ profile }: SidebarProps) {
 
   const navItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { label: 'Community', href: '/community', icon: Sparkles },
     { label: 'Skills & XP', href: '/skills', icon: Target },
     { label: 'Ideas & Notes', href: '/workspace', icon: Lightbulb },
     { label: 'Projects & Tasks', href: '/projects', icon: FolderKanban },
@@ -35,10 +38,10 @@ export default function Sidebar({ profile }: SidebarProps) {
   // Mobile Bottom Navigation Tabs (5 primary quick routes)
   const mobileNavItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { label: 'Community', href: '/community', icon: Sparkles },
     { label: 'Projects', href: '/projects', icon: FolderKanban },
     { label: 'Skills', href: '/skills', icon: Target },
     { label: 'Inventory', href: '/inventory', icon: Package },
-    { label: 'Ideas', href: '/workspace', icon: Lightbulb },
   ];
 
   return (
@@ -96,13 +99,17 @@ export default function Sidebar({ profile }: SidebarProps) {
 
         {profile && (
           <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800">
-              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
+            <Link
+              href={`/makers/${profile.username}`}
+              className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 transition group"
+              title="View your public maker profile"
+            >
+              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm flex-shrink-0 group-hover:scale-105 transition-transform">
                 {profile.display_name?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div className="overflow-hidden flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-xs text-slate-900 dark:text-white truncate block">
+                  <span className="font-semibold text-xs text-slate-900 dark:text-white truncate block group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
                     {profile.display_name}
                   </span>
                   {profile.is_immutable && (
@@ -115,7 +122,8 @@ export default function Sidebar({ profile }: SidebarProps) {
                   @{profile.username}
                 </span>
               </div>
-            </div>
+              <ExternalLink className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
           </div>
         )}
       </aside>
