@@ -4,6 +4,7 @@ import { getLevelProgress, relativeTime, formatDate } from '@/lib/utils';
 import { getSkillTier, calculateStreak, TaskStatus } from '@/lib/types';
 import ActivityHeatmap from '@/components/ActivityHeatmap';
 import PublicLandingPage from '@/components/PublicLandingPage';
+import OnboardingQuestCard from '@/components/OnboardingQuestCard';
 import {
   Flame,
   Target,
@@ -143,6 +144,15 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Starter Workshop Quest & Pending Formula Recovery */}
+      <OnboardingQuestCard
+        userId={user.id}
+        totalXp={totalXp}
+        userSkillsCount={userSkills?.length || 0}
+        projectCount={projectCount || 0}
+        settingsJson={profile?.settings_json}
+      />
 
       {/* Gamified Level Progress Hero Card */}
       <div className="p-5 sm:p-6 lg:p-8 rounded-3xl bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white shadow-xl shadow-blue-600/15 relative overflow-hidden">

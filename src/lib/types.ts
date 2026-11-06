@@ -486,7 +486,8 @@ export type NotificationType =
   | 'COMMENT_LIKED'
   | 'COMMENT_REPLIED'
   | 'TASK_ASSIGNED'
-  | 'PROJECT_INVITE';
+  | 'PROJECT_INVITE'
+  | 'USER_FEEDBACK';
 
 export interface AppNotification {
   id: string;
@@ -500,4 +501,19 @@ export interface AppNotification {
   created_at: string;
   actor?: Profile;
 }
+
+export type FeedbackCategory = 'BUG' | 'FEATURE_IDEA' | 'FEEDBACK';
+export type FeedbackStatus = 'OPEN' | 'REVIEWED' | 'RESOLVED';
+
+export interface UserFeedback {
+  id: string;
+  user_id?: string | null;
+  category: FeedbackCategory;
+  message: string;
+  page_url?: string;
+  status: FeedbackStatus;
+  created_at: string;
+  user?: Profile | null;
+}
+
 

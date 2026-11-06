@@ -147,14 +147,6 @@ export default function PublicToolsClient({
 
   // Save Formula Handler
   async function handleSaveFormula(toolName: string) {
-    if (!currentUser) {
-      router.push('/signup?redirect=/tools');
-      return;
-    }
-
-    setSaving(true);
-    setSaveStatus(null);
-
     let title = '';
     let category = '';
     let instructions = '';
@@ -172,6 +164,24 @@ export default function PublicToolsClient({
       category = '3D Printing';
       instructions = `3D Printing Cost Sheet (${printMaterial}):\n- Sliced Weight: ${partWeightG}g (Spool: ${formatCurrency(spoolCost, 'ILS')}/kg)\n- Print Duration: ${printHours}h ${printMinutes}m\n- Machine Power: ${printerWatts}W (${kwhConsumed.toFixed(2)} kWh)\n- Filament Cost: ${formatCurrency(filamentCost, 'ILS')}\n- Electricity Cost: ${formatCurrency(powerCost, 'ILS')}\n- Base Unit Cost: ${formatCurrency(totalMfgCost, 'ILS')}\n- Target Retail Price (${targetMarginPct}% margin): ${formatCurrency(suggestedPrice, 'ILS')}`;
     }
+
+    if (!currentUser) {
+      try {
+        const payload = {
+          toolName,
+          title,
+          category,
+          instructions_md: instructions,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem('workbench_pending_formula', JSON.stringify(payload));
+      } catch (_) {}
+      router.push('/signup?redirect=/inventory');
+      return;
+    }
+
+    setSaving(true);
+    setSaveStatus(null);
 
     try {
       const { error } = await supabase.from('maker_recipes').insert({

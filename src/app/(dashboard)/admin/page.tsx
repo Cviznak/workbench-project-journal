@@ -22,11 +22,12 @@ export default async function AdminHubPage() {
     redirect('/');
   }
 
-  // Fetch profiles, audit logs, and skill requests concurrently
+  // Fetch profiles, audit logs, skill requests, and user feedback concurrently
   const [
     { data: profiles },
     { data: auditLogs },
     { data: skillRequests },
+    { data: userFeedback },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -41,6 +42,10 @@ export default async function AdminHubPage() {
       .from('skill_requests')
       .select('*, user:profiles!skill_requests_user_id_fkey(*)')
       .order('created_at', { ascending: false }),
+    supabase
+      .from('user_feedback')
+      .select('*, user:profiles!user_feedback_user_id_fkey(*)')
+      .order('created_at', { ascending: false }),
   ]);
 
   return (
@@ -49,6 +54,7 @@ export default async function AdminHubPage() {
       initialProfiles={(profiles as Profile[]) || []}
       auditLogs={auditLogs || []}
       initialSkillRequests={(skillRequests as any[]) || []}
+      initialFeedback={(userFeedback as any[]) || []}
     />
   );
 }

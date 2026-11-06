@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -13,10 +14,12 @@ import {
   Sparkles,
   ExternalLink,
   Coffee,
+  MessageSquarePlus,
 } from 'lucide-react';
 import { Profile } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import UserAvatar from '@/components/UserAvatar';
+import FeedbackModal from '@/components/FeedbackModal';
 
 interface SidebarProps {
   profile: Profile | null;
@@ -24,6 +27,7 @@ interface SidebarProps {
 
 export default function Sidebar({ profile }: SidebarProps) {
   const pathname = usePathname();
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const isAdmin = profile?.role === 'ROOT_ADMIN' || profile?.role === 'ADMIN';
 
   const navItems = [
@@ -100,7 +104,18 @@ export default function Sidebar({ profile }: SidebarProps) {
         </nav>
 
         {profile && (
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+            {/* Feedback / Bug Report Button */}
+            <button
+              type="button"
+              onClick={() => setFeedbackModalOpen(true)}
+              className="flex items-center justify-center gap-2 w-full py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/60 text-xs font-semibold transition group"
+              title="Share feedback or report a bug"
+            >
+              <MessageSquarePlus className="w-3.5 h-3.5 text-blue-500 group-hover:scale-110 transition-transform" />
+              <span>Feedback / Bug</span>
+            </button>
+
             {/* Buy Me a Coffee Support Button */}
             <a
               href={process.env.NEXT_PUBLIC_BUYMEACOFFEE_URL || 'https://buymeacoffee.com/orjustdosomething'}
@@ -142,6 +157,13 @@ export default function Sidebar({ profile }: SidebarProps) {
               </div>
               <ExternalLink className="w-3.5 h-3.5 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
+
+            {/* Feedback Modal */}
+            <FeedbackModal
+              isOpen={feedbackModalOpen}
+              onClose={() => setFeedbackModalOpen(false)}
+              userId={profile.id}
+            />
           </div>
         )}
       </aside>

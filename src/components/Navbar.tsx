@@ -6,13 +6,14 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
 import { getLevelProgress } from '@/lib/utils';
-import { Flame, Plus, LogOut, Settings, Shield, Menu, X, Search, Zap, User, Sparkles } from 'lucide-react';
+import { Flame, Plus, LogOut, Settings, Shield, Menu, X, Search, Zap, User, Sparkles, MessageSquarePlus } from 'lucide-react';
 import PracticeModal from './PracticeModal';
 import FocusAudioBar from './FocusAudioBar';
 import ThemeToggle from './ThemeToggle';
 import SpotlightSearch from './SpotlightSearch';
 import NotificationBell from './NotificationBell';
 import UserAvatar from './UserAvatar';
+import FeedbackModal from './FeedbackModal';
 
 interface NavbarProps {
   profile: Profile | null;
@@ -27,6 +28,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
   const [practiceModalOpen, setPracticeModalOpen] = useState(false);
   const [practiceDuration, setPracticeDuration] = useState<number>(25);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
   const levelInfo = getLevelProgress(totalXp);
   const isAdmin = profile?.role === 'ROOT_ADMIN' || profile?.role === 'ADMIN';
@@ -202,6 +204,18 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                       <span>Admin Hub</span>
                     </Link>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setFeedbackModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-left transition"
+                  >
+                    <MessageSquarePlus className="w-4 h-4 text-blue-500" />
+                    <span>Feedback / Bug Report</span>
+                  </button>
                 </div>
 
                 <div className="border-t border-slate-100 dark:border-slate-800 pt-1">
@@ -303,6 +317,17 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
               >
                 Settings
               </Link>
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-left font-semibold"
+                onClick={() => {
+                  setMobileNavOpen(false);
+                  setFeedbackModalOpen(true);
+                }}
+              >
+                <MessageSquarePlus className="w-4 h-4 text-blue-500" />
+                <span>Feedback / Bug Report</span>
+              </button>
             </nav>
           </div>
         </div>
@@ -322,6 +347,15 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
         onClose={() => setSpotlightOpen(false)}
         onOpenPractice={() => setPracticeModalOpen(true)}
       />
+
+      {/* Feedback / Bug Report Modal */}
+      {profile && (
+        <FeedbackModal
+          isOpen={feedbackModalOpen}
+          onClose={() => setFeedbackModalOpen(false)}
+          userId={profile.id}
+        />
+      )}
     </>
   );
 }

@@ -24,7 +24,15 @@ import {
   ThumbsDown,
   X,
   Users,
+  MessageSquarePlus,
+  Bug,
+  Lightbulb,
+  MessageSquare,
+  ExternalLink,
+  Trash2,
+  Filter,
 } from 'lucide-react';
+import Link from 'next/link';
 import { soundEngine, triggerConfetti } from '@/lib/soundEffects';
 import UserAvatar from '@/components/UserAvatar';
 
@@ -33,6 +41,7 @@ interface AdminHubClientProps {
   initialProfiles: Profile[];
   auditLogs: any[];
   initialSkillRequests?: any[];
+  initialFeedback?: any[];
 }
 
 export default function AdminHubClient({
@@ -40,18 +49,24 @@ export default function AdminHubClient({
   initialProfiles,
   auditLogs,
   initialSkillRequests = [],
+  initialFeedback = [],
 }: AdminHubClientProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'skills' | 'audit'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'skills' | 'audit' | 'feedback'>('users');
   const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
   const [skillRequests, setSkillRequests] = useState<any[]>(initialSkillRequests);
+  const [feedbackList, setFeedbackList] = useState<any[]>(initialFeedback);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [skillStatusFilter, setSkillStatusFilter] = useState('ALL');
+  const [feedbackCategoryFilter, setFeedbackCategoryFilter] = useState('ALL');
+  const [feedbackStatusFilter, setFeedbackStatusFilter] = useState('ALL');
+  const [feedbackSearch, setFeedbackSearch] = useState('');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [requestActionLoadingId, setRequestActionLoadingId] = useState<string | null>(null);
+  const [feedbackActionLoadingId, setFeedbackActionLoadingId] = useState<string | null>(null);
 
   // Reject modal state
   const [rejectModalReqId, setRejectModalReqId] = useState<string | null>(null);
@@ -59,6 +74,7 @@ export default function AdminHubClient({
 
   const isRootAdmin = caller.role === 'ROOT_ADMIN';
   const pendingRequestsCount = skillRequests.filter((r) => r.status === 'PENDING').length;
+  const openFeedbackCount = feedbackList.filter((f) => f.status === 'OPEN').length;
 
   const filteredProfiles = profiles.filter((p) => {
     const matchesSearch =
@@ -81,6 +97,62 @@ export default function AdminHubClient({
       skillStatusFilter === 'ALL' ? true : r.status === skillStatusFilter;
     return matchesStatus;
   });
+
+  const filteredFeedback = feedbackList.filter((f) => {
+    const matchesSearch =
+      !feedbackSearch ||
+      f.message.toLowerCase().includes(feedbackSearch.toLowerCase()) ||
+      (f.user?.username && f.user.username.toLowerCase().includes(feedbackSearch.toLowerCase())) ||
+      (f.user?.display_name && f.user.display_name.toLowerCase().includes(feedbackSearch.toLowerCase())) ||
+      (f.page_url && f.page_url.toLowerCase().includes(feedbackSearch.toLowerCase()));
+
+    const matchesCategory =
+      feedbackCategoryFilter === 'ALL' ? true : f.category === feedbackCategoryFilter;
+
+    const matchesStatus =
+      feedbackStatusFilter === 'ALL' ? true : f.status === feedbackStatusFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  async function handleUpdateFeedbackStatus(feedbackId: string, newStatus: 'OPEN' | 'REVIEWED' | 'RESOLVED') {
+    setFeedbackActionLoadingId(feedbackId);
+    try {
+      const { error } = await supabase
+        .from('user_feedback')
+        .update({ status: newStatus })
+        .eq('id', feedbackId);
+
+      if (error) throw error;
+
+      setFeedbackList((prev) =>
+        prev.map((f) => (f.id === feedbackId ? { ...f, status: newStatus } : f))
+      );
+    } catch (err: any) {
+      alert(err.message || 'Failed to update feedback status');
+    } finally {
+      setFeedbackActionLoadingId(null);
+    }
+  }
+
+  async function handleDeleteFeedback(feedbackId: string) {
+    if (!confirm('Are you sure you want to permanently delete this feedback entry?')) return;
+    setFeedbackActionLoadingId(feedbackId);
+    try {
+      const { error } = await supabase
+        .from('user_feedback')
+        .delete()
+        .eq('id', feedbackId);
+
+      if (error) throw error;
+
+      setFeedbackList((prev) => prev.filter((f) => f.id !== feedbackId));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete feedback entry');
+    } finally {
+      setFeedbackActionLoadingId(null);
+    }
+  }
 
   async function handlePromote(targetUserId: string) {
     if (!confirm('Promote this user to ADMIN?')) return;
@@ -269,6 +341,23 @@ export default function AdminHubClient({
         >
           <Activity className="w-4 h-4" />
           <span>Audit Logs ({auditLogs.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('feedback')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap relative ${
+            activeTab === 'feedback'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <MessageSquarePlus className="w-4 h-4 text-emerald-400" />
+          <span>User Feedback ({feedbackList.length})</span>
+          {openFeedbackCount > 0 && (
+            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500 text-white animate-pulse">
+              {openFeedbackCount} open
+            </span>
+          )}
         </button>
       </div>
 
@@ -625,6 +714,270 @@ export default function AdminHubClient({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* TAB 4: User Feedback & Bug Reports */}
+      {activeTab === 'feedback' && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 shadow-sm space-y-6">
+          {/* Header & Controls */}
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <MessageSquarePlus className="w-5 h-5 text-emerald-500" />
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  User Feedback &amp; Bug Reports
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  {filteredFeedback.length} of {feedbackList.length} shown
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Review incoming bug reports, feature suggestions, and user sentiment.
+              </p>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative w-full md:w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="search"
+                value={feedbackSearch}
+                onChange={(e) => setFeedbackSearch(e.target.value)}
+                placeholder="Search feedback content or user..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Filters Bar: Status & Category */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            {/* Status Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+                Status:
+              </span>
+              {[
+                { id: 'ALL', label: 'All Statuses' },
+                { id: 'OPEN', label: '🟡 Open' },
+                { id: 'REVIEWED', label: '🔵 Reviewed' },
+                { id: 'RESOLVED', label: '🟢 Resolved' },
+              ].map((st) => (
+                <button
+                  key={st.id}
+                  onClick={() => setFeedbackStatusFilter(st.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+                    feedbackStatusFilter === st.id
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Category Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+                Type:
+              </span>
+              {[
+                { id: 'ALL', label: 'All Types' },
+                { id: 'BUG', label: '🐞 Bug' },
+                { id: 'FEATURE_IDEA', label: '💡 Idea' },
+                { id: 'FEEDBACK', label: '💬 Feedback' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setFeedbackCategoryFilter(cat.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
+                    feedbackCategoryFilter === cat.id
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Feedback Items List */}
+          {filteredFeedback.length > 0 ? (
+            <div className="space-y-4">
+              {filteredFeedback.map((fb) => {
+                const isProcessing = feedbackActionLoadingId === fb.id;
+                return (
+                  <div
+                    key={fb.id}
+                    className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 space-y-3.5 transition"
+                  >
+                    {/* Top Row: User & Meta */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar
+                          src={fb.user?.avatar_url}
+                          name={fb.user?.display_name || fb.user?.username || 'Guest'}
+                          size="md"
+                          shape="circle"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-900 dark:text-white">
+                              {fb.user?.display_name || 'Guest / Unlinked'}
+                            </span>
+                            {fb.user?.username && (
+                              <Link
+                                href={`/makers/${fb.user.username}`}
+                                className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                @{fb.user.username}
+                              </Link>
+                            )}
+                            {fb.user?.role && fb.user.role !== 'USER' && (
+                              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                {fb.user.role}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-400 block mt-0.5">
+                            Submitted {relativeTime(fb.created_at)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Badges: Category & Status */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Category Badge */}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            fb.category === 'BUG'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                              : fb.category === 'FEATURE_IDEA'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                          }`}
+                        >
+                          {fb.category === 'BUG' ? (
+                            <>
+                              <Bug className="w-3 h-3" />
+                              <span>Bug Report</span>
+                            </>
+                          ) : fb.category === 'FEATURE_IDEA' ? (
+                            <>
+                              <Lightbulb className="w-3 h-3" />
+                              <span>Feature Idea</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="w-3 h-3" />
+                              <span>Feedback</span>
+                            </>
+                          )}
+                        </span>
+
+                        {/* Status Badge */}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            fb.status === 'OPEN'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                              : fb.status === 'REVIEWED'
+                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
+                              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                          }`}
+                        >
+                          {fb.status === 'OPEN' ? (
+                            <span>🟡 Open</span>
+                          ) : fb.status === 'REVIEWED' ? (
+                            <span>🔵 Reviewed</span>
+                          ) : (
+                            <span>🟢 Resolved</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Page URL (if captured) */}
+                    {fb.page_url && (
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-400">Captured on:</span>
+                        <Link
+                          href={fb.page_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                        >
+                          <span>{fb.page_url}</span>
+                          <ExternalLink className="w-3 h-3 opacity-70" />
+                        </Link>
+                      </div>
+                    )}
+
+                    {/* Message Body */}
+                    <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+                      {fb.message}
+                    </div>
+
+                    {/* Action Bar */}
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {fb.status !== 'REVIEWED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFeedbackStatus(fb.id, 'REVIEWED')}
+                            disabled={isProcessing}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800/80 transition disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Mark Reviewed</span>
+                          </button>
+                        )}
+
+                        {fb.status !== 'RESOLVED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFeedbackStatus(fb.id, 'RESOLVED')}
+                            disabled={isProcessing}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/80 transition disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Mark Resolved</span>
+                          </button>
+                        )}
+
+                        {fb.status !== 'OPEN' && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFeedbackStatus(fb.id, 'OPEN')}
+                            disabled={isProcessing}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50"
+                          >
+                            <span>Reopen</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFeedback(fb.id)}
+                        disabled={isProcessing}
+                        className="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition disabled:opacity-50"
+                        title="Delete feedback entry"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-12 text-center text-slate-400 space-y-2">
+              <MessageSquare className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
+              <p className="text-xs">No feedback entries found matching your search or filters.</p>
+            </div>
+          )}
         </div>
       )}
 

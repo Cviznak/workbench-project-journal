@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.3.0 Production  
+> **Version:** 2.4.0 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -16,6 +16,10 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - XP advances maker skills through deterministic mathematical leveling.
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
+- **In-App User Feedback & Bug Reporting System** *(v2.4)*: Dedicated `public.user_feedback` table guarded by strict Row Level Security (RLS) restricting query/update/delete operations exclusively to `ADMIN` and `ROOT_ADMIN` roles. Automated database trigger (`trg_notify_admins_on_new_feedback`) dispatches in-app notifications into `public.notifications` for all active administrators upon submission. Frontend modal (`FeedbackModal.tsx`) available in Sidebar and Navbar captures route pathnames and categorizes submissions (`BUG`, `FEATURE_IDEA`, `FEEDBACK`).
+- **Admin Hub User Feedback Management Tab** *(v2.4)*: Dedicated tab inside `AdminHubClient.tsx` featuring real-time unread badges, multi-criteria filtering (status: OPEN, REVIEWED, RESOLVED; category: BUG, FEATURE_IDEA, FEEDBACK), live text search, captured URL navigation links, and administrative workflow actions (Mark Reviewed, Mark Resolved, Reopen, Delete).
+- **Calculator Funnel Persistence & Guest Recovery** *(v2.4)*: When unauthenticated visitors click "Save as Formula" on public calculators (`/tools`), calculator parameters and calculated outputs are preserved in `localStorage` (`'workbench_pending_formula'`) across the onboarding funnel. Upon signing in or completing signup, persistent recovery banners on both the Home Dashboard (`OnboardingQuestCard.tsx`) and Maker Inventory (`InventoryClient.tsx`) provide 1-click batch import directly into `public.maker_recipes`.
+- **Starter Workshop Onboarding Quest** *(v2.4)*: Dynamic onboarding quest card (`OnboardingQuestCard.tsx`) rendered at the top of the Dashboard for new makers (`total_xp === 0` or 0 skills), guiding them through 4 foundational milestones (unlocking skills, creating projects, exploring calculators/inventory, and introducing themselves in community feed) with completion progress tracking and dismiss preferences saved to `profiles.settings_json->>'onboarding_completed'`.
 - **Dynamic Search Engine Indexing, XML Sitemap & Robots.txt** *(v2.3)*: Dynamic Next.js metadata route (`src/app/robots.ts`) permitting indexing of public hubs (`/`, `/tools`, `/community`, `/makers/`, `/projects/`) while cleanly disallowing private application and admin routes. Dynamic sitemap generator (`src/app/sitemap.ts`) automatically maps static pages, non-suspended public maker profiles (`/makers/[username]`), and public showcase projects (`/projects/[id]`) with daily/weekly change frequencies.
 - **Public Maker Tools & SEO Calculator Funnel** *(v2.3)*: Standalone public lab suite at `/tools` hosting interactive calculators for Epoxy Resin & Mold Volume, Perfume Dilution & Maceration, and 3D Print Costing with real-time math, responsive unit conversions, formula breakdowns, and guest-to-member conversion CTAs ("Save as Formula" saving to `maker_recipes` for authenticated users and seamlessly redirecting unauthenticated makers into the onboarding funnel).
 - **Public Community Hub & Unauthenticated Guest Experience** *(v2.3)*: Full read-only guest browsing across `/community` and `/tools` enabled in Next.js middleware, complete with guest welcome headers, non-intrusive action prompts ("Sign in to like, comment, or share your builds"), and interactive conversion flows.
@@ -455,23 +459,25 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   └── layout.tsx             # Root layout, manifest metadata, JSON-LD structured data, ServiceWorkerRegister (v2.3)
 │   ├── components/
 │   │   ├── ActivityHeatmap.tsx    # Responsive 52-week contribution heatmap & streak cards
-│   │   ├── AdminHubClient.tsx     # User directory, Skill Request approvals, Audit logs
+│   │   ├── AdminHubClient.tsx     # User directory, Skill Request approvals, User Feedback tab, Audit logs (v2.4)
 │   │   ├── AvatarUploader.tsx     # Client-side 1:1 square crop to WebP & avatar storage uploader (v1.9.1)
 │   │   ├── CommunityFeedClient.tsx # Social feed: posts, photos, likes, comments (v1.9, guest prompt v2.3)
 │   │   ├── EditProjectModal.tsx   # Project settings, skills & Public Showcase toggle (v1.9)
 │   │   ├── EditTaskModal.tsx      # Workshop modal: Details, Prerequisite dependency, Comments, Files
+│   │   ├── FeedbackModal.tsx      # Global in-app feedback & bug reporting modal (v2.4)
 │   │   ├── FocusAudioBar.tsx      # Pomodoro timer + procedural ambient noise / lofi
-│   │   ├── InventoryClient.tsx    # Maker Inventory Hub: Folders, steppers, low stock, AliExpress/Temu (v1.4)
+│   │   ├── InventoryClient.tsx    # Maker Inventory Hub: Folders, steppers, low stock, formula recovery (v2.4)
 │   │   ├── KanbanBoardClient.tsx  # Drag-and-drop board with Realtime sync, subtasks & task lock badges
 │   │   ├── MakerProfileClient.tsx # Public maker profiles, bio editor & public showcase projects (v1.9)
-│   │   ├── Navbar.tsx             # Sticky header, search, audio bar, streak & level pills, bell
+│   │   ├── Navbar.tsx             # Sticky header, search, audio bar, streak & level pills, bell, feedback trigger (v2.4)
 │   │   ├── NotificationBell.tsx   # Project invitation handshake & skill requests inbox
+│   │   ├── OnboardingQuestCard.tsx # Starter workshop onboarding quest & pending formula recovery (v2.4)
 │   │   ├── PracticeModal.tsx      # Deliberate practice logging modal with SkillSelector (v1.9)
 │   │   ├── PublicLandingPage.tsx  # Unauthenticated public landing page with Bento grid & showcase preview (v2.1)
-│   │   ├── PublicToolsClient.tsx  # Interactive Resin, Perfume, and 3D Print public calculators (v2.3)
+│   │   ├── PublicToolsClient.tsx  # Interactive Resin, Perfume, and 3D Print public calculators (v2.3, localStorage funnel v2.4)
 │   │   ├── ServiceWorkerRegister.tsx # Client service worker registration for PWA (v1.3)
 │   │   ├── SettingsClient.tsx     # Account settings & Portable Archive JSON exporter (v1.3)
-│   │   ├── Sidebar.tsx            # Full-height pinned navigation sidebar
+│   │   ├── Sidebar.tsx            # Full-height pinned navigation sidebar, feedback trigger (v2.4)
 │   │   ├── SkillRequestModal.tsx  # Maker proposal modal for new skills
 │   │   ├── SkillSelector.tsx      # Universal searchable skill combobox (single/multi) (v1.9)
 │   │   ├── SkillsViewClient.tsx   # Skills grid, tier badges, practice history ledger
@@ -510,7 +516,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 017_notifications_and_admin_email.sql # v2.0.0: Unified real-time notifications engine & admin email RPC
 │       ├── 018_public_launch_and_coffee.sql      # v2.1.0: Creator tip jar, anon showcase RLS & project invite email RPC
 │       ├── 019_email_auth_comments_and_security.sql # v2.2.0: Threaded comments, comment likes, strict project isolation & security guards
-│       └── 020_security_advisors_and_xp_bounds.sql  # v2.2.1: Revoke anon RPCs, lock search_path, cap XP rewards & anti-spam cooldown
+│       ├── 020_security_advisors_and_xp_bounds.sql  # v2.2.1: Revoke anon RPCs, lock search_path, cap XP rewards & anti-spam cooldown
+│       └── 021_feedback_and_onboarding.sql         # v2.4.0: User feedback table, admin notification trigger & strict admin RLS
 ├── package.json
 └── tailwind.config.ts
 ```
