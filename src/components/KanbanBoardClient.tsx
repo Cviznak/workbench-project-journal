@@ -52,6 +52,11 @@ import {
   CheckCircle2,
   Layers,
   Wallet,
+  Timer,
+  Play,
+  Pause,
+  RotateCcw,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EditTaskModal from '@/components/EditTaskModal';
@@ -128,6 +133,15 @@ export default function KanbanBoardClient({
   const [newPmId, setNewPmId] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
 
+  // Live Task Stopwatch & Session Logging State
+  const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
+  const [logWorkModalTask, setLogWorkModalTask] = useState<any | null>(null);
+  const [logWorkMinutes, setLogWorkMinutes] = useState(30);
+  const [logWorkNote, setLogWorkNote] = useState('');
+  const [loggingWork, setLoggingWork] = useState(false);
+
   // Project completion state
   const [completingProj, setCompletingProj] = useState(false);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
@@ -196,11 +210,11 @@ export default function KanbanBoardClient({
 
   const effortRollup = useMemo(() => {
     const totalEstMinutes = tasks.reduce((sum, t) => sum + (Number(t.estimated_minutes) || 0), 0);
-    const completedEstMinutes = tasks
-      .filter((t) => t.status === 'DONE')
-      .reduce((sum, t) => sum + (Number(t.estimated_minutes) || 0), 0);
-    const remainingEstMinutes = Math.max(0, totalEstMinutes - completedEstMinutes);
-    const effortPct = totalEstMinutes > 0 ? Math.round((completedEstMinutes / totalEstMinutes) * 100) : 0;
+    const totalActualMinutes = tasks.reduce((sum, t) => sum + (Number(t.actual_minutes) || 0), 0);
+    const remainingEstMinutes = Math.max(0, totalEstMinutes - totalActualMinutes);
+    const effortPct = totalEstMinutes > 0
+      ? Math.min(100, Math.round((totalActualMinutes / totalEstMinutes) * 100))
+      : (totalActualMinutes > 0 ? 100 : 0);
 
     const formatMins = (mins: number) => {
       if (mins <= 0) return '0m';
@@ -213,14 +227,111 @@ export default function KanbanBoardClient({
 
     return {
       totalEstMinutes,
-      completedEstMinutes,
+      totalActualMinutes,
       remainingEstMinutes,
       effortPct,
       totalFormatted: formatMins(totalEstMinutes),
-      completedFormatted: formatMins(completedEstMinutes),
+      actualFormatted: formatMins(totalActualMinutes),
       remainingFormatted: formatMins(remainingEstMinutes),
     };
   }, [tasks]);
+
+  // Stopwatch timer interval ticker
+  useEffect(() => {
+    if (!activeTimerTaskId || isTimerPaused) return;
+    const interval = setInterval(() => {
+      setTimerSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeTimerTaskId, isTimerPaused]);
+
+  const activeTimerTask = useMemo(() => {
+    return activeTimerTaskId ? tasks.find((t) => t.id === activeTimerTaskId) : null;
+  }, [activeTimerTaskId, tasks]);
+
+  function formatTimerTime(totalSeconds: number): string {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+
+  function handleStartTimer(taskId: string) {
+    if (isPublicShowcase) return;
+    setActiveTimerTaskId(taskId);
+    setTimerSeconds(0);
+    setIsTimerPaused(false);
+  }
+
+  function handleTogglePauseTimer() {
+    setIsTimerPaused((prev) => !prev);
+  }
+
+  function handleDiscardTimer() {
+    setActiveTimerTaskId(null);
+    setTimerSeconds(0);
+    setIsTimerPaused(false);
+  }
+
+  function handleOpenStopAndLogModal() {
+    if (!activeTimerTaskId) return;
+    const targetTask = tasks.find((t) => t.id === activeTimerTaskId);
+    if (!targetTask) return;
+    const elapsedMins = Math.max(1, Math.round(timerSeconds / 60));
+    setLogWorkModalTask(targetTask);
+    setLogWorkMinutes(elapsedMins);
+    setLogWorkNote('');
+  }
+
+  function handleOpenManualLog(taskToLog: any) {
+    if (isPublicShowcase) return;
+    setLogWorkModalTask(taskToLog);
+    setLogWorkMinutes(30);
+    setLogWorkNote('');
+  }
+
+  async function handleConfirmLogWork(e: React.FormEvent) {
+    e.preventDefault();
+    if (!logWorkModalTask) return;
+    const duration = Math.min(600, Math.max(1, Number(logWorkMinutes) || 1));
+    const taskId = logWorkModalTask.id;
+    const note = logWorkNote.trim();
+
+    setLoggingWork(true);
+    try {
+      const { data, error } = await supabase.rpc('log_task_work_session', {
+        p_task_id: taskId,
+        p_duration_minutes: duration,
+        p_note: note,
+      });
+
+      if (error) throw error;
+
+      const actualMinutes = data?.actual_minutes ?? ((logWorkModalTask.actual_minutes || 0) + duration);
+      const newStatus = data?.new_status ?? (logWorkModalTask.status === 'TODO' ? 'IN_PROGRESS' : logWorkModalTask.status);
+      const xpGained = data?.xp_gained ?? duration * 2;
+
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, actual_minutes: actualMinutes, status: newStatus } : t))
+      );
+
+      if (activeTimerTaskId === taskId) {
+        setActiveTimerTaskId(null);
+        setTimerSeconds(0);
+        setIsTimerPaused(false);
+      }
+
+      setLogWorkModalTask(null);
+      setLogWorkNote('');
+
+      sounds.playLevelUp();
+      triggerCelebrationConfetti();
+      alert(`⏱️ Work session logged! +${xpGained} XP awarded for deliberate practice.`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to log work session');
+    } finally {
+      setLoggingWork(false);
+    }
+  }
 
   // -------------------------------------------------------------
   // Realtime WebSocket Subscription
@@ -863,9 +974,9 @@ export default function KanbanBoardClient({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* BOM Cost & Budget */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+            <div className="bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <Boxes className="w-3.5 h-3.5 text-indigo-500" />
                   BOM Material Cost
                 </span>
@@ -875,21 +986,21 @@ export default function KanbanBoardClient({
               </div>
 
               <div className="flex items-baseline justify-between gap-2">
-                <div className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                   {formatCurrency(financialRollup.totalBomCost, projectCurrency)}
                 </div>
                 {budgetLimit > 0 ? (
-                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  <div className="text-xs font-medium text-slate-600 dark:text-slate-300">
                     of {formatCurrency(budgetLimit, projectCurrency)}
                   </div>
                 ) : (
-                  <span className="text-[11px] text-slate-400 italic">No cap set</span>
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-300 italic">No cap set</span>
                 )}
               </div>
 
               {budgetLimit > 0 ? (
                 <div className="space-y-1.5 pt-1">
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div
                       className={cn(
                         "h-full transition-all duration-300 rounded-full",
@@ -935,9 +1046,9 @@ export default function KanbanBoardClient({
             </div>
 
             {/* Estimated Labor & Effort */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+            <div className="bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-blue-500" />
                   Labor &amp; Effort Hours
                 </span>
@@ -947,32 +1058,32 @@ export default function KanbanBoardClient({
               </div>
 
               <div className="flex items-baseline justify-between gap-2">
-                <div className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-                  {effortRollup.completedFormatted}
+                <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  {effortRollup.actualFormatted}
                 </div>
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {effortRollup.remainingFormatted} remaining
+                <div className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                  {effortRollup.totalEstMinutes > 0 ? `${effortRollup.remainingFormatted} remaining` : `${effortRollup.totalActualMinutes}m logged`}
                 </div>
               </div>
 
               <div className="space-y-1.5 pt-1">
-                <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                   <div
                     className="bg-blue-600 h-full transition-all duration-300 rounded-full"
                     style={{ width: `${effortRollup.effortPct}%` }}
                   />
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>{effortRollup.effortPct}% logged work finished</span>
-                  <span className="font-semibold">{effortRollup.totalEstMinutes > 0 ? `${(effortRollup.totalEstMinutes / 60).toFixed(1)} hrs est.` : '0 hrs'}</span>
+                  <span>{effortRollup.effortPct}% logged against plan</span>
+                  <span className="font-semibold">{effortRollup.totalEstMinutes > 0 ? `${(effortRollup.totalEstMinutes / 60).toFixed(1)} hrs planned` : 'No estimate set'}</span>
                 </div>
               </div>
             </div>
 
             {/* Task Execution Milestone */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+            <div className="bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <CheckSquare className="w-3.5 h-3.5 text-emerald-500" />
                   Milestone Velocity
                 </span>
@@ -982,19 +1093,19 @@ export default function KanbanBoardClient({
               </div>
 
               <div className="flex items-baseline justify-between gap-2">
-                <div className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                <div className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                   {tasks.length > 0
                     ? Math.round((tasks.filter((t) => t.status === 'DONE').length / tasks.length) * 100)
                     : 0}
                   %
                 </div>
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <div className="text-xs font-medium text-slate-600 dark:text-slate-300">
                   {tasks.filter((t) => t.status !== 'DONE').length} tasks in progress
                 </div>
               </div>
 
               <div className="space-y-1.5 pt-1">
-                <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                   <div
                     className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
                     style={{
@@ -1063,6 +1174,66 @@ export default function KanbanBoardClient({
             >
               Decline
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sticky Active Stopwatch Timer Bar */}
+      {activeTimerTaskId && activeTimerTask && (
+        <div className="sticky top-16 z-30 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200 border border-white/20">
+          <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+              <Timer className="w-5 h-5 text-white animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wider font-extrabold text-blue-100 flex items-center gap-1.5">
+                <span>Active Task Stopwatch</span>
+                {isTimerPaused && (
+                  <span className="px-1.5 py-0.2 rounded bg-amber-400 text-amber-950 text-[9px] font-black uppercase">
+                    Paused
+                  </span>
+                )}
+              </div>
+              <div className="font-bold text-sm truncate text-white">
+                {activeTimerTask.title}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            {/* Live Elapsed Time */}
+            <div className="font-mono text-2xl font-black tracking-wider bg-black/25 px-3.5 py-1 rounded-xl border border-white/10 shadow-inner">
+              {formatTimerTime(timerSeconds)}
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleTogglePauseTimer}
+                className="p-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm transition text-white"
+                title={isTimerPaused ? 'Resume Stopwatch' : 'Pause Stopwatch'}
+              >
+                {isTimerPaused ? <Play className="w-4 h-4 fill-white" /> : <Pause className="w-4 h-4 fill-white" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenStopAndLogModal}
+                className="px-3.5 py-2 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs shadow-md transition flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Stop &amp; Log (+XP)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDiscardTimer}
+                className="p-2 rounded-xl hover:bg-white/10 text-white/70 hover:text-white transition"
+                title="Discard Timer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1344,19 +1515,23 @@ export default function KanbanBoardClient({
                                 </span>
                               )}
 
-                              {task.estimated_minutes && task.estimated_minutes > 0 ? (
+                              {((task.actual_minutes ?? 0) > 0 || (task.estimated_minutes ?? 0) > 0) && (
                                 <span
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                                  title={`Estimated effort: ${task.estimated_minutes} min`}
+                                  className={cn(
+                                    'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border',
+                                    (task.actual_minutes ?? 0) > 0
+                                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                                  )}
+                                  title={`Logged Work: ${task.actual_minutes || 0}m${task.estimated_minutes ? ` / Est: ${task.estimated_minutes}m` : ''}`}
                                 >
                                   <Clock className="w-3 h-3" />
                                   <span>
-                                    {task.estimated_minutes >= 60
-                                      ? `${(task.estimated_minutes / 60).toFixed(1)}h`
-                                      : `${task.estimated_minutes}m`}
+                                    {task.actual_minutes ? `${task.actual_minutes}m` : '0m'}
+                                    {task.estimated_minutes ? ` / ${task.estimated_minutes}m` : ''}
                                   </span>
                                 </span>
-                              ) : null}
+                              )}
                             </div>
 
                             {/* Footer: Assignee & Action */}
@@ -1380,8 +1555,51 @@ export default function KanbanBoardClient({
                               </div>
 
                               {!isPublicShowcase && !isDone && (
-                                <button
-                                  disabled={!isPrereqDone}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (activeTimerTaskId === task.id) {
+                                        handleOpenStopAndLogModal();
+                                      } else {
+                                        handleStartTimer(task.id);
+                                      }
+                                    }}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition",
+                                      activeTimerTaskId === task.id
+                                        ? "bg-blue-600 text-white animate-pulse"
+                                        : "bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
+                                    )}
+                                    title={activeTimerTaskId === task.id ? "Stopwatch running! Click to log work" : "Start task stopwatch"}
+                                  >
+                                    {activeTimerTaskId === task.id ? (
+                                      <>
+                                        <Timer className="w-3 h-3 animate-spin" />
+                                        <span>{formatTimerTime(timerSeconds)}</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="w-2.5 h-2.5 fill-current" />
+                                        <span>Timer</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenManualLog(task);
+                                    }}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                    title="Log work session manually (+XP)"
+                                  >
+                                    <History className="w-3 h-3" />
+                                  </button>
+
+                                  <button
+                                    disabled={!isPrereqDone}
                                   onClick={() => {
                                     if (!isPrereqDone) return;
                                     const nextStatus =
@@ -1418,8 +1636,9 @@ export default function KanbanBoardClient({
                                     </>
                                   )}
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
+                          </div>
                           </div>
                         );
                       })}
@@ -1561,8 +1780,8 @@ export default function KanbanBoardClient({
                         );
                       })()}
 
-                      {/* Due Date & Estimated Effort Badges */}
-                      {(task.due_date || (task.estimated_minutes && task.estimated_minutes > 0)) && (
+                      {/* Due Date & Estimated / Actual Effort Badges */}
+                      {(task.due_date || (task.estimated_minutes && task.estimated_minutes > 0) || ((task.actual_minutes ?? 0) > 0)) && (
                         <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
                           {task.due_date && (() => {
                             const today = new Date().toISOString().slice(0, 10);
@@ -1583,19 +1802,23 @@ export default function KanbanBoardClient({
                             );
                           })()}
 
-                          {task.estimated_minutes && task.estimated_minutes > 0 ? (
+                          {((task.actual_minutes ?? 0) > 0 || (task.estimated_minutes ?? 0) > 0) && (
                             <span
-                              className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                              title={`Estimated effort: ${task.estimated_minutes} min`}
+                              className={cn(
+                                'inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border',
+                                (task.actual_minutes ?? 0) > 0
+                                  ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                              )}
+                              title={`Logged Work: ${task.actual_minutes || 0}m${task.estimated_minutes ? ` / Est: ${task.estimated_minutes}m` : ''}`}
                             >
                               <Clock className="w-3 h-3" />
                               <span>
-                                {task.estimated_minutes >= 60
-                                  ? `${(task.estimated_minutes / 60).toFixed(1)}h`
-                                  : `${task.estimated_minutes}m`}
+                                {task.actual_minutes ? `${task.actual_minutes}m` : '0m'}
+                                {task.estimated_minutes ? ` / ${task.estimated_minutes}m` : ''}
                               </span>
                             </span>
-                          ) : null}
+                          )}
                         </div>
                       )}
 
@@ -1742,6 +1965,52 @@ export default function KanbanBoardClient({
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
+                          {!isPublicShowcase && col.id !== 'DONE' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (activeTimerTaskId === task.id) {
+                                    handleOpenStopAndLogModal();
+                                  } else {
+                                    handleStartTimer(task.id);
+                                  }
+                                }}
+                                className={cn(
+                                  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-bold transition",
+                                  activeTimerTaskId === task.id
+                                    ? "bg-blue-600 text-white animate-pulse"
+                                    : "bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
+                                )}
+                                title={activeTimerTaskId === task.id ? "Stopwatch running! Click to log work" : "Start task stopwatch"}
+                              >
+                                {activeTimerTaskId === task.id ? (
+                                  <>
+                                    <Timer className="w-3 h-3 animate-spin" />
+                                    <span>{formatTimerTime(timerSeconds)}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="w-2.5 h-2.5 fill-current" />
+                                    <span>Timer</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenManualLog(task);
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                title="Log work session manually (+XP)"
+                              >
+                                <History className="w-3 h-3" />
+                              </button>
+                            </>
+                          )}
+
                           {col.id !== 'TODO' && (
                             <button
                               onClick={() => {
@@ -2192,6 +2461,107 @@ export default function KanbanBoardClient({
                   className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                 >
                   {transferLoading ? 'Transferring...' : 'Confirm Transfer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manual / Stopwatch Work Session Log Modal */}
+      {logWorkModalTask && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <Timer className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Log Work Session
+                  </h3>
+                  <p className="text-[11px] text-slate-500 truncate max-w-[260px]">
+                    {logWorkModalTask.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLogWorkModalTask(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmLogWork} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Duration (Minutes)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="600"
+                    required
+                    value={logWorkMinutes}
+                    onChange={(e) => setLogWorkMinutes(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm font-bold"
+                  />
+                  <div className="flex items-center gap-1 shrink-0">
+                    {[15, 30, 45, 60].map((quick) => (
+                      <button
+                        key={quick}
+                        type="button"
+                        onClick={() => setLogWorkMinutes(quick)}
+                        className={cn(
+                          "px-2 py-1.5 rounded-lg text-xs font-semibold border transition",
+                          logWorkMinutes === quick
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200"
+                        )}
+                      >
+                        {quick}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Awards +{logWorkMinutes * 2} XP deliberate practice</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                  Session Work Note (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={logWorkNote}
+                  onChange={(e) => setLogWorkNote(e.target.value)}
+                  placeholder="e.g. Assembled base frame, soldered wiring harness..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setLogWorkModalTask(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loggingWork}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {loggingWork ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>Log Work (+{logWorkMinutes * 2} XP)</span>
                 </button>
               </div>
             </form>

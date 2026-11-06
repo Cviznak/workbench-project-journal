@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { getPreferredCurrency } from '@/lib/currency';
 import { useTranslation } from '@/lib/i18n';
 import { Currency } from '@/lib/types';
@@ -28,6 +28,8 @@ import {
   Cpu,
   Zap,
   Boxes,
+  Trash2,
+  Plus,
 } from 'lucide-react';
 import {
   calculateResistorBands,
@@ -38,7 +40,7 @@ import {
   MULTIPLIER_COLORS,
 } from '@/lib/electronicsUtils';
 
-export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT' | 'ELECTRONICS' | 'SILICONE';
+export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT' | 'ELECTRONICS' | 'SILICONE' | 'WOODWORKING';
 
 export function slugToTool(slug?: string | null): ToolType {
   if (!slug) return 'RESIN';
@@ -50,6 +52,7 @@ export function slugToTool(slug?: string | null): ToolType {
   if (norm === 'lasercut' || norm === 'laser' || norm === 'cnc') return 'LASER_CUT';
   if (norm === 'electronics' || norm === 'led' || norm === 'resistor' || norm === 'battery') return 'ELECTRONICS';
   if (norm === 'silicone' || norm === 'mold' || norm === 'rtv') return 'SILICONE';
+  if (norm === 'woodworking' || norm === 'cutlist' || norm === 'lumber' || norm === 'carpentry') return 'WOODWORKING';
   return 'RESIN';
 }
 
@@ -71,6 +74,8 @@ export function toolToSlug(tool: ToolType): string {
       return 'electronics';
     case 'SILICONE':
       return 'silicone';
+    case 'WOODWORKING':
+      return 'woodworking';
   }
 }
 
@@ -195,6 +200,69 @@ export default function PublicToolsClient({
   const [siliconeDensity, setSiliconeDensity] = useState<number>(1.10);
   const [siliconeCostPerKg, setSiliconeCostPerKg] = useState<number>(85);
   const [siliconeMarginPct, setSiliconeMarginPct] = useState<number>(10);
+
+  // 9. Woodworking Cut-List & Board-Foot State
+  const [woodUnit, setWoodUnit] = useState<'METRIC' | 'IMPERIAL'>('METRIC');
+  const [woodStockLength, setWoodStockLength] = useState<number>(2400); // 2400mm or 96"
+  const [woodStockWidth, setWoodStockWidth] = useState<number>(140); // 140mm or 5.5"
+  const [woodStockThickness, setWoodStockThickness] = useState<number>(38); // 38mm or 1.5"
+  const [woodKerf, setWoodKerf] = useState<number>(3.2); // 3.2mm or 0.125"
+  const [woodBoardPrice, setWoodBoardPrice] = useState<number>(14.5);
+  const [woodCutPieces, setWoodCutPieces] = useState<
+    Array<{ id: string; label: string; length: number; quantity: number }>
+  >([
+    { id: '1', label: 'Legs', length: 750, quantity: 4 },
+    { id: '2', label: 'Side Rails', length: 600, quantity: 4 },
+    { id: '3', label: 'End Stretchers', length: 400, quantity: 4 },
+  ]);
+
+  function handleToggleWoodUnit(unit: 'METRIC' | 'IMPERIAL') {
+    if (unit === woodUnit) return;
+    setWoodUnit(unit);
+    if (unit === 'IMPERIAL') {
+      setWoodStockLength(96);
+      setWoodStockWidth(5.5);
+      setWoodStockThickness(1.5);
+      setWoodKerf(0.125);
+      setWoodCutPieces([
+        { id: '1', label: 'Legs', length: 30, quantity: 4 },
+        { id: '2', label: 'Side Rails', length: 24, quantity: 4 },
+        { id: '3', label: 'End Stretchers', length: 16, quantity: 4 },
+      ]);
+    } else {
+      setWoodStockLength(2400);
+      setWoodStockWidth(140);
+      setWoodStockThickness(38);
+      setWoodKerf(3.2);
+      setWoodCutPieces([
+        { id: '1', label: 'Legs', length: 750, quantity: 4 },
+        { id: '2', label: 'Side Rails', length: 600, quantity: 4 },
+        { id: '3', label: 'End Stretchers', length: 400, quantity: 4 },
+      ]);
+    }
+  }
+
+  function handleAddWoodCutPiece() {
+    setWoodCutPieces((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(36).substring(2, 9),
+        label: `Piece ${prev.length + 1}`,
+        length: woodUnit === 'METRIC' ? 500 : 20,
+        quantity: 1,
+      },
+    ]);
+  }
+
+  function handleRemoveWoodCutPiece(id: string) {
+    setWoodCutPieces((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function handleUpdateWoodCutPiece(id: string, field: 'label' | 'length' | 'quantity', val: any) {
+    setWoodCutPieces((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, [field]: val } : p))
+    );
+  }
 
   // Calculations: Epoxy
   let volCm3 = 0;
@@ -427,6 +495,89 @@ export default function PublicToolsClient({
 
   const siliconeTotalCost = (siliconeTotalWeightG / 1000) * (Number(siliconeCostPerKg) || 85);
 
+  // Calculations: Woodworking Cut-List & Board-Feet
+  const woodUnitLabel = woodUnit === 'METRIC' ? 'mm' : 'in';
+  const woodSafeKerf = Math.max(0, Number(woodKerf) || 0);
+  const woodSafeStockLength = Math.max(1, Number(woodStockLength) || 1);
+  const woodSafeStockWidth = Math.max(0.1, Number(woodStockWidth) || 1);
+  const woodSafeStockThickness = Math.max(0.1, Number(woodStockThickness) || 1);
+  const woodSafeBoardPrice = Math.max(0, Number(woodBoardPrice) || 0);
+
+  let woodTIn = woodSafeStockThickness;
+  let woodWIn = woodSafeStockWidth;
+  let woodLIn = woodSafeStockLength;
+  if (woodUnit === 'METRIC') {
+    woodTIn = woodSafeStockThickness / 25.4;
+    woodWIn = woodSafeStockWidth / 25.4;
+    woodLIn = woodSafeStockLength / 25.4;
+  }
+  const woodBfPerBoard = (woodTIn * woodWIn * woodLIn) / 144;
+
+  const woodExpandedCuts: Array<{ id: string; label: string; length: number }> = [];
+  let woodOversizedError = false;
+  woodCutPieces.forEach((p) => {
+    const pLen = Math.max(0, Number(p.length) || 0);
+    const pQty = Math.max(1, Math.floor(Number(p.quantity) || 1));
+    if (pLen > woodSafeStockLength) {
+      woodOversizedError = true;
+    }
+    for (let i = 0; i < pQty; i++) {
+      woodExpandedCuts.push({
+        id: `${p.id}-${i}`,
+        label: p.label || 'Cut Piece',
+        length: pLen,
+      });
+    }
+  });
+
+  const woodSortedCuts = [...woodExpandedCuts].sort((a, b) => b.length - a.length);
+
+  interface WoodPackedBoard {
+    boardNumber: number;
+    cuts: Array<{ id: string; label: string; length: number }>;
+    usedLength: number;
+    kerfWaste: number;
+    scrapWaste: number;
+  }
+
+  const woodPackedBoards: WoodPackedBoard[] = [];
+  woodSortedCuts.forEach((cut) => {
+    let placed = false;
+    for (let b of woodPackedBoards) {
+      const needed = b.cuts.length === 0 ? cut.length : (cut.length + woodSafeKerf);
+      const remaining = woodSafeStockLength - (b.usedLength + b.kerfWaste);
+      if (needed <= remaining) {
+        b.cuts.push(cut);
+        b.usedLength += cut.length;
+        b.kerfWaste = (b.cuts.length - 1) * woodSafeKerf;
+        b.scrapWaste = Math.max(0, woodSafeStockLength - b.usedLength - b.kerfWaste);
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      woodPackedBoards.push({
+        boardNumber: woodPackedBoards.length + 1,
+        cuts: [cut],
+        usedLength: cut.length,
+        kerfWaste: 0,
+        scrapWaste: Math.max(0, woodSafeStockLength - cut.length),
+      });
+    }
+  });
+
+  const woodTotalBoardsCount = Math.max(1, woodPackedBoards.length);
+  const woodTotalBF = woodBfPerBoard * woodTotalBoardsCount;
+  const woodTotalCost = woodTotalBoardsCount * woodSafeBoardPrice;
+  const woodTotalPiecesCount = woodExpandedCuts.length;
+  const woodCostPerPiece = woodTotalPiecesCount > 0 ? (woodTotalCost / woodTotalPiecesCount) : 0;
+  const woodTotalCutLength = woodExpandedCuts.reduce((s, c) => s + c.length, 0);
+  const woodTotalStockLength = woodTotalBoardsCount * woodSafeStockLength;
+  const woodTotalKerfWaste = woodPackedBoards.reduce((s, b) => s + b.kerfWaste, 0);
+  const woodTotalScrapWaste = woodPackedBoards.reduce((s, b) => s + b.scrapWaste, 0);
+  const woodWastePct = woodTotalStockLength > 0 ? Math.max(0, ((woodTotalStockLength - woodTotalCutLength) / woodTotalStockLength) * 100) : 0;
+
   // Save Formula Handler
   async function handleSaveFormula(toolName: string) {
     let title = '';
@@ -477,6 +628,10 @@ export default function PublicToolsClient({
       title = `Silicone Mold: ${shapeDesc} (${Math.round(siliconeTotalWeightG)}g)`;
       category = 'Silicone & Molds';
       instructions = `Silicone Mold Box Specifications (${shapeDesc}):\n- Mold Box Volume: ${siliconeBoxVolCm3.toFixed(1)} cm³ (ml)\n- Master Model Displacement: ${siliconeMasterVolCm3.toFixed(1)} cm³\n- Net Cavity Volume: ${siliconeNetCavityVolCm3.toFixed(1)} ml (Pour Volume +${siliconeMarginPct}%: ${siliconeVolWithMargin.toFixed(1)} ml)\n- Silicone Specific Gravity: ${siliconeDensity} g/cm³\n\nMix Ratio (${siliconeRatio} by Weight):\n- Part A (Base): ${siliconePartAWeightG.toFixed(1)} g\n- Part B (Catalyst): ${siliconePartBWeightG.toFixed(1)} g\n- Total Silicone Weighed: ${siliconeTotalWeightG.toFixed(1)} g\n- Estimated Material Cost: ${formatCurrency(siliconeTotalCost, currency)}\n\nPouring Procedure:\n1. Secure master model and seal edges.\n2. Apply universal mold release.\n3. Mix A & B thoroughly for 3 minutes.\n4. Vacuum degas at 29 in-Hg.\n5. Pour in a single steady stream at lowest point.\n6. Demold after full cure (4-16h).`;
+    } else if (toolName === 'WOODWORKING') {
+      title = `Woodworking Cut-List (${woodTotalPiecesCount} pcs, ${woodTotalBoardsCount} boards)`;
+      category = 'Woodworking & Carpentry';
+      instructions = `Woodworking Cut-List & Board-Foot Plan:\n- Stock Board: ${woodSafeStockLength}${woodUnitLabel} L x ${woodSafeStockWidth}${woodUnitLabel} W x ${woodSafeStockThickness}${woodUnitLabel} T (${woodTotalBF.toFixed(2)} Total BF)\n- Blade Kerf Loss: ${woodSafeKerf}${woodUnitLabel}\n- Stock Boards Required: ${woodTotalBoardsCount} boards (${formatCurrency(woodTotalCost, currency)})\n- Finished Cut Pieces: ${woodTotalPiecesCount} pcs (${formatCurrency(woodCostPerPiece, currency)} / piece avg)\n- Material Waste: ${woodWastePct.toFixed(1)}% (${woodUnitLabel === 'mm' ? `${(woodTotalScrapWaste / 1000).toFixed(2)}m` : `${(woodTotalScrapWaste / 12).toFixed(1)}ft`} scrap offcuts)\n\nCut List Breakdown:\n${woodCutPieces.map((p) => `- ${p.quantity}x ${p.label}: ${p.length}${woodUnitLabel}`).join('\n')}\n\nBoard Cutting Map:\n${woodPackedBoards.map((b) => `Board #${b.boardNumber}: [${b.cuts.map((c) => `${c.label} (${c.length}${woodUnitLabel})`).join(' + ')}] -> Scrap Remainder: ${b.scrapWaste.toFixed(1)}${woodUnitLabel}`).join('\n')}`;
     }
 
     if (!currentUser) {
@@ -701,6 +856,17 @@ export default function PublicToolsClient({
             >
               <Boxes className="w-4 h-4" />
               <span>{t('tools.tab_silicone')}</span>
+            </button>
+            <button
+              onClick={() => handleSelectTool('WOODWORKING')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTool === 'WOODWORKING'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Calculator className="w-4 h-4" />
+              <span>{t('tools.tab_woodworking')}</span>
             </button>
           </div>
         </div>
@@ -2483,6 +2649,343 @@ export default function PublicToolsClient({
               </div>
             </div>
           )}
+
+          {/* ================================================================ */}
+          {/* TOOL 9: WOODWORKING LINEAR & SHEET CUT-LIST OPTIMIZER            */}
+          {/* ================================================================ */}
+          {activeTool === 'WOODWORKING' && (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <Calculator className="w-5 h-5 text-amber-500" />
+                  <div>
+                    <h2 className="text-base font-bold text-white">Woodworking Cut-List Kerf Optimizer &amp; Board-Foot Calculator</h2>
+                    <p className="text-xs text-slate-400">First-fit greedy kerf bin-packing, lumber board-feet (BF) volume, and material waste estimator.</p>
+                  </div>
+                </div>
+
+                {/* Metric / Imperial Unit Toggle */}
+                <div className="flex items-center p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold shrink-0 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleWoodUnit('METRIC')}
+                    className={`px-3 py-1 rounded-lg transition ${
+                      woodUnit === 'METRIC'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Metric (mm)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleWoodUnit('IMPERIAL')}
+                    className={`px-3 py-1 rounded-lg transition ${
+                      woodUnit === 'IMPERIAL'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Imperial (in)
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Left Column: Stock Lumber & Cut List Parameters */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Stock Board Parameters */}
+                  <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-3">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Stock Lumber Board Specifications
+                    </span>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Stock Length ({woodUnitLabel})
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="any"
+                          value={woodStockLength}
+                          onChange={(e) => setWoodStockLength(Math.max(1, parseFloat(e.target.value) || 1))}
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-950 text-xs font-bold text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Width ({woodUnitLabel})
+                        </label>
+                        <input
+                          type="number"
+                          min="0.1"
+                          step="any"
+                          value={woodStockWidth}
+                          onChange={(e) => setWoodStockWidth(Math.max(0.1, parseFloat(e.target.value) || 1))}
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-950 text-xs font-bold text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Thickness ({woodUnitLabel})
+                        </label>
+                        <input
+                          type="number"
+                          min="0.1"
+                          step="any"
+                          value={woodStockThickness}
+                          onChange={(e) => setWoodStockThickness(Math.max(0.1, parseFloat(e.target.value) || 1))}
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-950 text-xs font-bold text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                          Saw Blade Kerf ({woodUnitLabel})
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={woodKerf}
+                          onChange={(e) => setWoodKerf(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-full px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-950 text-xs font-bold text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-800 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">Board Price:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-500 font-bold">$</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={woodBoardPrice}
+                            onChange={(e) => setWoodBoardPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-20 px-2 py-1 rounded-lg border border-slate-700 bg-slate-950 text-xs font-bold text-white"
+                          />
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        Single Board: <b>{woodBfPerBoard.toFixed(2)} BF</b>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cut List Items Table */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Cut List Parts ({woodTotalPiecesCount} pieces)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleAddWoodCutPiece}
+                        className="text-xs font-bold text-blue-400 hover:underline flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Cut Piece</span>
+                      </button>
+                    </div>
+
+                    {woodOversizedError && (
+                      <div className="p-3 rounded-2xl bg-rose-950/40 border border-rose-900/50 text-rose-400 text-xs flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span>Warning: One or more cut pieces exceed stock board length ({woodSafeStockLength}{woodUnitLabel})!</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {woodCutPieces.map((piece, idx) => (
+                        <div
+                          key={piece.id || idx}
+                          className="p-3 rounded-2xl bg-slate-900/70 border border-slate-800 flex items-center gap-3 text-xs"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={piece.label}
+                              onChange={(e) => handleUpdateWoodCutPiece(piece.id, 'label', e.target.value)}
+                              placeholder="Part label..."
+                              className="w-full px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-950 font-semibold text-white outline-none"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 w-28">
+                            <input
+                              type="number"
+                              min="1"
+                              step="any"
+                              value={piece.length}
+                              onChange={(e) => handleUpdateWoodCutPiece(piece.id, 'length', Math.max(1, parseFloat(e.target.value) || 1))}
+                              className="w-full px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-950 font-bold text-white text-right outline-none"
+                            />
+                            <span className="text-[11px] text-slate-400 shrink-0">{woodUnitLabel}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0 w-20">
+                            <span className="text-[11px] text-slate-400">x</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={piece.quantity}
+                              onChange={(e) => handleUpdateWoodCutPiece(piece.id, 'quantity', Math.max(1, parseInt(e.target.value, 10) || 1))}
+                              className="w-full px-2 py-1 rounded-lg border border-slate-700 bg-slate-950 font-bold text-white text-center outline-none"
+                            />
+                          </div>
+
+                          {woodCutPieces.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveWoodCutPiece(piece.id)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition shrink-0"
+                              title="Remove cut piece"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Optimization Results & Visual Diagram */}
+                <div className="lg:col-span-5 space-y-4">
+                  {/* Total Boards & Board-Foot Banner */}
+                  <div className="p-5 rounded-3xl bg-gradient-to-br from-amber-950/20 to-orange-950/10 border border-amber-900/40 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">
+                        Required Stock Boards
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400">
+                        {woodPackedBoards.length} {woodPackedBoards.length === 1 ? 'Board' : 'Boards'}
+                      </span>
+                    </div>
+
+                    <div className="text-3xl font-black text-amber-100">
+                      {woodPackedBoards.length} <span className="text-lg font-bold text-amber-300">Boards Needed</span>
+                    </div>
+
+                    <div className="pt-2 border-t border-amber-900/40 grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Total Board-Feet</span>
+                        <span className="font-bold text-white text-base">
+                          {woodTotalBF.toFixed(2)} BF
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Estimated Lumber Cost</span>
+                        <span className="font-bold text-white text-base">
+                          {formatCurrency(woodTotalCost, currency)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Cost Per Finished Piece</span>
+                        <span className="font-bold text-emerald-400">
+                          {formatCurrency(woodCostPerPiece, currency)} / pc
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] uppercase font-bold">Waste &amp; Offcuts</span>
+                        <span className={cn("font-bold", woodWastePct > 25 ? "text-amber-400" : "text-emerald-400")}>
+                          {woodWastePct.toFixed(1)}% waste
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visual Board Packing Map */}
+                  <div className="p-4 rounded-3xl bg-slate-900/60 border border-slate-800 space-y-3">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Visual Cutting Diagram ({woodPackedBoards.length} Boards)
+                    </span>
+
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                      {woodPackedBoards.map((board) => (
+                        <div key={board.boardNumber} className="space-y-1.5 p-3 rounded-2xl bg-slate-950 border border-slate-800 text-xs">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-bold text-slate-200">
+                              Board #{board.boardNumber}
+                            </span>
+                            <span className="text-slate-400">
+                              Rem: <b>{board.scrapWaste.toFixed(0)}{woodUnitLabel}</b> ({((board.scrapWaste / woodSafeStockLength) * 100).toFixed(0)}% scrap)
+                            </span>
+                          </div>
+
+                          {/* Stacked Bar Visualizer */}
+                          <div className="w-full h-6 rounded-lg bg-slate-900 overflow-hidden flex items-stretch border border-slate-800">
+                            {board.cuts.map((cut, cIdx) => {
+                              const widthPct = (cut.length / woodSafeStockLength) * 100;
+                              const colors = [
+                                'bg-indigo-600 text-white',
+                                'bg-amber-600 text-white',
+                                'bg-blue-600 text-white',
+                                'bg-emerald-600 text-white',
+                                'bg-purple-600 text-white',
+                              ];
+                              const colorClass = colors[cIdx % colors.length];
+
+                              return (
+                                <div
+                                  key={cIdx}
+                                  style={{ width: `${widthPct}%` }}
+                                  className={cn(
+                                    'h-full flex items-center justify-center text-[9px] font-bold px-1 truncate border-r border-slate-950',
+                                    colorClass
+                                  )}
+                                  title={`${cut.label}: ${cut.length}${woodUnitLabel}`}
+                                >
+                                  {cut.length}{woodUnitLabel}
+                                </div>
+                              );
+                            })}
+
+                            {board.scrapWaste > 0 && (
+                              <div
+                                style={{ width: `${(board.scrapWaste / woodSafeStockLength) * 100}%` }}
+                                className="h-full bg-slate-800/80 text-slate-500 flex items-center justify-center text-[8px] font-bold italic"
+                                title={`Scrap Offcut: ${board.scrapWaste.toFixed(0)}${woodUnitLabel}`}
+                              >
+                                Scrap
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="text-[10px] text-slate-400 truncate">
+                            Cuts: {board.cuts.map((c) => `${c.label} (${c.length}${woodUnitLabel})`).join(' + ')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Save Recipe CTA */}
+                  <div className="flex items-center justify-end pt-2">
+                    <button
+                      onClick={() => handleSaveFormula('WOODWORKING')}
+                      disabled={saving}
+                      className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                    >
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -2576,6 +3079,16 @@ export default function PublicToolsClient({
               </div>
               <p>
                 Addition-cure (platinum) silicones can experience cure inhibition from sulfur in clays, nitrile gloves, and residual uncured UV photopolymer resin. Always seal 3D printed masters with acrylic clear coat, factor accurate model density displacement, and include a 10% safety buffer for mixing wall retention.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Calculator className="w-4 h-4 text-amber-500" />
+                <span>Woodworking Kerf Loss &amp; Board-Foot Math</span>
+              </div>
+              <p>
+                A standard table saw blade kerf is 3.2mm (1/8&quot;). Over 10 adjacent cuts, you lose over 3cm of usable lumber to sawdust alone. Board-feet (BF) standardizes volumetric lumber pricing across random-width hardwoods: (Thickness in &times; Width in &times; Length in) / 144.
               </p>
             </div>
           </div>

@@ -202,6 +202,7 @@ export interface ProjectTask {
   material_cost?: number;
   due_date?: string | null;
   estimated_minutes?: number;
+  actual_minutes?: number;
   created_at: string;
   updated_at: string;
   assignee?: Profile | null;
@@ -288,6 +289,24 @@ export interface EquipmentLog {
   condition_after: ItemCondition;
   performed_at: string;
   inventory_item?: InventoryItem;
+}
+
+export type StockReasonType =
+  | 'MANUAL'
+  | 'RESTOCK_CART'
+  | 'TASK_BOM'
+  | 'RECIPE_BATCH'
+  | 'CSV_IMPORT';
+
+export interface InventoryTransaction {
+  id: string;
+  item_id: string;
+  user_id: string;
+  delta_qty: number;
+  quantity_after: number;
+  reason_type: StockReasonType;
+  reference_note?: string;
+  created_at: string;
 }
 
 export interface TaskMaterial {

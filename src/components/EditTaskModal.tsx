@@ -41,6 +41,9 @@ import {
   CornerDownRight,
   Calendar,
   Clock,
+  Timer,
+  Play,
+  Sparkles,
 } from 'lucide-react';
 import SkillSelector from '@/components/SkillSelector';
 import UserAvatar from '@/components/UserAvatar';
@@ -92,6 +95,10 @@ export default function EditTaskModal({
   );
   const [dueDate, setDueDate] = useState<string>(task.due_date || '');
   const [estimatedMinutes, setEstimatedMinutes] = useState<number>(task.estimated_minutes || 0);
+  const [actualMinutes, setActualMinutes] = useState<number>(task.actual_minutes || 0);
+  const [logMinutesToAdd, setLogMinutesToAdd] = useState<number>(30);
+  const [logSessionNote, setLogSessionNote] = useState<string>('');
+  const [loggingSession, setLoggingSession] = useState<boolean>(false);
   const [subtasks, setSubtasks] = useState<TaskSubtask[]>(task.subtasks || []);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [saving, setSaving] = useState(false);
@@ -348,6 +355,7 @@ export default function EditTaskModal({
           prerequisite_task_id: prerequisiteTaskId || null,
           due_date: dueDate || null,
           estimated_minutes: Math.max(0, parseInt(String(estimatedMinutes), 10) || 0),
+          actual_minutes: actualMinutes,
           subtasks,
           updated_at: new Date().toISOString(),
         })
@@ -371,6 +379,43 @@ export default function EditTaskModal({
       alert(err.message || 'Failed to update task');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleLogInlineWork() {
+    if (logMinutesToAdd < 1) return;
+    setLoggingSession(true);
+    try {
+      const { data, error } = await supabase.rpc('log_task_work_session', {
+        p_task_id: task.id,
+        p_duration_minutes: logMinutesToAdd,
+        p_note: logSessionNote.trim(),
+      });
+      if (error) throw error;
+
+      const newActual = data?.actual_minutes ?? (actualMinutes + logMinutesToAdd);
+      const newStatus = data?.new_status ?? (status === 'TODO' ? 'IN_PROGRESS' : status);
+      const xpGained = data?.xp_gained ?? logMinutesToAdd * 2;
+
+      setActualMinutes(newActual);
+      setStatus(newStatus);
+      setLogSessionNote('');
+
+      sounds.playLevelUp();
+      triggerCelebrationConfetti();
+      alert(`⏱️ Logged ${logMinutesToAdd}m work session! +${xpGained} XP awarded.`);
+
+      if (onTaskUpdated) {
+        onTaskUpdated({
+          ...task,
+          actual_minutes: newActual,
+          status: newStatus,
+        });
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to log work session');
+    } finally {
+      setLoggingSession(false);
     }
   }
 
@@ -799,6 +844,61 @@ export default function EditTaskModal({
                       )}
                     </div>
                   </div>
+                </div>
+
+                {/* Actual Work Logged & Quick Work Session Logger */}
+                <div className="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                      <Timer className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>Actual Work Logged</span>
+                    </span>
+                    <span className="text-xs font-bold text-blue-900 dark:text-blue-200 bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full">
+                      {actualMinutes}m logged ({estimatedMinutes > 0 ? `${Math.round((actualMinutes / estimatedMinutes) * 100)}% of plan` : 'No est.'})
+                    </span>
+                  </div>
+
+                  {!isReadOnly && (
+                    <div className="pt-2 border-t border-blue-200/50 dark:border-blue-900/40 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 font-semibold">
+                        <span>Log Deliberate Practice Session (+XP)</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">+{logMinutesToAdd * 2} XP</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="sm:col-span-1">
+                          <input
+                            type="number"
+                            min="1"
+                            max="600"
+                            value={logMinutesToAdd}
+                            onChange={(e) => setLogMinutesToAdd(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                            placeholder="Mins"
+                            className="w-full px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <input
+                            type="text"
+                            value={logSessionNote}
+                            onChange={(e) => setLogSessionNote(e.target.value)}
+                            placeholder="Session note (optional)..."
+                            className="w-full px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <button
+                          type="button"
+                          onClick={handleLogInlineWork}
+                          disabled={loggingSession}
+                          className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
+                        >
+                          {loggingSession ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                          <span>Log Work (+{logMinutesToAdd * 2} XP)</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Subtasks Checklist */}

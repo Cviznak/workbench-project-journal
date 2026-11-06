@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 3.2.0 Production<br />
+> **Version:** 3.3.0 Production<br />
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -16,6 +16,10 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - XP advances maker skills through deterministic mathematical leveling.
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
+- **Financial Ledger & Effort Rollup Dark-First Contrast Remediation** *(v3.3)*: Resolved the unreadable white-on-white contrast issue (`image_cca5d9.png`) in `KanbanBoardClient.tsx`. Replaced washed-out cards with dark-first adaptive containers (`bg-white dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm space-y-2.5`), high-contrast primary metrics (`text-2xl font-bold text-slate-900 dark:text-white tracking-tight`), bold uppercase headers (`text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400`), adaptive secondary text (`text-xs font-medium text-slate-600 dark:text-slate-300`), and dark-mode progress tracks (`w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden`).
+- **Live Task Stopwatch & Deliberate Practice Session Logger** *(v3.3)*: Database migration `029_v33_task_timer_and_stock_ledger.sql` adds `actual_minutes INT NOT NULL DEFAULT 0 CHECK (actual_minutes >= 0 AND actual_minutes <= 60000)` to `public.project_tasks` and creates `public.log_task_work_session(p_task_id UUID, p_duration_minutes INT, p_note TEXT)` `SECURITY DEFINER` RPC. Makers can run a live task stopwatch with a sticky header bar (displaying live MM:SS, pause/resume, and "Stop & Log Session (+XP)") or manually log work sessions. Automatically credits `duration * 2` deliberate practice XP to linked skills or touches streaks, updates `status = 'TODO'` to `'IN_PROGRESS'`, logs project activity, and rolls up actual vs estimated effort. `EditTaskModal.tsx` integrates native actual logged time badges and inline session logging.
+- **Inventory Stock Movement History Ledger (`public.inventory_transactions`)** *(v3.3)*: Introduces immutable stock movement history tracking in `public.inventory_transactions` with owner-isolated RLS (`auth.uid() = user_id`) and automated trigger `trg_log_inventory_quantity_change` on `public.inventory_items`. Automatically records stock additions, restock cart receptions (`RESTOCK_CART`), task BOM deductions (`TASK_BOM`), recipe batch runs (`RECIPE_BATCH`), CSV bulk imports (`CSV_IMPORT`), and manual adjustments (`MANUAL`). Item cards in `InventoryClient.tsx` feature a dedicated History button opening a high-density audit trail with timestamps, signed delta badges, balance after, and reference notes.
+- **Woodworking Linear & Sheet Cut-List Kerf Optimizer & Board-Foot Calculator** *(v3.3)*: Expanded the public `/tools` suite and in-app workshop calculators with a 9th high-traffic interactive tool (`/tools?tool=woodworking`). Dual-unit metric (mm) and imperial (inches) engine with First-Fit Decreasing (FFD) 1D greedy bin-packing optimization. Factors stock lumber dimensions (L x W x T), saw blade kerf loss (default 3.2mm / 0.125"), board price, and dynamic cut lists to compute total stock boards required, volumetric Board-Feet (`(T_in * W_in * L_in) / 144`), total lumber cost, cost per finished piece, material waste %, and interactive visual board cutting diagrams with 1-click "Save as Maker Formula" export. Supported across English, Russian, and Hebrew.
 - **Calculator Header Layout Refactor & Overflow Remediation** *(v3.2)*: Resolved the cramped flex layout in `InventoryClient.tsx` by transitioning to a stacked responsive column architecture with wrapped calculator selection pills (`flex flex-wrap items-center gap-2`), eliminating clipped text and horizontal scrollbars across all screen widths.
 - **Community Hub Marketplace Tabs: Public Formulas & Project Showcases** *(v3.2)*: Expanded `/community` with top-level discovery tabs (`communityView: 'FEED' | 'FORMULAS' | 'SHOWCASES'`) in `CommunityFeedClient.tsx` powered by `get_public_marketplace_feed(p_limit INT)` `SECURITY DEFINER STABLE` RPC. Public Formulas Lab provides search, craft category filtering, rating stars, author avatars, and 1-click "Clone to Workshop" (+50 XP to author). Project Showcases tab enables discovery of public blueprints with live milestone completion bars, linked skills, and budget indicators.
 - **Project Financial & BOM Cost Rollup Ledger** *(v3.2)*: Database migration `028_v32_project_budgets_and_marketplace.sql` adds `budget_limit NUMERIC(10, 2) NOT NULL DEFAULT 0` and `currency TEXT NOT NULL DEFAULT 'USD'` to `public.projects`. `KanbanBoardClient.tsx` features a real-time Financial Ledger & Effort Rollup strip calculating all-in BOM consumable costs across tasks (via `convertCurrency` and `formatCurrency`), dynamic budget utilization bar (turning amber at 80% and red if over budget), and estimated labor hours (completed vs. remaining). Fully configurable in Create Project and Edit Project modals.
@@ -266,6 +270,7 @@ Tasks with XP rewards, subtasks checklist, and prerequisite task dependencies.
 - `prerequisite_task_id` (`UUID`, references `public.project_tasks(id)` ON DELETE SET NULL, nullable) *(v1.3)*
 - `due_date` (`DATE`, nullable) *(v3.1)*
 - `estimated_minutes` (`INT`, DEFAULT `0` CHECK `estimated_minutes >= 0`) *(v3.1)*
+- `actual_minutes` (`INT`, NOT NULL, DEFAULT `0` CHECK `actual_minutes >= 0 AND actual_minutes <= 60000`) *(v3.3)*
 - `title` (`TEXT`)
 - `description` (`TEXT`)
 - `status` (`TEXT`, DEFAULT `'TODO'` CHECK `status IN ('TODO', 'IN_PROGRESS', 'REVIEW', 'DONE')`)
@@ -495,12 +500,26 @@ Maintenance, calibration, inspection, and repair logbook for workshop equipment.
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 - RLS: Strictly private to equipment owner (`(SELECT auth.uid()) = user_id`).
 
+#### 28. `public.inventory_transactions` *(v3.3)*
+Immutable inventory stock movement audit ledger.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `item_id` (`UUID`, NOT NULL, references `inventory_items.id` ON DELETE CASCADE)
+- `user_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
+- `delta_qty` (`NUMERIC(10, 2)`, NOT NULL)
+- `quantity_after` (`NUMERIC(10, 2)`, NOT NULL)
+- `reason_type` (`TEXT`, NOT NULL CHECK `reason_type IN ('MANUAL', 'RESTOCK_CART', 'TASK_BOM', 'RECIPE_BATCH', 'CSV_IMPORT')`)
+- `reference_note` (`TEXT`, DEFAULT `''`)
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- RLS: Strictly private to item owner (`(SELECT auth.uid()) = user_id`).
+- Automated Trigger: `trg_log_inventory_quantity_change` logs every stock addition/deduction on `public.inventory_items`.
+
 ---
 
 ## 4. PostgreSQL `SECURITY DEFINER` RPCs
 
 | RPC Function | Parameters | Permissions & Security Behavior |
 |---|---|---|
+| `log_task_work_session` *(v3.3)* | `p_task_id UUID, p_duration_minutes INT, p_note TEXT DEFAULT ''` | Validates `auth.uid()` project membership and duration (`1..600`). Adds `p_duration_minutes` to `public.project_tasks.actual_minutes`. Automatically advances `status = 'TODO'` to `'IN_PROGRESS'`. Credits `duration * 2` deliberate practice XP to linked skill (`user_skills` & `practice_logs`) or touches active streak. Logs `'TASK_WORK_LOGGED'` activity and returns `{ actual_minutes, xp_gained, new_status }`. |
 | `complete_project_task` *(v1.5)* | `p_task_id UUID` | Enforces prerequisite task dependency check (`v_task.prerequisite_task_id` must be `'DONE'`). Moves status to `'DONE'`, auto-deducts attached task materials from `inventory_items` (flagging low stock to restock cart), marks `xp_awarded = true`, touches assignee streak (`touch_user_streak`), grants `xp_reward` to assignee, and logs XP event. Guarded by `guard_task_xp_tamper` trigger against client bypass. |
 | `complete_project` | `p_project_id UUID` | Callable only by `projects.pm_user_id`. Sets `status = 'COMPLETED'` and `xp_awarded = true`. Awards `completion_xp_reward` to all members with `invitation_status = 'ACCEPTED'` across all linked project skills, touching their streaks. |
 | `execute_maker_recipe` *(v1.6)* | `p_recipe_id UUID, p_batch_multiplier NUMERIC` | Validates `auth.uid()`. Deducts `quantity_required * multiplier` from all recipe ingredients in `inventory_items`, auto-triggers restock cart for low stock. Computes unit COGS (`[ingredients batch cost / output_yield_qty] + packaging_overhead`). If recipe has `output_item_id`, increments stock by `output_yield_qty * multiplier` and sets unit cost. Grants `+15 XP` (advancing `general-crafting`), touches daily streak, and records `'RECIPE_EXECUTED'` in audit activity ledger. |
@@ -655,7 +674,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 025_admin_catalog_and_governance.sql    # v2.8.0: Global skill catalog manager, merge skills, feedback replies & moderation
 │       ├── 026_v3_achievements_telemetry_and_public_recipes.sql # v3.0.0: RPG achievements, executive telemetry, public recipe cloning & print sheets
 │       ├── 027_v31_roadmap_equipment_logs_and_csv.sql # v3.1.0: Task roadmap & due dates, equipment logbook & universal inventory CSV import/export
-│       └── 028_v32_project_budgets_and_marketplace.sql # v3.2.0: Project budgets & community formula marketplace discovery RPC
+│       ├── 028_v32_project_budgets_and_marketplace.sql # v3.2.0: Project budgets & community formula marketplace discovery RPC
+│       └── 029_v33_task_timer_and_stock_ledger.sql # v3.3.0: Task work timer, stock ledger transactions & woodworking cut-list
 ├── package.json
 └── tailwind.config.ts
 ```
