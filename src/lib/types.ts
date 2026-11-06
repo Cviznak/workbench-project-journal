@@ -516,4 +516,20 @@ export interface UserFeedback {
   user?: Profile | null;
 }
 
+export interface MakerLeaderboardEntry {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  role: string;
+  current_streak: number;
+  longest_streak: number;
+  total_xp: number;
+  skills_count: number;
+  public_projects_count: number;
+  created_at: string;
+}
+
+
 

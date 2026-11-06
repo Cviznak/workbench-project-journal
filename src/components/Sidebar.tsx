@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Settings,
   Sparkles,
+  Trophy,
   ExternalLink,
   Coffee,
   MessageSquarePlus,
@@ -33,6 +34,7 @@ export default function Sidebar({ profile }: SidebarProps) {
   const navItems = [
     { label: 'Dashboard', href: '/', icon: LayoutDashboard },
     { label: 'Community', href: '/community', icon: Sparkles },
+    { label: 'Makers', href: '/makers', icon: Trophy },
     { label: 'Skills & XP', href: '/skills', icon: Target },
     { label: 'Ideas & Notes', href: '/workspace', icon: Lightbulb },
     { label: 'Projects & Tasks', href: '/projects', icon: FolderKanban },

@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.4.0 Production  
+> **Version:** 2.5.0 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -16,6 +16,10 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - XP advances maker skills through deterministic mathematical leveling.
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
+- **Maker Discovery Directory & Consistency Leaderboard (`/makers`)** *(v2.5)*: Dedicated public directory and leaderboard route (`/makers`) powered by the `get_makers_leaderboard(p_limit INT)` `SECURITY DEFINER` RPC. Ranks makers across 3 views: "Top XP & Mastery", "Longest Active Streak", and "Newest Makers". Features gold, silver, and bronze podium badges (#1 🥇, #2 🥈, #3 🥉), real-time search filtering, UserAvatar integration, active streak flames, skill count, public projects count, and direct navigation to public workshop profiles (`/makers/[username]`). Available to authenticated users via Sidebar and Navbar, and to unauthenticated guests with a conversion header and welcome banner.
+- **Shareable Community Post Permalinks (`/community/[id]`) & Dynamic OpenGraph Metadata** *(v2.5)*: Dedicated single-post permalink routes (`/community/[id]`) with dynamic `generateMetadata` generating rich OpenGraph and Twitter `summary_large_image` social preview cards with author name, post excerpt, and uploaded artwork. Renders `CommunityFeedClient` in `singlePostMode` which auto-expands the discussion thread while hiding feed composer and filters.
+- **1-Click Share Post Link Button** *(v2.5)*: Direct clipboard link copying (`https://www.workbenchsoc.com/community/${post.id}`) on community post cards with animated feedback toasts on desktop and mobile.
+- **Portable Maker Archive Upgrade to v2.5.0** *(v2.5)*: Upgraded `public.export_user_maker_archive()` to version `'2.5.0'`, packaging the user's `recipe_runs`, authored `community_posts`, and submitted `user_feedback` alongside all projects, tasks, skills, inventory, and notes for 100% complete data portability.
 - **In-App User Feedback & Bug Reporting System** *(v2.4)*: Dedicated `public.user_feedback` table guarded by strict Row Level Security (RLS) restricting query/update/delete operations exclusively to `ADMIN` and `ROOT_ADMIN` roles. Automated database trigger (`trg_notify_admins_on_new_feedback`) dispatches in-app notifications into `public.notifications` for all active administrators upon submission. Frontend modal (`FeedbackModal.tsx`) available in Sidebar and Navbar captures route pathnames and categorizes submissions (`BUG`, `FEATURE_IDEA`, `FEEDBACK`).
 - **Admin Hub User Feedback Management Tab** *(v2.4)*: Dedicated tab inside `AdminHubClient.tsx` featuring real-time unread badges, multi-criteria filtering (status: OPEN, REVIEWED, RESOLVED; category: BUG, FEATURE_IDEA, FEEDBACK), live text search, captured URL navigation links, and administrative workflow actions (Mark Reviewed, Mark Resolved, Reopen, Delete).
 - **Calculator Funnel Persistence & Guest Recovery** *(v2.4)*: When unauthenticated visitors click "Save as Formula" on public calculators (`/tools`), calculator parameters and calculated outputs are preserved in `localStorage` (`'workbench_pending_formula'`) across the onboarding funnel. Upon signing in or completing signup, persistent recovery banners on both the Home Dashboard (`OnboardingQuestCard.tsx`) and Maker Inventory (`InventoryClient.tsx`) provide 1-click batch import directly into `public.maker_recipes`.
@@ -411,6 +415,8 @@ Atomic like ledger for community post comments.
 | `toggle_post_like` *(v1.9)* | `p_post_id UUID` | Validates `auth.uid()`. Atomically toggles like row in `public.post_likes` and updates `community_posts.likes_count`. |
 | `toggle_comment_like` *(v2.2)* | `p_comment_id UUID` | Validates `auth.uid()`. Atomically toggles like row in `public.comment_likes`, updates `post_comments.likes_count`, and triggers in-app notification to comment author if not self-liked. |
 | `search_makers_for_invite` *(v1.8)* | `p_query TEXT, p_project_id UUID DEFAULT NULL` | Validates `auth.uid()`. Searches non-suspended profiles by username/display_name up to 8 rows, flagging if already a member. Never exposes email or private settings. |
+| `get_makers_leaderboard` *(v2.5)* | `p_limit INT DEFAULT 50` | Callable by anon and authenticated. Queries non-suspended profiles joined with aggregated total XP from `public.user_skills` and count of public showcase projects (`is_public = true`). Returns ranked leaderboard ordered by `total_xp DESC, current_streak DESC`, capped at 100 rows. |
+| `export_user_maker_archive` *(v2.5)* | None | Validates `auth.uid()`. Returns complete user archive JSON document (version `'2.5.0'`), packaging user profile, skills, projects, tasks, attachments, notes, inventory items/folders, recipes/ingredients, batch runs (`recipe_runs`), authored posts (`community_posts`), and submitted feedback (`user_feedback`). |
 
 ---
 
@@ -434,8 +440,11 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   │   ├── loading.tsx        # Instant navigation skeleton placeholder (v1.7.1)
 │   │   │   ├── layout.tsx         # Dashboard layout, SSR session & XP calculation
 │   │   │   ├── page.tsx           # Home Dashboard: XP progress, Heatmap, active tasks, activity
-│   │   │   ├── community/page.tsx # Maker Community Social Feed (v1.9, unauthenticated guest view v2.3)
+│   │   │   ├── community/
+│   │   │   │   ├── page.tsx       # Maker Community Social Feed (v1.9, unauthenticated guest view v2.3)
+│   │   │   │   └── [id]/page.tsx  # Shareable Community Post Permalink & OpenGraph card (v2.5)
 │   │   │   ├── makers/
+│   │   │   │   ├── page.tsx       # Public Maker Directory & Consistency Leaderboard (v2.5)
 │   │   │   │   └── [username]/page.tsx # Public Maker Profile & Project Showcase (v1.9)
 │   │   │   ├── skills/page.tsx    # Skills Hub: Catalog, requests, practice ledger
 │   │   │   ├── workspace/page.tsx # Ideas & Notes: Split-pane markdown workspace
@@ -469,6 +478,7 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   ├── InventoryClient.tsx    # Maker Inventory Hub: Folders, steppers, low stock, formula recovery (v2.4)
 │   │   ├── KanbanBoardClient.tsx  # Drag-and-drop board with Realtime sync, subtasks & task lock badges
 │   │   ├── MakerProfileClient.tsx # Public maker profiles, bio editor & public showcase projects (v1.9)
+│   │   ├── MakersDirectoryClient.tsx # Maker leaderboard & discovery directory with search and tabs (v2.5)
 │   │   ├── Navbar.tsx             # Sticky header, search, audio bar, streak & level pills, bell, feedback trigger (v2.4)
 │   │   ├── NotificationBell.tsx   # Project invitation handshake & skill requests inbox
 │   │   ├── OnboardingQuestCard.tsx # Starter workshop onboarding quest & pending formula recovery (v2.4)
@@ -517,7 +527,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 018_public_launch_and_coffee.sql      # v2.1.0: Creator tip jar, anon showcase RLS & project invite email RPC
 │       ├── 019_email_auth_comments_and_security.sql # v2.2.0: Threaded comments, comment likes, strict project isolation & security guards
 │       ├── 020_security_advisors_and_xp_bounds.sql  # v2.2.1: Revoke anon RPCs, lock search_path, cap XP rewards & anti-spam cooldown
-│       └── 021_feedback_and_onboarding.sql         # v2.4.0: User feedback table, admin notification trigger & strict admin RLS
+│       ├── 021_feedback_and_onboarding.sql         # v2.4.0: User feedback table, admin notification trigger & strict admin RLS
+│       └── 022_maker_directory_and_archive_v25.sql # v2.5.0: get_makers_leaderboard RPC & export_user_maker_archive v2.5.0 upgrade
 ├── package.json
 └── tailwind.config.ts
 ```

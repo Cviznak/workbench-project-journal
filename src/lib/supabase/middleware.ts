@@ -60,6 +60,7 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/tools/') ||
     path === '/community' ||
     path.startsWith('/community/') ||
+    path === '/makers' ||
     path.startsWith('/makers/') ||
     path.startsWith('/projects/') ||
     path.startsWith('/api/') ||

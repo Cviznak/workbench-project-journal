@@ -73,6 +73,9 @@ export default function PublicLandingPage({
             <Link href="/community" className="hover:text-white transition-colors">
               Community
             </Link>
+            <Link href="/makers" className="hover:text-white transition-colors">
+              Makers
+            </Link>
             <a href="#showcase" className="hover:text-white transition-colors">
               Showcase
             </a>
@@ -540,6 +543,9 @@ export default function PublicLandingPage({
             </Link>
             <Link href="/community" className="hover:text-slate-300 transition">
               Community
+            </Link>
+            <Link href="/makers" className="hover:text-slate-300 transition">
+              Makers
             </Link>
             <a
               href={buyMeACoffeeUrl}

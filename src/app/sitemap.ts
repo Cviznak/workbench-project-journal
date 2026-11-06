@@ -27,6 +27,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${baseUrl}/makers`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
+    },
+    {
       url: `${baseUrl}/login`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
@@ -78,7 +84,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
 
-    return [...staticRoutes, ...profileRoutes, ...projectRoutes];
+    // Fetch recent community posts
+    const { data: recentPosts } = await supabase
+      .from('community_posts')
+      .select('id, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    const postRoutes: MetadataRoute.Sitemap = (recentPosts || []).map((post) => ({
+      url: `${baseUrl}/community/${post.id}`,
+      lastModified: post.created_at ? new Date(post.created_at) : new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    }));
+
+    return [...staticRoutes, ...profileRoutes, ...projectRoutes, ...postRoutes];
   } catch (err) {
     console.error('Failed to generate dynamic sitemap:', err);
     return staticRoutes;

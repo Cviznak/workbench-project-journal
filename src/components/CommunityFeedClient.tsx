@@ -26,6 +26,9 @@ import {
   ChevronDown,
   ChevronUp,
   CornerDownRight,
+  Check,
+  Trophy,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface CommunityFeedClientProps {
@@ -34,6 +37,7 @@ interface CommunityFeedClientProps {
   userProjects: Array<{ id: string; name: string; is_public: boolean; status: string }>;
   currentUserId: string;
   currentProfile: Profile | null;
+  singlePostMode?: boolean;
 }
 
 export default function CommunityFeedClient({
@@ -42,6 +46,7 @@ export default function CommunityFeedClient({
   userProjects,
   currentUserId,
   currentProfile,
+  singlePostMode = false,
 }: CommunityFeedClientProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -67,18 +72,41 @@ export default function CommunityFeedClient({
   const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
 
   // Expanded Comments (keyed by post_id)
-  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
+  const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>(
+    singlePostMode && initialPosts[0]?.id ? { [initialPosts[0].id]: true } : {}
+  );
   const [postCommentsMap, setPostCommentsMap] = useState<Record<string, any[]>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState<Record<string, boolean>>({});
   const [replyingTo, setReplyingTo] = useState<Record<string, { commentId: string; authorName: string } | null>>({});
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const isAdmin = currentProfile?.role === 'ROOT_ADMIN' || currentProfile?.role === 'ADMIN';
 
   // Keep posts in sync with initialPosts
   useEffect(() => {
     setPosts(initialPosts);
-  }, [initialPosts]);
+    if (singlePostMode && initialPosts[0]?.id) {
+      handleToggleComments(initialPosts[0].id);
+    }
+  }, [initialPosts, singlePostMode]);
+
+  function handleSharePost(postId: string) {
+    const url = typeof window !== 'undefined'
+      ? `${window.location.origin}/community/${postId}`
+      : `https://www.workbenchsoc.com/community/${postId}`;
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setToastMessage('Post permalink copied to clipboard!');
+        setTimeout(() => setToastMessage(null), 2500);
+      }).catch(() => {
+        prompt('Copy post permalink:', url);
+      });
+    } else {
+      prompt('Copy post permalink:', url);
+    }
+  }
 
   // Realtime subscription for community posts
   useEffect(() => {
@@ -529,36 +557,58 @@ export default function CommunityFeedClient({
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-md shadow-rose-500/20">
-              <Sparkles className="w-5 h-5" />
+          {singlePostMode ? (
+            <Link
+              href="/community"
+              className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Community Feed</span>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-md shadow-rose-500/20">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  Maker Community
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Share updates, show off creations, exchange craft tips, and explore live blueprints.
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Maker Community
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Share updates, show off creations, exchange craft tips, and explore live blueprints.
-              </p>
-            </div>
-          </div>
+          )}
         </div>
 
-        {currentProfile?.username && (
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Link
-            href={`/makers/${currentProfile.username}`}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition shrink-0"
+            href="/makers"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm transition"
           >
-            <span>My Public Profile</span>
-            <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+            <Trophy className="w-3.5 h-3.5 text-amber-500" />
+            <span>Discover Makers</span>
           </Link>
-        )}
+
+          {currentProfile?.username && (
+            <Link
+              href={`/makers/${currentProfile.username}`}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition"
+            >
+              <span>My Public Profile</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* ==================================================================== */}
-      {/* POST COMPOSER / GUEST BANNER                                         */}
+      {/* POST COMPOSER / GUEST BANNER & FEED FILTER (FEED MODE ONLY)          */}
       {/* ==================================================================== */}
-      {!currentUserId ? (
+      {!singlePostMode && (
+        <>
+          {!currentUserId ? (
         <div className="p-6 rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-amber-500/10 border border-blue-500/20 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center sm:text-left">
             <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center justify-center sm:justify-start gap-2">
@@ -807,6 +857,8 @@ export default function CommunityFeedClient({
           )}
         </div>
       </div>
+        </>
+      )}
 
       {/* ==================================================================== */}
       {/* FEED STREAM                                                          */}
@@ -987,17 +1039,14 @@ export default function CommunityFeedClient({
                     </button>
                   </div>
 
-                  {/* Share Link Copy */}
+                  {/* Share Post Permalink Button */}
                   <button
-                    onClick={() => {
-                      const shareUrl = `${window.location.origin}/makers/${post.author?.username || 'maker'}`;
-                      navigator.clipboard.writeText(shareUrl);
-                      alert('Maker profile link copied to clipboard!');
-                    }}
-                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                    title="Share maker profile"
+                    onClick={() => handleSharePost(post.id)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    title="Share post permalink"
                   >
                     <Share2 className="w-4 h-4" />
+                    <span className="font-semibold text-xs hidden sm:inline">Share</span>
                   </button>
                 </div>
 
@@ -1293,6 +1342,14 @@ export default function CommunityFeedClient({
               <X className="w-5 h-5" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 text-white dark:bg-white dark:text-slate-950 text-xs font-bold shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Check className="w-4 h-4 text-emerald-500" />
+          <span>{toastMessage}</span>
         </div>
       )}
     </div>

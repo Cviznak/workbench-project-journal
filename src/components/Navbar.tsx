@@ -264,6 +264,13 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
               >
                 Community
               </Link>
+              <Link
+                href="/makers"
+                className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                Makers Leaderboard
+              </Link>
               {profile?.username && (
                 <Link
                   href={`/makers/${profile.username}`}
