@@ -62,11 +62,13 @@ export function formatDate(dateString?: string | null): string {
   }
 }
 
-export function formatCurrency(amount: number, currency: string = 'ILS'): string {
-  const num = Number(amount) || 0;
-  const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '₪';
-  return `${symbol}${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+export {
+  formatCurrency,
+  convertCurrency,
+  getPreferredCurrency,
+  SUPPORTED_CURRENCIES,
+  CURRENCY_SYMBOLS,
+} from './currency';
 
 export function relativeTime(dateString?: string | null): string {
 

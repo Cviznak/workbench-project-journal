@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
+import { getPreferredCurrency } from '@/lib/currency';
+import { Currency } from '@/lib/types';
 import {
   Calculator,
   FlaskConical,
@@ -36,6 +38,7 @@ export default function PublicToolsClient({
   const supabase = createClient();
 
   const [activeTool, setActiveTool] = useState<'RESIN' | 'PERFUME' | '3D_PRINT'>('RESIN');
+  const [currency, setCurrency] = useState<Currency>(() => getPreferredCurrency());
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -162,7 +165,7 @@ export default function PublicToolsClient({
     } else {
       title = `3D Print: ${printMaterial} (${partWeightG}g, ${printHours}h${printMinutes}m)`;
       category = '3D Printing';
-      instructions = `3D Printing Cost Sheet (${printMaterial}):\n- Sliced Weight: ${partWeightG}g (Spool: ${formatCurrency(spoolCost, 'ILS')}/kg)\n- Print Duration: ${printHours}h ${printMinutes}m\n- Machine Power: ${printerWatts}W (${kwhConsumed.toFixed(2)} kWh)\n- Filament Cost: ${formatCurrency(filamentCost, 'ILS')}\n- Electricity Cost: ${formatCurrency(powerCost, 'ILS')}\n- Base Unit Cost: ${formatCurrency(totalMfgCost, 'ILS')}\n- Target Retail Price (${targetMarginPct}% margin): ${formatCurrency(suggestedPrice, 'ILS')}`;
+      instructions = `3D Printing Cost Sheet (${printMaterial}):\n- Sliced Weight: ${partWeightG}g (Spool: ${formatCurrency(spoolCost, currency)}/kg)\n- Print Duration: ${printHours}h ${printMinutes}m\n- Machine Power: ${printerWatts}W (${kwhConsumed.toFixed(2)} kWh)\n- Filament Cost: ${formatCurrency(filamentCost, currency)}\n- Electricity Cost: ${formatCurrency(powerCost, currency)}\n- Base Unit Cost: ${formatCurrency(totalMfgCost, currency)}\n- Target Retail Price (${targetMarginPct}% margin): ${formatCurrency(suggestedPrice, currency)}`;
     }
 
     if (!currentUser) {
@@ -736,24 +739,42 @@ export default function PublicToolsClient({
 
               {/* Cost & Price Output */}
               <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Unit Economics Breakdown</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Unit Economics Breakdown</span>
+                  <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold">
+                    {(['USD', 'EUR', 'ILS', 'GBP'] as Currency[]).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setCurrency(c)}
+                        className={`px-2 py-0.5 rounded-lg transition ${
+                          currency === c
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                   <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
                     <span className="block text-[10px] text-slate-400">Filament Cost</span>
-                    <span className="block text-lg font-bold text-white mt-1">{formatCurrency(filamentCost, 'ILS')}</span>
+                    <span className="block text-lg font-bold text-white mt-1">{formatCurrency(filamentCost, currency)}</span>
                   </div>
                   <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
                     <span className="block text-[10px] text-slate-400">Power ({kwhConsumed.toFixed(2)} kWh)</span>
-                    <span className="block text-lg font-bold text-white mt-1">{formatCurrency(powerCost, 'ILS')}</span>
+                    <span className="block text-lg font-bold text-white mt-1">{formatCurrency(powerCost, currency)}</span>
                   </div>
                   <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
                     <span className="block text-[10px] text-slate-400">Total Unit COGS</span>
-                    <span className="block text-lg font-black text-rose-400 mt-1">{formatCurrency(totalMfgCost, 'ILS')}</span>
+                    <span className="block text-lg font-black text-rose-400 mt-1">{formatCurrency(totalMfgCost, currency)}</span>
                   </div>
                   <div className="p-3.5 rounded-xl bg-blue-950/40 border border-blue-800/80">
                     <span className="block text-[10px] text-blue-300">Suggested Retail</span>
-                    <span className="block text-lg font-black text-blue-400 mt-1">{formatCurrency(suggestedPrice, 'ILS')}</span>
+                    <span className="block text-lg font-black text-blue-400 mt-1">{formatCurrency(suggestedPrice, currency)}</span>
                   </div>
                 </div>
               </div>

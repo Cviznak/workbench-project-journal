@@ -4,9 +4,31 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Profile } from '@/lib/types';
-import { getLevelProgress } from '@/lib/utils';
-import { Flame, Plus, LogOut, Settings, Shield, Menu, X, Search, Zap, User, Sparkles, MessageSquarePlus } from 'lucide-react';
+import { Profile, Currency } from '@/lib/types';
+import { getLevelProgress, cn } from '@/lib/utils';
+import {
+  Flame,
+  Plus,
+  LogOut,
+  Settings,
+  Shield,
+  Menu,
+  X,
+  Search,
+  Zap,
+  User,
+  Sparkles,
+  MessageSquarePlus,
+  Check,
+  Globe,
+} from 'lucide-react';
+import { useTranslation, SUPPORTED_LANGUAGES, SupportedLanguage } from '@/lib/i18n';
+import {
+  SUPPORTED_CURRENCIES,
+  CURRENCY_SYMBOLS,
+  CURRENCY_LABELS,
+  getPreferredCurrency,
+} from '@/lib/currency';
 import PracticeModal from './PracticeModal';
 import FocusAudioBar from './FocusAudioBar';
 import ThemeToggle from './ThemeToggle';
@@ -23,12 +45,47 @@ interface NavbarProps {
 export default function Navbar({ profile, totalXp }: NavbarProps) {
   const router = useRouter();
   const supabase = createClient();
+  const { t, language, setLanguage, currentOption } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [practiceModalOpen, setPracticeModalOpen] = useState(false);
   const [practiceDuration, setPracticeDuration] = useState<number>(25);
   const [spotlightOpen, setSpotlightOpen] = useState(false);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
+  const [preferredCurrency, setPreferredCurrency] = useState<Currency>(() => {
+    return getPreferredCurrency(profile?.settings_json);
+  });
+
+  async function handleCurrencySelect(curr: Currency) {
+    setPreferredCurrency(curr);
+    setCurrencyMenuOpen(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('workbench_currency', curr);
+    }
+    if (profile?.id) {
+      try {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('settings_json')
+          .eq('id', profile.id)
+          .single();
+
+        const updatedSettings = {
+          ...(prof?.settings_json || {}),
+          preferred_currency: curr,
+        };
+
+        await supabase
+          .from('profiles')
+          .update({ settings_json: updatedSettings })
+          .eq('id', profile.id);
+      } catch (err) {
+        console.error('Failed to sync preferred currency:', err);
+      }
+    }
+  }
 
   const levelInfo = getLevelProgress(totalXp);
   const isAdmin = profile?.role === 'ROOT_ADMIN' || profile?.role === 'ADMIN';
@@ -76,7 +133,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
             className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/60 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs transition"
           >
             <Search className="w-3.5 h-3.5" />
-            <span className="text-slate-500 dark:text-slate-400">Search or jump to...</span>
+            <span className="text-slate-500 dark:text-slate-400">{t('nav.search')}</span>
             <span className="ml-2 px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono text-[10px] text-slate-400">
               Ctrl K
             </span>
@@ -97,6 +154,81 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
 
           {/* Theme Switcher */}
           <ThemeToggle />
+
+          {/* Language Selector Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setLangMenuOpen(!langMenuOpen);
+                setCurrencyMenuOpen(false);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition"
+              title="Change Language"
+            >
+              <span>{currentOption.flag}</span>
+              <span className="uppercase">{currentOption.code}</span>
+            </button>
+
+            {langMenuOpen && (
+              <div
+                className="absolute right-0 mt-2 w-36 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-50 text-xs font-semibold"
+                onClick={() => setLangMenuOpen(false)}
+              >
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <button
+                    key={l.code}
+                    onClick={() => setLanguage(l.code)}
+                    className={cn(
+                      'w-full flex items-center justify-between px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left',
+                      language === l.code ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-700 dark:text-slate-300'
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span>{l.flag}</span>
+                      <span>{l.nativeName}</span>
+                    </span>
+                    {language === l.code && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Currency Selector Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setCurrencyMenuOpen(!currencyMenuOpen);
+                setLangMenuOpen(false);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition"
+              title="Change Display Currency"
+            >
+              <span className="font-extrabold text-blue-600 dark:text-blue-400">{CURRENCY_SYMBOLS[preferredCurrency] || '$'}</span>
+              <span>{preferredCurrency}</span>
+            </button>
+
+            {currencyMenuOpen && (
+              <div
+                className="absolute right-0 mt-2 w-36 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-50 text-xs font-semibold"
+                onClick={() => setCurrencyMenuOpen(false)}
+              >
+                {SUPPORTED_CURRENCIES.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => handleCurrencySelect(c)}
+                    className={cn(
+                      'w-full flex items-center justify-between px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left',
+                      preferredCurrency === c ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-700 dark:text-slate-300'
+                    )}
+                  >
+                    <span>{CURRENCY_LABELS[c] || c}</span>
+                    {preferredCurrency === c && <Check className="w-3.5 h-3.5 text-blue-500" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Daily Streak Pill */}
           <div
@@ -175,7 +307,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                       className="flex items-center gap-2.5 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold"
                     >
                       <User className="w-4 h-4 text-slate-400" />
-                      <span>My Public Profile</span>
+                      <span>{t('nav.my_profile')}</span>
                     </Link>
                   )}
 
@@ -184,7 +316,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                     className="flex items-center gap-2.5 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold"
                   >
                     <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>Community Feed</span>
+                    <span>{t('nav.community')}</span>
                   </Link>
 
                   <Link
@@ -192,7 +324,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                     className="flex items-center gap-2.5 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold"
                   >
                     <Settings className="w-4 h-4 text-slate-400" />
-                    <span>Settings</span>
+                    <span>{t('nav.settings')}</span>
                   </Link>
 
                   {isAdmin && (
@@ -201,7 +333,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                       className="flex items-center gap-2.5 px-4 py-2 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-xs font-semibold"
                     >
                       <Shield className="w-4 h-4" />
-                      <span>Admin Hub</span>
+                      <span>{t('nav.admin')}</span>
                     </Link>
                   )}
 
@@ -214,7 +346,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-semibold text-left transition"
                   >
                     <MessageSquarePlus className="w-4 h-4 text-blue-500" />
-                    <span>Feedback / Bug Report</span>
+                    <span>{t('nav.feedback')}</span>
                   </button>
                 </div>
 
@@ -224,7 +356,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-semibold text-left"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>Sign Out</span>
+                    <span>{t('nav.sign_out')}</span>
                   </button>
                 </div>
               </div>
@@ -249,27 +381,70 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
-            <nav className="space-y-2 text-sm font-semibold">
+            <div className="p-3 mb-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span>Language:</span>
+                <div className="flex items-center gap-1">
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <button
+                      key={l.code}
+                      onClick={() => setLanguage(l.code)}
+                      className={cn(
+                        'px-2 py-1 rounded-lg text-xs font-bold transition',
+                        language === l.code
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                      )}
+                    >
+                      <span>{l.flag}</span>
+                      <span className="ml-1 uppercase">{l.code}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span>Currency:</span>
+                <div className="flex items-center gap-1">
+                  {SUPPORTED_CURRENCIES.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => handleCurrencySelect(c)}
+                      className={cn(
+                        'px-2 py-1 rounded-lg text-xs font-bold transition',
+                        preferredCurrency === c
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                      )}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <nav className="space-y-1 text-sm font-semibold">
               <Link
                 href="/"
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileNavOpen(false)}
               >
-                Dashboard
+                {t('nav.dashboard')}
               </Link>
               <Link
                 href="/community"
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileNavOpen(false)}
               >
-                Community
+                {t('nav.community')}
               </Link>
               <Link
                 href="/makers"
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileNavOpen(false)}
               >
-                Makers Leaderboard
+                {t('nav.makers')}
               </Link>
               {profile?.username && (
                 <Link
@@ -277,7 +452,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                   className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                   onClick={() => setMobileNavOpen(false)}
                 >
-                  My Public Profile
+                  {t('nav.my_profile')}
                 </Link>
               )}
               <Link
@@ -285,28 +460,28 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileNavOpen(false)}
               >
-                Skills &amp; XP
+                {t('nav.skills')}
               </Link>
               <Link
                 href="/workspace"
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileNavOpen(false)}
               >
-                Ideas &amp; Notes
+                {t('nav.workspace')}
               </Link>
               <Link
                 href="/projects"
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileNavOpen(false)}
               >
-                Projects &amp; Tasks
+                {t('nav.projects')}
               </Link>
               <Link
                 href="/inventory"
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileNavOpen(false)}
               >
-                Inventory
+                {t('nav.inventory')}
               </Link>
               {isAdmin && (
                 <Link
@@ -314,7 +489,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                   className="block p-2 rounded-xl text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                   onClick={() => setMobileNavOpen(false)}
                 >
-                  Admin Hub
+                  {t('nav.admin')}
                 </Link>
               )}
               <Link
@@ -322,7 +497,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                 className="block p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 onClick={() => setMobileNavOpen(false)}
               >
-                Settings
+                {t('nav.settings')}
               </Link>
               <button
                 type="button"
@@ -333,7 +508,7 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
                 }}
               >
                 <MessageSquarePlus className="w-4 h-4 text-blue-500" />
-                <span>Feedback / Bug Report</span>
+                <span>{t('nav.feedback')}</span>
               </button>
             </nav>
           </div>

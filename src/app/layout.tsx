@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import { LanguageProvider } from "@/lib/i18n";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -101,15 +102,24 @@ export default function RootLayout({
                 } else {
                   document.documentElement.classList.add('dark');
                 }
+                var lang = localStorage.getItem('workbench_lang');
+                if (lang) {
+                  document.documentElement.lang = lang;
+                  if (lang === 'he') {
+                    document.documentElement.dir = 'rtl';
+                  }
+                }
               } catch (_) {}
             `,
           }}
         />
       </head>
       <body className="antialiased selection:bg-blue-500 selection:text-white">
-        <ServiceWorkerRegister />
-        {children}
-        <Analytics />
+        <LanguageProvider>
+          <ServiceWorkerRegister />
+          {children}
+          <Analytics />
+        </LanguageProvider>
       </body>
     </html>
   );

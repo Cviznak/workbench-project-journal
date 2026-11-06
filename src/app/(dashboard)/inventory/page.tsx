@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import InventoryClient from '@/components/InventoryClient';
-import { InventoryFolder, InventoryItem, MakerRecipe } from '@/lib/types';
+import { InventoryFolder, InventoryItem, MakerRecipe, Currency } from '@/lib/types';
 import { redirect } from 'next/navigation';
 
 export const metadata = {
@@ -18,7 +18,7 @@ export default async function InventoryPage() {
     redirect('/auth/login');
   }
 
-  const [{ data: folders }, { data: items }, { data: recipes }] = await Promise.all([
+  const [{ data: folders }, { data: items }, { data: recipes }, { data: profile }] = await Promise.all([
     supabase
       .from('inventory_folders')
       .select('*')
@@ -34,7 +34,15 @@ export default async function InventoryPage() {
       .select('*, output_item:inventory_items(*), ingredients:recipe_ingredients(*, inventory_item:inventory_items(*)), runs:recipe_runs(*)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('profiles')
+      .select('settings_json')
+      .eq('id', user.id)
+      .maybeSingle(),
   ]);
+
+  const initialPreferredCurrency =
+    ((profile?.settings_json as Record<string, any>)?.preferred_currency as Currency) || 'USD';
 
   return (
     <InventoryClient
@@ -42,6 +50,7 @@ export default async function InventoryPage() {
       initialItems={(items as InventoryItem[]) || []}
       initialRecipes={(recipes as MakerRecipe[]) || []}
       userId={user.id}
+      initialPreferredCurrency={initialPreferredCurrency}
     />
   );
 }

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Profile } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n';
 import UserAvatar from '@/components/UserAvatar';
 import FeedbackModal from '@/components/FeedbackModal';
 
@@ -28,28 +29,29 @@ interface SidebarProps {
 
 export default function Sidebar({ profile }: SidebarProps) {
   const pathname = usePathname();
+  const { t } = useTranslation();
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const isAdmin = profile?.role === 'ROOT_ADMIN' || profile?.role === 'ADMIN';
 
   const navItems = [
-    { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { label: 'Community', href: '/community', icon: Sparkles },
-    { label: 'Makers', href: '/makers', icon: Trophy },
-    { label: 'Skills & XP', href: '/skills', icon: Target },
-    { label: 'Ideas & Notes', href: '/workspace', icon: Lightbulb },
-    { label: 'Projects & Tasks', href: '/projects', icon: FolderKanban },
-    { label: 'Inventory', href: '/inventory', icon: Package },
-    ...(isAdmin ? [{ label: 'Admin Hub', href: '/admin', icon: ShieldAlert }] : []),
-    { label: 'Settings', href: '/settings', icon: Settings },
+    { label: t('nav.dashboard'), href: '/', icon: LayoutDashboard },
+    { label: t('nav.community'), href: '/community', icon: Sparkles },
+    { label: t('nav.makers'), href: '/makers', icon: Trophy },
+    { label: t('nav.skills'), href: '/skills', icon: Target },
+    { label: t('nav.workspace'), href: '/workspace', icon: Lightbulb },
+    { label: t('nav.projects'), href: '/projects', icon: FolderKanban },
+    { label: t('nav.inventory'), href: '/inventory', icon: Package },
+    ...(isAdmin ? [{ label: t('nav.admin'), href: '/admin', icon: ShieldAlert }] : []),
+    { label: t('nav.settings'), href: '/settings', icon: Settings },
   ];
 
   // Mobile Bottom Navigation Tabs (5 primary quick routes)
   const mobileNavItems = [
-    { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-    { label: 'Community', href: '/community', icon: Sparkles },
-    { label: 'Projects', href: '/projects', icon: FolderKanban },
-    { label: 'Skills', href: '/skills', icon: Target },
-    { label: 'Inventory', href: '/inventory', icon: Package },
+    { label: t('nav.dashboard'), href: '/', icon: LayoutDashboard },
+    { label: t('nav.community'), href: '/community', icon: Sparkles },
+    { label: t('nav.projects'), href: '/projects', icon: FolderKanban },
+    { label: t('nav.skills'), href: '/skills', icon: Target },
+    { label: t('nav.inventory'), href: '/inventory', icon: Package },
   ];
 
   return (

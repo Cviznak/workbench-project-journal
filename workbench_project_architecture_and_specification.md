@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.5.0 Production  
+> **Version:** 2.6.0 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -16,10 +16,15 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - XP advances maker skills through deterministic mathematical leveling.
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
+- **Global Localization & Multi-Language Interface (i18n)** *(v2.6)*: Comprehensive client-side internationalization architecture supporting English (`en`), Russian (`ru`), and Hebrew (`he` with native RTL layout handling and `dir="rtl"`). Powered by `src/lib/i18n.tsx` with typed translation dictionaries, `LanguageProvider`, `useTranslation()`, and zero-FOUC inline hydration script. Synchronizes preferences seamlessly between `localStorage` (`workbench_lang`) and `profiles.settings_json->>'language'`. Desktop and mobile dropdown switchers embedded in `Navbar.tsx` and a dedicated preference card in `SettingsClient.tsx`.
+- **Live Multi-Currency Converter & USD ($) Global Baseline** *(v2.6)*: Database migration `023_currency_and_i18n_defaults.sql` updates `public.inventory_items.currency` default to `'USD'` and enforces a check constraint across `('USD', 'EUR', 'ILS', 'GBP')`. Full mathematical conversion utility (`src/lib/currency.ts`) provides live conversions and formatting across inventory workshop valuation, restock carts, Task BOMs, and public calculators. Users select their preferred display currency via a 1-click quick-selector pill bar or account settings, synchronizing to `localStorage` (`workbench_currency`) and `profiles.settings_json->>'preferred_currency'`.
+- **Amazon Affiliate Shopping Integration** *(v2.6)*: Added Amazon shopping search option configured with StoreID `pixelcraft05a-20` (`https://www.amazon.com/s?k=${encodeURIComponent(item.name)}&tag=pixelcraft05a-20`) alongside AliExpress and Temu on all inventory item cards and inside the Smart Restock Order Sheet.
+- **Onboarding Quest Isolation Fix** *(v2.6)*: Remediated false-positive quest completion where new users had "Create Your First Project or Idea Blueprint" automatically checked due to public project discovery. Scoped count query exclusively to user-owned projects (`pm_user_id`), accepted member projects (`project_members`), and private workspace items (`workspace_items`).
+- **Inventory Filter Bar Clean 2-Row Layout** *(v2.6)*: Restructured inventory controls bar into a responsive 2-row layout with `flex-wrap gap-2` on Row 1 (eliminating clipped tabs `"Ca..."` and internal horizontal scrollbars) and search input + currency switcher on Row 2.
 - **Maker Discovery Directory & Consistency Leaderboard (`/makers`)** *(v2.5)*: Dedicated public directory and leaderboard route (`/makers`) powered by the `get_makers_leaderboard(p_limit INT)` `SECURITY DEFINER` RPC. Ranks makers across 3 views: "Top XP & Mastery", "Longest Active Streak", and "Newest Makers". Features gold, silver, and bronze podium badges (#1 🥇, #2 🥈, #3 🥉), real-time search filtering, UserAvatar integration, active streak flames, skill count, public projects count, and direct navigation to public workshop profiles (`/makers/[username]`). Available to authenticated users via Sidebar and Navbar, and to unauthenticated guests with a conversion header and welcome banner.
 - **Shareable Community Post Permalinks (`/community/[id]`) & Dynamic OpenGraph Metadata** *(v2.5)*: Dedicated single-post permalink routes (`/community/[id]`) with dynamic `generateMetadata` generating rich OpenGraph and Twitter `summary_large_image` social preview cards with author name, post excerpt, and uploaded artwork. Renders `CommunityFeedClient` in `singlePostMode` which auto-expands the discussion thread while hiding feed composer and filters.
 - **1-Click Share Post Link Button** *(v2.5)*: Direct clipboard link copying (`https://www.workbenchsoc.com/community/${post.id}`) on community post cards with animated feedback toasts on desktop and mobile.
-- **Portable Maker Archive Upgrade to v2.5.0** *(v2.5)*: Upgraded `public.export_user_maker_archive()` to version `'2.5.0'`, packaging the user's `recipe_runs`, authored `community_posts`, and submitted `user_feedback` alongside all projects, tasks, skills, inventory, and notes for 100% complete data portability.
+- **Portable Maker Archive Upgrade to v2.5.0 / v2.6.0** *(v2.5/v2.6)*: Upgraded `public.export_user_maker_archive()` to package the user's `recipe_runs`, authored `community_posts`, and submitted `user_feedback` alongside all projects, tasks, skills, inventory, and notes for 100% complete data portability.
 - **In-App User Feedback & Bug Reporting System** *(v2.4)*: Dedicated `public.user_feedback` table guarded by strict Row Level Security (RLS) restricting query/update/delete operations exclusively to `ADMIN` and `ROOT_ADMIN` roles. Automated database trigger (`trg_notify_admins_on_new_feedback`) dispatches in-app notifications into `public.notifications` for all active administrators upon submission. Frontend modal (`FeedbackModal.tsx`) available in Sidebar and Navbar captures route pathnames and categorizes submissions (`BUG`, `FEATURE_IDEA`, `FEEDBACK`).
 - **Admin Hub User Feedback Management Tab** *(v2.4)*: Dedicated tab inside `AdminHubClient.tsx` featuring real-time unread badges, multi-criteria filtering (status: OPEN, REVIEWED, RESOLVED; category: BUG, FEATURE_IDEA, FEEDBACK), live text search, captured URL navigation links, and administrative workflow actions (Mark Reviewed, Mark Resolved, Reopen, Delete).
 - **Calculator Funnel Persistence & Guest Recovery** *(v2.4)*: When unauthenticated visitors click "Save as Formula" on public calculators (`/tools`), calculator parameters and calculated outputs are preserved in `localStorage` (`'workbench_pending_formula'`) across the onboarding funnel. Upon signing in or completing signup, persistent recovery banners on both the Home Dashboard (`OnboardingQuestCard.tsx`) and Maker Inventory (`InventoryClient.tsx`) provide 1-click batch import directly into `public.maker_recipes`.
@@ -497,6 +502,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   ├── ThemeToggle.tsx        # Dark / Light mode toggle
 │   │   └── UserAvatar.tsx         # Universal responsive avatar with initial badge fallback (v1.9.1)
 │   ├── lib/
+│   │   ├── currency.ts            # Fixed-rate multi-currency conversion & formatting (USD, EUR, ILS, GBP) (v2.6)
+│   │   ├── i18n.tsx               # Client LanguageProvider & useTranslation dictionary (en, ru, he) (v2.6)
 │   │   ├── imageUtils.ts          # Offscreen canvas 1:1 auto-crop & WebP compression (v1.9.1)
 │   │   ├── soundEffects.ts        # Web Audio procedural synthesizer & confetti triggers
 │   │   ├── supabase/
@@ -529,7 +536,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 019_email_auth_comments_and_security.sql # v2.2.0: Threaded comments, comment likes, strict project isolation & security guards
 │       ├── 020_security_advisors_and_xp_bounds.sql  # v2.2.1: Revoke anon RPCs, lock search_path, cap XP rewards & anti-spam cooldown
 │       ├── 021_feedback_and_onboarding.sql         # v2.4.0: User feedback table, admin notification trigger & strict admin RLS
-│       └── 022_maker_directory_and_archive_v25.sql # v2.5.0: get_makers_leaderboard RPC & export_user_maker_archive v2.5.0 upgrade
+│       ├── 022_maker_directory_and_archive_v25.sql # v2.5.0: get_makers_leaderboard RPC & export_user_maker_archive v2.5.0 upgrade
+│       └── 023_currency_and_i18n_defaults.sql      # v2.6.0: USD default currency on inventory items & multi-currency constraint
 ├── package.json
 └── tailwind.config.ts
 ```

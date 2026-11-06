@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { triggerCelebrationConfetti } from '@/lib/soundEffects';
+import { useTranslation } from '@/lib/i18n';
 
 interface OnboardingQuestCardProps {
   userId: string;
@@ -46,6 +47,7 @@ export default function OnboardingQuestCard({
 }: OnboardingQuestCardProps) {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useTranslation();
 
   const [dismissed, setDismissed] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
@@ -130,37 +132,37 @@ export default function OnboardingQuestCard({
   const questSteps = [
     {
       id: 'skill',
-      title: 'Unlock & Practice Your First Skill',
-      description: 'Choose any craft or engineering skill to earn your first Maker XP.',
+      title: t('onboarding.step_skills'),
+      description: t('onboarding.step_skills_desc'),
       href: '/skills',
-      cta: 'Choose Skill',
+      cta: t('onboarding.cta_skills'),
       icon: Target,
       done: userSkillsCount > 0 || totalXp > 0,
     },
     {
       id: 'project',
-      title: 'Create Your First Project or Idea Blueprint',
-      description: 'Start a build workflow or jot down an invention note in your workspace.',
+      title: t('onboarding.step_project'),
+      description: t('onboarding.step_project_desc'),
       href: '/projects',
-      cta: 'New Project',
+      cta: t('onboarding.cta_project'),
       icon: FolderKanban,
       done: projectCount > 0,
     },
     {
       id: 'tools',
-      title: 'Explore Lab Calculators & Inventory',
-      description: 'Calculate epoxy volumes, perfume notes, or 3D print costs with precision.',
+      title: t('onboarding.step_tools'),
+      description: t('onboarding.step_tools_desc'),
       href: '/tools',
-      cta: 'Open Lab',
+      cta: t('onboarding.cta_tools'),
       icon: Calculator,
       done: formulaSaved,
     },
     {
       id: 'community',
-      title: 'Say Hello in the Maker Community',
-      description: 'Share a photo of your bench, ask craft questions, and explore creations.',
+      title: t('onboarding.step_community'),
+      description: t('onboarding.step_community_desc'),
       href: '/community',
-      cta: 'Explore Feed',
+      cta: t('onboarding.cta_community'),
       icon: MessageSquare,
       done: false,
     },
@@ -250,14 +252,14 @@ export default function OnboardingQuestCard({
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                    Starter Workshop Quest
+                    {t('onboarding.title')}
                   </h2>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                    {completedCount} of {questSteps.length} Complete
+                    {completedCount} of {questSteps.length} {t('onboarding.complete')}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Complete these 4 foundational milestones to set up your workshop and level up your maker rank.
+                  {t('onboarding.subtitle')}
                 </p>
               </div>
             </div>
@@ -283,7 +285,7 @@ export default function OnboardingQuestCard({
                 className="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition flex items-center gap-1"
                 title="Dismiss onboarding quest"
               >
-                <span>Dismiss</span>
+                <span>{t('onboarding.dismiss')}</span>
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>

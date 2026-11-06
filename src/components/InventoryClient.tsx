@@ -13,6 +13,7 @@ import {
   RecipeIngredient,
 } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
+import { convertCurrency, SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currency';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
 import {
   Package,
@@ -49,6 +50,7 @@ interface InventoryClientProps {
   initialItems: InventoryItem[];
   initialRecipes?: MakerRecipe[];
   userId: string;
+  initialPreferredCurrency?: Currency;
 }
 
 const FOLDER_COLORS = [
@@ -153,6 +155,7 @@ export default function InventoryClient({
   initialItems,
   initialRecipes = [],
   userId,
+  initialPreferredCurrency = 'USD',
 }: InventoryClientProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -160,6 +163,50 @@ export default function InventoryClient({
   const [folders, setFolders] = useState<InventoryFolder[]>(initialFolders);
   const [items, setItems] = useState<InventoryItem[]>(initialItems);
   const [recipes, setRecipes] = useState<MakerRecipe[]>(initialRecipes);
+
+  // Preferred Currency
+  const [preferredCurrency, setPreferredCurrency] = useState<Currency>(() => {
+    if (typeof window !== 'undefined') {
+      const local = localStorage.getItem('workbench_currency') as Currency | null;
+      if (local && (local === 'USD' || local === 'EUR' || local === 'ILS' || local === 'GBP')) {
+        return local;
+      }
+    }
+    return initialPreferredCurrency || 'USD';
+  });
+
+  useEffect(() => {
+    const onCurrencyChange = () => {
+      const local = localStorage.getItem('workbench_currency') as Currency | null;
+      if (local && (local === 'USD' || local === 'EUR' || local === 'ILS' || local === 'GBP')) {
+        setPreferredCurrency(local);
+      }
+    };
+    window.addEventListener('workbench_currency_changed', onCurrencyChange);
+    return () => window.removeEventListener('workbench_currency_changed', onCurrencyChange);
+  }, []);
+
+  const handleCurrencyChange = async (newCurr: Currency) => {
+    setPreferredCurrency(newCurr);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('workbench_currency', newCurr);
+      window.dispatchEvent(new Event('workbench_currency_changed'));
+    }
+    try {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('settings_json')
+        .eq('id', userId)
+        .maybeSingle();
+      const currentSettings = (prof?.settings_json as Record<string, any>) || {};
+      await supabase
+        .from('profiles')
+        .update({
+          settings_json: { ...currentSettings, preferred_currency: newCurr },
+        })
+        .eq('id', userId);
+    } catch (_) {}
+  };
 
   // Filters
   const [selectedFolderId, setSelectedFolderId] = useState<string | 'ALL' | 'LOW_STOCK'>('ALL');
@@ -365,28 +412,25 @@ export default function InventoryClient({
     return items.filter((item) => item.in_restock_cart);
   }, [items]);
 
-  // Total inventory value summary grouped by currency
-  const valueSummary = useMemo(() => {
-    const totals: Record<string, number> = { ILS: 0, USD: 0, EUR: 0 };
-    items.forEach((item) => {
-      const curr = item.currency || 'ILS';
-      const val = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
-      totals[curr] = (totals[curr] || 0) + val;
-    });
-    return totals;
-  }, [items]);
+  // Total inventory value converted to preferred currency
+  const totalWorkshopValueInPreferred = useMemo(() => {
+    return items.reduce((sum, item) => {
+      const qty = Number(item.quantity) || 0;
+      const price = Number(item.unit_price) || 0;
+      const itemCurr = item.currency || 'USD';
+      return sum + convertCurrency(qty * price, itemCurr, preferredCurrency);
+    }, 0);
+  }, [items, preferredCurrency]);
 
-  // Total estimated restock cart cost
-  const cartCostSummary = useMemo(() => {
-    const totals: Record<string, number> = { ILS: 0, USD: 0, EUR: 0 };
-    cartItems.forEach((item) => {
-      const curr = item.currency || 'ILS';
+  // Total estimated restock cart cost converted to preferred currency
+  const totalCartCostInPreferred = useMemo(() => {
+    return cartItems.reduce((sum, item) => {
       const targetQty = Number(item.restock_target_qty) || 1;
-      const unitPrice = Number(item.unit_price) || 0;
-      totals[curr] = (totals[curr] || 0) + targetQty * unitPrice;
-    });
-    return totals;
-  }, [cartItems]);
+      const price = Number(item.unit_price) || 0;
+      const itemCurr = item.currency || 'USD';
+      return sum + convertCurrency(targetQty * price, itemCurr, preferredCurrency);
+    }, 0);
+  }, [cartItems, preferredCurrency]);
 
   // Filtered items for display
   const displayedItems = useMemo(() => {
@@ -847,9 +891,7 @@ export default function InventoryClient({
               Workshop Inventory Value
             </span>
             <div className="text-lg sm:text-xl font-bold tracking-tight truncate">
-              {formatCurrency(valueSummary.ILS || 0, 'ILS')}
-              {valueSummary.USD > 0 && ` + ${formatCurrency(valueSummary.USD, 'USD')}`}
-              {valueSummary.EUR > 0 && ` + ${formatCurrency(valueSummary.EUR, 'EUR')}`}
+              {formatCurrency(totalWorkshopValueInPreferred, preferredCurrency)}
             </div>
           </div>
         </div>
@@ -1004,14 +1046,14 @@ export default function InventoryClient({
 
         {/* Content Area (Tabs, Search, Grid / Restock Cart / Formulas) */}
         <div className="lg:col-span-9 space-y-6">
-          {/* Controls Bar: Tabs, Search & Restock Toggle */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-            {/* View Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          {/* Controls Bar: 2-Row Clean Layout (No horizontal scrolling / clipping) */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-4">
+            {/* Row 1: All 7 View Tabs Wrapped */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setActiveTab('ALL')}
                 className={cn(
-                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition',
                   activeTab === 'ALL'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1022,7 +1064,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('MATERIAL')}
                 className={cn(
-                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition',
                   activeTab === 'MATERIAL'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1033,7 +1075,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('EQUIPMENT')}
                 className={cn(
-                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition',
                   activeTab === 'EQUIPMENT'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1044,7 +1086,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('FINISHED_GOOD')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition',
                   activeTab === 'FINISHED_GOOD'
                     ? 'bg-amber-600 text-white shadow-md shadow-amber-500/20'
                     : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50'
@@ -1059,7 +1101,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('RECIPES')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition',
                   activeTab === 'RECIPES'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
                     : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
@@ -1074,7 +1116,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('CART')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition',
                   activeTab === 'CART'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
                     : 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50'
@@ -1089,7 +1131,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('CALCULATORS')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition whitespace-nowrap',
+                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition',
                   activeTab === 'CALCULATORS'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
                     : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50'
@@ -1100,24 +1142,48 @@ export default function InventoryClient({
               </button>
             </div>
 
-            {/* Search Input */}
-            <div className="relative min-w-[220px]">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder={activeTab === 'RECIPES' ? 'Search formulas, ratios...' : 'Search items, SKU, bin...'}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+            {/* Row 2: Search Input + Quick Currency Selector */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder={activeTab === 'RECIPES' ? 'Search formulas, ratios...' : 'Search items, SKU, bin...'}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Currency Selector Pill */}
+              <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 shrink-0 self-start sm:self-auto">
+                <span className="text-[11px] font-semibold text-slate-400 px-2 uppercase tracking-wider">
+                  Display:
+                </span>
+                {(['USD', 'EUR', 'ILS', 'GBP'] as Currency[]).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => handleCurrencyChange(c)}
+                    className={cn(
+                      'px-2.5 py-1 rounded-xl text-xs font-extrabold transition',
+                      preferredCurrency === c
+                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    {c === 'USD' ? '$ USD' : c === 'EUR' ? '€ EUR' : c === 'ILS' ? '₪ ILS' : '£ GBP'}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -1466,7 +1532,7 @@ export default function InventoryClient({
                     <span className="text-base">Smart Restock Order Sheet</span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Direct search generators for AliExpress &amp; Temu with target restocking quantities.
+                    Direct search generators for Amazon, AliExpress &amp; Temu with target restocking quantities.
                   </p>
                 </div>
                 <div className="text-right">
@@ -1474,9 +1540,7 @@ export default function InventoryClient({
                     Total Estimated Cart Cost
                   </span>
                   <span className="text-xl font-extrabold text-purple-600 dark:text-purple-400">
-                    {formatCurrency(cartCostSummary.ILS || 0, 'ILS')}
-                    {cartCostSummary.USD > 0 && ` + ${formatCurrency(cartCostSummary.USD, 'USD')}`}
-                    {cartCostSummary.EUR > 0 && ` + ${formatCurrency(cartCostSummary.EUR, 'EUR')}`}
+                    {formatCurrency(totalCartCostInPreferred, preferredCurrency)}
                   </span>
                 </div>
               </div>
@@ -1562,6 +1626,16 @@ export default function InventoryClient({
 
                           {/* Quick Sourcing Action Links */}
                           <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <a
+                              href={`https://www.amazon.com/s?k=${encodeURIComponent(searchPhrase)}&tag=pixelcraft05a-20`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-300 dark:border-amber-700/60 hover:bg-amber-500/25 transition"
+                            >
+                              <span>Amazon</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+
                             <a
                               href={aliExpressUrl}
                               target="_blank"
@@ -2606,26 +2680,40 @@ export default function InventoryClient({
                               </button>
                             </div>
 
-                            {/* Cart Toggle Button */}
-                            <button
-                              onClick={() => toggleCart(item)}
-                              className={cn(
-                                'flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition shadow-sm',
-                                item.in_restock_cart
-                                  ? 'bg-purple-600 text-white hover:bg-purple-500 shadow-purple-500/20'
-                                  : isLowStock
-                                  ? 'bg-amber-500 text-white hover:bg-amber-400 shadow-amber-500/20'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                              )}
-                              title={
-                                item.in_restock_cart
-                                  ? 'Item in Restock Cart (Click to remove)'
-                                  : 'Add to Restock Cart'
-                              }
-                            >
-                              <ShoppingCart className="w-3.5 h-3.5" />
-                              <span>{item.in_restock_cart ? 'In Cart' : '+ Restock'}</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              {/* Amazon Affiliate Quick Search */}
+                              <a
+                                href={`https://www.amazon.com/s?k=${encodeURIComponent(item.search_keyword || item.name)}&tag=pixelcraft05a-20`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2.5 py-2 rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-300 dark:border-amber-700/60 hover:bg-amber-500/25 transition shadow-sm"
+                                title="Search & Restock on Amazon"
+                              >
+                                <span>Amazon</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+
+                              {/* Cart Toggle Button */}
+                              <button
+                                onClick={() => toggleCart(item)}
+                                className={cn(
+                                  'flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition shadow-sm',
+                                  item.in_restock_cart
+                                    ? 'bg-purple-600 text-white hover:bg-purple-500 shadow-purple-500/20'
+                                    : isLowStock
+                                    ? 'bg-amber-500 text-white hover:bg-amber-400 shadow-amber-500/20'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                                )}
+                                title={
+                                  item.in_restock_cart
+                                    ? 'Item in Restock Cart (Click to remove)'
+                                    : 'Add to Restock Cart'
+                                }
+                              >
+                                <ShoppingCart className="w-3.5 h-3.5" />
+                                <span>{item.in_restock_cart ? 'In Cart' : '+ Restock'}</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2649,6 +2737,7 @@ export default function InventoryClient({
           item={editingItem}
           folders={folders}
           userId={userId}
+          defaultCurrency={preferredCurrency}
           onSaved={(savedItem) => {
             setItems((prev) => {
               const exists = prev.some((i) => i.id === savedItem.id);
@@ -2903,6 +2992,7 @@ export default function InventoryClient({
           onClose={() => setBulkModalOpen(false)}
           folders={folders}
           userId={userId}
+          defaultCurrency={preferredCurrency}
           onImported={(newItems) => {
             setItems((prev) => [...newItems, ...prev]);
             setBulkModalOpen(false);
@@ -2922,10 +3012,11 @@ interface BulkAddModalProps {
   onClose: () => void;
   folders: InventoryFolder[];
   userId: string;
+  defaultCurrency?: Currency;
   onImported: (items: InventoryItem[]) => void;
 }
 
-function BulkAddModal({ isOpen, onClose, folders, userId, onImported }: BulkAddModalProps) {
+function BulkAddModal({ isOpen, onClose, folders, userId, defaultCurrency = 'USD', onImported }: BulkAddModalProps) {
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState<'presets' | 'paste'>('presets');
   const [selectedFolderId, setSelectedFolderId] = useState<string>('');
@@ -2937,7 +3028,7 @@ function BulkAddModal({ isOpen, onClose, folders, userId, onImported }: BulkAddM
     setItemsToImport(
       preset.items.map((i) => ({
         ...i,
-        currency: 'ILS',
+        currency: defaultCurrency || 'USD',
         condition: 'GOOD',
       }))
     );
@@ -2957,7 +3048,7 @@ function BulkAddModal({ isOpen, onClose, folders, userId, onImported }: BulkAddM
         unit_price: parseFloat(parts[3]) || 0,
         low_stock_threshold: parseFloat(parts[4]) || 1,
         sku_or_location: parts[5] || '',
-        currency: 'ILS',
+        currency: defaultCurrency || 'USD',
         condition: 'GOOD',
       };
     });
@@ -2980,7 +3071,7 @@ function BulkAddModal({ isOpen, onClose, folders, userId, onImported }: BulkAddM
       unit: item.unit || 'pcs',
       low_stock_threshold: Math.max(0, Number(item.low_stock_threshold) || 0),
       unit_price: Math.max(0, Number(item.unit_price) || 0),
-      currency: item.currency || 'ILS',
+      currency: item.currency || defaultCurrency || 'USD',
       condition: item.condition || 'GOOD',
       search_keyword: '',
       reorder_url: '',
@@ -3266,6 +3357,12 @@ function RecipeModal({
   const netProfit = retailPrice - unitCOGS - marketplaceFee;
   const marginPercent = retailPrice > 0 ? (netProfit / retailPrice) * 100 : 0;
 
+  const primaryCurrency = useMemo(() => {
+    const firstIng = ingredients[0];
+    const item = inventoryItems.find((i) => i.id === firstIng?.inventory_item_id);
+    return item?.currency || 'USD';
+  }, [ingredients, inventoryItems]);
+
   // Auto create Finished Good in inventory_items
   async function handleAutoCreateFinishedGood() {
     if (!title.trim()) {
@@ -3284,7 +3381,7 @@ function RecipeModal({
           quantity: 0,
           unit: 'pcs',
           unit_price: Math.round(unitCOGS * 100) / 100,
-          currency: 'ILS',
+          currency: primaryCurrency,
           condition: 'GOOD',
           in_restock_cart: false,
           restock_target_qty: 1,
@@ -3643,7 +3740,7 @@ function RecipeModal({
                     onChange={(e) => setPackagingOverhead(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
                   />
-                  <span className="text-xs text-slate-400">ILS</span>
+                  <span className="text-xs text-slate-400">{primaryCurrency}</span>
                 </div>
               </div>
 
@@ -3660,7 +3757,7 @@ function RecipeModal({
                     onChange={(e) => setTargetRetailPrice(e.target.value)}
                     className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
                   />
-                  <span className="text-xs text-slate-400">ILS</span>
+                  <span className="text-xs text-slate-400">{primaryCurrency}</span>
                 </div>
               </div>
             </div>
@@ -3670,14 +3767,14 @@ function RecipeModal({
               <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
                 <span className="text-[10px] text-slate-400 font-semibold block">Batch Ingredients</span>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {formatCurrency(estimatedCost, 'ILS')}
+                  {formatCurrency(estimatedCost, primaryCurrency)}
                 </span>
               </div>
 
               <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center">
                 <span className="text-[10px] text-slate-400 font-semibold block">Unit COGS (All-in)</span>
                 <span className="text-xs font-bold text-violet-600 dark:text-violet-400">
-                  {formatCurrency(unitCOGS, 'ILS')}
+                  {formatCurrency(unitCOGS, primaryCurrency)}
                 </span>
               </div>
 
@@ -3687,7 +3784,7 @@ function RecipeModal({
                   'text-xs font-bold',
                   netProfit > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'
                 )}>
-                  {formatCurrency(netProfit, 'ILS')}
+                  {formatCurrency(netProfit, primaryCurrency)}
                 </span>
               </div>
 
@@ -3738,10 +3835,11 @@ interface ItemModalProps {
   item: InventoryItem | null;
   folders: InventoryFolder[];
   userId: string;
+  defaultCurrency?: Currency;
   onSaved: (item: InventoryItem) => void;
 }
 
-function ItemModal({ isOpen, onClose, item, folders, userId, onSaved }: ItemModalProps) {
+function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = 'USD', onSaved }: ItemModalProps) {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
 
@@ -3756,7 +3854,7 @@ function ItemModal({ isOpen, onClose, item, folders, userId, onSaved }: ItemModa
     item ? String(item.low_stock_threshold) : '1'
   );
   const [unitPrice, setUnitPrice] = useState<string>(item ? String(item.unit_price) : '0');
-  const [currency, setCurrency] = useState<Currency>(item?.currency || 'ILS');
+  const [currency, setCurrency] = useState<Currency>(item?.currency || defaultCurrency || 'USD');
   const [condition, setCondition] = useState<ItemCondition>(item?.condition || 'GOOD');
   const [searchKeyword, setSearchKeyword] = useState(item?.search_keyword || '');
   const [reorderUrl, setReorderUrl] = useState(item?.reorder_url || '');
@@ -3984,9 +4082,10 @@ function ItemModal({ isOpen, onClose, item, folders, userId, onSaved }: ItemModa
                 onChange={(e) => setCurrency(e.target.value as Currency)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
               >
-                <option value="ILS">₪ ILS</option>
                 <option value="USD">$ USD</option>
                 <option value="EUR">€ EUR</option>
+                <option value="ILS">₪ ILS</option>
+                <option value="GBP">£ GBP</option>
               </select>
             </div>
           </div>

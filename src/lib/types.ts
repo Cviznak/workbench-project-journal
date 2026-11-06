@@ -6,7 +6,7 @@ export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type ItemType = 'MATERIAL' | 'EQUIPMENT' | 'FINISHED_GOOD';
 export type ItemCondition = 'GOOD' | 'NEEDS_MAINTENANCE' | 'REPLACE';
-export type Currency = 'ILS' | 'USD' | 'EUR';
+export type Currency = 'USD' | 'EUR' | 'ILS' | 'GBP';
 
 export interface Profile {
   id: string;

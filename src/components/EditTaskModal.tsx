@@ -16,6 +16,7 @@ import {
   SkillCatalog,
 } from '@/lib/types';
 import { relativeTime, formatDate, formatCurrency } from '@/lib/utils';
+import { convertCurrency, getPreferredCurrency } from '@/lib/currency';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
 import {
   X,
@@ -298,18 +299,19 @@ export default function EditTaskModal({
     }
   }
 
-  const totalBOMCost = useMemo(() => {
-    const totals: Record<string, number> = { ILS: 0, USD: 0, EUR: 0 };
-    materials.forEach((m) => {
+  const preferredCurrency = getPreferredCurrency();
+
+  const totalBOMCostInPreferred = useMemo(() => {
+    return materials.reduce((sum, m) => {
       const item = m.inventory_item;
       if (item) {
-        const curr = item.currency || 'ILS';
+        const curr = item.currency || 'USD';
         const lineCost = (Number(m.quantity_required) || 0) * (Number(item.unit_price) || 0);
-        totals[curr] = (totals[curr] || 0) + lineCost;
+        return sum + convertCurrency(lineCost, curr, preferredCurrency);
       }
-    });
-    return totals;
-  }, [materials]);
+      return sum;
+    }, 0);
+  }, [materials, preferredCurrency]);
 
   // --------------------------------------------------------------------------
   // Handlers: Save Task Details
@@ -1292,9 +1294,7 @@ export default function EditTaskModal({
                       Estimated Task BOM Cost
                     </span>
                     <span className="text-xl font-extrabold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(totalBOMCost.ILS || 0, 'ILS')}
-                      {totalBOMCost.USD > 0 && ` + ${formatCurrency(totalBOMCost.USD, 'USD')}`}
-                      {totalBOMCost.EUR > 0 && ` + ${formatCurrency(totalBOMCost.EUR, 'EUR')}`}
+                      {formatCurrency(totalBOMCostInPreferred, preferredCurrency)}
                     </span>
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 max-w-xs">

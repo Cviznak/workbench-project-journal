@@ -4,7 +4,10 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Profile } from '@/lib/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, cn } from '@/lib/utils';
+import { useTranslation, SUPPORTED_LANGUAGES, Language } from '@/lib/i18n';
+import { Currency } from '@/lib/types';
+import { CURRENCY_SYMBOLS, DEFAULT_CURRENCY, getPreferredCurrency, SUPPORTED_CURRENCIES } from '@/lib/currency';
 import {
   User,
   Shield,
@@ -27,6 +30,7 @@ import {
   Bell,
   Mail,
   Coffee,
+  Globe,
 } from 'lucide-react';
 import AvatarUploader from '@/components/AvatarUploader';
 
@@ -71,6 +75,41 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
     } finally {
       setSettingsSaving(false);
     }
+  }
+
+  // Localization state & handlers
+  const { language: currentLanguage, setLanguage } = useTranslation();
+  const [currentCurrency, setCurrentCurrency] = useState<Currency>(() => {
+    return ((settings.preferred_currency as Currency) || getPreferredCurrency());
+  });
+  const [localizationSuccess, setLocalizationSuccess] = useState(false);
+
+  async function handleUpdateLanguage(newLang: Language) {
+    setLanguage(newLang);
+    const nextSettings = { ...settings, language: newLang };
+    setSettings(nextSettings);
+    try {
+      await supabase.from('profiles').update({ settings_json: nextSettings }).eq('id', profile.id);
+      setLocalizationSuccess(true);
+      setTimeout(() => setLocalizationSuccess(false), 2500);
+      router.refresh();
+    } catch (_) {}
+  }
+
+  async function handleUpdateCurrency(newCurr: Currency) {
+    setCurrentCurrency(newCurr);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('workbench_currency', newCurr);
+      window.dispatchEvent(new Event('workbench_currency_changed'));
+    }
+    const nextSettings = { ...settings, preferred_currency: newCurr };
+    setSettings(nextSettings);
+    try {
+      await supabase.from('profiles').update({ settings_json: nextSettings }).eq('id', profile.id);
+      setLocalizationSuccess(true);
+      setTimeout(() => setLocalizationSuccess(false), 2500);
+      router.refresh();
+    } catch (_) {}
   }
 
   const [password, setPassword] = useState('');
@@ -802,6 +841,84 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
         </div>
       </div>
 
+      {/* Localization, Language & Display Currency Preferences Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 shadow-sm space-y-6">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+              <Globe className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-slate-900 dark:text-white">
+                Localization &amp; Regional Preferences
+              </h2>
+              <p className="text-xs text-slate-400">
+                Choose your preferred interface language and default display currency across your workshop.
+              </p>
+            </div>
+          </div>
+
+          {localizationSuccess && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800 animate-in fade-in">
+              <Check className="w-3.5 h-3.5" />
+              <span>Saved!</span>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Preferred Language */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              Interface Language
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => handleUpdateLanguage(lang.code)}
+                  className={cn(
+                    'flex flex-col items-center justify-center p-3 rounded-2xl border text-xs font-bold transition gap-1',
+                    currentLanguage === lang.code
+                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                  )}
+                >
+                  <span className="text-xl">{lang.flag}</span>
+                  <span>{lang.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Preferred Currency */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              Display Currency
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {SUPPORTED_CURRENCIES.map((curr) => (
+                <button
+                  key={curr}
+                  type="button"
+                  onClick={() => handleUpdateCurrency(curr)}
+                  className={cn(
+                    'flex flex-col items-center justify-center p-3 rounded-2xl border text-xs font-bold transition gap-1',
+                    currentCurrency === curr
+                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                  )}
+                >
+                  <span className="text-base">{CURRENCY_SYMBOLS[curr]}</span>
+                  <span>{curr}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Support Workbench Development Card (Buy Me a Coffee) */}
       <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -865,7 +982,7 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
         )}
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-          <span className="text-xs text-slate-400">Format: Standard JSON (v1.7.0)</span>
+          <span className="text-xs text-slate-400">Format: Standard JSON (v2.6.0)</span>
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="file"

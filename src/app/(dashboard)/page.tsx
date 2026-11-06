@@ -70,7 +70,9 @@ export default async function DashboardPage() {
     { data: userLogs },
     { data: userTasks },
     { data: recentActivity },
-    { count: projectCount },
+    pmProjectsRes,
+    memberProjectsRes,
+    workspaceItemsRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -100,8 +102,23 @@ export default async function DashboardPage() {
       .limit(8),
     supabase
       .from('projects')
-      .select('*', { count: 'exact', head: true }),
+      .select('id', { count: 'exact', head: true })
+      .eq('pm_user_id', user.id),
+    supabase
+      .from('project_members')
+      .select('project_id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('invitation_status', 'ACCEPTED'),
+    supabase
+      .from('workspace_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id),
   ]);
+
+  const userOwnProjectsAndIdeasCount =
+    (pmProjectsRes?.count || 0) +
+    (memberProjectsRes?.count || 0) +
+    (workspaceItemsRes?.count || 0);
 
   // Compute overall XP and Tier
   const totalXp = (userSkills || []).reduce((acc, s) => acc + (s.total_xp || 0), 0);
@@ -150,7 +167,7 @@ export default async function DashboardPage() {
         userId={user.id}
         totalXp={totalXp}
         userSkillsCount={userSkills?.length || 0}
-        projectCount={projectCount || 0}
+        projectCount={userOwnProjectsAndIdeasCount}
         settingsJson={profile?.settings_json}
       />
 
