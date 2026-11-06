@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 3.0.0 Production<br />
+> **Version:** 3.1.0 Production<br />
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -16,6 +16,11 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - XP advances maker skills through deterministic mathematical leveling.
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
+- **Interactive Project Dependency Graph & Roadmap View** *(v3.1)*: Database migration `027_v31_roadmap_equipment_logs_and_csv.sql` adds `due_date DATE` and `estimated_minutes INT` to `public.project_tasks`. `KanbanBoardClient.tsx` features an interactive View Switcher (`KANBAN` vs `ROADMAP`) organizing tasks into sequential roadmap stages with topological dependency resolution (Level 0 Foundations -> Level 1 -> Level 2 -> Level 3+), visual blocked/unlocked indicators, overdue detection, effort estimations, assignees, and 1-click status advance actions. `EditTaskModal.tsx` integrates native due date and effort duration inputs.
+- **Universal CSV Importer & Exporter for Inventory & Restock Carts** *(v3.1)*: Universal CSV operations in `InventoryClient.tsx`. Export generates standard UTF-8 BOM CSVs (`workbench_inventory_YYYY-MM-DD.csv`) for entire workshops or filtered restock carts. Universal Import modal (`CsvImportModal`) supports drag-and-drop CSV upload, header auto-mapping (Name, Type, Quantity, Unit, Unit Price, SKU/Location, Threshold, Notes, Interval), client-side error validation and row previews, and calls `bulk_import_inventory_csv` `SECURITY DEFINER` RPC to batch insert/update inventory items.
+- **Workshop Equipment Maintenance & Calibration Logbook** *(v3.1)*: Database migration `027_v31_roadmap_equipment_logs_and_csv.sql` adds `last_maintained_at TIMESTAMPTZ` and `maintenance_interval_days INT` to `public.inventory_items` and creates `public.equipment_logs` table. Equipment item cards show real-time overdue / due soon status badges and an interactive Logbook modal (`EquipmentLogModal`) to record maintenance, calibration, repairs, or inspections (`log_equipment_maintenance` RPC) with cost tracking and +10 XP awards.
+- **Electronics & LED Resistor, Ohm's Law & Battery Runtime Estimator** *(v3.1)*: Expanded the public `/tools` lab suite and in-app workshop calculators with a 7th interactive tool (`/tools?tool=electronics`). Dual-mode calculator computing exact series LED current-limiting resistors, nearest standard E12 decade resistors, power dissipation, recommended wattage, and an interactive 4-band axial resistor SVG graphic with color codes and &plusmn;5% gold tolerance band. Battery mode calculates continuous runtime (hours & days), nominal Wh energy capacity, and load power draw with adjustable converter efficiency factors.
+- **Portable Maker Archive Upgrade to v3.1.0** *(v3.1)*: Upgraded `public.export_user_maker_archive()` to package equipment maintenance history alongside achievements, recipes, runs, community posts, feedback, and inventory items for complete data sovereignty.
 - **RPG Achievements, Maker Trophy Case & Custom Honor Engine** *(v3.0)*: Database migration `026_v3_achievements_telemetry_and_public_recipes.sql` introduces `public.achievements` and `public.user_achievements` tables seeded with 10 foundational RPG trophies spanning Bronze, Silver, Gold, Diamond, and Special tiers (e.g. *First Spark*, *Polymath*, *Night Owl*, *Century Club*, *Master Crafter*, *Open Source Maker*, *Grandmaster Maker*, *Workbench Pioneer*). Automated `evaluate_user_achievements()` `SECURITY DEFINER` RPC dynamically queries the caller's verified milestones (practice hours, completed tasks, streaks, catalog skills, formulas, public projects, and community engagement) and unlocks trophies with XP bonuses, in-app notifications (`ACHIEVEMENT_UNLOCKED`), and activity logs. Dedicated `TrophyCase.tsx` component showcases unlocked and locked trophies with tier styling and progress bars across the Dashboard and Public Maker Profiles (`/makers/[username]`). Administrative RPC `admin_grant_achievement_or_xp` allows admins to grant custom badges (e.g. Pioneer, Founder-Verified) and bonus XP (up to 2,500 XP) credited to specific skills with deterministic level recalculation (`floor(0.1 * sqrt(total_xp)) + 1`).
 - **Admin Executive Telemetry & Platform Health KPI Dashboard** *(v3.0)*: Administrative `SECURITY DEFINER` RPC `get_admin_platform_telemetry()` returns real-time database KPIs across total makers, 7-day active makers, cumulative XP economy, practice hours, catalog skills, projects, public showcase projects, completed tasks, inventory items, batch recipes, public formulas, executed batch runs, community posts, comments, open feedback tickets, and pending skill requests. Renders a high-density Executive Telemetry Bento Grid at the top of `AdminHubClient.tsx` alongside user directory actions to "Grant Honor / Bonus XP".
 - **Public Maker Formulas & 1-Click "Clone Recipe to My Workshop" Sharing Engine** *(v3.0)*: Migration 026 adds `is_public BOOLEAN` and `clones_count INT` to `public.maker_recipes` with updated SELECT RLS policies permitting public discovery of shared formulas. Administrative RPC `clone_public_recipe(p_source_recipe_id)` allows any maker to clone a public recipe and its exact ingredient bill-of-materials into their personal workshop (`is_public = false`, `clones_count = 0`), atomically incrementing source clones, awarding +50 XP to the original creator, and dispatching an in-app notification (`RECIPE_CLONED`). Public Maker Profiles feature a dedicated "Public Formulas" tab with 1-click clone actions.
@@ -252,6 +257,8 @@ Tasks with XP rewards, subtasks checklist, and prerequisite task dependencies.
 - `assignee_id` (`UUID`, references `profiles.id` ON DELETE SET NULL, nullable)
 - `skill_id` (`UUID`, references `skill_catalog.id` ON DELETE SET NULL, nullable)
 - `prerequisite_task_id` (`UUID`, references `public.project_tasks(id)` ON DELETE SET NULL, nullable) *(v1.3)*
+- `due_date` (`DATE`, nullable) *(v3.1)*
+- `estimated_minutes` (`INT`, DEFAULT `0` CHECK `estimated_minutes >= 0`) *(v3.1)*
 - `title` (`TEXT`)
 - `description` (`TEXT`)
 - `status` (`TEXT`, DEFAULT `'TODO'` CHECK `status IN ('TODO', 'IN_PROGRESS', 'REVIEW', 'DONE')`)
@@ -296,8 +303,8 @@ Custom categorization folders for maker workshop materials and equipment.
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 - RLS: Strictly private to owner (`(SELECT auth.uid()) = user_id`).
 
-#### 13. `public.inventory_items` *(v1.4)*
-Consumables, raw materials, fasteners, and machinery items with restock tracking.
+#### 13. `public.inventory_items` *(v1.4, v2.6, v2.7, v3.1)*
+Consumables, raw materials, fasteners, and machinery items with restock tracking and maintenance intervals.
 - `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
 - `user_id` (`UUID`, references `profiles.id` ON DELETE CASCADE)
 - `folder_id` (`UUID`, references `inventory_folders.id` ON DELETE SET NULL, nullable)
@@ -309,12 +316,15 @@ Consumables, raw materials, fasteners, and machinery items with restock tracking
 - `unit` (`TEXT`, DEFAULT `'pcs'`) — e.g. `'pcs'`, `'g'`, `'kg'`, `'ml'`, `'l'`, `'cm'`, `'m'`, `'rolls'`
 - `low_stock_threshold` (`NUMERIC(10, 2)`, DEFAULT `0` CHECK `low_stock_threshold >= 0`)
 - `unit_price` (`NUMERIC(10, 2)`, DEFAULT `0` CHECK `unit_price >= 0`)
-- `currency` (`TEXT`, DEFAULT `'ILS'` CHECK `currency IN ('ILS', 'USD', 'EUR')`)
+- `currency` (`TEXT`, DEFAULT `'USD'` CHECK `currency IN ('USD', 'EUR', 'ILS', 'GBP')`) *(v2.6)*
 - `condition` (`TEXT`, DEFAULT `'GOOD'` CHECK `condition IN ('GOOD', 'NEEDS_MAINTENANCE', 'REPLACE')`)
-- `search_keyword` (`TEXT`, DEFAULT `''`) — Custom phrase for AliExpress / Temu link generator
+- `search_keyword` (`TEXT`, DEFAULT `''`) — Custom phrase for AliExpress / Temu / Amazon link generator
 - `reorder_url` (`TEXT`, DEFAULT `''`) — Direct link to past supplier product listing
 - `in_restock_cart` (`BOOLEAN`, DEFAULT `false`)
 - `restock_target_qty` (`NUMERIC(10, 2)`, DEFAULT `1` CHECK `restock_target_qty > 0`)
+- `image_url` (`TEXT`, DEFAULT `''`) *(v2.7)*
+- `last_maintained_at` (`TIMESTAMPTZ`, nullable) *(v3.1)*
+- `maintenance_interval_days` (`INT`, nullable CHECK `maintenance_interval_days > 0`) *(v3.1)*
 - `updated_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 - RLS: Strictly private to owner (`(SELECT auth.uid()) = user_id`).
@@ -331,17 +341,20 @@ Links project tasks to inventory items for bill-of-materials costing and automat
 - UNIQUE(`task_id`, `inventory_item_id`)
 - RLS: Accessible to project members via `public.is_project_member(project_id)`.
 
-#### 15. `public.maker_recipes` *(v1.5)*
+#### 15. `public.maker_recipes` *(v1.5, v2.7, v3.0)*
 Repeatable workshop formulas (resin ratios, filament parameters, perfume accords).
 - `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
 - `user_id` (`UUID`, references `profiles.id` ON DELETE CASCADE)
 - `title` (`TEXT`, NOT NULL)
 - `category` (`TEXT`, DEFAULT `'General'`)
 - `instructions_md` (`TEXT`, DEFAULT `''`)
+- `image_url` (`TEXT`, DEFAULT `''`) *(v2.7)*
+- `is_public` (`BOOLEAN`, DEFAULT `false`) *(v3.0)*
+- `clones_count` (`INT`, DEFAULT `0` CHECK `clones_count >= 0`) *(v3.0)*
 - `rating` (`INT`, CHECK `rating BETWEEN 1 AND 5`, nullable)
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 - `updated_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
-- RLS: Strictly private to owner (`(SELECT auth.uid()) = user_id`).
+- RLS: Viewable if owner (`(SELECT auth.uid()) = user_id`) OR `is_public = true`. Insert/Update/Delete strictly private to owner.
 
 #### 16. `public.recipe_ingredients` *(v1.5)*
 Specific inventory ingredients and amounts linked to a recipe.
@@ -415,6 +428,66 @@ Atomic like ledger for community post comments.
 - Primary Key: `(comment_id, user_id)`
 - RLS: Viewable by all; inserts/deletes managed atomically via `toggle_comment_like`.
 
+#### 23. `public.recipe_runs` *(v1.7)*
+Auditable execution logs and batch history for maker formulas.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `recipe_id` (`UUID`, references `maker_recipes.id` ON DELETE CASCADE)
+- `user_id` (`UUID`, references `profiles.id` ON DELETE CASCADE)
+- `batch_multiplier` (`NUMERIC(10, 2)`, DEFAULT `1.0` CHECK `batch_multiplier > 0`)
+- `rating` (`INT`, CHECK `rating BETWEEN 1 AND 5`, nullable)
+- `notes` (`TEXT`, DEFAULT `''`)
+- `executed_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- RLS: Viewable if owner (`(SELECT auth.uid()) = user_id`) OR linked recipe `is_public = true`. Inserts strictly private to user.
+
+#### 24. `public.user_feedback` *(v2.4, v2.8)*
+In-app user bug reports, feature requests, and feedback tickets.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `user_id` (`UUID`, nullable, references `profiles.id` ON DELETE SET NULL)
+- `category` (`TEXT`, NOT NULL, DEFAULT `'FEEDBACK'` CHECK `category IN ('BUG', 'FEATURE_IDEA', 'FEEDBACK')`)
+- `message` (`TEXT`, NOT NULL, CHECK `char_length(trim(message)) BETWEEN 5 AND 3000`)
+- `page_url` (`TEXT`, DEFAULT `''`)
+- `status` (`TEXT`, NOT NULL, DEFAULT `'OPEN'` CHECK `status IN ('OPEN', 'REVIEWED', 'RESOLVED')`)
+- `admin_reply` (`TEXT`, DEFAULT `''`) *(v2.8)*
+- `replied_at` (`TIMESTAMPTZ`, nullable) *(v2.8)*
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- RLS: Insert permitted for authenticated author (`(SELECT auth.uid()) = user_id`). Select/Update/Delete strictly restricted to `ADMIN` and `ROOT_ADMIN` roles.
+
+#### 25. `public.achievements` *(v3.0)*
+Standardized RPG trophies catalog spanning 5 progression tiers.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `slug` (`TEXT`, UNIQUE, NOT NULL)
+- `title` (`TEXT`, NOT NULL)
+- `description` (`TEXT`, NOT NULL)
+- `icon` (`TEXT`, NOT NULL, DEFAULT `'award'`)
+- `tier` (`TEXT`, NOT NULL, DEFAULT `'BRONZE'` CHECK `tier IN ('BRONZE', 'SILVER', 'GOLD', 'DIAMOND', 'SPECIAL')`)
+- `xp_bonus` (`INT`, NOT NULL, DEFAULT `25` CHECK `xp_bonus >= 0`)
+- `criteria_type` (`TEXT`, NOT NULL)
+- `criteria_value` (`INT`, NOT NULL, DEFAULT `1`)
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- RLS: Viewable by all authenticated and anonymous users. Writes restricted to admins.
+
+#### 26. `public.user_achievements` *(v3.0)*
+User unlocked RPG achievements and trophy ledger.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `user_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
+- `achievement_id` (`UUID`, NOT NULL, references `achievements.id` ON DELETE CASCADE)
+- `unlocked_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- Primary Key / Unique: `UNIQUE(user_id, achievement_id)`
+- RLS: Viewable by all users (for public maker trophy case). Inserts managed via `evaluate_user_achievements` or `admin_grant_achievement_or_xp`.
+
+#### 27. `public.equipment_logs` *(v3.1)*
+Maintenance, calibration, inspection, and repair logbook for workshop equipment.
+- `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
+- `item_id` (`UUID`, NOT NULL, references `inventory_items.id` ON DELETE CASCADE)
+- `user_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
+- `action_type` (`TEXT`, NOT NULL CHECK `action_type IN ('MAINTENANCE', 'CALIBRATION', 'REPAIR', 'INSPECTION', 'CLEANING')`)
+- `summary` (`TEXT`, NOT NULL, CHECK `char_length(trim(summary)) BETWEEN 2 AND 500`)
+- `cost` (`NUMERIC(10, 2)`, NOT NULL, DEFAULT `0` CHECK `cost >= 0`)
+- `condition_after` (`TEXT`, NOT NULL, DEFAULT `'GOOD'` CHECK `condition_after IN ('GOOD', 'NEEDS_MAINTENANCE', 'REPLACE')`)
+- `performed_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
+- RLS: Strictly private to equipment owner (`(SELECT auth.uid()) = user_id`).
+
 ---
 
 ## 4. PostgreSQL `SECURITY DEFINER` RPCs
@@ -437,7 +510,21 @@ Atomic like ledger for community post comments.
 | `toggle_comment_like` *(v2.2)* | `p_comment_id UUID` | Validates `auth.uid()`. Atomically toggles like row in `public.comment_likes`, updates `post_comments.likes_count`, and triggers in-app notification to comment author if not self-liked. |
 | `search_makers_for_invite` *(v1.8)* | `p_query TEXT, p_project_id UUID DEFAULT NULL` | Validates `auth.uid()`. Searches non-suspended profiles by username/display_name up to 8 rows, flagging if already a member. Never exposes email or private settings. |
 | `get_makers_leaderboard` *(v2.5)* | `p_limit INT DEFAULT 50` | Callable by anon and authenticated. Queries non-suspended profiles joined with aggregated total XP from `public.user_skills` and count of public showcase projects (`is_public = true`). Returns ranked leaderboard ordered by `total_xp DESC, current_streak DESC`, capped at 100 rows. |
-| `export_user_maker_archive` *(v2.5)* | None | Validates `auth.uid()`. Returns complete user archive JSON document (version `'2.5.0'`), packaging user profile, skills, projects, tasks, attachments, notes, inventory items/folders, recipes/ingredients, batch runs (`recipe_runs`), authored posts (`community_posts`), and submitted feedback (`user_feedback`). |
+| `admin_upsert_skill` *(v2.8)* | `p_id UUID DEFAULT NULL, p_slug TEXT, p_name TEXT, p_category TEXT` | Admin-only. Inserts or updates skill catalog entry with lowercase trimmed slug. |
+| `admin_merge_skills` *(v2.8)* | `p_source_skill_id UUID, p_target_skill_id UUID` | Admin-only. Merges duplicate skills without progress loss, migrating user_skills XP (recalculating deterministic level `floor(0.1*sqrt(total_xp))+1`), practice logs, project tasks, community posts, and project skills. |
+| `admin_delete_skill` *(v2.8)* | `p_skill_id UUID` | Admin-only. Safely deletes an unused skill catalog item; raises exception if any user XP or practice logs exist. |
+| `get_skill_catalog_with_usage` *(v2.8)* | None | Admin-only. Returns all catalog skills joined with active maker user counts and total deliberate practice hours. |
+| `admin_reply_to_feedback` *(v2.8)* | `p_feedback_id UUID, p_admin_reply TEXT, p_status TEXT` | Admin-only. Updates user feedback ticket status, records admin reply, and dispatches in-app notification (`FEEDBACK_REPLIED`) to ticket author. |
+| `admin_broadcast_notification` *(v2.8)* | `p_title TEXT, p_body TEXT, p_link_url TEXT DEFAULT '/dashboard'` | Admin-only. Dispatches an in-app announcement notification (`SYSTEM_ANNOUNCEMENT`) to all non-suspended platform users with audit logging. |
+| `admin_unpublish_project` *(v2.8)* | `p_project_id UUID` | Admin-only. Moderation tool setting `is_public = false` on inappropriate showcase projects. |
+| `admin_delete_community_post` *(v2.8)* | `p_post_id UUID` | Admin-only. Moderation tool deleting inappropriate community posts and cascading dependencies. |
+| `evaluate_user_achievements` *(v3.0)* | None | Validates `auth.uid()`. Evaluates user's verified stats against all RPG achievements criteria, awards newly unlocked badges, grants XP bonus, and logs notification (`ACHIEVEMENT_UNLOCKED`). |
+| `admin_grant_achievement_or_xp` *(v3.0)* | `p_target_user_id UUID, p_achievement_slug TEXT DEFAULT NULL, p_bonus_xp INT DEFAULT 0, p_skill_slug TEXT DEFAULT NULL, p_reason TEXT DEFAULT ''` | Admin-only. Grants custom trophies or bonus XP (up to 2,500 XP) credited to specific skills with deterministic level recalculation. |
+| `get_admin_platform_telemetry` *(v3.0)* | None | Admin-only. Aggregates real-time database KPIs across makers, 7-day active users, cumulative XP economy, practice hours, projects, tasks, inventory, recipes, community, and open feedback. |
+| `clone_public_recipe` *(v3.0)* | `p_source_recipe_id UUID` | Validates `auth.uid()`. Clones a public formula and its ingredients into caller's personal workshop (`is_public = false`), increments source clones count, awards +50 XP to original creator, and dispatches notification (`RECIPE_CLONED`). |
+| `log_equipment_maintenance` *(v3.1)* | `p_item_id UUID, p_action_type TEXT, p_summary TEXT, p_cost NUMERIC DEFAULT 0, p_condition_after TEXT DEFAULT 'GOOD'` | Validates `auth.uid()` and equipment item ownership. Inserts log into `public.equipment_logs`, updates `inventory_items.last_maintained_at` and `condition`, touches streak, awards +10 XP, and records activity log. |
+| `bulk_import_inventory_csv` *(v3.1)* | `p_items JSONB` | Validates `auth.uid()`. Accepts array of parsed CSV item objects and batch inserts or updates items in `public.inventory_items`, returning imported count. |
+| `export_user_maker_archive` *(v3.1)* | None | Validates `auth.uid()`. Returns complete user archive JSON document (version `'3.1.0'`), packaging user profile, skills, projects, tasks, attachments, notes, inventory items/folders, recipes/ingredients, batch runs (`recipe_runs`), authored posts (`community_posts`), submitted feedback (`user_feedback`), unlocked achievements (`user_achievements`), and equipment maintenance logbook (`equipment_logs`). |
 
 ---
 
@@ -519,6 +606,7 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   └── UserAvatar.tsx         # Universal responsive avatar with initial badge fallback (v1.9.1)
 │   ├── lib/
 │   │   ├── currency.ts            # Fixed-rate multi-currency conversion & formatting (USD, EUR, ILS, GBP) (v2.6)
+│   │   ├── electronicsUtils.ts    # LED resistor, Ohm's law, E12 decade series & 4-band color codes (v3.1)
 │   │   ├── i18n.tsx               # Client LanguageProvider & useTranslation dictionary (en, ru, he) (v2.6)
 │   │   ├── imageUtils.ts          # Offscreen canvas 1:1 auto-crop & WebP compression (v1.9.1)
 │   │   ├── soundEffects.ts        # Web Audio procedural synthesizer & confetti triggers
@@ -556,7 +644,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 023_currency_and_i18n_defaults.sql      # v2.6.0: USD default currency on inventory items & multi-currency constraint
 │       ├── 024_inventory_and_recipe_images.sql     # v2.7.0: WebP image thumbnails for inventory items & recipes
 │       ├── 025_admin_catalog_and_governance.sql    # v2.8.0: Global skill catalog manager, merge skills, feedback replies & moderation
-│       └── 026_v3_achievements_telemetry_and_public_recipes.sql # v3.0.0: RPG achievements, executive telemetry, public recipe cloning & print sheets
+│       ├── 026_v3_achievements_telemetry_and_public_recipes.sql # v3.0.0: RPG achievements, executive telemetry, public recipe cloning & print sheets
+│       └── 027_v31_roadmap_equipment_logs_and_csv.sql # v3.1.0: Task roadmap & due dates, equipment logbook & universal inventory CSV import/export
 ├── package.json
 └── tailwind.config.ts
 ```

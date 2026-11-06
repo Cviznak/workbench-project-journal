@@ -11,11 +11,19 @@ import {
   Currency,
   MakerRecipe,
   RecipeIngredient,
+  EquipmentLog,
+  EquipmentActionType,
 } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { convertCurrency, SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currency';
 import { compressWorkshopImage } from '@/lib/imageUtils';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
+import {
+  calculateResistorBands,
+  findNearestE12,
+  formatOhms,
+  recommendWattage,
+} from '@/lib/electronicsUtils';
 import {
   Package,
   Folder,
@@ -53,6 +61,14 @@ import {
   Globe,
   Tag,
   Copy,
+  Download,
+  Upload,
+  Wrench,
+  FileText,
+  Cpu,
+  Zap,
+  Battery,
+  Activity,
 } from 'lucide-react';
 
 interface InventoryClientProps {
@@ -251,6 +267,10 @@ export default function InventoryClient({
   const [printLabelsModalOpen, setPrintLabelsModalOpen] = useState(false);
   const [printLabelsFilter, setPrintLabelsFilter] = useState<'FILTERED' | 'LOW_STOCK' | 'ALL'>('FILTERED');
 
+  // CSV Import & Equipment Logbook Modal State
+  const [csvImportModalOpen, setCsvImportModalOpen] = useState(false);
+  const [equipmentLogItem, setEquipmentLogItem] = useState<InventoryItem | null>(null);
+
   // Pending Formula Recovery
   const [pendingFormula, setPendingFormula] = useState<{
     title: string;
@@ -311,7 +331,7 @@ export default function InventoryClient({
 
   // Lab Calculators State
   const [calcActiveTool, setCalcActiveTool] = useState<
-    'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT'
+    'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT' | 'ELECTRONICS'
   >('RESIN');
 
   // 1. Epoxy Resin Calculator State
@@ -371,6 +391,17 @@ export default function InventoryClient({
   const [laserMachineWatts, setLaserMachineWatts] = useState<number>(450);
   const [laserKwhRate, setLaserKwhRate] = useState<number>(0.65);
   const [laserMarginPct, setLaserMarginPct] = useState<number>(60);
+
+  // 7. Electronics & LED Resistor Calculator State
+  const [elecMode, setElecMode] = useState<'LED' | 'BATTERY'>('LED');
+  const [elecSupplyV, setElecSupplyV] = useState<number>(5.0);
+  const [elecLedVf, setElecLedVf] = useState<number>(2.0);
+  const [elecLedCurrentMa, setElecLedCurrentMa] = useState<number>(20);
+  const [elecLedCount, setElecLedCount] = useState<number>(1);
+  const [elecBatteryMah, setElecBatteryMah] = useState<number>(2500);
+  const [elecBatteryV, setElecBatteryV] = useState<number>(3.7);
+  const [elecLoadCurrentMa, setElecLoadCurrentMa] = useState<number>(150);
+  const [elecEfficiencyPct, setElecEfficiencyPct] = useState<number>(85);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -813,6 +844,61 @@ export default function InventoryClient({
     }
   }
 
+  // Universal CSV Exporter
+  function handleExportCSV(mode: 'ALL' | 'CART' = 'ALL') {
+    const list = mode === 'CART' ? cartItems : items;
+    if (list.length === 0) {
+      showToast(mode === 'CART' ? 'Restock cart is empty!' : 'No inventory items to export.');
+      return;
+    }
+
+    const headers = [
+      'Name',
+      'Type',
+      'Quantity',
+      'Unit',
+      'Unit Price',
+      'Currency',
+      'Condition',
+      'Location / SKU',
+      'Low Stock Alert',
+      'Restock Target Qty',
+      'In Cart',
+      'Notes',
+    ];
+
+    const escapeCsv = (val: any) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+
+    const rows = list.map((item) => [
+      escapeCsv(item.name),
+      escapeCsv(item.item_type || 'MATERIAL'),
+      item.quantity ?? 0,
+      escapeCsv(item.unit || 'pcs'),
+      item.unit_price ?? 0,
+      escapeCsv(item.currency || preferredCurrency),
+      escapeCsv(item.condition || 'GOOD'),
+      escapeCsv(item.sku_or_location || ''),
+      item.low_stock_threshold ?? 0,
+      item.restock_target_qty ?? 1,
+      item.in_restock_cart ? 'YES' : 'NO',
+      escapeCsv(item.description || ''),
+    ]);
+
+    const csvContent =
+      '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `workbench_inventory_${mode.toLowerCase()}_${dateStr}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`Exported ${list.length} items to CSV`);
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-20">
       {/* Toast Notification */}
@@ -890,6 +976,24 @@ export default function InventoryClient({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => handleExportCSV(activeTab === 'CART' ? 'CART' : 'ALL')}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs backdrop-blur-md border border-white/20 transition transform active:scale-95"
+              title="Export workshop inventory or restock cart to UTF-8 CSV"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </button>
+
+            <button
+              onClick={() => setCsvImportModalOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs backdrop-blur-md border border-white/20 transition transform active:scale-95"
+              title="Universal CSV Importer with live preview & validation"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import CSV</span>
+            </button>
+
             <button
               onClick={() => setBulkModalOpen(true)}
               className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs backdrop-blur-md border border-white/20 transition transform active:scale-95"
@@ -1917,6 +2021,17 @@ export default function InventoryClient({
                     )}
                   >
                     Laser &amp; CNC Nesting
+                  </button>
+                  <button
+                    onClick={() => setCalcActiveTool('ELECTRONICS')}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl transition',
+                      calcActiveTool === 'ELECTRONICS'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    Electronics &amp; LED
                   </button>
                 </div>
               </div>
@@ -3298,6 +3413,474 @@ export default function InventoryClient({
                   </div>
                 );
               })()}
+
+              {/* 7. ELECTRONICS: LED RESISTOR & BATTERY RUNTIME ESTIMATOR */}
+              {calcActiveTool === 'ELECTRONICS' && (() => {
+                // Mode A: LED Calculations
+                const totalLedVf = elecLedCount * elecLedVf;
+                const vDrop = elecSupplyV - totalLedVf;
+                const isVoltError = vDrop <= 0;
+                const currentAmps = elecLedCurrentMa / 1000;
+                const exactOhms = isVoltError ? 0 : vDrop / currentAmps;
+                const resistorBands = calculateResistorBands(exactOhms);
+                const powerWatts = isVoltError ? 0 : vDrop * currentAmps;
+                const recommendedWatt = recommendWattage(powerWatts);
+
+                // Mode B: Battery Calculations
+                const batteryWh = (elecBatteryMah * elecBatteryV) / 1000;
+                const effFactor = elecEfficiencyPct / 100;
+                const usableMah = elecBatteryMah * effFactor;
+                const runtimeHours = elecLoadCurrentMa > 0 ? usableMah / elecLoadCurrentMa : 0;
+                const hoursPart = Math.floor(runtimeHours);
+                const minutesPart = Math.round((runtimeHours - hoursPart) * 60);
+
+                function handleSaveElectronicsRecipe() {
+                  let title = '';
+                  let md = '';
+                  if (elecMode === 'LED') {
+                    title = `LED Circuit: ${elecSupplyV}V -> ${elecLedCount}x LED (${resistorBands.label}, ${recommendedWatt})`;
+                    md = `### LED Series Resistor Blueprint\n- **Supply Voltage**: ${elecSupplyV}V\n- **LED Forward Voltage**: ${elecLedVf}V (${elecLedCount} in series = ${totalLedVf.toFixed(1)}V)\n- **Forward Current**: ${elecLedCurrentMa} mA\n- **Voltage Drop over Resistor**: ${vDrop.toFixed(2)}V\n- **Exact Resistance**: ${exactOhms.toFixed(1)} Ω\n- **Nearest Standard E12 Resistor**: **${resistorBands.label}**\n- **Color Bands**: Band 1 (${resistorBands.digit1}), Band 2 (${resistorBands.digit2}), Multiplier (10^${resistorBands.multiplierPow}), 5% Gold\n- **Power Dissipation**: ${powerWatts.toFixed(3)} W\n- **Recommended Rating**: ${recommendedWatt}`;
+                  } else {
+                    title = `Battery Pack: ${elecBatteryMah}mAh @ ${elecBatteryV}V (${hoursPart}h ${minutesPart}m Runtime)`;
+                    md = `### Battery Runtime Blueprint\n- **Battery Capacity**: ${elecBatteryMah} mAh (${batteryWh.toFixed(1)} Wh)\n- **Nominal Voltage**: ${elecBatteryV} V\n- **Continuous Load**: ${elecLoadCurrentMa} mA\n- **Converter Efficiency**: ${elecEfficiencyPct}%\n- **Estimated Runtime**: **${hoursPart}h ${minutesPart}m** (${runtimeHours.toFixed(2)} hours)`;
+                  }
+
+                  const prefill: any = {
+                    id: '',
+                    user_id: userId,
+                    title,
+                    category: 'Electronics',
+                    instructions_md: md,
+                    rating: 5,
+                    output_yield_qty: 1,
+                    packaging_overhead: 0,
+                    target_retail_price: 0,
+                  };
+                  setEditingRecipe(prefill);
+                  setRecipeModalOpen(true);
+                }
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Controls Column */}
+                    <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="w-5 h-5 text-indigo-500" />
+                          <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                            Hardware &amp; Circuit Parameters
+                          </h3>
+                        </div>
+                        {/* Mode Selector */}
+                        <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
+                          <button
+                            type="button"
+                            onClick={() => setElecMode('LED')}
+                            className={cn(
+                              'px-3 py-1.5 rounded-lg transition',
+                              elecMode === 'LED'
+                                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                            )}
+                          >
+                            LED Resistor
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setElecMode('BATTERY')}
+                            className={cn(
+                              'px-3 py-1.5 rounded-lg transition',
+                              elecMode === 'BATTERY'
+                                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                            )}
+                          >
+                            Battery Runtime
+                          </button>
+                        </div>
+                      </div>
+
+                      {elecMode === 'LED' ? (
+                        /* Mode A: LED Resistor Inputs */
+                        <div className="space-y-4">
+                          {/* Supply Voltage */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                Supply Voltage (Vs)
+                              </label>
+                              <div className="flex items-center gap-1">
+                                {[3.3, 5.0, 9.0, 12.0, 24.0].map((v) => (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => setElecSupplyV(v)}
+                                    className={cn(
+                                      'px-2 py-0.5 rounded text-[11px] font-bold transition',
+                                      elecSupplyV === v
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    )}
+                                  >
+                                    {v}V
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="1"
+                              value={elecSupplyV}
+                              onChange={(e) => setElecSupplyV(parseFloat(e.target.value) || 0)}
+                              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                            />
+                          </div>
+
+                          {/* LED Color & Vf */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                LED Color Presets (Forward Voltage Vf)
+                              </label>
+                              <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                                {elecLedVf}V
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                              {[
+                                { name: 'Red', vf: 2.0, color: '#ef4444' },
+                                { name: 'Green', vf: 2.2, color: '#22c55e' },
+                                { name: 'Blue', vf: 3.2, color: '#3b82f6' },
+                                { name: 'White', vf: 3.2, color: '#94a3b8' },
+                                { name: 'Amber', vf: 2.1, color: '#f59e0b' },
+                                { name: 'UV', vf: 3.4, color: '#a855f7' },
+                              ].map((c) => (
+                                <button
+                                  key={c.name}
+                                  type="button"
+                                  onClick={() => setElecLedVf(c.vf)}
+                                  className={cn(
+                                    'py-1.5 px-2 rounded-xl text-xs font-bold transition border text-center',
+                                    elecLedVf === c.vf
+                                      ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+                                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                  )}
+                                >
+                                  <span
+                                    className="inline-block w-2 h-2 rounded-full mr-1"
+                                    style={{ backgroundColor: c.color }}
+                                  />
+                                  <span>{c.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Forward Current (mA) & Series Count */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                  Current (If)
+                                </label>
+                                <div className="flex items-center gap-1">
+                                  {[10, 20, 30].map((ma) => (
+                                    <button
+                                      key={ma}
+                                      type="button"
+                                      onClick={() => setElecLedCurrentMa(ma)}
+                                      className={cn(
+                                        'px-1.5 py-0.5 rounded text-[10px] font-bold transition',
+                                        elecLedCurrentMa === ma
+                                          ? 'bg-indigo-600 text-white'
+                                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                      )}
+                                    >
+                                      {ma}mA
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <input
+                                type="number"
+                                step="1"
+                                min="1"
+                                max="1000"
+                                value={elecLedCurrentMa}
+                                onChange={(e) => setElecLedCurrentMa(Math.max(1, parseInt(e.target.value) || 20))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                LEDs in Series (N)
+                              </label>
+                              <div className="flex items-center gap-2">
+                                {[1, 2, 3, 4].map((n) => (
+                                  <button
+                                    key={n}
+                                    type="button"
+                                    onClick={() => setElecLedCount(n)}
+                                    className={cn(
+                                      'flex-1 py-2 rounded-xl text-xs font-bold transition',
+                                      elecLedCount === n
+                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    )}
+                                  >
+                                    {n}x
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Mode B: Battery Runtime Inputs */
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                  Battery Capacity (mAh)
+                                </label>
+                                <span className="text-[11px] text-slate-400">
+                                  {batteryWh.toFixed(1)} Wh
+                                </span>
+                              </div>
+                              <input
+                                type="number"
+                                min="10"
+                                value={elecBatteryMah}
+                                onChange={(e) => setElecBatteryMah(Math.max(10, parseInt(e.target.value) || 0))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                {[
+                                  { label: '9V (500)', mah: 500 },
+                                  { label: 'AA (2000)', mah: 2000 },
+                                  { label: '18650 (2500)', mah: 2500 },
+                                  { label: 'Powerbank (10k)', mah: 10000 },
+                                ].map((p) => (
+                                  <button
+                                    key={p.label}
+                                    type="button"
+                                    onClick={() => setElecBatteryMah(p.mah)}
+                                    className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                                  >
+                                    {p.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                Battery Voltage (V)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0.5"
+                                value={elecBatteryV}
+                                onChange={(e) => setElecBatteryV(Math.max(0.5, parseFloat(e.target.value) || 0))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                                {[1.2, 3.7, 5.0, 9.0, 12.0].map((v) => (
+                                  <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => setElecBatteryV(v)}
+                                    className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                                  >
+                                    {v}V
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                Continuous Load Current (mA)
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={elecLoadCurrentMa}
+                                onChange={(e) => setElecLoadCurrentMa(Math.max(1, parseInt(e.target.value) || 0))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                Discharge / Converter Eff. (%)
+                              </label>
+                              <input
+                                type="number"
+                                min="10"
+                                max="100"
+                                value={elecEfficiencyPct}
+                                onChange={(e) => setElecEfficiencyPct(Math.max(10, Math.min(100, parseInt(e.target.value) || 85)))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Results & Color Bands Column */}
+                    <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 font-bold text-sm text-slate-800 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-800">
+                          <Zap className="w-4 h-4 text-amber-500" />
+                          <span>{elecMode === 'LED' ? 'Calculated Resistor & 4-Band Code' : 'Estimated Runtime & Capacity'}</span>
+                        </div>
+
+                        {elecMode === 'LED' ? (
+                          isVoltError ? (
+                            <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300 font-semibold space-y-1">
+                              <p className="font-bold">⚠️ Supply Voltage Too Low</p>
+                              <p>
+                                Supply voltage ({elecSupplyV}V) must be greater than total LED forward voltage ({totalLedVf.toFixed(1)}V).
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Hero Resistor Result */}
+                              <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-indigo-600 dark:text-indigo-400">
+                                  Standard E12 Resistor
+                                </span>
+                                <div className="text-3xl font-black text-indigo-950 dark:text-indigo-100">
+                                  {resistorBands.label}
+                                </div>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                                  Exact computed: <b>{exactOhms.toFixed(1)} Ω</b> (Drop: {vDrop.toFixed(2)}V)
+                                </span>
+                              </div>
+
+                              {/* Interactive 4-Band Resistor Graphic */}
+                              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                                  4-Band Color Code Graphic (5% Tol)
+                                </span>
+
+                                {/* Axial Resistor SVG */}
+                                <div className="py-2 flex items-center justify-center">
+                                  <svg viewBox="0 0 240 60" className="w-full max-w-[280px] h-14">
+                                    {/* Lead wire left */}
+                                    <line x1="10" y1="30" x2="50" y2="30" stroke="#94a3b8" strokeWidth="4" strokeLinecap="round" />
+                                    {/* Lead wire right */}
+                                    <line x1="190" y1="30" x2="230" y2="30" stroke="#94a3b8" strokeWidth="4" strokeLinecap="round" />
+                                    {/* Resistor Body */}
+                                    <rect x="50" y="14" width="140" height="32" rx="10" fill="#d4c5a9" stroke="#bfa980" strokeWidth="2" />
+                                    {/* Band 1 */}
+                                    <rect x="75" y="14" width="10" height="32" fill={resistorBands.color1} />
+                                    {/* Band 2 */}
+                                    <rect x="98" y="14" width="10" height="32" fill={resistorBands.color2} />
+                                    {/* Band 3 (Multiplier) */}
+                                    <rect x="121" y="14" width="10" height="32" fill={resistorBands.colorMult} />
+                                    {/* Band 4 (Tolerance Gold) */}
+                                    <rect x="155" y="14" width="8" height="32" fill={resistorBands.colorTol} />
+                                  </svg>
+                                </div>
+
+                                {/* Band Legend */}
+                                <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] font-bold">
+                                  <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                                    <span className="block text-slate-400">1st: {resistorBands.digit1}</span>
+                                    <span className="inline-block w-3 h-3 rounded-full mt-1" style={{ backgroundColor: resistorBands.color1 }} />
+                                  </div>
+                                  <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                                    <span className="block text-slate-400">2nd: {resistorBands.digit2}</span>
+                                    <span className="inline-block w-3 h-3 rounded-full mt-1" style={{ backgroundColor: resistorBands.color2 }} />
+                                  </div>
+                                  <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                                    <span className="block text-slate-400">x10^{resistorBands.multiplierPow}</span>
+                                    <span className="inline-block w-3 h-3 rounded-full mt-1" style={{ backgroundColor: resistorBands.colorMult }} />
+                                  </div>
+                                  <div className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                                    <span className="block text-slate-400">±5%</span>
+                                    <span className="inline-block w-3 h-3 rounded-full mt-1" style={{ backgroundColor: resistorBands.colorTol }} />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Power Dissipation & Recommended Wattage */}
+                              <div className="space-y-2 text-xs">
+                                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                                  <span className="text-slate-600 dark:text-slate-300">Dissipated Power (P):</span>
+                                  <span className="font-bold text-slate-900 dark:text-white">
+                                    {powerWatts.toFixed(3)} W ({Math.round(powerWatts * 1000)} mW)
+                                  </span>
+                                </div>
+                                <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-emerald-950 dark:text-emerald-200 font-bold">
+                                  <span>Recommended Resistor:</span>
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                                    {recommendedWatt}
+                                  </span>
+                                </div>
+                              </div>
+                            </>
+                          )
+                        ) : (
+                          /* Battery Mode Output */
+                          <>
+                            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-1">
+                              <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400">
+                                Estimated Battery Life
+                              </span>
+                              <div className="text-3xl font-black text-emerald-950 dark:text-emerald-100">
+                                {hoursPart}h {minutesPart}m
+                              </div>
+                              <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold block">
+                                {runtimeHours.toFixed(2)} hours continuous operation
+                              </span>
+                            </div>
+
+                            <div className="space-y-2 text-xs">
+                              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                                <span className="text-slate-600 dark:text-slate-300">Nominal Energy Capacity:</span>
+                                <span className="font-bold text-slate-900 dark:text-white">
+                                  {batteryWh.toFixed(2)} Watt-hours (Wh)
+                                </span>
+                              </div>
+                              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                                <span className="text-slate-600 dark:text-slate-300">Usable Capacity ({elecEfficiencyPct}%):</span>
+                                <span className="font-bold text-slate-900 dark:text-white">
+                                  {Math.round(usableMah)} mAh
+                                </span>
+                              </div>
+                              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                                <span className="text-slate-600 dark:text-slate-300">Current Draw:</span>
+                                <span className="font-bold text-slate-900 dark:text-white">
+                                  {elecLoadCurrentMa} mA
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveElectronicsRecipe}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition transform active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save as Blueprint / Formula</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             /* ================= VIEW: INVENTORY ITEMS GRID ================= */
@@ -3375,26 +3958,65 @@ export default function InventoryClient({
                               )}
 
                               {item.item_type === 'EQUIPMENT' && (
-                                <span
-                                  className={cn(
-                                    'text-[10px] font-bold px-2 py-0.5 rounded-full',
-                                    item.condition === 'GOOD'
-                                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
+                                <>
+                                  <span
+                                    className={cn(
+                                      'text-[10px] font-bold px-2 py-0.5 rounded-full',
+                                      item.condition === 'GOOD'
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400'
+                                        : item.condition === 'NEEDS_MAINTENANCE'
+                                        ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
+                                        : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400'
+                                    )}
+                                  >
+                                    {item.condition === 'GOOD'
+                                      ? 'Good Condition'
                                       : item.condition === 'NEEDS_MAINTENANCE'
-                                      ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
-                                      : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400'
-                                  )}
-                                >
-                                  {item.condition === 'GOOD'
-                                    ? 'Good Condition'
-                                    : item.condition === 'NEEDS_MAINTENANCE'
-                                    ? 'Needs Maint.'
-                                    : 'Replace'}
-                                </span>
+                                      ? 'Needs Maint.'
+                                      : 'Replace'}
+                                  </span>
+
+                                  {item.maintenance_interval_days && item.maintenance_interval_days > 0 ? (() => {
+                                    const lastTime = item.last_maintained_at
+                                      ? new Date(item.last_maintained_at).getTime()
+                                      : new Date(item.created_at || Date.now()).getTime();
+                                    const nextDueDate = lastTime + item.maintenance_interval_days * 86400000;
+                                    const isOverdue = Date.now() > nextDueDate;
+                                    const daysRemaining = Math.round((nextDueDate - Date.now()) / 86400000);
+
+                                    return (
+                                      <span
+                                        className={cn(
+                                          'text-[10px] font-extrabold px-2 py-0.5 rounded-full border',
+                                          isOverdue
+                                            ? 'bg-rose-50 text-rose-600 border-rose-300 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800 animate-pulse'
+                                            : 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800'
+                                        )}
+                                        title={
+                                          isOverdue
+                                            ? `Maintenance is overdue by ${Math.abs(daysRemaining)} days!`
+                                            : `Maintenance due in ${daysRemaining} days (Every ${item.maintenance_interval_days}d)`
+                                        }
+                                      >
+                                        {isOverdue ? '⚠️ Maint. Overdue' : `Due in ${daysRemaining}d`}
+                                      </span>
+                                    );
+                                  })() : null}
+                                </>
                               )}
                             </div>
 
                             <div className="flex items-center gap-1">
+                              {item.item_type === 'EQUIPMENT' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEquipmentLogItem(item)}
+                                  className="p-1.5 rounded-xl text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
+                                  title="Equipment Maintenance & Calibration Logbook"
+                                >
+                                  <Wrench className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button
                                 onClick={() => {
                                   setEditingItem(item);
@@ -4150,6 +4772,44 @@ export default function InventoryClient({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ================= MODAL: UNIVERSAL CSV IMPORTER ================= */}
+      {csvImportModalOpen && (
+        <CsvImportModal
+          isOpen={csvImportModalOpen}
+          onClose={() => setCsvImportModalOpen(false)}
+          userId={userId}
+          folders={folders}
+          defaultCurrency={preferredCurrency}
+          onImported={(newItems) => {
+            setItems((prev) => [...newItems, ...prev]);
+            setCsvImportModalOpen(false);
+            sounds.playTaskComplete();
+            triggerCelebrationConfetti();
+            showToast(`Successfully imported ${newItems.length} items from CSV!`);
+          }}
+        />
+      )}
+
+      {/* ================= MODAL: EQUIPMENT MAINTENANCE & CALIBRATION LOGBOOK ================= */}
+      {equipmentLogItem && (
+        <EquipmentLogModal
+          isOpen={Boolean(equipmentLogItem)}
+          onClose={() => setEquipmentLogItem(null)}
+          item={equipmentLogItem}
+          userId={userId}
+          defaultCurrency={preferredCurrency}
+          onMaintenanceLogged={(updatedItem) => {
+            setItems((prev) =>
+              prev.map((i) => (i.id === updatedItem.id ? { ...i, ...updatedItem } : i))
+            );
+            setEquipmentLogItem(null);
+            sounds.playLevelUp();
+            triggerCelebrationConfetti();
+            showToast(`Logged maintenance for "${updatedItem.name}"! (+10 XP)`);
+          }}
+        />
       )}
 
       {/* Global Print Stylesheet */}
@@ -5248,6 +5908,9 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
   const [lowStockThreshold, setLowStockThreshold] = useState<string>(
     item ? String(item.low_stock_threshold) : '1'
   );
+  const [maintenanceIntervalDays, setMaintenanceIntervalDays] = useState<string>(
+    item?.maintenance_interval_days !== undefined ? String(item.maintenance_interval_days) : '0'
+  );
   const [unitPrice, setUnitPrice] = useState<string>(item ? String(item.unit_price) : '0');
   const [currency, setCurrency] = useState<Currency>(item?.currency || defaultCurrency || 'USD');
   const [condition, setCondition] = useState<ItemCondition>(item?.condition || 'GOOD');
@@ -5334,6 +5997,8 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
       unit_price: Math.max(0, parseFloat(unitPrice) || 0),
       currency,
       condition,
+      maintenance_interval_days:
+        itemType === 'EQUIPMENT' ? Math.max(0, parseInt(maintenanceIntervalDays, 10) || 0) : 0,
       search_keyword: searchKeyword.trim(),
       reorder_url: reorderUrl.trim(),
       image_url: finalImageUrl || '',
@@ -5594,21 +6259,41 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
             </div>
           </div>
 
-          {/* Equipment Condition */}
+          {/* Equipment Condition & Service Interval */}
           {itemType === 'EQUIPMENT' && (
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Condition
-              </label>
-              <select
-                value={condition}
-                onChange={(e) => setCondition(e.target.value as ItemCondition)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
-              >
-                <option value="GOOD">Good Condition</option>
-                <option value="NEEDS_MAINTENANCE">Needs Maintenance</option>
-                <option value="REPLACE">Needs Replacement</option>
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Tool Condition
+                </label>
+                <select
+                  value={condition}
+                  onChange={(e) => setCondition(e.target.value as ItemCondition)}
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                >
+                  <option value="GOOD">Good Condition</option>
+                  <option value="NEEDS_MAINTENANCE">Needs Maintenance</option>
+                  <option value="REPLACE">Needs Replacement</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Service Interval (Days)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="3650"
+                  placeholder="e.g. 30, 90, 180 (0 = off)"
+                  value={maintenanceIntervalDays}
+                  onChange={(e) => setMaintenanceIntervalDays(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Alert interval for recalibration/cleaning.
+                </span>
+              </div>
             </div>
           )}
 
@@ -5811,6 +6496,687 @@ function FolderModal({ isOpen, onClose, folder, userId, onSaved }: FolderModalPr
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// SUB-COMPONENT: UNIVERSAL CSV IMPORTER MODAL
+// -------------------------------------------------------------
+interface CsvImportModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  userId: string;
+  folders: InventoryFolder[];
+  defaultCurrency: Currency;
+  onImported: (items: InventoryItem[]) => void;
+}
+
+function CsvImportModal({
+  isOpen,
+  onClose,
+  userId,
+  folders,
+  defaultCurrency,
+  onImported,
+}: CsvImportModalProps) {
+  const supabase = createClient();
+  const [csvText, setCsvText] = useState('');
+  const [targetFolderId, setTargetFolderId] = useState('');
+  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function downloadSampleCsv() {
+    const sample = `Name,Type,Quantity,Unit,Unit Price,Currency,Condition,Location,Reorder Point,Notes\nPLA Filament 1.75mm Black,MATERIAL,3,rolls,85,USD,GOOD,Rack A1,1,Premium 1kg spools\n0.4mm Brass V6 Nozzle,EQUIPMENT,5,pcs,12,USD,NEW,Drawer 2,2,Spare hotend nozzles\nIsopropyl Alcohol 99%,MATERIAL,1000,ml,35,USD,GOOD,Chemical Cabinet,250,Bed cleaner & resin wash\n`;
+    const blob = new Blob(['\uFEFF' + sample], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'workbench_inventory_template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function parseCsvContent(text: string) {
+    setImportError(null);
+    if (!text.trim()) {
+      setParsedRows([]);
+      return;
+    }
+
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0) {
+      setParsedRows([]);
+      return;
+    }
+
+    // Split line respecting double quotes
+    function parseCsvLine(line: string): string[] {
+      const result: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if ((char === ',' || char === '\t') && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    // Check if first row is header
+    const firstTokens = parseCsvLine(lines[0]);
+    const isHeader = firstTokens.some((t) =>
+      ['name', 'type', 'quantity', 'unit', 'price'].includes(t.toLowerCase())
+    );
+    const dataLines = isHeader ? lines.slice(1) : lines;
+
+    const rows = dataLines
+      .map((line) => {
+        const tokens = parseCsvLine(line);
+        if (!tokens[0]) return null;
+
+        const rawType = (tokens[1] || 'MATERIAL').toUpperCase();
+        const validTypes = ['MATERIAL', 'EQUIPMENT', 'FINISHED_GOOD'];
+        const item_type = validTypes.includes(rawType) ? rawType : 'MATERIAL';
+
+        const qty = parseFloat(tokens[2]) || 0;
+        const unit = tokens[3] || 'pcs';
+        const unitPrice = parseFloat(tokens[4]) || 0;
+        const rawCurr = (tokens[5] || defaultCurrency).toUpperCase();
+        const validCurrencies = ['USD', 'EUR', 'ILS', 'GBP'];
+        const currency = validCurrencies.includes(rawCurr) ? rawCurr : defaultCurrency;
+        const condition = tokens[6] || 'GOOD';
+        const sku_or_location = tokens[7] || '';
+        const reorder_point = parseFloat(tokens[8]) || 0;
+        const description = tokens[9] || '';
+
+        return {
+          name: tokens[0],
+          item_type,
+          quantity: qty,
+          unit,
+          unit_price: unitPrice,
+          currency,
+          condition,
+          sku_or_location,
+          low_stock_threshold: reorder_point,
+          description,
+          folder_id: targetFolderId || null,
+        };
+      })
+      .filter(Boolean);
+
+    setParsedRows(rows);
+  }
+
+  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = String(event.target?.result || '');
+      setCsvText(content);
+      parseCsvContent(content);
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleImportSubmit() {
+    if (parsedRows.length === 0) return;
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      // Map rows with target folder if set
+      const payload = parsedRows.map((r) => ({
+        ...r,
+        folder_id: targetFolderId || null,
+      }));
+
+      const { data, error } = await supabase.rpc('bulk_import_inventory_csv', {
+        p_items: payload,
+      });
+
+      if (error) throw error;
+
+      if (data && data.items) {
+        onImported(data.items as InventoryItem[]);
+      } else {
+        // Fallback query if RPC returns count only
+        const { data: refreshed } = await supabase
+          .from('inventory_items')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(payload.length);
+
+        if (refreshed) {
+          onImported(refreshed as InventoryItem[]);
+        }
+      }
+    } catch (err: any) {
+      setImportError(err.message || 'Failed to import CSV');
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-3xl p-6 shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2.5 font-bold text-slate-900 dark:text-white">
+            <Upload className="w-5 h-5 text-blue-600" />
+            <span>Universal Inventory CSV Importer</span>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-4 space-y-4">
+          {/* Header Controls: File Upload & Template Download */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50">
+            <div>
+              <h4 className="text-xs font-bold text-blue-900 dark:text-blue-300">
+                Bulk Import up to 250 Inventory Items
+              </h4>
+              <p className="text-[11px] text-blue-700/80 dark:text-blue-400 mt-0.5">
+                Upload a spreadsheet or CSV from Excel, Google Sheets, or your shop export.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={downloadSampleCsv}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-50 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Sample CSV Template</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,text/csv,text/plain"
+                onChange={handleFileSelected}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Select File</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Folder Target & Paste Box */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Or Paste Raw CSV Text:
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-semibold">Assign to Folder:</span>
+                <select
+                  value={targetFolderId}
+                  onChange={(e) => {
+                    setTargetFolderId(e.target.value);
+                    if (parsedRows.length > 0) {
+                      setParsedRows((prev) =>
+                        prev.map((r) => ({ ...r, folder_id: e.target.value || null }))
+                      );
+                    }
+                  }}
+                  className="px-2.5 py-1 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                >
+                  <option value="">(None - Unorganized)</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <textarea
+              rows={4}
+              value={csvText}
+              onChange={(e) => {
+                setCsvText(e.target.value);
+                parseCsvContent(e.target.value);
+              }}
+              placeholder="Name,Type,Quantity,Unit,Unit Price,Currency,Condition,Location,Reorder Point,Notes..."
+              className="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white focus:outline-none"
+            />
+          </div>
+
+          {/* Error Message */}
+          {importError && (
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-400 font-medium">
+              ⚠️ {importError}
+            </div>
+          )}
+
+          {/* Preview Table */}
+          {parsedRows.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 dark:text-white">
+                  Parsed Preview ({parsedRows.length} items ready to import):
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCsvText('');
+                    setParsedRows([]);
+                  }}
+                  className="text-[11px] text-red-500 hover:underline"
+                >
+                  Clear All
+                </button>
+              </div>
+
+              <div className="max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-[10px] uppercase font-bold text-slate-500">
+                    <tr>
+                      <th className="p-2.5">Name</th>
+                      <th className="p-2.5">Type</th>
+                      <th className="p-2.5">Quantity</th>
+                      <th className="p-2.5">Price</th>
+                      <th className="p-2.5">Location</th>
+                      <th className="p-2.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {parsedRows.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td className="p-2.5 font-semibold text-slate-900 dark:text-white truncate max-w-[180px]">
+                          {row.name}
+                        </td>
+                        <td className="p-2.5">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 uppercase">
+                            {row.item_type}
+                          </span>
+                        </td>
+                        <td className="p-2.5 font-bold">
+                          {row.quantity} {row.unit}
+                        </td>
+                        <td className="p-2.5">
+                          {row.unit_price > 0 ? `${row.currency} ${row.unit_price}` : '—'}
+                        </td>
+                        <td className="p-2.5 text-slate-500 text-[11px]">
+                          {row.sku_or_location || '—'}
+                        </td>
+                        <td className="p-2.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setParsedRows((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="p-1 rounded text-slate-400 hover:text-red-500"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <span className="text-xs text-slate-400 font-medium">
+            {parsedRows.length > 0 ? `${parsedRows.length} items queued` : 'Paste CSV or pick a file'}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isImporting || parsedRows.length === 0}
+              onClick={handleImportSubmit}
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md disabled:opacity-50 transition"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Importing...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Import {parsedRows.length} Items</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// SUB-COMPONENT: EQUIPMENT MAINTENANCE & CALIBRATION LOGBOOK MODAL
+// -------------------------------------------------------------
+interface EquipmentLogModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  item: InventoryItem;
+  userId: string;
+  defaultCurrency: Currency;
+  onMaintenanceLogged: (updatedItem: InventoryItem) => void;
+}
+
+function EquipmentLogModal({
+  isOpen,
+  onClose,
+  item,
+  userId,
+  defaultCurrency,
+  onMaintenanceLogged,
+}: EquipmentLogModalProps) {
+  const supabase = createClient();
+  const [logs, setLogs] = useState<EquipmentLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+
+  // Form State
+  const [actionType, setActionType] = useState<EquipmentActionType>('MAINTENANCE');
+  const [summary, setSummary] = useState('');
+  const [cost, setCost] = useState('');
+  const [conditionAfter, setConditionAfter] = useState<ItemCondition>(item.condition || 'GOOD');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function loadLogs() {
+      setLoadingLogs(true);
+      const { data } = await supabase
+        .from('equipment_logs')
+        .select('*')
+        .eq('item_id', item.id)
+        .order('performed_at', { ascending: false });
+
+      if (data) {
+        setLogs(data as EquipmentLog[]);
+      }
+      setLoadingLogs(false);
+    }
+
+    loadLogs();
+  }, [item.id, supabase]);
+
+  async function handleLogSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!summary.trim()) {
+      alert('Please enter service notes describing the work performed');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const parsedCost = parseFloat(cost) || 0;
+      const { data, error } = await supabase.rpc('log_equipment_maintenance', {
+        p_item_id: item.id,
+        p_action_type: actionType,
+        p_summary: summary.trim(),
+        p_cost: parsedCost,
+        p_condition_after: conditionAfter,
+      });
+
+      if (error) throw error;
+
+      const newLog: EquipmentLog = {
+        id: data?.log_id || crypto.randomUUID(),
+        item_id: item.id,
+        user_id: userId,
+        action_type: actionType,
+        summary: summary.trim(),
+        cost: parsedCost,
+        condition_after: conditionAfter,
+        performed_at: new Date().toISOString(),
+      };
+
+      setLogs((prev) => [newLog, ...prev]);
+
+      // Call parent updater
+      onMaintenanceLogged({
+        ...item,
+        last_maintained_at: newLog.performed_at,
+        condition: conditionAfter,
+      });
+
+      setSummary('');
+      setCost('');
+    } catch (err: any) {
+      alert(`Failed to log maintenance: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2.5 font-bold text-slate-900 dark:text-white">
+            <Wrench className="w-5 h-5 text-amber-500" />
+            <span>Equipment Maintenance Logbook: {item.name}</span>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto py-4 space-y-5">
+          {/* Item Status Header */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs">
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Condition</span>
+              <span className="font-extrabold text-slate-900 dark:text-white">{item.condition}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Service Cycle</span>
+              <span className="font-extrabold text-slate-900 dark:text-white">
+                {item.maintenance_interval_days ? `Every ${item.maintenance_interval_days}d` : 'None'}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Last Serviced</span>
+              <span className="font-extrabold text-slate-900 dark:text-white">
+                {item.last_maintained_at ? new Date(item.last_maintained_at).toLocaleDateString() : 'Never'}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Logs</span>
+              <span className="font-extrabold text-slate-900 dark:text-white">{logs.length}</span>
+            </div>
+          </div>
+
+          {/* Form: Log New Service */}
+          <form onSubmit={handleLogSubmit} className="p-4 rounded-2xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-950/20 space-y-3">
+            <div className="flex items-center gap-2 pb-2 border-b border-amber-200/50 dark:border-amber-900/40">
+              <Activity className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                Record New Maintenance / Calibration Service (+10 XP)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  Action Type
+                </label>
+                <select
+                  value={actionType}
+                  onChange={(e) => setActionType(e.target.value as EquipmentActionType)}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                >
+                  <option value="MAINTENANCE">Maintenance</option>
+                  <option value="CALIBRATION">Calibration</option>
+                  <option value="REPAIR">Repair</option>
+                  <option value="PART_SWAP">Part Swap</option>
+                  <option value="INSPECTION">Inspection</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  Condition After Service
+                </label>
+                <select
+                  value={conditionAfter}
+                  onChange={(e) => setConditionAfter(e.target.value as ItemCondition)}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                >
+                  <option value="GOOD">Good Condition</option>
+                  <option value="NEEDS_MAINTENANCE">Needs Maintenance</option>
+                  <option value="REPLACE">Needs Replacement</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  Cost ({defaultCurrency})
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={cost}
+                  onChange={(e) => setCost(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                Service Summary &amp; Findings *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Replaced 0.4mm nozzle, cleaned heatbreak, recalibrated Z-offset bed level."
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white"
+              />
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save Service Log</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+
+          {/* Past Maintenance History */}
+          <div className="space-y-2">
+            <span className="text-xs font-bold text-slate-900 dark:text-white block">
+              Maintenance History ({logs.length})
+            </span>
+
+            {loadingLogs ? (
+              <div className="text-center py-6 text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-1 text-slate-400" />
+                <span className="text-xs">Loading service logbook...</span>
+              </div>
+            ) : logs.length === 0 ? (
+              <div className="text-center py-8 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
+                No maintenance records yet. Use the form above to record calibrations, repairs, and inspections.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {logs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700 text-xs space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 uppercase">
+                          {log.action_type}
+                        </span>
+                        <span className="text-slate-400 text-[11px]">
+                          {new Date(log.performed_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {log.cost > 0 && (
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {formatCurrency(log.cost, defaultCurrency)}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                          {log.condition_after}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 font-medium">
+                      {log.summary}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            Close Logbook
+          </button>
+        </div>
       </div>
     </div>
   );

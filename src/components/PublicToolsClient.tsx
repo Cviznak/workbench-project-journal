@@ -25,9 +25,19 @@ import {
   Flame,
   Award,
   Grid,
+  Cpu,
+  Zap,
 } from 'lucide-react';
+import {
+  calculateResistorBands,
+  findNearestE12,
+  formatOhms,
+  recommendWattage,
+  BAND_COLORS,
+  MULTIPLIER_COLORS,
+} from '@/lib/electronicsUtils';
 
-export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT';
+export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT' | 'ELECTRONICS';
 
 export function slugToTool(slug?: string | null): ToolType {
   if (!slug) return 'RESIN';
@@ -37,6 +47,7 @@ export function slugToTool(slug?: string | null): ToolType {
   if (norm === 'crossstitch' || norm === 'cross-stitch' || norm === 'stitch') return 'CROSS_STITCH';
   if (norm === 'candle' || norm === 'soap') return 'CANDLE';
   if (norm === 'lasercut' || norm === 'laser' || norm === 'cnc') return 'LASER_CUT';
+  if (norm === 'electronics' || norm === 'led' || norm === 'resistor' || norm === 'battery') return 'ELECTRONICS';
   return 'RESIN';
 }
 
@@ -54,6 +65,8 @@ export function toolToSlug(tool: ToolType): string {
       return 'candle';
     case 'LASER_CUT':
       return 'lasercut';
+    case 'ELECTRONICS':
+      return 'electronics';
   }
 }
 
@@ -152,6 +165,17 @@ export default function PublicToolsClient({
   const [laserMachineWatts, setLaserMachineWatts] = useState<number>(450);
   const [laserKwhRate, setLaserKwhRate] = useState<number>(0.65);
   const [laserMarginPct, setLaserMarginPct] = useState<number>(60);
+
+  // 7. Electronics & LED / Battery State
+  const [elecMode, setElecMode] = useState<'LED_RESISTOR' | 'BATTERY_RUNTIME'>('LED_RESISTOR');
+  const [elecSupplyV, setElecSupplyV] = useState<number>(5.0);
+  const [elecLedVf, setElecLedVf] = useState<number>(2.0);
+  const [elecLedCurrentMa, setElecLedCurrentMa] = useState<number>(20);
+  const [elecLedCount, setElecLedCount] = useState<number>(1);
+  const [elecBatteryMah, setElecBatteryMah] = useState<number>(2500);
+  const [elecBatteryV, setElecBatteryV] = useState<number>(3.7);
+  const [elecLoadCurrentMa, setElecLoadCurrentMa] = useState<number>(150);
+  const [elecEfficiencyPct, setElecEfficiencyPct] = useState<number>(85);
 
   // Calculations: Epoxy
   let volCm3 = 0;
@@ -324,6 +348,33 @@ export default function PublicToolsClient({
   const laserProfitPerPart = laserSuggestedRetail - laserPartCOGS;
   const totalSheetRevenue = laserSuggestedRetail * totalPartsYield;
 
+  // Calculations: Electronics & LED / Battery
+  const supplyV = Math.max(0, Number(elecSupplyV) || 0);
+  const ledVf = Math.max(0, Number(elecLedVf) || 0);
+  const ledMa = Math.max(0.1, Number(elecLedCurrentMa) || 20);
+  const ledCount = Math.max(1, Number(elecLedCount) || 1);
+
+  const totalLedVf = ledVf * ledCount;
+  const voltageDropAcrossResistor = Math.max(0, supplyV - totalLedVf);
+  const idealResistanceOhms = voltageDropAcrossResistor > 0 ? voltageDropAcrossResistor / (ledMa / 1000) : 0;
+  const nearestE12Ohms = findNearestE12(idealResistanceOhms);
+  const actualCurrentMa = nearestE12Ohms > 0 ? (voltageDropAcrossResistor / nearestE12Ohms) * 1000 : 0;
+  const resistorPowerWatts = voltageDropAcrossResistor * (actualCurrentMa / 1000);
+  const recommendedResistorWattage = recommendWattage(resistorPowerWatts);
+  const resistorBands = calculateResistorBands(nearestE12Ohms);
+  const isVoltageInsufficient = supplyV <= totalLedVf && supplyV > 0;
+
+  const batteryMah = Math.max(1, Number(elecBatteryMah) || 1);
+  const batteryV = Math.max(0.1, Number(elecBatteryV) || 3.7);
+  const loadMa = Math.max(0.1, Number(elecLoadCurrentMa) || 1);
+  const effPct = Math.min(100, Math.max(10, Number(elecEfficiencyPct) || 85));
+
+  const batteryWh = (batteryMah * batteryV) / 1000;
+  const loadWatts = (batteryV * loadMa) / 1000;
+  const effectiveMah = batteryMah * (effPct / 100);
+  const runtimeHours = effectiveMah / loadMa;
+  const runtimeDays = runtimeHours / 24;
+
   // Save Formula Handler
   async function handleSaveFormula(toolName: string) {
     let title = '';
@@ -354,6 +405,19 @@ export default function PublicToolsClient({
       title = `Laser Cut: Sheet Nesting (${totalPartsYield}x ${partW}x${partH}mm)`;
       category = 'Laser Cutting & CNC';
       instructions = `Laser / CNC Sheet Nesting & Machine Cost Sheet:\n- Raw Sheet: ${sheetW} x ${sheetH} mm (${formatCurrency(rawSheetCost, currency)})\n- Part Dimensions: ${partW} x ${partH} mm (Kerf & Spacing: ${kerf} mm)\n- Grid Yield: ${cols} cols x ${rows} rows = ${totalPartsYield} parts per sheet (${nestingUtilizationPct.toFixed(1)}% area efficiency)\n- Cut Duration: ${cutMin} minutes per sheet\n- Machine Overhead: ${formatCurrency(machineRunCost, currency)} (${formatCurrency(machineHourRate, currency)}/hr rate)\n- Electricity Consumed: ${powerKwh.toFixed(3)} kWh (${formatCurrency(electricityCost, currency)})\n- Material Cost / Part: ${formatCurrency(materialCostPerPart, currency)}\n- Base Unit COGS: ${formatCurrency(laserPartCOGS, currency)}\n- Target Retail Price (${laserMargin}% margin): ${formatCurrency(laserSuggestedRetail, currency)} (${formatCurrency(laserProfitPerPart, currency)} net profit/part)\n- Full Sheet Gross Revenue: ${formatCurrency(totalSheetRevenue, currency)}`;
+    } else if (toolName === 'ELECTRONICS') {
+      if (elecMode === 'LED_RESISTOR') {
+        const band1Name = BAND_COLORS[resistorBands.digit1]?.name || 'Band 1';
+        const band2Name = BAND_COLORS[resistorBands.digit2]?.name || 'Band 2';
+        const multName = MULTIPLIER_COLORS[resistorBands.multiplierPow]?.name || 'Multiplier';
+        title = `LED Resistor Formula (${supplyV}V -> ${ledCount}x ${ledVf}V @ ${ledMa}mA)`;
+        category = 'Electronics & Hardware';
+        instructions = `LED Resistor & Current Limiter Specifications:\n- Supply Voltage: ${supplyV}V\n- Forward Voltage Drop: ${totalLedVf.toFixed(2)}V (${ledCount}x ${ledVf}V LEDs in series)\n- Target LED Current: ${ledMa}mA\n- Ideal Resistance: ${idealResistanceOhms.toFixed(1)} Ω\n- Nearest Standard E12 Resistor: ${formatOhms(nearestE12Ohms)} (Color Bands: ${band1Name} - ${band2Name} - ${multName} - Gold)\n- Actual Operating Current: ${actualCurrentMa.toFixed(1)}mA\n- Resistor Power Dissipation: ${resistorPowerWatts < 1 ? `${Math.round(resistorPowerWatts * 1000)}mW` : `${resistorPowerWatts.toFixed(2)}W`}\n- Recommended Resistor Rating: ${recommendedResistorWattage} or higher rating.`;
+      } else {
+        title = `Battery Runtime Plan (${batteryMah}mAh @ ${loadMa}mA Load)`;
+        category = 'Electronics & Hardware';
+        instructions = `Battery Capacity & Runtime Estimation:\n- Battery Spec: ${batteryMah}mAh @ ${batteryV}V (${batteryWh.toFixed(2)} Wh energy storage)\n- Load Current Draw: ${loadMa}mA (~${(loadWatts * 1000).toFixed(1)}mW continuous)\n- Circuit Efficiency: ${effPct}%\n- Effective Usable Capacity: ${Math.round(effectiveMah)}mAh\n- Estimated Continuous Runtime: ${runtimeHours < 24 ? `${runtimeHours.toFixed(1)} hours` : `${runtimeHours.toFixed(1)} hours (~${runtimeDays.toFixed(1)} days)`}.`;
+      }
     }
 
     if (!currentUser) {
@@ -556,6 +620,17 @@ export default function PublicToolsClient({
             >
               <Layers className="w-4 h-4" />
               <span>{t('tools.tab_lasercut')}</span>
+            </button>
+            <button
+              onClick={() => handleSelectTool('ELECTRONICS')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTool === 'ELECTRONICS'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Cpu className="w-4 h-4" />
+              <span>{t('tools.tab_electronics')}</span>
             </button>
           </div>
         </div>
@@ -1566,6 +1641,409 @@ export default function PublicToolsClient({
               </div>
             </div>
           )}
+
+          {/* ================================================================ */}
+          {/* TOOL 7: ELECTRONICS & LED RESISTOR / BATTERY RUNTIME ESTIMATOR   */}
+          {/* ================================================================ */}
+          {activeTool === 'ELECTRONICS' && (
+            <div className="space-y-6">
+              {/* Mode Toggle Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <Cpu className="w-5 h-5 text-indigo-400" />
+                  <div>
+                    <h2 className="text-base font-bold text-white">Electronics &amp; Hardware Lab</h2>
+                    <p className="text-xs text-slate-400">LED Current Limiting Resistors, E12 Series &amp; Battery Runtime Calculator</p>
+                  </div>
+                </div>
+                <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setElecMode('LED_RESISTOR')}
+                    className={`px-3.5 py-1.5 rounded-lg transition ${
+                      elecMode === 'LED_RESISTOR'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    LED Resistor &amp; Ohm&apos;s Law
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setElecMode('BATTERY_RUNTIME')}
+                    className={`px-3.5 py-1.5 rounded-lg transition ${
+                      elecMode === 'BATTERY_RUNTIME'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Battery Runtime &amp; Wh
+                  </button>
+                </div>
+              </div>
+
+              {elecMode === 'LED_RESISTOR' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column: LED Inputs */}
+                  <div className="space-y-4">
+                    {/* Supply Voltage */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-slate-300">
+                          Supply Voltage (Vs)
+                        </label>
+                        <div className="flex items-center gap-1">
+                          {[3.3, 5.0, 9.0, 12.0, 24.0].map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setElecSupplyV(v)}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold transition ${
+                                elecSupplyV === v
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                              }`}
+                            >
+                              {v}V
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        value={elecSupplyV}
+                        onChange={(e) => setElecSupplyV(parseFloat(e.target.value) || 0)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-white outline-none focus:border-blue-500"
+                      />
+                    </div>
+
+                    {/* LED Color Presets */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-slate-300">
+                          LED Color &amp; Forward Voltage (Vf)
+                        </label>
+                        <span className="text-[11px] font-bold text-blue-400">
+                          {elecLedVf}V
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                        {[
+                          { name: 'Red', vf: 2.0, color: '#ef4444' },
+                          { name: 'Green', vf: 2.2, color: '#22c55e' },
+                          { name: 'Blue', vf: 3.2, color: '#3b82f6' },
+                          { name: 'White', vf: 3.2, color: '#94a3b8' },
+                          { name: 'Amber', vf: 2.1, color: '#f59e0b' },
+                          { name: 'UV', vf: 3.4, color: '#a855f7' },
+                        ].map((c) => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => setElecLedVf(c.vf)}
+                            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition border text-center ${
+                              elecLedVf === c.vf
+                                ? 'border-blue-500 bg-blue-500/10 text-blue-400'
+                                : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <span
+                              className="inline-block w-2 h-2 rounded-full mr-1"
+                              style={{ backgroundColor: c.color }}
+                            />
+                            <span>{c.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Current & Series Count */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs font-bold text-slate-300">
+                            Target Current (If)
+                          </label>
+                          <div className="flex items-center gap-1">
+                            {[10, 20, 30].map((ma) => (
+                              <button
+                                key={ma}
+                                type="button"
+                                onClick={() => setElecLedCurrentMa(ma)}
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                                  elecLedCurrentMa === ma
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-slate-950 text-slate-500 hover:text-white border border-slate-800'
+                                }`}
+                              >
+                                {ma}mA
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <input
+                          type="number"
+                          step="1"
+                          min="1"
+                          max="1000"
+                          value={elecLedCurrentMa}
+                          onChange={(e) => setElecLedCurrentMa(Math.max(1, parseInt(e.target.value) || 20))}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-white outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                          LEDs in Series
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          {[1, 2, 3, 4].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setElecLedCount(n)}
+                              className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+                                elecLedCount === n
+                                  ? 'bg-blue-600 text-white shadow-sm'
+                                  : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'
+                              }`}
+                            >
+                              {n}x
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: LED Results & Resistor Graphic */}
+                  <div className="space-y-4">
+                    {isVoltageInsufficient ? (
+                      <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-900 text-xs text-rose-300 font-semibold space-y-1">
+                        <p className="font-bold flex items-center gap-1">
+                          <AlertTriangle className="w-4 h-4 text-rose-400" />
+                          <span>Supply Voltage Too Low</span>
+                        </p>
+                        <p>
+                          Supply voltage ({supplyV}V) must be greater than total LED forward voltage ({totalLedVf.toFixed(1)}V for {ledCount} series LEDs).
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Resistor Value Card */}
+                        <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-900/60 space-y-1">
+                          <span className="text-[10px] uppercase font-bold text-blue-400">
+                            Nearest Standard E12 Resistor
+                          </span>
+                          <div className="text-3xl font-black text-white">
+                            {formatOhms(nearestE12Ohms)}
+                          </div>
+                          <span className="text-[11px] text-slate-400 block">
+                            Exact calculated: <b>{idealResistanceOhms.toFixed(1)} Ω</b> (Drop: {voltageDropAcrossResistor.toFixed(2)}V, Actual: {actualCurrentMa.toFixed(1)}mA)
+                          </span>
+                        </div>
+
+                        {/* 4-Band Resistor Color SVG */}
+                        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                            4-Band Resistor Color Code (&plusmn;5% Tolerance)
+                          </span>
+
+                          <div className="py-2 flex items-center justify-center">
+                            <svg viewBox="0 0 240 60" className="w-full max-w-[280px] h-14">
+                              <line x1="10" y1="30" x2="50" y2="30" stroke="#64748b" strokeWidth="4" strokeLinecap="round" />
+                              <line x1="190" y1="30" x2="230" y2="30" stroke="#64748b" strokeWidth="4" strokeLinecap="round" />
+                              <rect x="50" y="14" width="140" height="32" rx="10" fill="#d4c5a9" stroke="#bfa980" strokeWidth="2" />
+                              <rect x="75" y="14" width="10" height="32" fill={resistorBands.color1} />
+                              <rect x="98" y="14" width="10" height="32" fill={resistorBands.color2} />
+                              <rect x="121" y="14" width="10" height="32" fill={resistorBands.colorMult} />
+                              <rect x="155" y="14" width="8" height="32" fill={resistorBands.colorTol} />
+                            </svg>
+                          </div>
+
+                          <div className="grid grid-cols-4 gap-1.5 text-center text-[10px] font-bold">
+                            <div className="p-1.5 rounded-lg border border-slate-800 bg-slate-950">
+                              <span className="block text-slate-400">1st: {resistorBands.digit1}</span>
+                              <span className="inline-block w-3 h-3 rounded-full mt-1" style={{ backgroundColor: resistorBands.color1 }} />
+                            </div>
+                            <div className="p-1.5 rounded-lg border border-slate-800 bg-slate-950">
+                              <span className="block text-slate-400">2nd: {resistorBands.digit2}</span>
+                              <span className="inline-block w-3 h-3 rounded-full mt-1" style={{ backgroundColor: resistorBands.color2 }} />
+                            </div>
+                            <div className="p-1.5 rounded-lg border border-slate-800 bg-slate-950">
+                              <span className="block text-slate-400">x10^{resistorBands.multiplierPow}</span>
+                              <span className="inline-block w-3 h-3 rounded-full mt-1" style={{ backgroundColor: resistorBands.colorMult }} />
+                            </div>
+                            <div className="p-1.5 rounded-lg border border-slate-800 bg-slate-950">
+                              <span className="block text-slate-400">&plusmn;5% Gold</span>
+                              <span className="inline-block w-3 h-3 rounded-full mt-1" style={{ backgroundColor: resistorBands.colorTol }} />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Power & Wattage Recommendation */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                            <span className="block text-[10px] text-slate-400">Power Dissipation</span>
+                            <span className="block text-sm font-bold text-white mt-1">
+                              {resistorPowerWatts < 1 ? `${Math.round(resistorPowerWatts * 1000)} mW` : `${resistorPowerWatts.toFixed(2)} W`}
+                            </span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-900/60">
+                            <span className="block text-[10px] text-emerald-400">Recommended Rating</span>
+                            <span className="block text-sm font-bold text-emerald-300 mt-1">
+                              {recommendedResistorWattage}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Battery Runtime Mode */
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Left Column: Battery Inputs */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs font-bold text-slate-300">
+                            Battery Capacity (mAh)
+                          </label>
+                          <span className="text-[11px] text-slate-400 font-mono">
+                            {batteryWh.toFixed(1)} Wh
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          min="10"
+                          value={elecBatteryMah}
+                          onChange={(e) => setElecBatteryMah(Math.max(10, parseInt(e.target.value) || 0))}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-white outline-none focus:border-blue-500"
+                        />
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          {[
+                            { label: '9V (500)', mah: 500 },
+                            { label: 'AA (2000)', mah: 2000 },
+                            { label: '18650 (2500)', mah: 2500 },
+                            { label: 'Powerbank (10k)', mah: 10000 },
+                          ].map((p) => (
+                            <button
+                              key={p.label}
+                              type="button"
+                              onClick={() => setElecBatteryMah(p.mah)}
+                              className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                          Battery Voltage (V)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.5"
+                          value={elecBatteryV}
+                          onChange={(e) => setElecBatteryV(Math.max(0.5, parseFloat(e.target.value) || 0))}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-white outline-none focus:border-blue-500"
+                        />
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          {[1.2, 3.7, 5.0, 9.0, 12.0].map((v) => (
+                            <button
+                              key={v}
+                              type="button"
+                              onClick={() => setElecBatteryV(v)}
+                              className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
+                            >
+                              {v}V
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                          Continuous Load Current (mA)
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={elecLoadCurrentMa}
+                          onChange={(e) => setElecLoadCurrentMa(Math.max(1, parseInt(e.target.value) || 0))}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-white outline-none focus:border-blue-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                          Efficiency Factor (%)
+                        </label>
+                        <input
+                          type="number"
+                          min="10"
+                          max="100"
+                          value={elecEfficiencyPct}
+                          onChange={(e) => setElecEfficiencyPct(Math.max(10, Math.min(100, parseInt(e.target.value) || 85)))}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-semibold text-white outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Battery Results */}
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-900/60 space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-emerald-400">
+                        Estimated Continuous Runtime
+                      </span>
+                      <div className="text-3xl font-black text-white">
+                        {runtimeHours < 24 ? `${runtimeHours.toFixed(1)} Hours` : `${runtimeHours.toFixed(1)}h (${runtimeDays.toFixed(1)} Days)`}
+                      </div>
+                      <span className="text-[11px] text-slate-400 block">
+                        Effective capacity: {Math.round(effectiveMah)} mAh at {effPct}% converter efficiency
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                        <span className="block text-[10px] text-slate-400">Total Energy (Wh)</span>
+                        <span className="block text-sm font-bold text-white mt-1">
+                          {batteryWh.toFixed(2)} Wh
+                        </span>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                        <span className="block text-[10px] text-slate-400">Load Power Draw</span>
+                        <span className="block text-sm font-bold text-amber-400 mt-1">
+                          {loadWatts < 1 ? `${Math.round(loadWatts * 1000)} mW` : `${loadWatts.toFixed(2)} W`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Save Recipe CTA */}
+              <div className="flex items-center justify-end pt-2">
+                <button
+                  onClick={() => handleSaveFormula('ELECTRONICS')}
+                  disabled={saving}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1639,6 +2117,16 @@ export default function PublicToolsClient({
               </div>
               <p>
                 A CO2 or diode laser focal spot burns away 0.1mm - 0.3mm of material (kerf). Factoring kerf spacing and shared-line cutting prevents part scorching, protects delicate bridges, and maximizes raw sheet yield.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Cpu className="w-4 h-4 text-indigo-400" />
+                <span>LED Current Limiting &amp; Thermal Runaway</span>
+              </div>
+              <p>
+                LEDs are non-linear diodes with negative temperature coefficients. Connecting an LED directly to a power source without a current-limiting resistor causes exponential current growth, thermal runaway, and immediate burnout. Always choose the nearest standard E12 resistor rated for at least 2&times; the calculated dissipation wattage.
               </p>
             </div>
           </div>

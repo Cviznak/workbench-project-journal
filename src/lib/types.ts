@@ -156,6 +156,8 @@ export interface ProjectTask {
   prerequisite_task?: { id: string; title: string; status: TaskStatus } | null;
   task_materials?: TaskMaterial[];
   material_cost?: number;
+  due_date?: string | null;
+  estimated_minutes?: number;
   created_at: string;
   updated_at: string;
   assignee?: Profile | null;
@@ -218,9 +220,30 @@ export interface InventoryItem {
   in_restock_cart: boolean;
   restock_target_qty: number;
   image_url?: string | null;
+  last_maintained_at?: string | null;
+  maintenance_interval_days?: number;
   updated_at: string;
   created_at: string;
   folder?: InventoryFolder | null;
+}
+
+export type EquipmentActionType =
+  | 'MAINTENANCE'
+  | 'CALIBRATION'
+  | 'REPAIR'
+  | 'PART_SWAP'
+  | 'INSPECTION';
+
+export interface EquipmentLog {
+  id: string;
+  item_id: string;
+  user_id: string;
+  action_type: EquipmentActionType;
+  summary: string;
+  cost: number;
+  condition_after: ItemCondition;
+  performed_at: string;
+  inventory_item?: InventoryItem;
 }
 
 export interface TaskMaterial {

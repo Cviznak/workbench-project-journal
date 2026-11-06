@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -45,7 +45,13 @@ import {
   Lock,
   Globe,
   Boxes,
+  Network,
+  Calendar,
+  GitFork,
+  CheckCircle2,
+  Layers,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import EditTaskModal from '@/components/EditTaskModal';
 import EditProjectModal from '@/components/EditProjectModal';
 import UserAvatar from '@/components/UserAvatar';
@@ -99,6 +105,7 @@ export default function KanbanBoardClient({
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null);
 
   // Quick Filters State
+  const [boardView, setBoardView] = useState<'KANBAN' | 'ROADMAP'>('KANBAN');
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'ALL' | TaskPriority>('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState<'ALL' | string>('ALL');
@@ -446,6 +453,51 @@ export default function KanbanBoardClient({
     return matchesSearch && matchesPriority && matchesAssignee;
   });
 
+  // Topological dependency stages computation for Roadmap View
+  const dependencyRoadmap = useMemo(() => {
+    const depthMap = new Map<string, number>();
+
+    function getDepth(taskId: string, visited = new Set<string>()): number {
+      if (depthMap.has(taskId)) return depthMap.get(taskId)!;
+      if (visited.has(taskId)) return 0;
+      visited.add(taskId);
+
+      const t = tasks.find((item) => item.id === taskId);
+      if (!t || !t.prerequisite_task_id) {
+        depthMap.set(taskId, 0);
+        return 0;
+      }
+
+      const parentDepth = getDepth(t.prerequisite_task_id, visited);
+      const d = Math.min(parentDepth + 1, 8);
+      depthMap.set(taskId, d);
+      return d;
+    }
+
+    filteredTasks.forEach((t) => getDepth(t.id));
+
+    const levelsMap = new Map<number, any[]>();
+    filteredTasks.forEach((t) => {
+      const d = depthMap.get(t.id) || 0;
+      if (!levelsMap.has(d)) levelsMap.set(d, []);
+      levelsMap.get(d)!.push(t);
+    });
+
+    const sortedLevels = Array.from(levelsMap.keys()).sort((a, b) => a - b);
+    return sortedLevels.map((lvl) => ({
+      level: lvl,
+      title:
+        lvl === 0
+          ? 'Stage 0: Unblocked Foundations'
+          : lvl === 1
+          ? 'Stage 1: Primary Dependencies'
+          : lvl === 2
+          ? 'Stage 2: Mid-Stream Execution'
+          : `Stage ${lvl}: Final Integration & Polish`,
+      tasks: levelsMap.get(lvl) || [],
+    }));
+  }, [filteredTasks, tasks]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200 min-w-0 max-w-full overflow-x-hidden">
       {/* Public Showcase Banner (Read-Only Mode) */}
@@ -767,6 +819,48 @@ export default function KanbanBoardClient({
         </div>
       )}
 
+      {/* View Switcher Bar (Kanban Board vs Dependency Graph & Roadmap) */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="inline-flex p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-fit">
+          <button
+            type="button"
+            onClick={() => setBoardView('KANBAN')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition',
+              boardView === 'KANBAN'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            )}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Kanban Board</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setBoardView('ROADMAP')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition',
+              boardView === 'ROADMAP'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            )}
+          >
+            <Network className="w-3.5 h-3.5" />
+            <span>Dependency Graph &amp; Roadmap</span>
+          </button>
+        </div>
+
+        {!isPublicShowcase && (
+          <button
+            onClick={() => setTaskModalOpen(true)}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 transition self-end sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Task</span>
+          </button>
+        )}
+      </div>
+
       {/* Quick Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-2xl">
         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -820,8 +914,283 @@ export default function KanbanBoardClient({
         </div>
       </div>
 
-      {/* Interactive Kanban Board */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 min-w-0">
+      {/* Interactive Kanban Board OR Dependency Graph & Roadmap */}
+      {boardView === 'ROADMAP' ? (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold shrink-0">
+                  <Network className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Sequential Roadmap &amp; Dependency Pipeline
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Tasks arranged automatically by dependency depth: Level 0 foundations must finish before dependent tasks unlock.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Done
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In Progress / Review
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> Pending
+                </span>
+              </div>
+            </div>
+
+            {/* Stages Stack */}
+            <div className="mt-6 space-y-6">
+              {dependencyRoadmap.map((stage) => {
+                const totalInStage = stage.tasks.length;
+                const completedInStage = stage.tasks.filter((t) => t.status === 'DONE').length;
+                const stagePercent = totalInStage > 0 ? Math.round((completedInStage / totalInStage) * 100) : 0;
+
+                return (
+                  <div
+                    key={stage.level}
+                    className="relative rounded-2xl border border-slate-200/80 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-950/40 p-4 sm:p-5"
+                  >
+                    {/* Stage Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                      <div className="flex items-center gap-2.5">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm">
+                          Stage {stage.level}
+                        </span>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                          {stage.title}
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs">
+                        <span className="text-slate-400 font-medium">
+                          {completedInStage}/{totalInStage} completed ({stagePercent}%)
+                        </span>
+                        <div className="w-24 bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-emerald-500 h-2 rounded-full transition-all"
+                            style={{ width: `${stagePercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stage Tasks Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                      {stage.tasks.map((task: any) => {
+                        const prereq = task.prerequisite_task_id
+                          ? tasks.find((t) => t.id === task.prerequisite_task_id)
+                          : null;
+                        const isPrereqDone = !prereq || prereq.status === 'DONE';
+                        const isDone = task.status === 'DONE';
+                        const dependents = tasks.filter((t) => t.prerequisite_task_id === task.id);
+                        const today = new Date().toISOString().slice(0, 10);
+                        const isOverdue = !!task.due_date && task.due_date < today && !isDone;
+
+                        return (
+                          <div
+                            key={task.id}
+                            className={cn(
+                              'p-4 rounded-xl border bg-white dark:bg-slate-900 shadow-sm transition-all space-y-2.5',
+                              isDone
+                                ? 'border-emerald-500/30 bg-emerald-50/10 dark:bg-emerald-950/10'
+                                : !isPrereqDone
+                                ? 'border-amber-500/30 bg-amber-50/5 dark:bg-amber-950/5'
+                                : 'border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600'
+                            )}
+                          >
+                            {/* Card Top: Status & Priority */}
+                            <div className="flex items-center justify-between gap-2">
+                              <span
+                                className={cn(
+                                  'text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider',
+                                  isDone
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                                    : task.status === 'IN_PROGRESS'
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+                                    : task.status === 'REVIEW'
+                                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                )}
+                              >
+                                {task.status.replace('_', ' ')}
+                              </span>
+
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded">
+                                  +{task.xp_reward} XP
+                                </span>
+                                <button
+                                  onClick={() => openEditTask(task)}
+                                  className="p-1 rounded-md text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                  title="Edit Task Details"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Title & Desc */}
+                            <h5
+                              onClick={() => openEditTask(task)}
+                              className="font-bold text-sm text-slate-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 line-clamp-1"
+                            >
+                              {task.title}
+                            </h5>
+
+                            {task.description && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                                {task.description}
+                              </p>
+                            )}
+
+                            {/* Dependency Link & Blockers */}
+                            {prereq && (
+                              <div
+                                className={cn(
+                                  'flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg font-semibold',
+                                  isPrereqDone
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                                )}
+                              >
+                                {isPrereqDone ? (
+                                  <CheckCircle2 className="w-3 h-3 shrink-0" />
+                                ) : (
+                                  <Lock className="w-3 h-3 shrink-0" />
+                                )}
+                                <span className="truncate">
+                                  {isPrereqDone ? 'Unlocked by: ' : 'Blocked by: '}
+                                  <span className="font-bold">{prereq.title}</span>
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Downstream Unlocks badge */}
+                            {dependents.length > 0 && (
+                              <div className="flex items-center gap-1.5 text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+                                <GitFork className="w-3 h-3 shrink-0 rotate-180" />
+                                <span>Unlocks {dependents.length} downstream {dependents.length === 1 ? 'task' : 'tasks'}</span>
+                              </div>
+                            )}
+
+                            {/* Due Date & Estimated Effort */}
+                            <div className="flex items-center gap-2 flex-wrap pt-1 text-[11px]">
+                              {task.due_date && (
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border',
+                                    isOverdue
+                                      ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50'
+                                      : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                  )}
+                                  title={isOverdue ? `Overdue! Target was ${task.due_date}` : `Target: ${task.due_date}`}
+                                >
+                                  <Calendar className="w-3 h-3" />
+                                  <span>{task.due_date}</span>
+                                </span>
+                              )}
+
+                              {task.estimated_minutes && task.estimated_minutes > 0 ? (
+                                <span
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                                  title={`Estimated effort: ${task.estimated_minutes} min`}
+                                >
+                                  <Clock className="w-3 h-3" />
+                                  <span>
+                                    {task.estimated_minutes >= 60
+                                      ? `${(task.estimated_minutes / 60).toFixed(1)}h`
+                                      : `${task.estimated_minutes}m`}
+                                  </span>
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {/* Footer: Assignee & Action */}
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                {task.assignee ? (
+                                  <>
+                                    <UserAvatar
+                                      src={task.assignee.avatar_url}
+                                      name={task.assignee.display_name || task.assignee.username}
+                                      size="xs"
+                                      shape="circle"
+                                    />
+                                    <span className="font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[100px]">
+                                      @{task.assignee.username}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span className="italic text-slate-400">Unassigned</span>
+                                )}
+                              </div>
+
+                              {!isPublicShowcase && !isDone && (
+                                <button
+                                  disabled={!isPrereqDone}
+                                  onClick={() => {
+                                    if (!isPrereqDone) return;
+                                    const nextStatus =
+                                      task.status === 'TODO'
+                                        ? 'IN_PROGRESS'
+                                        : task.status === 'IN_PROGRESS'
+                                        ? 'REVIEW'
+                                        : 'DONE';
+                                    handleMoveTask(task.id, nextStatus);
+                                  }}
+                                  className={cn(
+                                    'px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1',
+                                    !isPrereqDone
+                                      ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                      : task.status === 'REVIEW'
+                                      ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
+                                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                                  )}
+                                >
+                                  {!isPrereqDone ? (
+                                    <>
+                                      <Lock className="w-3 h-3" />
+                                      <span>Locked</span>
+                                    </>
+                                  ) : task.status === 'REVIEW' ? (
+                                    <>
+                                      <Check className="w-3 h-3" />
+                                      <span>Claim XP</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>Advance</span>
+                                      <ArrowRight className="w-3 h-3" />
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {dependencyRoadmap.length === 0 && (
+                <div className="text-center py-12 text-slate-400">
+                  <Network className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                  <p className="text-sm font-semibold">No tasks found matching your filter</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 min-w-0">
         {COLUMNS.map((col) => {
           const colTasks = filteredTasks.filter((t) => t.status === col.id);
           const isDropTarget = dragOverCol === col.id;
@@ -943,6 +1312,44 @@ export default function KanbanBoardClient({
                           </div>
                         );
                       })()}
+
+                      {/* Due Date & Estimated Effort Badges */}
+                      {(task.due_date || (task.estimated_minutes && task.estimated_minutes > 0)) && (
+                        <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                          {task.due_date && (() => {
+                            const today = new Date().toISOString().slice(0, 10);
+                            const isOverdue = task.due_date < today && task.status !== 'DONE';
+                            return (
+                              <span
+                                className={cn(
+                                  'inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border',
+                                  isOverdue
+                                    ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                )}
+                                title={isOverdue ? `Overdue (Target: ${task.due_date})` : `Due Date: ${task.due_date}`}
+                              >
+                                <Calendar className="w-3 h-3" />
+                                <span>{task.due_date}</span>
+                              </span>
+                            );
+                          })()}
+
+                          {task.estimated_minutes && task.estimated_minutes > 0 ? (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                              title={`Estimated effort: ${task.estimated_minutes} min`}
+                            >
+                              <Clock className="w-3 h-3" />
+                              <span>
+                                {task.estimated_minutes >= 60
+                                  ? `${(task.estimated_minutes / 60).toFixed(1)}h`
+                                  : `${task.estimated_minutes}m`}
+                              </span>
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
 
                       {/* Subtasks Progress Bar & Checklist */}
                       {hasSubtasks && (
@@ -1178,6 +1585,7 @@ export default function KanbanBoardClient({
           );
         })}
       </div>
+      )}
 
       {/* -------------------------------------------------------- */}
       {/* Project Updates & Community Activity                      */}

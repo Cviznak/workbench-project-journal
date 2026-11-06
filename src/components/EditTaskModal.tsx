@@ -39,6 +39,8 @@ import {
   Boxes,
   AlertTriangle,
   CornerDownRight,
+  Calendar,
+  Clock,
 } from 'lucide-react';
 import SkillSelector from '@/components/SkillSelector';
 import UserAvatar from '@/components/UserAvatar';
@@ -88,6 +90,8 @@ export default function EditTaskModal({
   const [prerequisiteTaskId, setPrerequisiteTaskId] = useState<string>(
     task.prerequisite_task_id || ''
   );
+  const [dueDate, setDueDate] = useState<string>(task.due_date || '');
+  const [estimatedMinutes, setEstimatedMinutes] = useState<number>(task.estimated_minutes || 0);
   const [subtasks, setSubtasks] = useState<TaskSubtask[]>(task.subtasks || []);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [saving, setSaving] = useState(false);
@@ -342,6 +346,8 @@ export default function EditTaskModal({
           xp_reward: parseInt(xpReward, 10) || 25,
           skill_id: skillId || null,
           prerequisite_task_id: prerequisiteTaskId || null,
+          due_date: dueDate || null,
+          estimated_minutes: Math.max(0, parseInt(String(estimatedMinutes), 10) || 0),
           subtasks,
           updated_at: new Date().toISOString(),
         })
@@ -752,6 +758,47 @@ export default function EditTaskModal({
                         </option>
                       ))}
                   </select>
+                </div>
+
+                {/* Due Date & Estimated Effort */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Target Due Date</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-purple-500" />
+                      <span>Estimated Effort (Min)</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="15"
+                        placeholder="e.g. 60 (1 hr)"
+                        value={estimatedMinutes || ''}
+                        onChange={(e) => setEstimatedMinutes(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs font-medium"
+                      />
+                      {estimatedMinutes > 0 && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-slate-400">
+                          {estimatedMinutes >= 60
+                            ? `${(estimatedMinutes / 60).toFixed(1)}h`
+                            : `${estimatedMinutes}m`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Subtasks Checklist */}
