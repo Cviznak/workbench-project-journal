@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: PostDetailPageProps) {
   const supabase = createClient();
   const { data: post } = await supabase
     .from('community_posts')
-    .select('content, image_url, author:profiles!community_posts_author_id_fkey(display_name, username)')
+    .select('title, content_md, image_url, author:profiles!community_posts_author_id_fkey(display_name, username)')
     .eq('id', params.id)
     .single();
 
@@ -25,16 +25,20 @@ export async function generateMetadata({ params }: PostDetailPageProps) {
 
   const author = Array.isArray(post.author) ? post.author[0] : post.author;
   const authorName = author?.display_name || author?.username || 'Maker';
-  const cleanSnippet = post.content
-    ? post.content.replace(/\s+/g, ' ').trim().slice(0, 160)
-    : 'Workshop update on Workbench';
+  const cleanSnippet = post.content_md
+    ? post.content_md.replace(/\s+/g, ' ').trim().slice(0, 160)
+    : post.title || 'Workshop update on Workbench';
   const ogImageUrl = post.image_url || 'https://www.workbenchsoc.com/og-image.png';
 
+  const pageTitle = post.title
+    ? `${post.title} by ${authorName} | Workbench Community`
+    : `${authorName}'s Update | Workbench Community`;
+
   return {
-    title: `${authorName}'s Update | Workbench Community`,
+    title: pageTitle,
     description: cleanSnippet,
     openGraph: {
-      title: `${authorName}'s Update | Workbench Community`,
+      title: pageTitle,
       description: cleanSnippet,
       url: `https://www.workbenchsoc.com/community/${params.id}`,
       type: 'article',
@@ -49,7 +53,7 @@ export async function generateMetadata({ params }: PostDetailPageProps) {
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${authorName}'s Update | Workbench Community`,
+      title: pageTitle,
       description: cleanSnippet,
       images: [ogImageUrl],
     },

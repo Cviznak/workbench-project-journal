@@ -347,8 +347,9 @@ Immutable system audit ledger.
 Public social feed posts for maker projects and deliberate practice milestones.
 - `id` (`UUID`, PK, DEFAULT `gen_random_uuid()`)
 - `author_id` (`UUID`, NOT NULL, references `profiles.id` ON DELETE CASCADE)
-- `content` (`TEXT`, NOT NULL)
-- `media_urls` (`TEXT[]`, DEFAULT `'{}'`)
+- `title` (`TEXT`, DEFAULT `''`)
+- `content_md` (`TEXT`, NOT NULL)
+- `image_url` (`TEXT`, DEFAULT `''`)
 - `skill_id` (`UUID`, references `skill_catalog.id` ON DELETE SET NULL)
 - `project_id` (`UUID`, references `projects.id` ON DELETE SET NULL)
 - `likes_count` (`INT`, DEFAULT `0`)
