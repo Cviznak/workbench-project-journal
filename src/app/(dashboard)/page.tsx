@@ -5,6 +5,7 @@ import { getSkillTier, calculateStreak, TaskStatus } from '@/lib/types';
 import ActivityHeatmap from '@/components/ActivityHeatmap';
 import PublicLandingPage from '@/components/PublicLandingPage';
 import OnboardingQuestCard from '@/components/OnboardingQuestCard';
+import TrophyCase from '@/components/TrophyCase';
 import {
   Flame,
   Target,
@@ -63,7 +64,7 @@ export default async function DashboardPage() {
     );
   }
 
-  // Fetch all dashboard metrics concurrently
+  // Fetch all dashboard metrics & evaluate milestones concurrently
   const [
     { data: profile },
     { data: userSkills },
@@ -73,6 +74,8 @@ export default async function DashboardPage() {
     pmProjectsRes,
     memberProjectsRes,
     workspaceItemsRes,
+    { data: userAchievements },
+    { data: allAchievements },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -113,6 +116,17 @@ export default async function DashboardPage() {
       .from('workspace_items')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id),
+    supabase
+      .from('user_achievements')
+      .select('*, achievement:achievements(*)')
+      .eq('user_id', user.id)
+      .order('unlocked_at', { ascending: false }),
+    supabase
+      .from('achievements')
+      .select('*')
+      .order('created_at', { ascending: true }),
+    supabase
+      .rpc('evaluate_user_achievements'),
   ]);
 
   const userOwnProjectsAndIdeasCount =
@@ -237,6 +251,14 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Maker Trophy Case */}
+      <TrophyCase
+        compact
+        allAchievements={allAchievements || []}
+        userAchievements={(userAchievements as any[]) || []}
+        isOwnProfile
+      />
 
       {/* Maker Consistency & 365-Day Activity Heatmap */}
       <ActivityHeatmap profile={profile} />

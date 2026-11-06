@@ -68,6 +68,9 @@ export default async function MakerProfilePage({ params }: MakerProfilePageProps
     { data: userSkills },
     { data: allSkills },
     { data: currentUserProfile },
+    { data: userAchievements },
+    { data: allAchievements },
+    { data: publicRecipes },
   ] = await Promise.all([
     supabase
       .from('community_posts')
@@ -97,6 +100,21 @@ export default async function MakerProfilePage({ params }: MakerProfilePageProps
           .eq('id', user.id)
           .single()
       : Promise.resolve({ data: null }),
+    supabase
+      .from('user_achievements')
+      .select('*, achievement:achievements(*)')
+      .eq('user_id', targetProfile.id)
+      .order('unlocked_at', { ascending: false }),
+    supabase
+      .from('achievements')
+      .select('*')
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('maker_recipes')
+      .select('*, output_item:inventory_items(*), ingredients:recipe_ingredients(*, inventory_item:inventory_items(*))')
+      .eq('user_id', targetProfile.id)
+      .eq('is_public', true)
+      .order('clones_count', { ascending: false }),
   ]);
 
   return (
@@ -134,6 +152,9 @@ export default async function MakerProfilePage({ params }: MakerProfilePageProps
         allSkills={allSkills || []}
         currentUserId={user?.id || ''}
         currentUserProfile={currentUserProfile}
+        userAchievements={(userAchievements as any[]) || []}
+        allAchievements={(allAchievements as any[]) || []}
+        publicRecipes={(publicRecipes as any[]) || []}
       />
     </div>
   );

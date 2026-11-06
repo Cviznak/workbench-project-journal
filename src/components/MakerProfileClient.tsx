@@ -4,11 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Profile, SkillCatalog } from '@/lib/types';
+import { Profile, SkillCatalog, Achievement, UserAchievement } from '@/lib/types';
 import { relativeTime, getLevelProgress, cn } from '@/lib/utils';
+import { soundEngine, triggerConfetti } from '@/lib/soundEffects';
 import SkillSelector from '@/components/SkillSelector';
 import UserAvatar from '@/components/UserAvatar';
 import AvatarUploader from '@/components/AvatarUploader';
+import TrophyCase from '@/components/TrophyCase';
 import {
   Sparkles,
   Flame,
@@ -30,6 +32,10 @@ import {
   Image as ImageIcon,
   Coffee,
   CornerDownRight,
+  Trophy,
+  FlaskConical,
+  Copy,
+  Plus,
 } from 'lucide-react';
 
 interface MakerProfileClientProps {
@@ -41,6 +47,9 @@ interface MakerProfileClientProps {
   allSkills: SkillCatalog[];
   currentUserId: string;
   currentUserProfile: Profile | null;
+  userAchievements?: UserAchievement[];
+  allAchievements?: Achievement[];
+  publicRecipes?: any[];
 }
 
 export default function MakerProfileClient({
@@ -52,14 +61,19 @@ export default function MakerProfileClient({
   allSkills,
   currentUserId,
   currentUserProfile,
+  userAchievements = [],
+  allAchievements = [],
+  publicRecipes = [],
 }: MakerProfileClientProps) {
   const router = useRouter();
   const supabase = createClient();
 
-  const [activeTab, setActiveTab] = useState<'posts' | 'projects' | 'skills'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'projects' | 'recipes' | 'achievements' | 'skills'>('posts');
   const [profile, setProfile] = useState<Profile>(targetProfile);
   const [posts, setPosts] = useState<any[]>(initialPosts);
   const [projects, setProjects] = useState<any[]>(initialProjects);
+  const [recipes, setRecipes] = useState<any[]>(publicRecipes);
+  const [cloningRecipeId, setCloningRecipeId] = useState<string | null>(null);
 
   // Bio Editing State
   const [isEditingBio, setIsEditingBio] = useState(false);
@@ -108,6 +122,37 @@ export default function MakerProfileClient({
       alert(err.message || 'Failed to update bio');
     } finally {
       setSavingBio(false);
+    }
+  }
+
+  // Clone Public Workshop Recipe
+  async function handleCloneRecipe(recipeId: string, recipeTitle: string) {
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
+
+    setCloningRecipeId(recipeId);
+    try {
+      const { error } = await supabase.rpc('clone_public_recipe', {
+        p_source_recipe_id: recipeId,
+      });
+
+      if (error) throw error;
+
+      soundEngine.playLevelUp();
+      triggerConfetti();
+      setRecipes((prev) =>
+        prev.map((r) =>
+          r.id === recipeId ? { ...r, clones_count: (r.clones_count || 0) + 1 } : r
+        )
+      );
+      alert(`🎉 Successfully cloned "${recipeTitle}" into your workshop recipes!`);
+      router.push('/inventory?tab=recipes');
+    } catch (err: any) {
+      alert(err.message || 'Failed to clone formula');
+    } finally {
+      setCloningRecipeId(null);
     }
   }
 
@@ -485,6 +530,15 @@ export default function MakerProfileClient({
                   <Flame className="w-3.5 h-3.5 fill-current" />
                   <span>{profile.current_streak || 0} Day Streak</span>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('achievements')}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 text-xs font-bold hover:bg-yellow-500/20 transition cursor-pointer"
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>{userAchievements.length} Trophies</span>
+                </button>
               </div>
             </div>
           </div>
@@ -535,11 +589,11 @@ export default function MakerProfileClient({
       {/* ==================================================================== */}
       {/* TABS NAVIGATION                                                      */}
       {/* ==================================================================== */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('posts')}
           className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition',
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap',
             activeTab === 'posts'
               ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -552,7 +606,7 @@ export default function MakerProfileClient({
         <button
           onClick={() => setActiveTab('projects')}
           className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition',
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap',
             activeTab === 'projects'
               ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -563,16 +617,42 @@ export default function MakerProfileClient({
         </button>
 
         <button
+          onClick={() => setActiveTab('recipes')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap',
+            activeTab === 'recipes'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          )}
+        >
+          <FlaskConical className="w-4 h-4 text-emerald-400" />
+          <span>Formulas ({recipes.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('achievements')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap',
+            activeTab === 'achievements'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          )}
+        >
+          <Trophy className="w-4 h-4 text-amber-400" />
+          <span>Trophies ({userAchievements.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('skills')}
           className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition',
+            'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap',
             activeTab === 'skills'
               ? 'bg-blue-600 text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
           )}
         >
           <Target className="w-4 h-4" />
-          <span>Skills & Mastery ({userSkills.length})</span>
+          <span>Skills &amp; Mastery ({userSkills.length})</span>
         </button>
       </div>
 
@@ -1045,6 +1125,113 @@ export default function MakerProfileClient({
             })
           )}
         </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB: PUBLIC FORMULAS & RECIPES                                       */}
+      {/* ==================================================================== */}
+      {activeTab === 'recipes' && (
+        <div className="space-y-4">
+          {recipes.length === 0 ? (
+            <div className="p-10 text-center rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <FlaskConical className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+              <p className="text-xs text-slate-400">
+                {isOwnProfile
+                  ? "You haven't published any workshop formulas yet. Go to Inventory > Formulas to share your recipes with the community!"
+                  : `@${profile.username} hasn't published any workshop formulas yet.`}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {recipes.map((recipe) => {
+                const isCloning = cloningRecipeId === recipe.id;
+                const ingredientCount = recipe.ingredients?.length || 0;
+
+                return (
+                  <div
+                    key={recipe.id}
+                    className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-4"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          {recipe.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={recipe.image_url}
+                              alt={recipe.title}
+                              className="w-12 h-12 rounded-2xl object-cover border border-slate-200 dark:border-slate-800 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                              <FlaskConical className="w-6 h-6" />
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1">
+                              {recipe.title}
+                            </h4>
+                            <span className="text-[11px] font-semibold text-slate-400">
+                              {recipe.category || 'Workshop Formula'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                          {recipe.clones_count || 0} Clones
+                        </span>
+                      </div>
+
+                      {recipe.instructions_md && (
+                        <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                          {recipe.instructions_md}
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                        <span>Yield: <strong className="text-slate-800 dark:text-slate-200">{recipe.output_yield_qty || 1} units</strong></span>
+                        <span>•</span>
+                        <span>{ingredientCount} ingredients</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-slate-400">
+                        Published {relativeTime(recipe.created_at)}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCloneRecipe(recipe.id, recipe.title)}
+                        disabled={isCloning}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition disabled:opacity-50"
+                        title="Copy this formula directly into your own workshop lab"
+                      >
+                        {isCloning ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        <span>Clone to Workshop</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB: ACHIEVEMENTS & TROPHIES                                         */}
+      {/* ==================================================================== */}
+      {activeTab === 'achievements' && (
+        <TrophyCase
+          allAchievements={allAchievements}
+          userAchievements={userAchievements}
+          isOwnProfile={isOwnProfile}
+        />
       )}
 
       {/* ==================================================================== */}

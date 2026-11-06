@@ -27,7 +27,7 @@ import {
   Grid,
 } from 'lucide-react';
 
-export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE';
+export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT';
 
 export function slugToTool(slug?: string | null): ToolType {
   if (!slug) return 'RESIN';
@@ -36,6 +36,7 @@ export function slugToTool(slug?: string | null): ToolType {
   if (norm === '3dprint' || norm === '3d_print') return '3D_PRINT';
   if (norm === 'crossstitch' || norm === 'cross-stitch' || norm === 'stitch') return 'CROSS_STITCH';
   if (norm === 'candle' || norm === 'soap') return 'CANDLE';
+  if (norm === 'lasercut' || norm === 'laser' || norm === 'cnc') return 'LASER_CUT';
   return 'RESIN';
 }
 
@@ -51,6 +52,8 @@ export function toolToSlug(tool: ToolType): string {
       return 'crossstitch';
     case 'CANDLE':
       return 'candle';
+    case 'LASER_CUT':
+      return 'lasercut';
   }
 }
 
@@ -136,6 +139,19 @@ export default function PublicToolsClient({
   const [candleWaxPricePerKg, setCandleWaxPricePerKg] = useState<number>(45);
   const [candleFragrancePricePer100g, setCandleFragrancePricePer100g] = useState<number>(35);
   const [candlePackagingPerUnit, setCandlePackagingPerUnit] = useState<number>(5);
+
+  // 6. Laser Cut / CNC Sheet Nesting State
+  const [laserSheetWidthMm, setLaserSheetWidthMm] = useState<number>(600);
+  const [laserSheetHeightMm, setLaserSheetHeightMm] = useState<number>(400);
+  const [laserSheetCost, setLaserSheetCost] = useState<number>(45);
+  const [laserPartWidthMm, setLaserPartWidthMm] = useState<number>(80);
+  const [laserPartHeightMm, setLaserPartHeightMm] = useState<number>(50);
+  const [laserKerfMm, setLaserKerfMm] = useState<number>(2);
+  const [laserCutMinutes, setLaserCutMinutes] = useState<number>(12);
+  const [laserHourlyRate, setLaserHourlyRate] = useState<number>(30);
+  const [laserMachineWatts, setLaserMachineWatts] = useState<number>(450);
+  const [laserKwhRate, setLaserKwhRate] = useState<number>(0.65);
+  const [laserMarginPct, setLaserMarginPct] = useState<number>(60);
 
   // Calculations: Epoxy
   let volCm3 = 0;
@@ -277,6 +293,37 @@ export default function PublicToolsClient({
   const unitCOGS = totalBatchCost / units;
   const suggestedRetail = unitCOGS / (1 - 0.65);
 
+  // Calculations: Laser Cut & CNC Nesting
+  const sheetW = Math.max(10, Number(laserSheetWidthMm) || 600);
+  const sheetH = Math.max(10, Number(laserSheetHeightMm) || 400);
+  const partW = Math.max(5, Number(laserPartWidthMm) || 80);
+  const partH = Math.max(5, Number(laserPartHeightMm) || 50);
+  const kerf = Math.max(0, Number(laserKerfMm) || 2);
+
+  const cols = Math.max(1, Math.floor((sheetW + kerf) / (partW + kerf)));
+  const rows = Math.max(1, Math.floor((sheetH + kerf) / (partH + kerf)));
+  const totalPartsYield = cols * rows;
+
+  const sheetAreaMm2 = sheetW * sheetH;
+  const partsAreaMm2 = totalPartsYield * (partW * partH);
+  const nestingUtilizationPct = Math.min(100, (partsAreaMm2 / sheetAreaMm2) * 100);
+
+  const rawSheetCost = Math.max(0, Number(laserSheetCost) || 0);
+  const materialCostPerPart = totalPartsYield > 0 ? rawSheetCost / totalPartsYield : 0;
+
+  const cutMin = Math.max(0, Number(laserCutMinutes) || 0);
+  const machineHourRate = Math.max(0, Number(laserHourlyRate) || 0);
+  const machineRunCost = (cutMin / 60) * machineHourRate;
+
+  const powerKwh = ((Number(laserMachineWatts) || 450) / 1000) * (cutMin / 60);
+  const electricityCost = powerKwh * (Number(laserKwhRate) || 0.65);
+
+  const laserPartCOGS = materialCostPerPart + machineRunCost + electricityCost;
+  const laserMargin = Math.min(95, Math.max(5, Number(laserMarginPct) || 60));
+  const laserSuggestedRetail = laserPartCOGS / (1 - laserMargin / 100);
+  const laserProfitPerPart = laserSuggestedRetail - laserPartCOGS;
+  const totalSheetRevenue = laserSuggestedRetail * totalPartsYield;
+
   // Save Formula Handler
   async function handleSaveFormula(toolName: string) {
     let title = '';
@@ -303,6 +350,10 @@ export default function PublicToolsClient({
       title = `Candle/Soap Batch (${units}x ${waterWeight}ml @ ${foPct}% FO)`;
       category = 'Candles & Soap';
       instructions = `Batch Formulation (${baseName}):\n- Units: ${units} containers (${waterWeight}ml water capacity each)\n- Fragrance Load: ${foPct}%\n- Base/Wax Weight: ${totalWaxGrams.toFixed(1)}g (${waxPerUnitGrams.toFixed(1)}g / unit)\n- Fragrance Oil: ${totalFragranceGrams.toFixed(1)}g (${fragrancePerUnitGrams.toFixed(1)}g / unit)\n- Total Batch Weight: ${totalBatchFillWeight.toFixed(1)}g\n\nPouring Instructions:\n1. Heat wax/base to 85°C (185°F).\n2. Remove from heat and stir in fragrance oil at 80°C (176°F) for 2 continuous minutes.\n3. Pour slowly at 57-60°C (135-140°F) into preheated vessels with centered wicks.\n4. Cure for 10-14 days before test burning.`;
+    } else if (toolName === 'LASER_CUT') {
+      title = `Laser Cut: Sheet Nesting (${totalPartsYield}x ${partW}x${partH}mm)`;
+      category = 'Laser Cutting & CNC';
+      instructions = `Laser / CNC Sheet Nesting & Machine Cost Sheet:\n- Raw Sheet: ${sheetW} x ${sheetH} mm (${formatCurrency(rawSheetCost, currency)})\n- Part Dimensions: ${partW} x ${partH} mm (Kerf & Spacing: ${kerf} mm)\n- Grid Yield: ${cols} cols x ${rows} rows = ${totalPartsYield} parts per sheet (${nestingUtilizationPct.toFixed(1)}% area efficiency)\n- Cut Duration: ${cutMin} minutes per sheet\n- Machine Overhead: ${formatCurrency(machineRunCost, currency)} (${formatCurrency(machineHourRate, currency)}/hr rate)\n- Electricity Consumed: ${powerKwh.toFixed(3)} kWh (${formatCurrency(electricityCost, currency)})\n- Material Cost / Part: ${formatCurrency(materialCostPerPart, currency)}\n- Base Unit COGS: ${formatCurrency(laserPartCOGS, currency)}\n- Target Retail Price (${laserMargin}% margin): ${formatCurrency(laserSuggestedRetail, currency)} (${formatCurrency(laserProfitPerPart, currency)} net profit/part)\n- Full Sheet Gross Revenue: ${formatCurrency(totalSheetRevenue, currency)}`;
     }
 
     if (!currentUser) {
@@ -494,6 +545,17 @@ export default function PublicToolsClient({
             >
               <Flame className="w-4 h-4" />
               <span>{t('tools.tab_candle')}</span>
+            </button>
+            <button
+              onClick={() => handleSelectTool('LASER_CUT')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTool === 'LASER_CUT'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>{t('tools.tab_lasercut')}</span>
             </button>
           </div>
         </div>
@@ -1288,6 +1350,222 @@ export default function PublicToolsClient({
               </div>
             </div>
           )}
+
+          {/* ============================================================== */}
+          {/* TOOL 6: LASER CUT / CNC SHEET NESTING ESTIMATOR               */}
+          {/* ============================================================== */}
+          {activeTool === 'LASER_CUT' && (
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-cyan-400" />
+                    <span>Laser Cut &amp; CNC Sheet Nesting Cost Estimator</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Calculate sheet parts yield, kerf-aware grid nesting, machine run time overhead, electricity, and per-part unit COGS.
+                  </p>
+                </div>
+                <span className="hidden sm:inline-block px-3 py-1 rounded-full text-[10px] font-mono uppercase bg-cyan-950 border border-cyan-800 text-cyan-400">
+                  Nesting &amp; COGS
+                </span>
+              </div>
+
+              {/* Input Grid: Sheet & Part Parameters */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Raw Sheet Dimensions */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Sheet Width (mm)
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={laserSheetWidthMm}
+                    onChange={(e) => setLaserSheetWidthMm(Math.max(10, parseInt(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-cyan-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Sheet Height (mm)
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={laserSheetHeightMm}
+                    onChange={(e) => setLaserSheetHeightMm(Math.max(10, parseInt(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-cyan-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Raw Sheet Cost ({currency})
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={laserSheetCost}
+                    onChange={(e) => setLaserSheetCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-cyan-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Kerf / Spacing (mm)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={laserKerfMm}
+                    onChange={(e) => setLaserKerfMm(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-cyan-500 font-bold"
+                  />
+                </div>
+
+                {/* Part Dimensions */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Part Width (mm)
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    value={laserPartWidthMm}
+                    onChange={(e) => setLaserPartWidthMm(Math.max(5, parseInt(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-cyan-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Part Height (mm)
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    value={laserPartHeightMm}
+                    onChange={(e) => setLaserPartHeightMm(Math.max(5, parseInt(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-cyan-500 font-bold"
+                  />
+                </div>
+
+                {/* Machine Job & Rate */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Cut Time (Minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={laserCutMinutes}
+                    onChange={(e) => setLaserCutMinutes(Math.max(1, parseInt(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-cyan-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Machine Rate ({currency}/hr)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={laserHourlyRate}
+                    onChange={(e) => setLaserHourlyRate(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-cyan-500 font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Output Display & Nesting Grid Visualizer */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+                      Grid Nesting Yield
+                    </span>
+                    <span className="text-xl font-black text-cyan-400">
+                      {totalPartsYield} parts per sheet ({cols} wide &times; {rows} tall)
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400 block">Sheet Area Utilization</span>
+                    <span className="text-sm font-extrabold text-emerald-400">
+                      {nestingUtilizationPct.toFixed(1)}% efficiency
+                    </span>
+                  </div>
+                </div>
+
+                {/* Interactive Miniature Sheet Preview */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-center">
+                  <div
+                    className="relative bg-slate-950 border-2 border-dashed border-cyan-500/40 rounded-xl flex flex-wrap content-start overflow-hidden p-1 gap-1"
+                    style={{
+                      width: '100%',
+                      maxWidth: '360px',
+                      height: '180px',
+                    }}
+                  >
+                    {Array.from({ length: Math.min(60, totalPartsYield) }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-cyan-500/20 border border-cyan-400/50 rounded-sm flex items-center justify-center text-[9px] font-mono text-cyan-300"
+                        style={{
+                          flex: `0 0 calc(${100 / Math.min(10, cols)}% - 4px)`,
+                          height: `calc(${100 / Math.min(6, rows)}% - 4px)`,
+                        }}
+                      >
+                        {idx + 1}
+                      </div>
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-2">
+                    Visualizing nested parts ({sheetW}mm &times; {sheetH}mm stock with {kerf}mm kerf spacing)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">Material / Part</span>
+                    <span className="block text-sm font-bold text-white mt-1">
+                      {formatCurrency(materialCostPerPart, currency)}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">Machine Run Cost</span>
+                    <span className="block text-sm font-bold text-white mt-1">
+                      {formatCurrency(machineRunCost, currency)}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">Unit COGS</span>
+                    <span className="block text-sm font-bold text-rose-400 mt-1">
+                      {formatCurrency(laserPartCOGS, currency)}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-800/80">
+                    <span className="block text-[10px] text-cyan-300">Target Retail ({laserMargin}%)</span>
+                    <span className="block text-sm font-bold text-cyan-400 mt-1">
+                      {formatCurrency(laserSuggestedRetail, currency)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Recipe CTA */}
+              <div className="flex items-center justify-end pt-2">
+                <button
+                  onClick={() => handleSaveFormula('LASER_CUT')}
+                  disabled={saving}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-cyan-600 hover:bg-cyan-700 transition flex items-center gap-1.5 shadow-md shadow-cyan-500/20 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1344,13 +1622,23 @@ export default function PublicToolsClient({
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2 md:col-span-2 lg:col-span-2">
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
               <div className="font-bold text-white flex items-center gap-1.5">
                 <Flame className="w-4 h-4 text-amber-500" />
-                <span>Fragrance Load Physics &amp; Flashpoints</span>
+                <span>Fragrance Load Physics</span>
               </div>
               <p>
-                Candle fragrance load is calculated against wax weight, not total container weight. Adding fragrance oil above 10-12% causes oil bleeding and poor wick capillary action. Always stir gently for 2 full minutes at 80°C (176°F) so the fragrance binds fully into the soy crystal lattice before pouring.
+                Candle fragrance load is calculated against wax weight, not total container weight. Adding fragrance oil above 10-12% causes oil bleeding. Always stir gently for 2 full minutes at 80°C so fragrance binds into the soy crystal lattice before pouring.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-cyan-400" />
+                <span>Laser Kerf &amp; Nesting Efficiency</span>
+              </div>
+              <p>
+                A CO2 or diode laser focal spot burns away 0.1mm - 0.3mm of material (kerf). Factoring kerf spacing and shared-line cutting prevents part scorching, protects delicate bridges, and maximizes raw sheet yield.
               </p>
             </div>
           </div>

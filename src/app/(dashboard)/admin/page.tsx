@@ -22,7 +22,7 @@ export default async function AdminHubPage() {
     redirect('/');
   }
 
-  // Fetch profiles, audit logs, skill requests, user feedback, skill catalog, posts, and showcase projects concurrently
+  // Fetch profiles, audit logs, skill requests, user feedback, skill catalog, posts, showcase projects, and telemetry concurrently
   const [
     { data: profiles },
     { data: auditLogs },
@@ -31,6 +31,9 @@ export default async function AdminHubPage() {
     { data: skillsData },
     { data: postsData },
     { data: showcaseData },
+    { data: telemetryData },
+    { data: achievementsData },
+    { data: catalogSkillsData },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -62,6 +65,16 @@ export default async function AdminHubPage() {
       .eq('is_public', true)
       .order('updated_at', { ascending: false })
       .limit(25),
+    supabase
+      .rpc('get_admin_platform_telemetry'),
+    supabase
+      .from('achievements')
+      .select('*')
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('skill_catalog')
+      .select('id, name, slug, category')
+      .order('name'),
   ]);
 
   return (
@@ -74,6 +87,9 @@ export default async function AdminHubPage() {
       initialSkills={(skillsData as any[]) || []}
       initialCommunityPosts={(postsData as any[]) || []}
       initialShowcaseProjects={(showcaseData as any[]) || []}
+      telemetry={telemetryData || null}
+      allAchievements={(achievementsData as any[]) || []}
+      catalogSkills={(catalogSkillsData as any[]) || []}
     />
   );
 }

@@ -111,6 +111,7 @@ export const DICTIONARY = {
     'tools.tab_3dprint': '3D Print Costing',
     'tools.tab_crossstitch': 'Cross-Stitch & Fabric',
     'tools.tab_candle': 'Candle & Soap Batch',
+    'tools.tab_lasercut': 'Laser & CNC Nesting',
 
     // Settings
     'settings.title': 'Account & Workshop Settings',
@@ -226,6 +227,7 @@ export const DICTIONARY = {
     'tools.tab_3dprint': 'Себестоимость 3D печати',
     'tools.tab_crossstitch': 'Вышивка и канва',
     'tools.tab_candle': 'Свечи и мыло',
+    'tools.tab_lasercut': 'Лазерная резка и раскрой',
 
     // Settings
     'settings.title': 'Настройки аккаунта и мастерской',
@@ -341,6 +343,7 @@ export const DICTIONARY = {
     'tools.tab_3dprint': 'עלות הדפסת תלת-ממד',
     'tools.tab_crossstitch': 'רקמת צלב ובד',
     'tools.tab_candle': 'נרות וסבונים',
+    'tools.tab_lasercut': 'חיתוך לייזר ו-CNC',
 
     // Settings
     'settings.title': 'הגדרות חשבון וסדנה',

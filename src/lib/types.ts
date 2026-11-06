@@ -268,6 +268,8 @@ export interface MakerRecipe {
   target_retail_price?: number;
   output_item?: InventoryItem | null;
   image_url?: string | null;
+  is_public?: boolean;
+  clones_count?: number;
   created_at: string;
   updated_at: string;
   ingredients?: RecipeIngredient[];
@@ -491,7 +493,10 @@ export type NotificationType =
   | 'PROJECT_INVITE'
   | 'USER_FEEDBACK'
   | 'FEEDBACK_REPLIED'
-  | 'SYSTEM_ANNOUNCEMENT';
+  | 'SYSTEM_ANNOUNCEMENT'
+  | 'ACHIEVEMENT_UNLOCKED'
+  | 'ADMIN_AWARD_GRANTED'
+  | 'RECIPE_CLONED';
 
 export interface AppNotification {
   id: string;
@@ -545,6 +550,49 @@ export interface MakerLeaderboardEntry {
   skills_count: number;
   public_projects_count: number;
   created_at: string;
+}
+
+export type AchievementTier = 'BRONZE' | 'SILVER' | 'GOLD' | 'DIAMOND' | 'SPECIAL';
+
+export interface Achievement {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  icon: string;
+  tier: AchievementTier;
+  xp_bonus: number;
+  created_at?: string;
+}
+
+export interface UserAchievement {
+  user_id: string;
+  achievement_id: string;
+  awarded_by?: string | null;
+  note?: string;
+  unlocked_at: string;
+  achievement?: Achievement;
+}
+
+export interface AdminPlatformTelemetry {
+  total_users: number;
+  active_users_7d: number;
+  suspended_users: number;
+  total_xp_awarded: number;
+  total_practice_minutes: number;
+  total_skills_in_catalog: number;
+  total_projects: number;
+  public_projects_count: number;
+  completed_tasks_count: number;
+  total_inventory_items: number;
+  total_recipes: number;
+  public_recipes_count: number;
+  total_batch_runs: number;
+  total_community_posts: number;
+  total_post_comments: number;
+  open_feedback_count: number;
+  pending_skill_requests_count: number;
+  generated_at: string;
 }
 
 

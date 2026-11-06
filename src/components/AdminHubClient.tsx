@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Profile, ActivityLog, SkillCatalogWithUsage } from '@/lib/types';
+import { Profile, ActivityLog, SkillCatalogWithUsage, Achievement, AdminPlatformTelemetry } from '@/lib/types';
 import { formatDate, relativeTime } from '@/lib/utils';
 import {
   ShieldAlert,
@@ -40,6 +40,12 @@ import {
   Send,
   EyeOff,
   Reply,
+  Trophy,
+  Award,
+  TrendingUp,
+  BarChart3,
+  FlaskConical,
+  Package,
 } from 'lucide-react';
 import Link from 'next/link';
 import { soundEngine, triggerConfetti } from '@/lib/soundEffects';
@@ -54,6 +60,9 @@ interface AdminHubClientProps {
   initialSkills?: SkillCatalogWithUsage[];
   initialCommunityPosts?: any[];
   initialShowcaseProjects?: any[];
+  telemetry?: AdminPlatformTelemetry | null;
+  allAchievements?: Achievement[];
+  catalogSkills?: any[];
 }
 
 export default function AdminHubClient({
@@ -65,6 +74,9 @@ export default function AdminHubClient({
   initialSkills = [],
   initialCommunityPosts = [],
   initialShowcaseProjects = [],
+  telemetry = null,
+  allAchievements = [],
+  catalogSkills = [],
 }: AdminHubClientProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -75,6 +87,7 @@ export default function AdminHubClient({
   const [profiles, setProfiles] = useState<Profile[]>(initialProfiles);
   const [skillRequests, setSkillRequests] = useState<any[]>(initialSkillRequests);
   const [feedbackList, setFeedbackList] = useState<any[]>(initialFeedback);
+  const [telemetryState, setTelemetryState] = useState<AdminPlatformTelemetry | null>(telemetry);
 
   // Skill Catalog state
   const [skills, setSkills] = useState<SkillCatalogWithUsage[]>(initialSkills);
@@ -105,6 +118,14 @@ export default function AdminHubClient({
   const [replyText, setReplyText] = useState('');
   const [replyStatus, setReplyStatus] = useState<'OPEN' | 'REVIEWED' | 'RESOLVED'>('RESOLVED');
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+
+  // Admin Award & Bonus XP Grant Modal state
+  const [grantModalUser, setGrantModalUser] = useState<Profile | null>(null);
+  const [grantAchievementSlug, setGrantAchievementSlug] = useState('');
+  const [grantSkillId, setGrantSkillId] = useState('');
+  const [grantXpAmount, setGrantXpAmount] = useState<number>(0);
+  const [grantReason, setGrantReason] = useState('');
+  const [isSubmittingGrant, setIsSubmittingGrant] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [skillStatusFilter, setSkillStatusFilter] = useState('ALL');
@@ -602,6 +623,55 @@ export default function AdminHubClient({
     }
   }
 
+  // --- Admin Award & Bonus XP Grant Handlers ---
+  function handleOpenGrantModal(user: Profile) {
+    setGrantModalUser(user);
+    setGrantAchievementSlug('');
+    setGrantSkillId(catalogSkills && catalogSkills.length > 0 ? catalogSkills[0].id : '');
+    setGrantXpAmount(0);
+    setGrantReason('');
+  }
+
+  async function handleGrantAwardOrXp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!grantModalUser) return;
+    if (!grantAchievementSlug && grantXpAmount <= 0) {
+      alert('Please select an achievement badge to grant OR specify a bonus XP amount (> 0).');
+      return;
+    }
+    if (grantXpAmount > 0 && !grantSkillId) {
+      alert('Please select a skill to credit the bonus XP to.');
+      return;
+    }
+    if (grantReason.trim().length < 3) {
+      alert('Please provide a reason / citation for the grant (at least 3 characters).');
+      return;
+    }
+
+    setIsSubmittingGrant(true);
+    try {
+      const { data, error } = await supabase.rpc('admin_grant_achievement_or_xp', {
+        p_target_user_id: grantModalUser.id,
+        p_achievement_slug: grantAchievementSlug || null,
+        p_skill_id: grantSkillId || null,
+        p_xp_amount: Number(grantXpAmount) || 0,
+        p_reason: grantReason.trim(),
+      });
+
+      if (error) throw error;
+
+      soundEngine.playLevelUp();
+      triggerConfetti();
+      alert(`🎉 Honor successfully granted to @${grantModalUser.username}!`);
+      setGrantModalUser(null);
+      router.refresh();
+    } catch (err: any) {
+      alert(err.message || 'Failed to grant honor');
+    } finally {
+      setIsSubmittingGrant(false);
+    }
+  }
+
   const uniqueCategories = Array.from(new Set(skills.map((s) => s.category))).sort();
 
   const filteredSkills = skills.filter((s) => {
@@ -630,6 +700,111 @@ export default function AdminHubClient({
           User directory, skill catalog approvals, Genesis Root Admin protection, and PostgreSQL `SECURITY DEFINER` governance.
         </p>
       </div>
+
+      {/* Executive Telemetry & Platform Health KPI Grid */}
+      {telemetryState && (
+        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 text-white rounded-3xl p-6 lg:p-7 border border-slate-800 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <span>Executive Telemetry &amp; Platform Health</span>
+                  <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    Live Engine
+                  </span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Real-time database metrics across makers, XP economy, projects, inventory, recipes, and moderation.
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] font-mono text-slate-400">
+                Active 7d: <strong className="text-white">{telemetryState.active_users_7d}</strong> / {telemetryState.total_users} makers ({telemetryState.total_users > 0 ? Math.round((telemetryState.active_users_7d / telemetryState.total_users) * 100) : 0}%)
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Total Users */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-3.5">
+              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                <span>Total Makers</span>
+                <Users className="w-3.5 h-3.5 text-blue-400" />
+              </div>
+              <div className="text-xl font-black text-white">{telemetryState.total_users}</div>
+              <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                {telemetryState.active_users_7d} active (7d)
+              </div>
+            </div>
+
+            {/* Total XP Awarded */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-3.5">
+              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                <span>XP Economy</span>
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              </div>
+              <div className="text-xl font-black text-amber-300">
+                {Number(telemetryState.total_xp_awarded).toLocaleString()}
+              </div>
+              <div className="text-[10px] text-slate-400 mt-0.5">
+                {Math.round(Number(telemetryState.total_practice_minutes) / 60)} hrs practice
+              </div>
+            </div>
+
+            {/* Projects */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-3.5">
+              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                <span>Projects</span>
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              </div>
+              <div className="text-xl font-black text-white">{telemetryState.total_projects}</div>
+              <div className="text-[10px] text-purple-400 font-semibold mt-0.5">
+                {telemetryState.public_projects_count} public showcase
+              </div>
+            </div>
+
+            {/* Recipes & Batch Runs */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-3.5">
+              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                <span>Formulas</span>
+                <FlaskConical className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div className="text-xl font-black text-emerald-300">{telemetryState.total_recipes}</div>
+              <div className="text-[10px] text-emerald-400 font-semibold mt-0.5">
+                {telemetryState.public_recipes_count} public · {telemetryState.total_batch_runs} runs
+              </div>
+            </div>
+
+            {/* Inventory Items */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-3.5">
+              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                <span>Inventory Items</span>
+                <Package className="w-3.5 h-3.5 text-cyan-400" />
+              </div>
+              <div className="text-xl font-black text-white">{telemetryState.total_inventory_items}</div>
+              <div className="text-[10px] text-cyan-400 font-semibold mt-0.5">
+                {telemetryState.completed_tasks_count} tasks done
+              </div>
+            </div>
+
+            {/* Community & Feedback */}
+            <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-3.5">
+              <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                <span>Community</span>
+                <MessageSquare className="w-3.5 h-3.5 text-pink-400" />
+              </div>
+              <div className="text-xl font-black text-white">{telemetryState.total_community_posts}</div>
+              <div className="text-[10px] text-pink-400 font-semibold mt-0.5">
+                {telemetryState.open_feedback_count} open feedback
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
@@ -844,6 +1019,16 @@ export default function AdminHubClient({
                           </span>
                         ) : (
                           <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenGrantModal(user)}
+                              disabled={isLoading}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60 transition"
+                              title="Grant custom badge honor or bonus XP"
+                            >
+                              <Award className="w-3.5 h-3.5" />
+                              <span>Grant Honor</span>
+                            </button>
+
                             {user.role === 'USER' && (
                               <button
                                 onClick={() => handlePromote(user.id)}
@@ -2233,6 +2418,130 @@ export default function AdminHubClient({
                 <span>Send Reply &amp; Save</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Grant Honor / Custom Badge or Bonus XP */}
+      {grantModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 max-w-lg w-full shadow-2xl space-y-5">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <UserAvatar
+                  src={grantModalUser.avatar_url}
+                  name={grantModalUser.display_name}
+                  size="md"
+                />
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Award className="w-5 h-5 text-amber-500" />
+                    <span>Grant Honor or Bonus XP</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Recipient: <strong className="text-slate-900 dark:text-white">@{grantModalUser.username}</strong> ({grantModalUser.display_name})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setGrantModalUser(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGrantAwardOrXp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Custom Achievement Badge (Optional)
+                </label>
+                <select
+                  value={grantAchievementSlug}
+                  onChange={(e) => setGrantAchievementSlug(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                  <option value="">-- No Achievement Badge (XP Only) --</option>
+                  {(allAchievements || []).map((ach) => (
+                    <option key={ach.id} value={ach.slug}>
+                      [{ach.tier}] {ach.title} (+{ach.xp_bonus} XP)
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Unlock a special trophy for this maker (e.g. Workbench Pioneer, Grandmaster Maker).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Bonus XP Amount (0 - 2500)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="2500"
+                    step="25"
+                    value={grantXpAmount}
+                    onChange={(e) => setGrantXpAmount(Math.max(0, Math.min(2500, parseInt(e.target.value) || 0)))}
+                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Credit to Skill Catalog Entry
+                  </label>
+                  <select
+                    value={grantSkillId}
+                    onChange={(e) => setGrantSkillId(e.target.value)}
+                    disabled={grantXpAmount <= 0}
+                    className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
+                  >
+                    <option value="">-- Select Skill --</option>
+                    {(catalogSkills || []).map((sk) => (
+                      <option key={sk.id} value={sk.id}>
+                        {sk.name} ({sk.category})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Reason &amp; Citation (Required, visible to user)
+                </label>
+                <textarea
+                  rows={3}
+                  value={grantReason}
+                  onChange={(e) => setGrantReason(e.target.value)}
+                  placeholder="e.g. For exemplary open-source contributions and community mentorship in the Resin Casting channel..."
+                  required
+                  maxLength={500}
+                  className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setGrantModalUser(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingGrant || (!grantAchievementSlug && grantXpAmount <= 0) || !grantReason.trim()}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSubmittingGrant && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Grant Honor Now</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

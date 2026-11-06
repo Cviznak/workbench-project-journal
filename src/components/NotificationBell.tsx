@@ -25,6 +25,9 @@ import {
   MessageSquarePlus,
   Megaphone,
   Reply,
+  Trophy,
+  Award,
+  FlaskConical,
 } from 'lucide-react';
 
 interface NotificationBellProps {
@@ -251,6 +254,12 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
         return <Reply className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
       case 'SYSTEM_ANNOUNCEMENT':
         return <Megaphone className="w-3.5 h-3.5 text-violet-500 shrink-0" />;
+      case 'ACHIEVEMENT_UNLOCKED':
+        return <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />;
+      case 'ADMIN_AWARD_GRANTED':
+        return <Award className="w-3.5 h-3.5 text-purple-400 shrink-0" />;
+      case 'RECIPE_CLONED':
+        return <FlaskConical className="w-3.5 h-3.5 text-emerald-400 shrink-0" />;
       default:
         return <Bell className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
     }

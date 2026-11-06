@@ -48,6 +48,11 @@ import {
   Image as ImageIcon,
   Grid,
   Flame,
+  Printer,
+  QrCode,
+  Globe,
+  Tag,
+  Copy,
 } from 'lucide-react';
 
 interface InventoryClientProps {
@@ -241,6 +246,11 @@ export default function InventoryClient({
   const [executingBatch, setExecutingBatch] = useState(false);
   const [expandedRuns, setExpandedRuns] = useState<Record<string, boolean>>({});
 
+  // Print Views State
+  const [printBatchRecipe, setPrintBatchRecipe] = useState<MakerRecipe | null>(null);
+  const [printLabelsModalOpen, setPrintLabelsModalOpen] = useState(false);
+  const [printLabelsFilter, setPrintLabelsFilter] = useState<'FILTERED' | 'LOW_STOCK' | 'ALL'>('FILTERED');
+
   // Pending Formula Recovery
   const [pendingFormula, setPendingFormula] = useState<{
     title: string;
@@ -301,7 +311,7 @@ export default function InventoryClient({
 
   // Lab Calculators State
   const [calcActiveTool, setCalcActiveTool] = useState<
-    'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE'
+    'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT'
   >('RESIN');
 
   // 1. Epoxy Resin Calculator State
@@ -348,6 +358,19 @@ export default function InventoryClient({
   const [candleWaxPricePerKg, setCandleWaxPricePerKg] = useState<number>(45);
   const [candleFragrancePricePer100g, setCandleFragrancePricePer100g] = useState<number>(35);
   const [candlePackagingPerUnit, setCandlePackagingPerUnit] = useState<number>(5);
+
+  // 6. Laser Cut / CNC Sheet Nesting Calculator State
+  const [laserSheetWidthMm, setLaserSheetWidthMm] = useState<number>(600);
+  const [laserSheetHeightMm, setLaserSheetHeightMm] = useState<number>(400);
+  const [laserSheetCost, setLaserSheetCost] = useState<number>(45);
+  const [laserPartWidthMm, setLaserPartWidthMm] = useState<number>(80);
+  const [laserPartHeightMm, setLaserPartHeightMm] = useState<number>(50);
+  const [laserKerfSpacingMm, setLaserKerfSpacingMm] = useState<number>(2);
+  const [laserCutTimeMin, setLaserCutTimeMin] = useState<number>(12);
+  const [laserHourlyRate, setLaserHourlyRate] = useState<number>(30);
+  const [laserMachineWatts, setLaserMachineWatts] = useState<number>(450);
+  const [laserKwhRate, setLaserKwhRate] = useState<number>(0.65);
+  const [laserMarginPct, setLaserMarginPct] = useState<number>(60);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -689,6 +712,24 @@ export default function InventoryClient({
     }
   }
 
+  // Toggle Recipe Public Status
+  async function handleToggleRecipePublic(recipe: MakerRecipe) {
+    const nextPublic = !recipe.is_public;
+    try {
+      const { error } = await supabase
+        .from('maker_recipes')
+        .update({ is_public: nextPublic })
+        .eq('id', recipe.id);
+      if (error) throw error;
+      setRecipes((prev) =>
+        prev.map((r) => (r.id === recipe.id ? { ...r, is_public: nextPublic } : r))
+      );
+      showToast(nextPublic ? 'Formula is now Public on your Maker Profile!' : 'Formula is now Private.');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update recipe visibility');
+    }
+  }
+
   // Execute Recipe Batch (RPC)
   async function handleExecuteRecipeBatch() {
     if (!runningRecipe) return;
@@ -855,6 +896,15 @@ export default function InventoryClient({
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>Bulk Quick-Add</span>
+            </button>
+
+            <button
+              onClick={() => setPrintLabelsModalOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs backdrop-blur-md border border-white/20 transition transform active:scale-95"
+              title="Print Workshop QR Bin Labels or Inventory Order Sheet"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Print Bin Labels</span>
             </button>
 
             {lowStockItems.length > 0 && (
@@ -1302,10 +1352,23 @@ export default function InventoryClient({
                       >
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 uppercase">
                                 {recipe.category}
                               </span>
+                              <button
+                                onClick={() => handleToggleRecipePublic(recipe)}
+                                className={cn(
+                                  'flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition border',
+                                  recipe.is_public
+                                    ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700'
+                                )}
+                                title={recipe.is_public ? 'Public formula - click to make private' : 'Private formula - click to publish on your Maker Profile'}
+                              >
+                                <Globe className="w-2.5 h-2.5" />
+                                <span>{recipe.is_public ? `Public (${recipe.clones_count || 0})` : 'Private'}</span>
+                              </button>
                               {recipe.rating && (
                                 <div className="flex items-center text-amber-400 text-xs">
                                   {Array.from({ length: recipe.rating }).map((_, idx) => (
@@ -1468,24 +1531,35 @@ export default function InventoryClient({
                             </span>
                           </div>
 
-                          <button
-                            onClick={() => {
-                              setRunningRecipe(recipe);
-                              setBatchMultiplier(1);
-                              setBatchNotes('');
-                              setBatchRating(5);
-                              setRunBatchModalOpen(true);
-                            }}
-                            className={cn(
-                              'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition transform active:scale-95',
-                              canRun1x
-                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20'
-                                : 'bg-amber-500 hover:bg-amber-400 text-white shadow-amber-500/20'
-                            )}
-                          >
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            <span>Run Batch</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setPrintBatchRecipe(recipe)}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+                              title="Print Recipe Batch Sheet with ingredient checklist & QA sign-off"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              <span>Batch Sheet</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setRunningRecipe(recipe);
+                                setBatchMultiplier(1);
+                                setBatchNotes('');
+                                setBatchRating(5);
+                                setRunBatchModalOpen(true);
+                              }}
+                              className={cn(
+                                'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold shadow-md transition transform active:scale-95',
+                                canRun1x
+                                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20'
+                                  : 'bg-amber-500 hover:bg-amber-400 text-white shadow-amber-500/20'
+                              )}
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" />
+                              <span>Run Batch</span>
+                            </button>
+                          </div>
                         </div>
 
                         {/* Past Batch Runs Collapsible Timeline */}
@@ -1832,6 +1906,17 @@ export default function InventoryClient({
                     )}
                   >
                     Candle &amp; Soap
+                  </button>
+                  <button
+                    onClick={() => setCalcActiveTool('LASER_CUT')}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl transition',
+                      calcActiveTool === 'LASER_CUT'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    Laser &amp; CNC Nesting
                   </button>
                 </div>
               </div>
@@ -3004,6 +3089,215 @@ export default function InventoryClient({
                   </div>
                 );
               })()}
+
+              {/* 6. LASER CUT / CNC SHEET NESTING CALCULATOR */}
+              {calcActiveTool === 'LASER_CUT' && (() => {
+                const sheetW = Math.max(10, Number(laserSheetWidthMm) || 600);
+                const sheetH = Math.max(10, Number(laserSheetHeightMm) || 400);
+                const partW = Math.max(5, Number(laserPartWidthMm) || 80);
+                const partH = Math.max(5, Number(laserPartHeightMm) || 50);
+                const kerf = Math.max(0, Number(laserKerfSpacingMm) || 2);
+
+                const cols = Math.max(1, Math.floor((sheetW + kerf) / (partW + kerf)));
+                const rows = Math.max(1, Math.floor((sheetH + kerf) / (partH + kerf)));
+                const totalPartsYield = cols * rows;
+
+                const sheetAreaMm2 = sheetW * sheetH;
+                const partsAreaMm2 = totalPartsYield * (partW * partH);
+                const nestingUtilizationPct = Math.min(100, (partsAreaMm2 / sheetAreaMm2) * 100);
+
+                const rawSheetCost = Math.max(0, Number(laserSheetCost) || 0);
+                const materialCostPerPart = totalPartsYield > 0 ? rawSheetCost / totalPartsYield : 0;
+
+                const cutMin = Math.max(0, Number(laserCutTimeMin) || 0);
+                const machineHourRate = Math.max(0, Number(laserHourlyRate) || 0);
+                const machineRunCost = (cutMin / 60) * machineHourRate;
+
+                const powerKwh = ((Number(laserMachineWatts) || 450) / 1000) * (cutMin / 60);
+                const electricityCost = powerKwh * (Number(laserKwhRate) || 0.65);
+
+                const laserPartCOGS = materialCostPerPart + machineRunCost + electricityCost;
+                const laserMargin = Math.min(95, Math.max(5, Number(laserMarginPct) || 60));
+                const laserSuggestedRetail = laserPartCOGS / (1 - laserMargin / 100);
+                const laserProfitPerPart = laserSuggestedRetail - laserPartCOGS;
+
+                function handleSaveLaserRecipe() {
+                  const prefill: any = {
+                    title: `Laser Cut: Sheet Nesting (${totalPartsYield}x ${partW}x${partH}mm)`,
+                    category: 'Laser Cutting',
+                    instructions_md: `Laser / CNC Sheet Nesting & Machine Cost Sheet:\n- Raw Sheet: ${sheetW} x ${sheetH} mm (${formatCurrency(rawSheetCost, preferredCurrency)})\n- Part Dimensions: ${partW} x ${partH} mm (Kerf: ${kerf} mm)\n- Grid Yield: ${cols} cols x ${rows} rows = ${totalPartsYield} parts per sheet (${nestingUtilizationPct.toFixed(1)}% area efficiency)\n- Cut Duration: ${cutMin} minutes per sheet\n- Machine Overhead: ${formatCurrency(machineRunCost, preferredCurrency)} (${formatCurrency(machineHourRate, preferredCurrency)}/hr rate)\n- Electricity Consumed: ${powerKwh.toFixed(3)} kWh (${formatCurrency(electricityCost, preferredCurrency)})\n- Material Cost / Part: ${formatCurrency(materialCostPerPart, preferredCurrency)}\n- Base Unit COGS: ${formatCurrency(laserPartCOGS, preferredCurrency)}\n- Target Retail Price (${laserMargin}% margin): ${formatCurrency(laserSuggestedRetail, preferredCurrency)} (${formatCurrency(laserProfitPerPart, preferredCurrency)} net profit/part)`,
+                  };
+                  setEditingRecipe(prefill);
+                  setRecipeModalOpen(true);
+                }
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                    <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center gap-2 font-bold text-sm text-slate-800 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <Layers className="w-4 h-4 text-cyan-500" />
+                        <span>Sheet &amp; Cutting Job Parameters</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Sheet Width (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            value={laserSheetWidthMm}
+                            onChange={(e) => setLaserSheetWidthMm(Math.max(10, parseInt(e.target.value) || 0))}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Sheet Height (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            value={laserSheetHeightMm}
+                            onChange={(e) => setLaserSheetHeightMm(Math.max(10, parseInt(e.target.value) || 0))}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Sheet Cost ({preferredCurrency})
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={laserSheetCost}
+                            onChange={(e) => setLaserSheetCost(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Kerf / Spacing (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={laserKerfSpacingMm}
+                            onChange={(e) => setLaserKerfSpacingMm(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Part Width (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="5"
+                            value={laserPartWidthMm}
+                            onChange={(e) => setLaserPartWidthMm(Math.max(5, parseInt(e.target.value) || 0))}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Part Height (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="5"
+                            value={laserPartHeightMm}
+                            onChange={(e) => setLaserPartHeightMm(Math.max(5, parseInt(e.target.value) || 0))}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Cut Time (Minutes)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={laserCutTimeMin}
+                            onChange={(e) => setLaserCutTimeMin(Math.max(1, parseInt(e.target.value) || 0))}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Machine Rate ({preferredCurrency}/hr)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={laserHourlyRate}
+                            onChange={(e) => setLaserHourlyRate(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center gap-2 font-bold text-sm text-slate-800 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <Sparkles className="w-4 h-4 text-cyan-500" />
+                        <span>Nesting Yield &amp; Unit Economics</span>
+                      </div>
+
+                      <div className="p-4 rounded-2xl bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-cyan-600 dark:text-cyan-400">
+                          Parts Yield per Sheet
+                        </span>
+                        <div className="text-2xl font-black text-cyan-950 dark:text-cyan-100">
+                          {totalPartsYield} parts ({cols} &times; {rows})
+                        </div>
+                        <span className="text-[11px] text-cyan-700 dark:text-cyan-300 font-semibold block">
+                          {nestingUtilizationPct.toFixed(1)}% sheet area efficiency
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs">
+                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                          <span className="text-slate-600 dark:text-slate-300">Raw Material / Part:</span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {formatCurrency(materialCostPerPart, preferredCurrency)}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                          <span className="text-slate-600 dark:text-slate-300">Machine Run Overhead:</span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {formatCurrency(machineRunCost, preferredCurrency)}
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                          <span className="text-slate-600 dark:text-slate-300">Unit COGS:</span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {formatCurrency(laserPartCOGS, preferredCurrency)} / unit
+                          </span>
+                        </div>
+                        <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-emerald-950 dark:text-emerald-200 font-bold">
+                          <span>Target Retail ({laserMargin}%):</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                            {formatCurrency(laserSuggestedRetail, preferredCurrency)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveLaserRecipe}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md shadow-cyan-500/20 transition transform active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save as New Formula</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             /* ================= VIEW: INVENTORY ITEMS GRID ================= */
@@ -3534,6 +3828,436 @@ export default function InventoryClient({
           }}
         />
       )}
+
+      {/* ================= MODAL: PRINT QR BIN LABELS ================= */}
+      {printLabelsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-7 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 no-print">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Print Workshop Bin Labels</span>
+                    <span className="text-xs font-mono uppercase bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                      Physical QR Tags
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    High-contrast printable bin cards with SKU barcodes, minimum thresholds, and storage locations.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPrintLabelsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scope Filter Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-slate-100 dark:border-slate-800 no-print">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px] mr-1">
+                  Scope:
+                </span>
+                {(
+                  [
+                    { id: 'FILTERED', label: `Current Filtered (${displayedItems.length})` },
+                    { id: 'LOW_STOCK', label: `Low Stock Only (${lowStockItems.length})` },
+                    { id: 'ALL', label: `All Workshop Items (${items.length})` },
+                  ] as const
+                ).map((scope) => (
+                  <button
+                    key={scope.id}
+                    type="button"
+                    onClick={() => setPrintLabelsFilter(scope.id)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-xl font-bold transition text-xs',
+                      printLabelsFilter === scope.id
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    {scope.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition active:scale-95"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Labels Now</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Preview Area */}
+            <div className="flex-1 overflow-y-auto py-4">
+              <div id="workbench-printable-area" className="space-y-4">
+                <div className="hidden print:block pb-3 border-b-2 border-black mb-4">
+                  <h1 className="text-xl font-black uppercase tracking-tight text-black">
+                    WORKBENCH — WORKSHOP INVENTORY BIN LABELS
+                  </h1>
+                  <p className="text-xs text-gray-700">
+                    Generated on {new Date().toLocaleDateString()} | Total Labels: {
+                      (printLabelsFilter === 'LOW_STOCK' ? lowStockItems : printLabelsFilter === 'ALL' ? items : displayedItems).length
+                    }
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 print:grid-cols-3 print:gap-2">
+                  {(printLabelsFilter === 'LOW_STOCK'
+                    ? lowStockItems
+                    : printLabelsFilter === 'ALL'
+                    ? items
+                    : displayedItems
+                  ).map((item) => {
+                    const sku = `SKU-${item.id.slice(0, 8).toUpperCase()}`;
+                    return (
+                      <div
+                        key={item.id}
+                        className="bg-white border-2 border-slate-900 dark:border-slate-600 p-3.5 rounded-2xl print:rounded-none flex flex-col justify-between gap-2.5 text-black shadow-sm print:shadow-none break-inside-avoid"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-300">
+                              {item.item_type}
+                            </span>
+                            <h4 className="font-black text-sm text-slate-900 truncate mt-1">
+                              {item.name}
+                            </h4>
+                            <p className="text-[11px] text-slate-600 font-medium">
+                              Bin / Loc: <strong className="text-black">{item.sku_or_location || 'General Storage'}</strong>
+                            </p>
+                          </div>
+                          <WorkshopQrGlyph value={sku} />
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-200 flex items-end justify-between gap-2">
+                          <div>
+                            <div className="text-[10px] text-slate-600">
+                              Stock: <b className="text-slate-900">{item.quantity} {item.unit}</b>
+                            </div>
+                            <div className="text-[9px] text-slate-500">
+                              Reorder at: &le; {item.low_stock_threshold || 1} {item.unit}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs font-black text-slate-900">
+                              {formatCurrency(item.unit_price, item.currency)}
+                            </div>
+                            <span className="text-[8px] font-mono text-slate-500 uppercase">
+                              {sku}
+                            </span>
+                          </div>
+                        </div>
+
+                        <WorkshopBarcode text={sku} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2 no-print">
+              <button
+                type="button"
+                onClick={() => setPrintLabelsModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition active:scale-95"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Labels</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL: PRINT RECIPE BATCH SHEET ================= */}
+      {printBatchRecipe && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 max-w-3xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800 no-print">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Recipe Batch Sheet</span>
+                    <span className="text-xs font-mono uppercase bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
+                      Print View
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Batch production traveler with ingredient check-off and quality sign-off lines.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPrintBatchRecipe(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Printable Area */}
+            <div className="flex-1 overflow-y-auto py-4">
+              <div id="workbench-printable-area" className="bg-white text-black p-6 border-2 border-black rounded-xl print:border-none print:p-0 space-y-6">
+                {/* Header banner */}
+                <div className="border-b-2 border-black pb-4 flex items-start justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest font-black text-gray-600">
+                      WORKBENCH BATCH PRODUCTION SHEET
+                    </span>
+                    <h2 className="text-2xl font-black text-black tracking-tight mt-0.5">
+                      {printBatchRecipe.title}
+                    </h2>
+                    <span className="inline-block mt-1 text-xs font-bold uppercase tracking-wider px-2 py-0.5 bg-gray-100 border border-black">
+                      Category: {printBatchRecipe.category}
+                    </span>
+                  </div>
+                  <div className="text-right text-xs space-y-1">
+                    <div>
+                      Batch ID: <strong className="font-mono">BATCH-{printBatchRecipe.id.slice(0, 8).toUpperCase()}</strong>
+                    </div>
+                    <div>Date: <strong>{new Date().toLocaleDateString()}</strong></div>
+                    <div>Target Yield: <strong>{printBatchRecipe.output_yield_qty || 1} units</strong></div>
+                  </div>
+                </div>
+
+                {/* Operator info row */}
+                <div className="grid grid-cols-2 gap-4 text-xs border border-gray-300 p-3">
+                  <div>Operator / Compounder: ____________________________________</div>
+                  <div>Station / Bench: ____________________________________</div>
+                </div>
+
+                {/* Ingredients checklist */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider mb-2">
+                    1. Formulation Ingredients Checklist
+                  </h4>
+                  <table className="w-full text-xs border-collapse border border-black">
+                    <thead>
+                      <tr className="bg-gray-100 border-b border-black text-left">
+                        <th className="p-2 border-r border-black">Material / Raw Good</th>
+                        <th className="p-2 border-r border-black w-28">Target Qty</th>
+                        <th className="p-2 border-r border-black w-28">Actual Weighed</th>
+                        <th className="p-2 border-r border-black w-28">Lot #</th>
+                        <th className="p-2 w-16 text-center">Verified</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(printBatchRecipe.ingredients || []).map((ri, idx) => {
+                        const item = items.find((i) => i.id === ri.inventory_item_id) || ri.inventory_item;
+                        return (
+                          <tr key={ri.id || idx} className="border-b border-gray-300">
+                            <td className="p-2 font-bold border-r border-black">
+                              {item?.name || 'Raw Ingredient'}
+                            </td>
+                            <td className="p-2 border-r border-black">
+                              {ri.quantity_required} {item?.unit || 'units'}
+                            </td>
+                            <td className="p-2 border-r border-black font-mono">
+                              [ ________ ]
+                            </td>
+                            <td className="p-2 border-r border-black font-mono">
+                              [ ________ ]
+                            </td>
+                            <td className="p-2 text-center font-mono">
+                              [ &nbsp; ]
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Instructions */}
+                {printBatchRecipe.instructions_md && (
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider mb-1.5">
+                      2. Compounding &amp; Processing Procedure
+                    </h4>
+                    <div className="p-3 bg-gray-50 border border-gray-300 text-xs whitespace-pre-wrap leading-relaxed font-mono">
+                      {printBatchRecipe.instructions_md}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quality Assurance & Release Sign-Off */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider mb-2">
+                    3. Quality Inspection &amp; Batch Release Sign-Off
+                  </h4>
+                  <div className="border border-black p-3 space-y-3 text-xs">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>Visual Color/Clarity: [ ] Pass [ ] Fail</div>
+                      <div>Viscosity/Density: [ ] Pass [ ] Fail</div>
+                      <div>Actual Final Yield: ____________ units</div>
+                    </div>
+                    <div className="pt-3 border-t border-gray-300 grid grid-cols-2 gap-4">
+                      <div>
+                        Operator Signature: ___________________________ Date: _________
+                      </div>
+                      <div>
+                        QA Supervisor Sign-Off: _______________________ Date: _________
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2 no-print">
+              <button
+                type="button"
+                onClick={() => setPrintBatchRecipe(null)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition active:scale-95"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Print Batch Sheet</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global Print Stylesheet */}
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #workbench-printable-area,
+          #workbench-printable-area * {
+            visibility: visible;
+          }
+          #workbench-printable-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            background: white !important;
+            color: black !important;
+            padding: 16px !important;
+            margin: 0 !important;
+            z-index: 99999;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------
+// SUB-COMPONENTS: QR & BARCODE RENDERERS FOR PHYSICAL WORKSHOPS
+// -------------------------------------------------------------
+function WorkshopQrGlyph({ value }: { value: string }) {
+  const cells = useMemo(() => {
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = (hash << 5) - hash + value.charCodeAt(i);
+      hash |= 0;
+    }
+    const grid: boolean[][] = [];
+    for (let r = 0; r < 7; r++) {
+      const row: boolean[] = [];
+      for (let c = 0; c < 7; c++) {
+        const isCorner =
+          (r <= 1 && c <= 1) ||
+          (r <= 1 && c >= 5) ||
+          (r >= 5 && c <= 1);
+        if (isCorner) {
+          row.push(true);
+        } else {
+          const bit = Math.abs(hash ^ (r * 13 + c * 7)) % 3 !== 0;
+          row.push(bit);
+        }
+      }
+      grid.push(row);
+    }
+    return grid;
+  }, [value]);
+
+  return (
+    <svg
+      viewBox="0 0 7 7"
+      className="w-12 h-12 shrink-0 bg-white p-0.5 border border-slate-300 rounded"
+      shapeRendering="crispEdges"
+    >
+      {cells.map((row, r) =>
+        row.map((active, c) =>
+          active ? <rect key={`${r}-${c}`} x={c} y={r} width="1" height="1" fill="#000" /> : null
+        )
+      )}
+    </svg>
+  );
+}
+
+function WorkshopBarcode({ text }: { text: string }) {
+  const bars = useMemo(() => {
+    const list: number[] = [];
+    for (let i = 0; i < text.length; i++) {
+      const code = text.charCodeAt(i);
+      list.push(code % 2 === 0 ? 2 : 1);
+      list.push(code % 3 === 0 ? 3 : 1);
+      list.push(1);
+    }
+    return list;
+  }, [text]);
+
+  const totalWidth = bars.reduce((a, b) => a + b, 0);
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg viewBox={`0 0 ${totalWidth} 20`} className="w-full h-5">
+        {(() => {
+          let currentX = 0;
+          return bars.map((w, idx) => {
+            const x = currentX;
+            currentX += w;
+            return idx % 2 === 0 ? (
+              <rect key={idx} x={x} y="0" width={w} height="20" fill="#000" />
+            ) : null;
+          });
+        })()}
+      </svg>
+      <span className="text-[8px] font-mono tracking-widest text-slate-800 uppercase mt-0.5">
+        {text}
+      </span>
     </div>
   );
 }
@@ -3832,6 +4556,7 @@ function RecipeModal({
   const [category, setCategory] = useState(recipe?.category || 'General');
   const [instructionsMd, setInstructionsMd] = useState(recipe?.instructions_md || '');
   const [rating, setRating] = useState<number>(recipe?.rating || 5);
+  const [isPublic, setIsPublic] = useState<boolean>(recipe?.is_public || false);
   const [imageUrl, setImageUrl] = useState<string>(recipe?.image_url || '');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(recipe?.image_url || '');
@@ -4013,6 +4738,7 @@ function RecipeModal({
             category,
             instructions_md: instructionsMd.trim(),
             rating,
+            is_public: isPublic,
             image_url: finalImageUrl || '',
             output_item_id: outputItemId || null,
             output_yield_qty: yieldQty,
@@ -4035,6 +4761,7 @@ function RecipeModal({
             category,
             instructions_md: instructionsMd.trim(),
             rating,
+            is_public: isPublic,
             image_url: finalImageUrl || '',
             output_item_id: outputItemId || null,
             output_yield_qty: yieldQty,
@@ -4123,6 +4850,30 @@ function RecipeModal({
                 ))}
               </datalist>
             </div>
+          </div>
+
+          {/* Public Formula Sharing Toggle */}
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/70">
+            <div className="flex items-center gap-2.5">
+              <Globe className="w-4 h-4 text-blue-500 shrink-0" />
+              <div>
+                <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                  Public Formula
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                  Share on your Maker Profile so others can clone it to their workshop (+50 XP when cloned).
+                </span>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
           </div>
 
           {/* Formula Photo */}
