@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 3.1.0 Production<br />
+> **Version:** 3.2.0 Production<br />
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -16,6 +16,10 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - XP advances maker skills through deterministic mathematical leveling.
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
+- **Calculator Header Layout Refactor & Overflow Remediation** *(v3.2)*: Resolved the cramped flex layout in `InventoryClient.tsx` by transitioning to a stacked responsive column architecture with wrapped calculator selection pills (`flex flex-wrap items-center gap-2`), eliminating clipped text and horizontal scrollbars across all screen widths.
+- **Community Hub Marketplace Tabs: Public Formulas & Project Showcases** *(v3.2)*: Expanded `/community` with top-level discovery tabs (`communityView: 'FEED' | 'FORMULAS' | 'SHOWCASES'`) in `CommunityFeedClient.tsx` powered by `get_public_marketplace_feed(p_limit INT)` `SECURITY DEFINER STABLE` RPC. Public Formulas Lab provides search, craft category filtering, rating stars, author avatars, and 1-click "Clone to Workshop" (+50 XP to author). Project Showcases tab enables discovery of public blueprints with live milestone completion bars, linked skills, and budget indicators.
+- **Project Financial & BOM Cost Rollup Ledger** *(v3.2)*: Database migration `028_v32_project_budgets_and_marketplace.sql` adds `budget_limit NUMERIC(10, 2) NOT NULL DEFAULT 0` and `currency TEXT NOT NULL DEFAULT 'USD'` to `public.projects`. `KanbanBoardClient.tsx` features a real-time Financial Ledger & Effort Rollup strip calculating all-in BOM consumable costs across tasks (via `convertCurrency` and `formatCurrency`), dynamic budget utilization bar (turning amber at 80% and red if over budget), and estimated labor hours (completed vs. remaining). Fully configurable in Create Project and Edit Project modals.
+- **Silicone Mold Box Volume & Master Displacement Calculator** *(v3.2)*: Expanded the public `/tools` lab suite and in-app workshop calculators with an 8th interactive tool (`/tools?tool=silicone`). Factors mold box geometry (rectangular L x W x H or cylindrical Ø x H), master model Archimedes displacement (by weight + material density presets or direct volume), RTV silicone specific gravity (default 1.10), mix ratios (1:1 or 10:1), +10% safety pour margin, Part A & Part B pour weights, and material costing with 1-click "Save as Maker Formula" export. Supported across English, Russian, and Hebrew.
 - **Interactive Project Dependency Graph & Roadmap View** *(v3.1)*: Database migration `027_v31_roadmap_equipment_logs_and_csv.sql` adds `due_date DATE` and `estimated_minutes INT` to `public.project_tasks`. `KanbanBoardClient.tsx` features an interactive View Switcher (`KANBAN` vs `ROADMAP`) organizing tasks into sequential roadmap stages with topological dependency resolution (Level 0 Foundations -> Level 1 -> Level 2 -> Level 3+), visual blocked/unlocked indicators, overdue detection, effort estimations, assignees, and 1-click status advance actions. `EditTaskModal.tsx` integrates native due date and effort duration inputs.
 - **Universal CSV Importer & Exporter for Inventory & Restock Carts** *(v3.1)*: Universal CSV operations in `InventoryClient.tsx`. Export generates standard UTF-8 BOM CSVs (`workbench_inventory_YYYY-MM-DD.csv`) for entire workshops or filtered restock carts. Universal Import modal (`CsvImportModal`) supports drag-and-drop CSV upload, header auto-mapping (Name, Type, Quantity, Unit, Unit Price, SKU/Location, Threshold, Notes, Interval), client-side error validation and row previews, and calls `bulk_import_inventory_csv` `SECURITY DEFINER` RPC to batch insert/update inventory items.
 - **Workshop Equipment Maintenance & Calibration Logbook** *(v3.1)*: Database migration `027_v31_roadmap_equipment_logs_and_csv.sql` adds `last_maintained_at TIMESTAMPTZ` and `maintenance_interval_days INT` to `public.inventory_items` and creates `public.equipment_logs` table. Equipment item cards show real-time overdue / due soon status badges and an interactive Logbook modal (`EquipmentLogModal`) to record maintenance, calibration, repairs, or inspections (`log_equipment_maintenance` RPC) with cost tracking and +10 XP awards.
@@ -233,6 +237,9 @@ Collaborative maker projects.
 - `status` (`TEXT`, DEFAULT `'PLANNING'` CHECK `status IN ('PLANNING', 'ACTIVE', 'COMPLETED', 'ARCHIVED')`)
 - `completion_xp_reward` (`INT`, DEFAULT `100` CHECK `completion_xp_reward >= 0`)
 - `xp_awarded` (`BOOLEAN`, DEFAULT `false`)
+- `is_public` (`BOOLEAN`, DEFAULT `false`) *(v1.9)*
+- `budget_limit` (`NUMERIC(10, 2)`, DEFAULT `0` CHECK `budget_limit >= 0`) *(v3.2)*
+- `currency` (`TEXT`, DEFAULT `'USD'` CHECK `currency IN ('USD', 'EUR', 'ILS', 'GBP')`) *(v3.2)*
 - `created_at` (`TIMESTAMPTZ`, DEFAULT `now()`)
 
 #### 7. `public.project_members`
@@ -524,6 +531,8 @@ Maintenance, calibration, inspection, and repair logbook for workshop equipment.
 | `clone_public_recipe` *(v3.0)* | `p_source_recipe_id UUID` | Validates `auth.uid()`. Clones a public formula and its ingredients into caller's personal workshop (`is_public = false`), increments source clones count, awards +50 XP to original creator, and dispatches notification (`RECIPE_CLONED`). |
 | `log_equipment_maintenance` *(v3.1)* | `p_item_id UUID, p_action_type TEXT, p_summary TEXT, p_cost NUMERIC DEFAULT 0, p_condition_after TEXT DEFAULT 'GOOD'` | Validates `auth.uid()` and equipment item ownership. Inserts log into `public.equipment_logs`, updates `inventory_items.last_maintained_at` and `condition`, touches streak, awards +10 XP, and records activity log. |
 | `bulk_import_inventory_csv` *(v3.1)* | `p_items JSONB` | Validates `auth.uid()`. Accepts array of parsed CSV item objects and batch inserts or updates items in `public.inventory_items`, returning imported count. |
+| `create_maker_project` *(v3.2)* | `p_name TEXT, p_description TEXT DEFAULT '', p_completion_xp_reward INT DEFAULT 100, p_skill_ids UUID[] DEFAULT '{}', p_member_user_ids UUID[] DEFAULT '{}', p_budget_limit NUMERIC DEFAULT 0, p_currency TEXT DEFAULT 'USD'` | Validates `auth.uid()`. Creates collaborative project with budget limit and currency, assigns caller as PM (`ACCEPTED`), enlists invited members (`PENDING`), links skill catalog entries, and records `'PROJECT_CREATED'` audit activity. |
+| `get_public_marketplace_feed` *(v3.2)* | `p_limit INT DEFAULT 40` | Callable by anon and authenticated. Queries and aggregates public shared formulas from `public.maker_recipes` (joined with author profile and ingredients count) and public project blueprints from `public.projects` (joined with PM profile, linked skills, total tasks, completed tasks, and budget limits), returning structured JSONB `{ public_recipes, public_projects }`. |
 | `export_user_maker_archive` *(v3.1)* | None | Validates `auth.uid()`. Returns complete user archive JSON document (version `'3.1.0'`), packaging user profile, skills, projects, tasks, attachments, notes, inventory items/folders, recipes/ingredients, batch runs (`recipe_runs`), authored posts (`community_posts`), submitted feedback (`user_feedback`), unlocked achievements (`user_achievements`), and equipment maintenance logbook (`equipment_logs`). |
 
 ---
@@ -645,7 +654,8 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 024_inventory_and_recipe_images.sql     # v2.7.0: WebP image thumbnails for inventory items & recipes
 │       ├── 025_admin_catalog_and_governance.sql    # v2.8.0: Global skill catalog manager, merge skills, feedback replies & moderation
 │       ├── 026_v3_achievements_telemetry_and_public_recipes.sql # v3.0.0: RPG achievements, executive telemetry, public recipe cloning & print sheets
-│       └── 027_v31_roadmap_equipment_logs_and_csv.sql # v3.1.0: Task roadmap & due dates, equipment logbook & universal inventory CSV import/export
+│       ├── 027_v31_roadmap_equipment_logs_and_csv.sql # v3.1.0: Task roadmap & due dates, equipment logbook & universal inventory CSV import/export
+│       └── 028_v32_project_budgets_and_marketplace.sql # v3.2.0: Project budgets & community formula marketplace discovery RPC
 ├── package.json
 └── tailwind.config.ts
 ```

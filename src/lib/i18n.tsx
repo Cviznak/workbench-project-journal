@@ -113,6 +113,7 @@ export const DICTIONARY = {
     'tools.tab_candle': 'Candle & Soap Batch',
     'tools.tab_lasercut': 'Laser & CNC Nesting',
     'tools.tab_electronics': 'Electronics & LED',
+    'tools.tab_silicone': 'Silicone Mold Box',
 
     // Settings
     'settings.title': 'Account & Workshop Settings',
@@ -230,6 +231,7 @@ export const DICTIONARY = {
     'tools.tab_candle': 'Свечи и мыло',
     'tools.tab_lasercut': 'Лазерная резка и раскрой',
     'tools.tab_electronics': 'Электроника и LED',
+    'tools.tab_silicone': 'Силиконовые формы',
 
     // Settings
     'settings.title': 'Настройки аккаунта и мастерской',
@@ -347,6 +349,7 @@ export const DICTIONARY = {
     'tools.tab_candle': 'נרות וסבונים',
     'tools.tab_lasercut': 'חיתוך לייזר ו-CNC',
     'tools.tab_electronics': 'אלקטרוניקה ו-LED',
+    'tools.tab_silicone': 'תבניות סיליקון',
 
     // Settings
     'settings.title': 'הגדרות חשבון וסדנה',

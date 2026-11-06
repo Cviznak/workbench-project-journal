@@ -12,9 +12,10 @@ import {
   ProjectStatus,
   SkillCatalog,
   TaskSubtask,
+  Currency,
 } from '@/lib/types';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
-import { formatCurrency, relativeTime } from '@/lib/utils';
+import { formatCurrency, convertCurrency, relativeTime } from '@/lib/utils';
 import {
   FolderKanban,
   CheckCircle,
@@ -50,6 +51,7 @@ import {
   GitFork,
   CheckCircle2,
   Layers,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EditTaskModal from '@/components/EditTaskModal';
@@ -154,6 +156,71 @@ export default function KanbanBoardClient({
     : project.pm
     ? [{ ...project.pm, invitation_status: 'ACCEPTED' }, ...rawMemberProfiles]
     : rawMemberProfiles;
+
+  // -------------------------------------------------------------
+  // Financial & Effort Rollups
+  // -------------------------------------------------------------
+  const projectCurrency = (project.currency || 'USD') as Currency;
+  const budgetLimit = Number(project.budget_limit) || 0;
+
+  const financialRollup = useMemo(() => {
+    let totalBomCost = 0;
+    let totalMaterialsCount = 0;
+
+    tasks.forEach((t) => {
+      if (Array.isArray(t.task_materials)) {
+        t.task_materials.forEach((m: any) => {
+          totalMaterialsCount += 1;
+          const qty = Number(m.quantity_required) || 0;
+          const price = Number(m.inventory_item?.unit_price) || 0;
+          const curr = m.inventory_item?.currency || 'USD';
+          const lineCost = qty * price;
+          totalBomCost += convertCurrency(lineCost, curr, projectCurrency);
+        });
+      }
+    });
+
+    const budgetUtilizationPct = budgetLimit > 0 ? (totalBomCost / budgetLimit) * 100 : 0;
+    const isOverBudget = budgetLimit > 0 && totalBomCost > budgetLimit;
+    const isNearBudget = budgetLimit > 0 && !isOverBudget && budgetUtilizationPct >= 80;
+
+    return {
+      totalBomCost,
+      totalMaterialsCount,
+      budgetLimit,
+      budgetUtilizationPct,
+      isOverBudget,
+      isNearBudget,
+    };
+  }, [tasks, projectCurrency, budgetLimit]);
+
+  const effortRollup = useMemo(() => {
+    const totalEstMinutes = tasks.reduce((sum, t) => sum + (Number(t.estimated_minutes) || 0), 0);
+    const completedEstMinutes = tasks
+      .filter((t) => t.status === 'DONE')
+      .reduce((sum, t) => sum + (Number(t.estimated_minutes) || 0), 0);
+    const remainingEstMinutes = Math.max(0, totalEstMinutes - completedEstMinutes);
+    const effortPct = totalEstMinutes > 0 ? Math.round((completedEstMinutes / totalEstMinutes) * 100) : 0;
+
+    const formatMins = (mins: number) => {
+      if (mins <= 0) return '0m';
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      if (h === 0) return `${m}m`;
+      if (m === 0) return `${h}h`;
+      return `${h}h ${m}m`;
+    };
+
+    return {
+      totalEstMinutes,
+      completedEstMinutes,
+      remainingEstMinutes,
+      effortPct,
+      totalFormatted: formatMins(totalEstMinutes),
+      completedFormatted: formatMins(completedEstMinutes),
+      remainingFormatted: formatMins(remainingEstMinutes),
+    };
+  }, [tasks]);
 
   // -------------------------------------------------------------
   // Realtime WebSocket Subscription
@@ -767,6 +834,187 @@ export default function KanbanBoardClient({
               ) : (
                 <span className="text-slate-400">No skills linked</span>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Project Financial & Effort Rollup Ledger */}
+        <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-indigo-500" />
+              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Financial Ledger &amp; Effort Rollup
+              </span>
+            </div>
+            {isPM && (
+              <button
+                onClick={() => {
+                  setProjectModalTab('settings');
+                  setProjectModalOpen(true);
+                }}
+                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                <Settings className="w-3 h-3" />
+                <span>Adjust Budget / Currency</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* BOM Cost & Budget */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Boxes className="w-3.5 h-3.5 text-indigo-500" />
+                  BOM Material Cost
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                  {financialRollup.totalMaterialsCount} items
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {formatCurrency(financialRollup.totalBomCost, projectCurrency)}
+                </div>
+                {budgetLimit > 0 ? (
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    of {formatCurrency(budgetLimit, projectCurrency)}
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-slate-400 italic">No cap set</span>
+                )}
+              </div>
+
+              {budgetLimit > 0 ? (
+                <div className="space-y-1.5 pt-1">
+                  <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full transition-all duration-300 rounded-full",
+                        financialRollup.isOverBudget
+                          ? "bg-rose-500"
+                          : financialRollup.isNearBudget
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                      )}
+                      style={{ width: `${Math.min(100, financialRollup.budgetUtilizationPct)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span
+                      className={cn(
+                        "font-bold inline-flex items-center gap-1",
+                        financialRollup.isOverBudget
+                          ? "text-rose-600 dark:text-rose-400"
+                          : financialRollup.isNearBudget
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-emerald-600 dark:text-emerald-400"
+                      )}
+                    >
+                      {financialRollup.isOverBudget ? (
+                        <>
+                          <AlertCircle className="w-3 h-3" />
+                          Over Budget (+{formatCurrency(financialRollup.totalBomCost - budgetLimit, projectCurrency)})
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3 h-3" />
+                          {financialRollup.budgetUtilizationPct.toFixed(0)}% utilized ({formatCurrency(budgetLimit - financialRollup.totalBomCost, projectCurrency)} left)
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[11px] text-slate-400 pt-1">
+                  Track project material expenses against a budget by configuring a cap in project settings.
+                </div>
+              )}
+            </div>
+
+            {/* Estimated Labor & Effort */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-500" />
+                  Labor &amp; Effort Hours
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  {effortRollup.totalFormatted} total
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {effortRollup.completedFormatted}
+                </div>
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {effortRollup.remainingFormatted} remaining
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-blue-600 h-full transition-all duration-300 rounded-full"
+                    style={{ width: `${effortRollup.effortPct}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>{effortRollup.effortPct}% logged work finished</span>
+                  <span className="font-semibold">{effortRollup.totalEstMinutes > 0 ? `${(effortRollup.totalEstMinutes / 60).toFixed(1)} hrs est.` : '0 hrs'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Task Execution Milestone */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5 text-emerald-500" />
+                  Milestone Velocity
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  {tasks.filter((t) => t.status === 'DONE').length} / {tasks.length} Done
+                </span>
+              </div>
+
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {tasks.length > 0
+                    ? Math.round((tasks.filter((t) => t.status === 'DONE').length / tasks.length) * 100)
+                    : 0}
+                  %
+                </div>
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {tasks.filter((t) => t.status !== 'DONE').length} tasks in progress
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                  <div
+                    className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                    style={{
+                      width: `${
+                        tasks.length > 0
+                          ? Math.round((tasks.filter((t) => t.status === 'DONE').length / tasks.length) * 100)
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>Blueprint Health</span>
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    {tasks.filter((t) => t.status === 'DONE').length === tasks.length && tasks.length > 0
+                      ? 'Ready to Award XP'
+                      : 'Active Sprint'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

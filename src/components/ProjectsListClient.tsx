@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Project, SkillCatalog } from '@/lib/types';
+import { Project, SkillCatalog, Currency } from '@/lib/types';
 import { formatDate } from '@/lib/utils';
 import {
   FolderKanban,
@@ -294,6 +294,8 @@ export default function ProjectsListClient({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [xpReward, setXpReward] = useState('100');
+  const [budgetLimit, setBudgetLimit] = useState('');
+  const [currency, setCurrency] = useState<Currency>('USD');
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -339,6 +341,8 @@ export default function ProjectsListClient({
         p_completion_xp_reward: parseInt(xpReward, 10) || 100,
         p_skill_ids: selectedSkillIds,
         p_member_user_ids: [],
+        p_budget_limit: Math.max(0, parseFloat(budgetLimit) || 0),
+        p_currency: currency,
       });
 
       if (rpcErr) throw rpcErr;
@@ -650,6 +654,38 @@ export default function ProjectsListClient({
                 <span className="text-[11px] text-slate-400 mt-1 block">
                   Distributed to every project member across each linked skill when marked COMPLETED by the PM.
                 </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                    Budget Limit (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={budgetLimit}
+                    onChange={(e) => setBudgetLimit(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                    Project Currency
+                  </label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value as Currency)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="ILS">ILS (₪)</option>
+                    <option value="GBP">GBP (£)</option>
+                  </select>
+                </div>
               </div>
 
               <div>

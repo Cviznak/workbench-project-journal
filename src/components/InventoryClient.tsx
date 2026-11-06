@@ -331,7 +331,7 @@ export default function InventoryClient({
 
   // Lab Calculators State
   const [calcActiveTool, setCalcActiveTool] = useState<
-    'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT' | 'ELECTRONICS'
+    'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT' | 'ELECTRONICS' | 'SILICONE'
   >('RESIN');
 
   // 1. Epoxy Resin Calculator State
@@ -402,6 +402,21 @@ export default function InventoryClient({
   const [elecBatteryV, setElecBatteryV] = useState<number>(3.7);
   const [elecLoadCurrentMa, setElecLoadCurrentMa] = useState<number>(150);
   const [elecEfficiencyPct, setElecEfficiencyPct] = useState<number>(85);
+
+  // 8. Silicone Mold Box Calculator State
+  const [siliconeBoxShape, setSiliconeBoxShape] = useState<'RECTANGLE' | 'CYLINDER'>('RECTANGLE');
+  const [siliconeBoxLengthMm, setSiliconeBoxLengthMm] = useState<number>(120);
+  const [siliconeBoxWidthMm, setSiliconeBoxWidthMm] = useState<number>(80);
+  const [siliconeBoxHeightMm, setSiliconeBoxHeightMm] = useState<number>(60);
+  const [siliconeBoxDiameterMm, setSiliconeBoxDiameterMm] = useState<number>(100);
+  const [siliconeDisplacementMode, setSiliconeDisplacementMode] = useState<'WEIGHT' | 'VOLUME'>('WEIGHT');
+  const [siliconeMasterWeightG, setSiliconeMasterWeightG] = useState<number>(85);
+  const [siliconeMasterDensity, setSiliconeMasterDensity] = useState<number>(1.24);
+  const [siliconeMasterVolumeCm3, setSiliconeMasterVolumeCm3] = useState<number>(68.5);
+  const [siliconeRatio, setSiliconeRatio] = useState<'1:1' | '10:1'>('1:1');
+  const [siliconeDensity, setSiliconeDensity] = useState<number>(1.10);
+  const [siliconeCostPerKg, setSiliconeCostPerKg] = useState<number>(85);
+  const [siliconeMarginPct, setSiliconeMarginPct] = useState<number>(10);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -1943,19 +1958,19 @@ export default function InventoryClient({
             /* ================= VIEW: INTERACTIVE MAKER CALCULATORS & LAB ================= */
             <div className="space-y-6">
               {/* Header Banner & Sub-tool Selector */}
-              <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 rounded-3xl p-6 shadow-sm flex flex-col gap-4 overflow-hidden">
                 <div>
                   <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
                     <Calculator className="w-5 h-5 text-indigo-500" />
                     <span className="text-base">Maker Calculators &amp; Lab Tools</span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-3xl">
                     Formulate precise chemical mixtures, calculate mold volumes, dilution ratios, and 3D printing batch economics with 1-click recipe export.
                   </p>
                 </div>
 
                 {/* Sub-tool Selector Pills */}
-                <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold shrink-0">
+                <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 w-full text-xs font-bold">
                   <button
                     onClick={() => setCalcActiveTool('RESIN')}
                     className={cn(
@@ -2032,6 +2047,17 @@ export default function InventoryClient({
                     )}
                   >
                     Electronics &amp; LED
+                  </button>
+                  <button
+                    onClick={() => setCalcActiveTool('SILICONE')}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl transition',
+                      calcActiveTool === 'SILICONE'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    Silicone Mold Box
                   </button>
                 </div>
               </div>
@@ -3872,6 +3898,435 @@ export default function InventoryClient({
                       <button
                         type="button"
                         onClick={handleSaveElectronicsRecipe}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition transform active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save as Blueprint / Formula</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 8. SILICONE MOLD BOX & POUR CALCULATOR */}
+              {calcActiveTool === 'SILICONE' && (() => {
+                // Box Volume (cm3 / ml)
+                let boxVolCm3 = 0;
+                if (siliconeBoxShape === 'RECTANGLE') {
+                  boxVolCm3 = (siliconeBoxLengthMm * siliconeBoxWidthMm * siliconeBoxHeightMm) / 1000;
+                } else {
+                  const radiusCm = siliconeBoxDiameterMm / 20;
+                  const heightCm = siliconeBoxHeightMm / 10;
+                  boxVolCm3 = Math.PI * radiusCm * radiusCm * heightCm;
+                }
+
+                // Master Volume (cm3 / ml)
+                let masterVolCm3 = 0;
+                if (siliconeDisplacementMode === 'WEIGHT') {
+                  masterVolCm3 = (Number(siliconeMasterWeightG) || 0) / (Number(siliconeMasterDensity) || 1.24);
+                } else {
+                  masterVolCm3 = Number(siliconeMasterVolumeCm3) || 0;
+                }
+
+                // Net Liquid Silicone Volume
+                const netSiliconeVolCm3 = Math.max(0, boxVolCm3 - masterVolCm3);
+                const marginMultiplier = 1 + (Number(siliconeMarginPct) || 10) / 100;
+                const totalSiliconeVolWithMargin = netSiliconeVolCm3 * marginMultiplier;
+                const totalSiliconeWeightG = totalSiliconeVolWithMargin * (Number(siliconeDensity) || 1.10);
+
+                // Mix ratio breakdown
+                let partAWeightG = 0;
+                let partBWeightG = 0;
+                if (siliconeRatio === '1:1') {
+                  partAWeightG = totalSiliconeWeightG * 0.5;
+                  partBWeightG = totalSiliconeWeightG * 0.5;
+                } else {
+                  partAWeightG = totalSiliconeWeightG * (10 / 11);
+                  partBWeightG = totalSiliconeWeightG * (1 / 11);
+                }
+
+                const totalMoldCost = (totalSiliconeWeightG / 1000) * (Number(siliconeCostPerKg) || 85);
+
+                const handleSaveSiliconeRecipe = () => {
+                  const shapeText = siliconeBoxShape === 'RECTANGLE'
+                    ? `${siliconeBoxLengthMm}x${siliconeBoxWidthMm}x${siliconeBoxHeightMm}mm Box`
+                    : `Ø${siliconeBoxDiameterMm}x${siliconeBoxHeightMm}mm Cylinder`;
+                  const title = `Silicone Mold: ${shapeText} (${Math.round(totalSiliconeWeightG)}g)`;
+                  const md = `### Silicone Mold Box Specifications (${shapeText})\n\n` +
+                    `- **Mold Box Volume:** ${boxVolCm3.toFixed(1)} cm³ (ml)\n` +
+                    `- **Master Model Displacement:** ${masterVolCm3.toFixed(1)} cm³ (Displacement: ${siliconeDisplacementMode === 'WEIGHT' ? `${siliconeMasterWeightG}g @ ${siliconeMasterDensity}g/cm³` : `${siliconeMasterVolumeCm3}cm³`})\n` +
+                    `- **Net Pour Volume (+${siliconeMarginPct}% margin):** ${totalSiliconeVolWithMargin.toFixed(1)} ml (${netSiliconeVolCm3.toFixed(1)} ml net cavity)\n` +
+                    `- **Silicone Specific Gravity:** ${siliconeDensity} g/cm³\n\n` +
+                    `### Batch Mix Ratio (${siliconeRatio} by Weight)\n` +
+                    `- **Part A (Base):** ${partAWeightG.toFixed(1)} g\n` +
+                    `- **Part B (Catalyst / Curative):** ${partBWeightG.toFixed(1)} g\n` +
+                    `- **Total Silicone Weighed:** ${totalSiliconeWeightG.toFixed(1)} g\n` +
+                    `- **Material Cost Estimate:** ${formatCurrency(totalMoldCost, preferredCurrency)}\n\n` +
+                    `### Pour & Degassing Instructions\n` +
+                    `1. Secure master model to box bottom with double-sided adhesive or hot glue.\n` +
+                    `2. Spray mold release on model and box walls; let dry for 10 minutes.\n` +
+                    `3. Mix Part A and Part B thoroughly for 3 minutes, scraping sides and bottom of container.\n` +
+                    `4. Vacuum degas at 29 in-Hg until foam rises and collapses, then hold for 2 minutes.\n` +
+                    `5. Pour in a single thin stream into the lowest corner of the mold box, allowing liquid silicone to rise around the master.\n` +
+                    `6. Demold after full cure (typical 4-16 hours depending on platinum vs. tin catalyst).`;
+
+                  const prefill: any = {
+                    user_id: userId,
+                    title,
+                    category: 'Silicone & Molds',
+                    instructions_md: md,
+                    rating: 5,
+                    output_yield_qty: 1,
+                    packaging_overhead: 0,
+                    target_retail_price: totalMoldCost * 2,
+                  };
+                  setEditingRecipe(prefill);
+                  setRecipeModalOpen(true);
+                };
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Controls Column */}
+                    <div className="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800 font-bold text-sm text-slate-900 dark:text-white">
+                        <Boxes className="w-5 h-5 text-indigo-500" />
+                        <span>Mold Box Dimensions &amp; Master Displacement</span>
+                      </div>
+
+                      {/* Box Shape & Dimensions */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Mold Box Geometry
+                          </label>
+                          <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
+                            <button
+                              type="button"
+                              onClick={() => setSiliconeBoxShape('RECTANGLE')}
+                              className={cn(
+                                'px-3 py-1 rounded-lg transition',
+                                siliconeBoxShape === 'RECTANGLE'
+                                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                  : 'text-slate-500'
+                              )}
+                            >
+                              Rectangular Box
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSiliconeBoxShape('CYLINDER')}
+                              className={cn(
+                                'px-3 py-1 rounded-lg transition',
+                                siliconeBoxShape === 'CYLINDER'
+                                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                  : 'text-slate-500'
+                              )}
+                            >
+                              Cylindrical Cup
+                            </button>
+                          </div>
+                        </div>
+
+                        {siliconeBoxShape === 'RECTANGLE' ? (
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                Length (mm)
+                              </label>
+                              <input
+                                type="number"
+                                min="10"
+                                value={siliconeBoxLengthMm}
+                                onChange={(e) => setSiliconeBoxLengthMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                Width (mm)
+                              </label>
+                              <input
+                                type="number"
+                                min="10"
+                                value={siliconeBoxWidthMm}
+                                onChange={(e) => setSiliconeBoxWidthMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                Height (mm)
+                              </label>
+                              <input
+                                type="number"
+                                min="10"
+                                value={siliconeBoxHeightMm}
+                                onChange={(e) => setSiliconeBoxHeightMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                Diameter (mm)
+                              </label>
+                              <input
+                                type="number"
+                                min="10"
+                                value={siliconeBoxDiameterMm}
+                                onChange={(e) => setSiliconeBoxDiameterMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                Height (mm)
+                              </label>
+                              <input
+                                type="number"
+                                min="10"
+                                value={siliconeBoxHeightMm}
+                                onChange={(e) => setSiliconeBoxHeightMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                                className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-[11px] text-slate-400">
+                          Total Box Volume: <b>{boxVolCm3.toFixed(1)} cm³ (ml)</b>
+                        </p>
+                      </div>
+
+                      {/* Master Model Displacement */}
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                            Master Model Displacement
+                          </label>
+                          <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
+                            <button
+                              type="button"
+                              onClick={() => setSiliconeDisplacementMode('WEIGHT')}
+                              className={cn(
+                                'px-3 py-1 rounded-lg transition',
+                                siliconeDisplacementMode === 'WEIGHT'
+                                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                  : 'text-slate-500'
+                              )}
+                            >
+                              By Weight &amp; Density
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSiliconeDisplacementMode('VOLUME')}
+                              className={cn(
+                                'px-3 py-1 rounded-lg transition',
+                                siliconeDisplacementMode === 'VOLUME'
+                                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                  : 'text-slate-500'
+                              )}
+                            >
+                              Direct Volume (cm³)
+                            </button>
+                          </div>
+                        </div>
+
+                        {siliconeDisplacementMode === 'WEIGHT' ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                  Master Model Weight (grams)
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.1"
+                                  value={siliconeMasterWeightG}
+                                  onChange={(e) => setSiliconeMasterWeightG(Math.max(0, parseFloat(e.target.value) || 0))}
+                                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                                  Material Density: {siliconeMasterDensity} g/cm³
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0.1"
+                                  value={siliconeMasterDensity}
+                                  onChange={(e) => setSiliconeMasterDensity(Math.max(0.1, parseFloat(e.target.value) || 1.24))}
+                                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] text-slate-400 font-bold uppercase mr-1">Presets:</span>
+                              {[
+                                { name: 'PLA (1.24)', d: 1.24 },
+                                { name: 'Resin / ABS (1.12)', d: 1.12 },
+                                { name: 'Clay (1.60)', d: 1.60 },
+                                { name: 'Wood (0.75)', d: 0.75 },
+                                { name: 'Metal (7.30)', d: 7.30 },
+                              ].map((p) => (
+                                <button
+                                  key={p.name}
+                                  type="button"
+                                  onClick={() => setSiliconeMasterDensity(p.d)}
+                                  className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200"
+                                >
+                                  {p.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                              Master Model Volume (cm³ / ml)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={siliconeMasterVolumeCm3}
+                              onChange={(e) => setSiliconeMasterVolumeCm3(Math.max(0, parseFloat(e.target.value) || 0))}
+                              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        )}
+                        <p className="text-[11px] text-slate-400">
+                          Displaced Model Volume: <b>{masterVolCm3.toFixed(1)} cm³</b> | Net Mold Cavity: <b>{netSiliconeVolCm3.toFixed(1)} ml</b>
+                        </p>
+                      </div>
+
+                      {/* Silicone Formulation & Parameters */}
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                          Silicone Formulation &amp; Costing
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Mix Ratio (A:B)
+                            </label>
+                            <select
+                              value={siliconeRatio}
+                              onChange={(e) => setSiliconeRatio(e.target.value as any)}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                            >
+                              <option value="1:1">1:1 (Platinum RTV)</option>
+                              <option value="10:1">10:1 (Tin / Platinum)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Specific Gravity
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0.8"
+                              max="1.5"
+                              value={siliconeDensity}
+                              onChange={(e) => setSiliconeDensity(Math.max(0.8, parseFloat(e.target.value) || 1.10))}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Pour Margin (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="30"
+                              value={siliconeMarginPct}
+                              onChange={(e) => setSiliconeMarginPct(Math.max(0, parseInt(e.target.value) || 10))}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                              Cost / kg ({preferredCurrency})
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={siliconeCostPerKg}
+                              onChange={(e) => setSiliconeCostPerKg(Math.max(0, parseFloat(e.target.value) || 0))}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Results Column */}
+                    <div className="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 font-bold text-sm text-slate-800 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-800">
+                          <Sparkles className="w-4 h-4 text-indigo-500" />
+                          <span>Batch Pour Weights &amp; Mix Breakdown</span>
+                        </div>
+
+                        {/* Total Silicone Weight Card */}
+                        <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-1">
+                          <span className="text-[10px] uppercase font-bold text-indigo-600 dark:text-indigo-400">
+                            Total Liquid Silicone Required (+{siliconeMarginPct}% cup buffer)
+                          </span>
+                          <div className="text-3xl font-black text-indigo-950 dark:text-indigo-100">
+                            {totalSiliconeWeightG.toFixed(1)} g
+                          </div>
+                          <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                            Volume: <b>{totalSiliconeVolWithMargin.toFixed(1)} ml</b> ({netSiliconeVolCm3.toFixed(1)} ml net displacement)
+                          </span>
+                        </div>
+
+                        {/* Part A & Part B Breakdown Cards */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-500">
+                              Part A (Base {siliconeRatio === '1:1' ? '50%' : '90.9%'})
+                            </span>
+                            <div className="text-xl font-bold text-slate-900 dark:text-white">
+                              {partAWeightG.toFixed(1)} g
+                            </div>
+                          </div>
+                          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-500">
+                              Part B (Catalyst {siliconeRatio === '1:1' ? '50%' : '9.1%'})
+                            </span>
+                            <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                              {partBWeightG.toFixed(1)} g
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mold Economics & Cost */}
+                        <div className="space-y-2 text-xs">
+                          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">Estimated Silicone Material Cost:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {formatCurrency(totalMoldCost, preferredCurrency)}
+                            </span>
+                          </div>
+                          <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-emerald-950 dark:text-emerald-200 font-bold">
+                            <span>Recommended Mold Asset Valuation (2x):</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                              {formatCurrency(totalMoldCost * 2, preferredCurrency)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveSiliconeRecipe}
                         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition transform active:scale-95"
                       >
                         <Sparkles className="w-4 h-4" />

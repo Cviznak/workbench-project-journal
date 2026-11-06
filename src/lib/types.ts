@@ -107,11 +107,55 @@ export interface Project {
   completion_xp_reward: number;
   xp_awarded: boolean;
   is_public?: boolean;
+  budget_limit?: number;
+  currency?: Currency;
   created_at: string;
   pm?: Profile;
   members?: Profile[];
   skills?: SkillCatalog[];
   tasks?: ProjectTask[];
+}
+
+export interface PublicRecipeMarketplaceItem {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  instructions_md: string;
+  rating: number | null;
+  image_url: string;
+  is_public: boolean;
+  clones_count: number;
+  created_at: string;
+  updated_at: string;
+  author: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+  ingredients_count: number;
+}
+
+export interface PublicProjectMarketplaceItem {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  completion_xp_reward: number;
+  is_public: boolean;
+  budget_limit: number;
+  currency: Currency;
+  created_at: string;
+  pm: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+  skill_names: string[];
+  total_tasks: number;
+  completed_tasks: number;
 }
 
 export type ProjectInvitationStatus = 'PENDING' | 'ACCEPTED';

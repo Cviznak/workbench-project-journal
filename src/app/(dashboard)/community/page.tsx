@@ -20,10 +20,11 @@ export default async function CommunityPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch initial posts and skills (available to both authenticated and anon)
+  // Fetch initial posts, skills, and marketplace feed (available to both authenticated and anon)
   const [
     { data: posts },
     { data: allSkills },
+    marketplaceRes,
     userProjectsRes,
     currentProfileRes,
   ] = await Promise.all([
@@ -42,6 +43,7 @@ export default async function CommunityPage() {
       .from('skill_catalog')
       .select('*')
       .order('name'),
+    supabase.rpc('get_public_marketplace_feed', { p_limit: 40 }),
     user
       ? supabase
           .from('projects')
@@ -97,6 +99,9 @@ export default async function CommunityPage() {
         userProjects={(userProjectsRes?.data as any) || []}
         currentUserId={user?.id || ''}
         currentProfile={currentProfileRes?.data || null}
+        initialMarketplaceData={
+          (marketplaceRes?.data as any) || { public_recipes: [], public_projects: [] }
+        }
       />
     </div>
   );

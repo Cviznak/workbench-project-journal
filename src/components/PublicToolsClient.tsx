@@ -27,6 +27,7 @@ import {
   Grid,
   Cpu,
   Zap,
+  Boxes,
 } from 'lucide-react';
 import {
   calculateResistorBands,
@@ -37,7 +38,7 @@ import {
   MULTIPLIER_COLORS,
 } from '@/lib/electronicsUtils';
 
-export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT' | 'ELECTRONICS';
+export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE' | 'LASER_CUT' | 'ELECTRONICS' | 'SILICONE';
 
 export function slugToTool(slug?: string | null): ToolType {
   if (!slug) return 'RESIN';
@@ -48,6 +49,7 @@ export function slugToTool(slug?: string | null): ToolType {
   if (norm === 'candle' || norm === 'soap') return 'CANDLE';
   if (norm === 'lasercut' || norm === 'laser' || norm === 'cnc') return 'LASER_CUT';
   if (norm === 'electronics' || norm === 'led' || norm === 'resistor' || norm === 'battery') return 'ELECTRONICS';
+  if (norm === 'silicone' || norm === 'mold' || norm === 'rtv') return 'SILICONE';
   return 'RESIN';
 }
 
@@ -67,6 +69,8 @@ export function toolToSlug(tool: ToolType): string {
       return 'lasercut';
     case 'ELECTRONICS':
       return 'electronics';
+    case 'SILICONE':
+      return 'silicone';
   }
 }
 
@@ -176,6 +180,21 @@ export default function PublicToolsClient({
   const [elecBatteryV, setElecBatteryV] = useState<number>(3.7);
   const [elecLoadCurrentMa, setElecLoadCurrentMa] = useState<number>(150);
   const [elecEfficiencyPct, setElecEfficiencyPct] = useState<number>(85);
+
+  // 8. Silicone Mold Box State
+  const [siliconeBoxShape, setSiliconeBoxShape] = useState<'RECTANGLE' | 'CYLINDER'>('RECTANGLE');
+  const [siliconeBoxLengthMm, setSiliconeBoxLengthMm] = useState<number>(120);
+  const [siliconeBoxWidthMm, setSiliconeBoxWidthMm] = useState<number>(80);
+  const [siliconeBoxHeightMm, setSiliconeBoxHeightMm] = useState<number>(60);
+  const [siliconeBoxDiameterMm, setSiliconeBoxDiameterMm] = useState<number>(100);
+  const [siliconeDisplacementMode, setSiliconeDisplacementMode] = useState<'WEIGHT' | 'VOLUME'>('WEIGHT');
+  const [siliconeMasterWeightG, setSiliconeMasterWeightG] = useState<number>(85);
+  const [siliconeMasterDensity, setSiliconeMasterDensity] = useState<number>(1.24);
+  const [siliconeMasterVolumeCm3, setSiliconeMasterVolumeCm3] = useState<number>(68.5);
+  const [siliconeRatio, setSiliconeRatio] = useState<'1:1' | '10:1'>('1:1');
+  const [siliconeDensity, setSiliconeDensity] = useState<number>(1.10);
+  const [siliconeCostPerKg, setSiliconeCostPerKg] = useState<number>(85);
+  const [siliconeMarginPct, setSiliconeMarginPct] = useState<number>(10);
 
   // Calculations: Epoxy
   let volCm3 = 0;
@@ -375,6 +394,39 @@ export default function PublicToolsClient({
   const runtimeHours = effectiveMah / loadMa;
   const runtimeDays = runtimeHours / 24;
 
+  // Calculations: Silicone Mold Box
+  let siliconeBoxVolCm3 = 0;
+  if (siliconeBoxShape === 'RECTANGLE') {
+    siliconeBoxVolCm3 = (siliconeBoxLengthMm * siliconeBoxWidthMm * siliconeBoxHeightMm) / 1000;
+  } else {
+    const radiusCm = siliconeBoxDiameterMm / 20;
+    const heightCm = siliconeBoxHeightMm / 10;
+    siliconeBoxVolCm3 = Math.PI * radiusCm * radiusCm * heightCm;
+  }
+
+  let siliconeMasterVolCm3 = 0;
+  if (siliconeDisplacementMode === 'WEIGHT') {
+    siliconeMasterVolCm3 = (Number(siliconeMasterWeightG) || 0) / (Number(siliconeMasterDensity) || 1.24);
+  } else {
+    siliconeMasterVolCm3 = Number(siliconeMasterVolumeCm3) || 0;
+  }
+
+  const siliconeNetCavityVolCm3 = Math.max(0, siliconeBoxVolCm3 - siliconeMasterVolCm3);
+  const siliconeVolWithMargin = siliconeNetCavityVolCm3 * (1 + (Number(siliconeMarginPct) || 10) / 100);
+  const siliconeTotalWeightG = siliconeVolWithMargin * (Number(siliconeDensity) || 1.10);
+
+  let siliconePartAWeightG = 0;
+  let siliconePartBWeightG = 0;
+  if (siliconeRatio === '1:1') {
+    siliconePartAWeightG = siliconeTotalWeightG * 0.5;
+    siliconePartBWeightG = siliconeTotalWeightG * 0.5;
+  } else {
+    siliconePartAWeightG = siliconeTotalWeightG * (10 / 11);
+    siliconePartBWeightG = siliconeTotalWeightG * (1 / 11);
+  }
+
+  const siliconeTotalCost = (siliconeTotalWeightG / 1000) * (Number(siliconeCostPerKg) || 85);
+
   // Save Formula Handler
   async function handleSaveFormula(toolName: string) {
     let title = '';
@@ -418,6 +470,13 @@ export default function PublicToolsClient({
         category = 'Electronics & Hardware';
         instructions = `Battery Capacity & Runtime Estimation:\n- Battery Spec: ${batteryMah}mAh @ ${batteryV}V (${batteryWh.toFixed(2)} Wh energy storage)\n- Load Current Draw: ${loadMa}mA (~${(loadWatts * 1000).toFixed(1)}mW continuous)\n- Circuit Efficiency: ${effPct}%\n- Effective Usable Capacity: ${Math.round(effectiveMah)}mAh\n- Estimated Continuous Runtime: ${runtimeHours < 24 ? `${runtimeHours.toFixed(1)} hours` : `${runtimeHours.toFixed(1)} hours (~${runtimeDays.toFixed(1)} days)`}.`;
       }
+    } else if (toolName === 'SILICONE') {
+      const shapeDesc = siliconeBoxShape === 'RECTANGLE'
+        ? `${siliconeBoxLengthMm}x${siliconeBoxWidthMm}x${siliconeBoxHeightMm}mm Box`
+        : `Ø${siliconeBoxDiameterMm}x${siliconeBoxHeightMm}mm Cylinder`;
+      title = `Silicone Mold: ${shapeDesc} (${Math.round(siliconeTotalWeightG)}g)`;
+      category = 'Silicone & Molds';
+      instructions = `Silicone Mold Box Specifications (${shapeDesc}):\n- Mold Box Volume: ${siliconeBoxVolCm3.toFixed(1)} cm³ (ml)\n- Master Model Displacement: ${siliconeMasterVolCm3.toFixed(1)} cm³\n- Net Cavity Volume: ${siliconeNetCavityVolCm3.toFixed(1)} ml (Pour Volume +${siliconeMarginPct}%: ${siliconeVolWithMargin.toFixed(1)} ml)\n- Silicone Specific Gravity: ${siliconeDensity} g/cm³\n\nMix Ratio (${siliconeRatio} by Weight):\n- Part A (Base): ${siliconePartAWeightG.toFixed(1)} g\n- Part B (Catalyst): ${siliconePartBWeightG.toFixed(1)} g\n- Total Silicone Weighed: ${siliconeTotalWeightG.toFixed(1)} g\n- Estimated Material Cost: ${formatCurrency(siliconeTotalCost, currency)}\n\nPouring Procedure:\n1. Secure master model and seal edges.\n2. Apply universal mold release.\n3. Mix A & B thoroughly for 3 minutes.\n4. Vacuum degas at 29 in-Hg.\n5. Pour in a single steady stream at lowest point.\n6. Demold after full cure (4-16h).`;
     }
 
     if (!currentUser) {
@@ -631,6 +690,17 @@ export default function PublicToolsClient({
             >
               <Cpu className="w-4 h-4" />
               <span>{t('tools.tab_electronics')}</span>
+            </button>
+            <button
+              onClick={() => handleSelectTool('SILICONE')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTool === 'SILICONE'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Boxes className="w-4 h-4" />
+              <span>{t('tools.tab_silicone')}</span>
             </button>
           </div>
         </div>
@@ -2044,6 +2114,375 @@ export default function PublicToolsClient({
               </div>
             </div>
           )}
+
+          {/* ================================================================ */}
+          {/* TOOL 8: SILICONE MOLD BOX & POUR CALCULATOR                       */}
+          {/* ================================================================ */}
+          {activeTool === 'SILICONE' && (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <Boxes className="w-5 h-5 text-indigo-400" />
+                  <div>
+                    <h2 className="text-base font-bold text-white">Platinum Silicone Mold Box &amp; Displacement Lab</h2>
+                    <p className="text-xs text-slate-400">Calculate net mold cavity volume, master model Archimedes displacement, and precise Part A/B pour weights.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column: Box & Displacement Inputs */}
+                <div className="space-y-5">
+                  {/* Mold Box Shape & Dimensions */}
+                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300">
+                        Mold Box Geometry
+                      </label>
+                      <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setSiliconeBoxShape('RECTANGLE')}
+                          className={`px-3 py-1 rounded-lg transition ${
+                            siliconeBoxShape === 'RECTANGLE'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Rectangular Box
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSiliconeBoxShape('CYLINDER')}
+                          className={`px-3 py-1 rounded-lg transition ${
+                            siliconeBoxShape === 'CYLINDER'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Cylindrical Cup
+                        </button>
+                      </div>
+                    </div>
+
+                    {siliconeBoxShape === 'RECTANGLE' ? (
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                            Length (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            value={siliconeBoxLengthMm}
+                            onChange={(e) => setSiliconeBoxLengthMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                            Width (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            value={siliconeBoxWidthMm}
+                            onChange={(e) => setSiliconeBoxWidthMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                            Height (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            value={siliconeBoxHeightMm}
+                            onChange={(e) => setSiliconeBoxHeightMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                            Diameter (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            value={siliconeBoxDiameterMm}
+                            onChange={(e) => setSiliconeBoxDiameterMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                            Height (mm)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            value={siliconeBoxHeightMm}
+                            onChange={(e) => setSiliconeBoxHeightMm(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <span className="block text-[11px] text-slate-400">
+                      Total Box Volume: <b>{siliconeBoxVolCm3.toFixed(1)} cm³ (ml)</b>
+                    </span>
+                  </div>
+
+                  {/* Master Model Displacement */}
+                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300">
+                        Master Model Displacement
+                      </label>
+                      <div className="inline-flex p-1 rounded-xl bg-slate-950 border border-slate-800 text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setSiliconeDisplacementMode('WEIGHT')}
+                          className={`px-3 py-1 rounded-lg transition ${
+                            siliconeDisplacementMode === 'WEIGHT'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          By Weight &amp; Density
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSiliconeDisplacementMode('VOLUME')}
+                          className={`px-3 py-1 rounded-lg transition ${
+                            siliconeDisplacementMode === 'VOLUME'
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Direct Volume (cm³)
+                        </button>
+                      </div>
+                    </div>
+
+                    {siliconeDisplacementMode === 'WEIGHT' ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                              Master Model Weight (grams)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={siliconeMasterWeightG}
+                              onChange={(e) => setSiliconeMasterWeightG(Math.max(0, parseFloat(e.target.value) || 0))}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                              Material Density ({siliconeMasterDensity} g/cm³)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0.1"
+                              value={siliconeMasterDensity}
+                              onChange={(e) => setSiliconeMasterDensity(Math.max(0.1, parseFloat(e.target.value) || 1.24))}
+                              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase mr-1">Presets:</span>
+                          {[
+                            { name: 'PLA (1.24)', d: 1.24 },
+                            { name: 'Resin/ABS (1.12)', d: 1.12 },
+                            { name: 'Clay (1.60)', d: 1.60 },
+                            { name: 'Wood (0.75)', d: 0.75 },
+                            { name: 'Metal (7.30)', d: 7.30 },
+                          ].map((p) => (
+                            <button
+                              key={p.name}
+                              type="button"
+                              onClick={() => setSiliconeMasterDensity(p.d)}
+                              className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
+                            >
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                          Master Model Volume (cm³ / ml)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={siliconeMasterVolumeCm3}
+                          onChange={(e) => setSiliconeMasterVolumeCm3(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                        />
+                      </div>
+                    )}
+                    <span className="block text-[11px] text-slate-400">
+                      Displaced Model Volume: <b>{siliconeMasterVolCm3.toFixed(1)} cm³</b> | Net Mold Cavity: <b>{siliconeNetCavityVolCm3.toFixed(1)} ml</b>
+                    </span>
+                  </div>
+
+                  {/* Formulation Parameters */}
+                  <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                    <label className="block text-xs font-bold text-slate-300">
+                      Silicone Formulation &amp; Costing
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                          Mix Ratio (A:B)
+                        </label>
+                        <select
+                          value={siliconeRatio}
+                          onChange={(e) => setSiliconeRatio(e.target.value as any)}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                        >
+                          <option value="1:1">1:1 (Platinum)</option>
+                          <option value="10:1">10:1 (Tin / Plat)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                          Specific Gravity
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.8"
+                          max="1.5"
+                          value={siliconeDensity}
+                          onChange={(e) => setSiliconeDensity(Math.max(0.8, parseFloat(e.target.value) || 1.10))}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                          Pour Margin (%)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="30"
+                          value={siliconeMarginPct}
+                          onChange={(e) => setSiliconeMarginPct(Math.max(0, parseInt(e.target.value) || 10))}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                          Cost / kg ({currency})
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={siliconeCostPerKg}
+                          onChange={(e) => setSiliconeCostPerKg(Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Output Results */}
+                <div className="space-y-4">
+                  {/* Total Weight Result Card */}
+                  <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-900/60 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-indigo-400">
+                      Total Liquid Silicone Needed (+{siliconeMarginPct}% cup buffer)
+                    </span>
+                    <div className="text-3xl font-black text-white">
+                      {siliconeTotalWeightG.toFixed(1)} g
+                    </div>
+                    <span className="text-[11px] text-slate-400 block">
+                      Total pour volume: <b>{siliconeVolWithMargin.toFixed(1)} ml</b> ({siliconeNetCavityVolCm3.toFixed(1)} ml net cavity)
+                    </span>
+                  </div>
+
+                  {/* Part A & Part B Breakdown Cards */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400">
+                        Part A (Base {siliconeRatio === '1:1' ? '50%' : '90.9%'})
+                      </span>
+                      <div className="text-xl font-bold text-white">
+                        {siliconePartAWeightG.toFixed(1)} g
+                      </div>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-indigo-400">
+                        Part B (Catalyst {siliconeRatio === '1:1' ? '50%' : '9.1%'})
+                      </span>
+                      <div className="text-xl font-bold text-indigo-400">
+                        {siliconePartBWeightG.toFixed(1)} g
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mold Economics */}
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <span className="block text-[10px] text-slate-400">Material Cost</span>
+                      <span className="block text-sm font-bold text-white mt-1">
+                        {formatCurrency(siliconeTotalCost, currency)}
+                      </span>
+                    </div>
+                    <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-900/60">
+                      <span className="block text-[10px] text-emerald-400">Mold Asset Valuation (2x)</span>
+                      <span className="block text-sm font-bold text-emerald-300 mt-1">
+                        {formatCurrency(siliconeTotalCost * 2, currency)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pouring Checklist Card */}
+                  <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300 space-y-2">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-indigo-400" />
+                      <span>Best Practices Checklist</span>
+                    </div>
+                    <ul className="space-y-1 list-disc list-inside text-slate-400 text-[11px]">
+                      <li>Degas in vacuum chamber at 29 in-Hg until collapse + 2 minutes.</li>
+                      <li>Pour in a single thin stream into the lowest corner to minimize trapped bubbles.</li>
+                      <li>Cure at 22-24°C room temperature for optimal tear resistance.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Recipe CTA */}
+              <div className="flex items-center justify-end pt-2">
+                <button
+                  onClick={() => handleSaveFormula('SILICONE')}
+                  disabled={saving}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -2127,6 +2566,16 @@ export default function PublicToolsClient({
               </div>
               <p>
                 LEDs are non-linear diodes with negative temperature coefficients. Connecting an LED directly to a power source without a current-limiting resistor causes exponential current growth, thermal runaway, and immediate burnout. Always choose the nearest standard E12 resistor rated for at least 2&times; the calculated dissipation wattage.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Boxes className="w-4 h-4 text-indigo-400" />
+                <span>Silicone Cure Inhibition &amp; Displacement</span>
+              </div>
+              <p>
+                Addition-cure (platinum) silicones can experience cure inhibition from sulfur in clays, nitrile gloves, and residual uncured UV photopolymer resin. Always seal 3D printed masters with acrylic clear coat, factor accurate model density displacement, and include a 10% safety buffer for mixing wall retention.
               </p>
             </div>
           </div>

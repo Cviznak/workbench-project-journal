@@ -68,6 +68,8 @@ export default function EditProjectModal({
   const [description, setDescription] = useState(project.description || '');
   const [status, setStatus] = useState<ProjectStatus>(project.status);
   const [xpReward, setXpReward] = useState(String(project.completion_xp_reward || 100));
+  const [budgetLimit, setBudgetLimit] = useState(String(project.budget_limit || 0));
+  const [currency, setCurrency] = useState(project.currency || 'USD');
   const [isPublic, setIsPublic] = useState(Boolean(project.is_public));
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>(
     skills.map((s) => s.skill_id)
@@ -304,6 +306,8 @@ export default function EditProjectModal({
           description: description.trim(),
           status,
           completion_xp_reward: parseInt(xpReward, 10) || 100,
+          budget_limit: Math.max(0, parseFloat(budgetLimit) || 0),
+          currency,
           is_public: isPublic,
         })
         .eq('id', project.id)
@@ -731,6 +735,39 @@ export default function EditProjectModal({
                     onChange={(e) => setXpReward(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Budget Limit
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={budgetLimit}
+                    onChange={(e) => setBudgetLimit(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                    Project Currency
+                  </label>
+                  <select
+                    value={currency}
+                    onChange={(e) => setCurrency(e.target.value as any)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none"
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="ILS">ILS (₪)</option>
+                    <option value="GBP">GBP (£)</option>
+                  </select>
                 </div>
               </div>
 

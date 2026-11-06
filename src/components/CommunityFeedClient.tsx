@@ -4,8 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Profile, SkillCatalog } from '@/lib/types';
-import { relativeTime, cn } from '@/lib/utils';
+import {
+  Profile,
+  SkillCatalog,
+  PublicRecipeMarketplaceItem,
+  PublicProjectMarketplaceItem,
+} from '@/lib/types';
+import { relativeTime, formatCurrency, cn } from '@/lib/utils';
+import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
 import SkillSelector from '@/components/SkillSelector';
 import UserAvatar from '@/components/UserAvatar';
 import {
@@ -29,6 +35,13 @@ import {
   Check,
   Trophy,
   ArrowLeft,
+  FlaskConical,
+  FolderKanban,
+  Star,
+  GitFork,
+  ArrowRight,
+  Wallet,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface CommunityFeedClientProps {
@@ -38,6 +51,10 @@ interface CommunityFeedClientProps {
   currentUserId: string;
   currentProfile: Profile | null;
   singlePostMode?: boolean;
+  initialMarketplaceData?: {
+    public_recipes: PublicRecipeMarketplaceItem[];
+    public_projects: PublicProjectMarketplaceItem[];
+  };
 }
 
 export default function CommunityFeedClient({
@@ -47,12 +64,32 @@ export default function CommunityFeedClient({
   currentUserId,
   currentProfile,
   singlePostMode = false,
+  initialMarketplaceData,
 }: CommunityFeedClientProps) {
   const router = useRouter();
   const supabase = createClient();
 
+  // Navigation View State
+  const [communityView, setCommunityView] = useState<'FEED' | 'FORMULAS' | 'SHOWCASES'>('FEED');
+
   // Feed State
   const [posts, setPosts] = useState<any[]>(initialPosts);
+
+  // Marketplace Formulas State
+  const [marketplaceRecipes, setMarketplaceRecipes] = useState<PublicRecipeMarketplaceItem[]>(
+    initialMarketplaceData?.public_recipes || []
+  );
+  const [recipeCategoryFilter, setRecipeCategoryFilter] = useState<string>('ALL');
+  const [recipeSearch, setRecipeSearch] = useState<string>('');
+  const [cloningRecipeId, setCloningRecipeId] = useState<string | null>(null);
+  const [clonedRecipeIds, setClonedRecipeIds] = useState<Set<string>>(new Set());
+
+  // Marketplace Project Showcases State
+  const [marketplaceProjects, setMarketplaceProjects] = useState<PublicProjectMarketplaceItem[]>(
+    initialMarketplaceData?.public_projects || []
+  );
+  const [projectSearch, setProjectSearch] = useState<string>('');
+  const [projectStatusFilter, setProjectStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED'>('ALL');
   const [filterSkillId, setFilterSkillId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'mine'>('all');
@@ -105,6 +142,40 @@ export default function CommunityFeedClient({
       });
     } else {
       prompt('Copy post permalink:', url);
+    }
+  }
+
+  // Clone Public Recipe to Workshop
+  async function handleCloneRecipe(recipeId: string) {
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
+
+    setCloningRecipeId(recipeId);
+    try {
+      const { data, error } = await supabase.rpc('clone_public_recipe', {
+        p_source_recipe_id: recipeId,
+      });
+
+      if (error) throw error;
+
+      sounds.playLevelUp();
+      triggerCelebrationConfetti();
+
+      setClonedRecipeIds((prev) => new Set(prev).add(recipeId));
+      setMarketplaceRecipes((prev) =>
+        prev.map((r) =>
+          r.id === recipeId ? { ...r, clones_count: (r.clones_count || 0) + 1 } : r
+        )
+      );
+
+      setToastMessage('Formula cloned to your workshop! Author awarded +50 XP!');
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to clone formula');
+    } finally {
+      setCloningRecipeId(null);
     }
   }
 
@@ -552,6 +623,41 @@ export default function CommunityFeedClient({
     return true;
   });
 
+  // Filtered Formulas
+  const filteredMarketplaceRecipes = marketplaceRecipes.filter((r) => {
+    if (recipeCategoryFilter !== 'ALL' && r.category?.toUpperCase() !== recipeCategoryFilter) {
+      return false;
+    }
+    if (recipeSearch.trim()) {
+      const q = recipeSearch.toLowerCase();
+      const matchTitle = r.title?.toLowerCase().includes(q);
+      const matchDesc = r.instructions_md?.toLowerCase().includes(q);
+      const matchAuthor =
+        r.author?.username?.toLowerCase().includes(q) ||
+        r.author?.display_name?.toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchAuthor) return false;
+    }
+    return true;
+  });
+
+  // Filtered Projects
+  const filteredMarketplaceProjects = marketplaceProjects.filter((p) => {
+    if (projectStatusFilter !== 'ALL' && p.status !== projectStatusFilter) {
+      return false;
+    }
+    if (projectSearch.trim()) {
+      const q = projectSearch.toLowerCase();
+      const matchName = p.name?.toLowerCase().includes(q);
+      const matchDesc = p.description?.toLowerCase().includes(q);
+      const matchPM =
+        p.pm?.username?.toLowerCase().includes(q) ||
+        p.pm?.display_name?.toLowerCase().includes(q);
+      const matchSkills = (p.skill_names || []).some((s) => s.toLowerCase().includes(q));
+      if (!matchName && !matchDesc && !matchPM && !matchSkills) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       {/* Header Banner */}
@@ -603,11 +709,64 @@ export default function CommunityFeedClient({
         </div>
       </div>
 
-      {/* ==================================================================== */}
-      {/* POST COMPOSER / GUEST BANNER & FEED FILTER (FEED MODE ONLY)          */}
-      {/* ==================================================================== */}
+      {/* Top Marketplace & Community Tabs */}
       {!singlePostMode && (
+        <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80">
+          <button
+            onClick={() => setCommunityView('FEED')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition",
+              communityView === 'FEED'
+                ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            )}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Maker Feed</span>
+          </button>
+
+          <button
+            onClick={() => setCommunityView('FORMULAS')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition",
+              communityView === 'FORMULAS'
+                ? "bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            )}
+          >
+            <FlaskConical className="w-4 h-4 text-purple-500" />
+            <span>Public Formulas Lab</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              {marketplaceRecipes.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setCommunityView('SHOWCASES')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition",
+              communityView === 'SHOWCASES'
+                ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+            )}
+          >
+            <FolderKanban className="w-4 h-4 text-indigo-500" />
+            <span>Project Showcases</span>
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              {marketplaceProjects.length}
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 1. SOCIAL FEED MODE                                                  */}
+      {/* ==================================================================== */}
+      {(singlePostMode || communityView === 'FEED') && (
         <>
+          {/* POST COMPOSER / GUEST BANNER & FEED FILTER */}
+          {!singlePostMode && (
+            <>
           {!currentUserId ? (
         <div className="p-6 rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-amber-500/10 border border-blue-500/20 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center sm:text-left">
@@ -1319,6 +1478,443 @@ export default function CommunityFeedClient({
           })
         )}
       </div>
+        </>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 2. PUBLIC FORMULAS LAB VIEW                                          */}
+      {/* ==================================================================== */}
+      {!singlePostMode && communityView === 'FORMULAS' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Subheader & Search Bar */}
+          <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4 text-purple-500" />
+                  <span>Public Formulas &amp; Recipe Marketplace</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Browse battle-tested artisan ratios, resin mixes, and candle formulas. 1-click clone directly into your workshop.
+                </p>
+              </div>
+
+              <Link
+                href="/inventory"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition shrink-0 self-start sm:self-auto"
+              >
+                <span>My Formulas</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {/* Filter Search & Category Pills */}
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={recipeSearch}
+                  onChange={(e) => setRecipeSearch(e.target.value)}
+                  placeholder="Search public formulas, craft instructions, ingredients, or @maker..."
+                  className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {recipeSearch && (
+                  <button
+                    onClick={() => setRecipeSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Pills Bar */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {[
+                  { id: 'ALL', label: 'All Formulas' },
+                  { id: 'RESIN', label: 'Resin & Epoxy' },
+                  { id: '3D_PRINT', label: '3D Printing' },
+                  { id: 'SILICONE', label: 'Silicone Mold' },
+                  { id: 'PERFUME', label: 'Perfume' },
+                  { id: 'SOAP', label: 'Cold/Hot Soap' },
+                  { id: 'CANDLE', label: 'Candle Batch' },
+                  { id: 'LASER_CNC', label: 'Laser & CNC' },
+                  { id: 'CROSS_STITCH', label: 'Cross-Stitch' },
+                  { id: 'ELECTRONICS', label: 'Electronics' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setRecipeCategoryFilter(cat.id)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap shrink-0",
+                      recipeCategoryFilter === cat.id
+                        ? "bg-purple-600 text-white shadow-sm shadow-purple-500/20"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Formulas Grid */}
+          {filteredMarketplaceRecipes.length === 0 ? (
+            <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto mb-3">
+                <FlaskConical className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+                No public formulas found
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-4">
+                {recipeSearch || recipeCategoryFilter !== 'ALL'
+                  ? 'Try broadening your search query or choosing another craft category.'
+                  : 'Be the first to share a public formula from your workshop inventory!'}
+              </p>
+              <Link
+                href="/inventory"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-sm transition"
+              >
+                <span>Open Workshop &amp; Formulas</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredMarketplaceRecipes.map((recipe) => (
+                <div
+                  key={recipe.id}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm hover:border-purple-300 dark:hover:border-purple-900/60 transition flex flex-col justify-between space-y-4"
+                >
+                  <div>
+                    {/* Author & Category Header */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <Link
+                        href={`/makers/${recipe.author?.username || 'maker'}`}
+                        className="flex items-center gap-2 group min-w-0"
+                      >
+                        <UserAvatar
+                          src={recipe.author?.avatar_url}
+                          name={recipe.author?.display_name || recipe.author?.username}
+                          size="sm"
+                          shape="circle"
+                        />
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition block truncate">
+                            {recipe.author?.display_name || 'Maker'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block truncate">
+                            @{recipe.author?.username || 'maker'}
+                          </span>
+                        </div>
+                      </Link>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 uppercase tracking-wider">
+                          {recipe.category || 'Formula'}
+                        </span>
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                          <span>{(recipe.rating || 5.0).toFixed(1)}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Optional Photo Thumbnail */}
+                    {recipe.image_url && (
+                      <div
+                        className="relative w-full h-40 rounded-2xl overflow-hidden mb-3 bg-slate-950 cursor-pointer group"
+                        onClick={() => setLightboxImageUrl(recipe.image_url)}
+                      >
+                        <img
+                          src={recipe.image_url}
+                          alt={recipe.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                        />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold">
+                          Click to Zoom
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Title & Instructions */}
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1 line-clamp-1">
+                      {recipe.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                      {recipe.instructions_md || 'No written instructions provided for this formula.'}
+                    </p>
+                  </div>
+
+                  {/* Footer Stats & 1-Click Clone Button */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="flex items-center gap-1 font-semibold" title="Ingredients count">
+                        <FlaskConical className="w-3.5 h-3.5 text-purple-500" />
+                        <span>{recipe.ingredients_count} ingredients</span>
+                      </span>
+                      <span className="flex items-center gap-1 font-semibold" title="Times cloned">
+                        <GitFork className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>{recipe.clones_count || 0} clones</span>
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => handleCloneRecipe(recipe.id)}
+                      disabled={cloningRecipeId === recipe.id || clonedRecipeIds.has(recipe.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm",
+                        clonedRecipeIds.has(recipe.id)
+                          ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 cursor-default"
+                          : "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20 disabled:opacity-50"
+                      )}
+                    >
+                      {cloningRecipeId === recipe.id ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Cloning...</span>
+                        </>
+                      ) : clonedRecipeIds.has(recipe.id) ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>In My Workshop</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Clone (+50 XP)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 3. PROJECT SHOWCASES VIEW                                             */}
+      {/* ==================================================================== */}
+      {!singlePostMode && communityView === 'SHOWCASES' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* Subheader & Search Bar */}
+          <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                  <FolderKanban className="w-4 h-4 text-indigo-500" />
+                  <span>Public Project Blueprints &amp; Showcases</span>
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Explore real-world maker hardware builds, cosplay blueprints, and software roadmaps with live milestones.
+                </p>
+              </div>
+
+              <Link
+                href="/projects"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition shrink-0 self-start sm:self-auto"
+              >
+                <span>My Projects</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {/* Filter Search & Status */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={projectSearch}
+                  onChange={(e) => setProjectSearch(e.target.value)}
+                  placeholder="Search project blueprints, skills, or project leads..."
+                  className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                {projectSearch && (
+                  <button
+                    onClick={() => setProjectSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Status Pills */}
+              <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-auto">
+                {(['ALL', 'ACTIVE', 'COMPLETED'] as const).map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setProjectStatusFilter(status)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-bold transition",
+                      projectStatusFilter === status
+                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-500/20"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    )}
+                  >
+                    {status === 'ALL' ? 'All Statuses' : status}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Showcases Grid */}
+          {filteredMarketplaceProjects.length === 0 ? (
+            <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3">
+                <FolderKanban className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">
+                No public project showcases found
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-4">
+                {projectSearch || projectStatusFilter !== 'ALL'
+                  ? 'Try broadening your search query or clearing the status filter.'
+                  : 'Publish your project blueprint to the community to share your progress!'}
+              </p>
+              <Link
+                href="/projects"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition"
+              >
+                <span>Create or Manage Projects</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredMarketplaceProjects.map((proj) => {
+                const progressPct =
+                  proj.total_tasks > 0
+                    ? Math.round((proj.completed_tasks / proj.total_tasks) * 100)
+                    : 0;
+
+                return (
+                  <div
+                    key={proj.id}
+                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm hover:border-indigo-300 dark:hover:border-indigo-900/60 transition flex flex-col justify-between space-y-4"
+                  >
+                    <div>
+                      {/* PM & Status Header */}
+                      <div className="flex items-center justify-between gap-2 mb-3">
+                        <Link
+                          href={`/makers/${proj.pm?.username || 'maker'}`}
+                          className="flex items-center gap-2 group min-w-0"
+                        >
+                          <UserAvatar
+                            src={proj.pm?.avatar_url}
+                            name={proj.pm?.display_name || proj.pm?.username}
+                            size="sm"
+                            shape="circle"
+                          />
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition block truncate">
+                              {proj.pm?.display_name || 'Project Lead'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block truncate">
+                              @{proj.pm?.username || 'maker'}
+                            </span>
+                          </div>
+                        </Link>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                              proj.status === 'COMPLETED'
+                                ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                                : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                            )}
+                          >
+                            {proj.status}
+                          </span>
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-full">
+                            <Trophy className="w-3 h-3" />
+                            <span>+{proj.completion_xp_reward} XP</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Project Name & Description */}
+                      <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1 line-clamp-1">
+                        {proj.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3">
+                        {proj.description || 'Public engineering blueprint and task roadmap.'}
+                      </p>
+
+                      {/* Skills Linked */}
+                      {Array.isArray(proj.skill_names) && proj.skill_names.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap mb-3">
+                          {proj.skill_names.slice(0, 3).map((skillName, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-600 dark:text-slate-300"
+                            >
+                              {skillName}
+                            </span>
+                          ))}
+                          {proj.skill_names.length > 3 && (
+                            <span className="text-[10px] font-bold text-slate-400">
+                              +{proj.skill_names.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Progress Bar */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-slate-600 dark:text-slate-300">
+                            Tasks Progress
+                          </span>
+                          <span className="font-bold text-slate-900 dark:text-white">
+                            {proj.completed_tasks} / {proj.total_tasks} completed ({progressPct}%)
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer Budget & View Blueprint Link */}
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                      <div>
+                        {proj.budget_limit > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                            <Wallet className="w-3.5 h-3.5" />
+                            <span>Budget: {formatCurrency(proj.budget_limit, proj.currency || 'USD')}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">Open-ended project</span>
+                        )}
+                      </div>
+
+                      <Link
+                        href={`/projects/${proj.id}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition"
+                      >
+                        <span>View Blueprint</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ==================================================================== */}
       {/* IMAGE LIGHTBOX MODAL                                                 */}
