@@ -217,6 +217,7 @@ export interface InventoryItem {
   reorder_url: string;
   in_restock_cart: boolean;
   restock_target_qty: number;
+  image_url?: string | null;
   updated_at: string;
   created_at: string;
   folder?: InventoryFolder | null;
@@ -266,6 +267,7 @@ export interface MakerRecipe {
   packaging_overhead?: number;
   target_retail_price?: number;
   output_item?: InventoryItem | null;
+  image_url?: string | null;
   created_at: string;
   updated_at: string;
   ingredients?: RecipeIngredient[];

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -14,6 +14,7 @@ import {
 } from '@/lib/types';
 import { formatCurrency, cn } from '@/lib/utils';
 import { convertCurrency, SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currency';
+import { compressWorkshopImage } from '@/lib/imageUtils';
 import { sounds, triggerCelebrationConfetti } from '@/lib/soundEffects';
 import {
   Package,
@@ -43,6 +44,10 @@ import {
   Coins,
   Calculator,
   Loader2,
+  Camera,
+  Image as ImageIcon,
+  Grid,
+  Flame,
 } from 'lucide-react';
 
 interface InventoryClientProps {
@@ -295,7 +300,9 @@ export default function InventoryClient({
   }
 
   // Lab Calculators State
-  const [calcActiveTool, setCalcActiveTool] = useState<'RESIN' | 'PERFUME' | '3D_PRINT'>('RESIN');
+  const [calcActiveTool, setCalcActiveTool] = useState<
+    'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE'
+  >('RESIN');
 
   // 1. Epoxy Resin Calculator State
   const [resinShape, setResinShape] = useState<'RECTANGLE' | 'CYLINDER' | 'CUSTOM'>('RECTANGLE');
@@ -325,6 +332,22 @@ export default function InventoryClient({
   const [kwhRate, setKwhRate] = useState<number>(0.65);
   const [printFailureBuffer, setPrintFailureBuffer] = useState<number>(5);
   const [targetMarginPct, setTargetMarginPct] = useState<number>(65);
+
+  // 4. Cross-Stitch & Fabric Calculator State
+  const [stitchWidth, setStitchWidth] = useState<number>(140);
+  const [stitchHeight, setStitchHeight] = useState<number>(100);
+  const [stitchAidaCount, setStitchAidaCount] = useState<number>(14);
+  const [stitchBorderMargin, setStitchBorderMargin] = useState<number>(5);
+  const [stitchStrands, setStitchStrands] = useState<number>(2);
+
+  // 5. Candle & Soap Batch Calculator State
+  const [candleWaterWeight, setCandleWaterWeight] = useState<number>(200);
+  const [candleUnits, setCandleUnits] = useState<number>(1);
+  const [candleWaxType, setCandleWaxType] = useState<'SOY' | 'PARAFFIN' | 'BEESWAX' | 'SOAP_BASE'>('SOY');
+  const [candleFragrancePct, setCandleFragrancePct] = useState<number>(8);
+  const [candleWaxPricePerKg, setCandleWaxPricePerKg] = useState<number>(45);
+  const [candleFragrancePricePer100g, setCandleFragrancePricePer100g] = useState<number>(35);
+  const [candlePackagingPerUnit, setCandlePackagingPerUnit] = useState<number>(5);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -1313,15 +1336,29 @@ export default function InventoryClient({
                             </div>
                           </div>
 
-                          <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                            {recipe.title}
-                          </h3>
-
-                          {recipe.instructions_md && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
-                              {recipe.instructions_md}
-                            </p>
-                          )}
+                          <div className="flex gap-3 items-start mt-1">
+                            {recipe.image_url ? (
+                              <img
+                                src={recipe.image_url}
+                                alt={recipe.title}
+                                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-slate-800"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                <FlaskConical className="w-6 h-6" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-base text-slate-900 dark:text-white truncate">
+                                {recipe.title}
+                              </h3>
+                              {recipe.instructions_md && (
+                                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
+                                  {recipe.instructions_md}
+                                </p>
+                              )}
+                            </div>
+                          </div>
 
                           {/* Ingredients List */}
                           <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
@@ -1740,7 +1777,7 @@ export default function InventoryClient({
                 </div>
 
                 {/* Sub-tool Selector Pills */}
-                <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold shrink-0">
+                <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold shrink-0">
                   <button
                     onClick={() => setCalcActiveTool('RESIN')}
                     className={cn(
@@ -1773,6 +1810,28 @@ export default function InventoryClient({
                     )}
                   >
                     3D Print Costing
+                  </button>
+                  <button
+                    onClick={() => setCalcActiveTool('CROSS_STITCH')}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl transition',
+                      calcActiveTool === 'CROSS_STITCH'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    Cross-Stitch Fabric
+                  </button>
+                  <button
+                    onClick={() => setCalcActiveTool('CANDLE')}
+                    className={cn(
+                      'px-3.5 py-1.5 rounded-xl transition',
+                      calcActiveTool === 'CANDLE'
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    )}
+                  >
+                    Candle &amp; Soap
                   </button>
                 </div>
               </div>
@@ -2486,6 +2545,465 @@ export default function InventoryClient({
                   </div>
                 );
               })()}
+
+              {/* 4. CROSS-STITCH & FABRIC CALCULATOR */}
+              {calcActiveTool === 'CROSS_STITCH' && (() => {
+                const stitchWidthSafe = Math.max(1, stitchWidth || 1);
+                const stitchHeightSafe = Math.max(1, stitchHeight || 1);
+                const aidaSafe = Math.max(1, stitchAidaCount || 14);
+                const marginSafe = Math.max(0, stitchBorderMargin || 0);
+
+                const designWidthIn = stitchWidthSafe / aidaSafe;
+                const designHeightIn = stitchHeightSafe / aidaSafe;
+                const designWidthCm = designWidthIn * 2.54;
+                const designHeightCm = designHeightIn * 2.54;
+
+                const cutWidthCm = designWidthCm + 2 * marginSafe;
+                const cutHeightCm = designHeightCm + 2 * marginSafe;
+                const cutWidthIn = cutWidthCm / 2.54;
+                const cutHeightIn = cutHeightCm / 2.54;
+
+                const totalStitches = stitchWidthSafe * stitchHeightSafe;
+                const cmPerStitch = (14 / aidaSafe) * 2.2;
+                const singleStrandMeters = (totalStitches * cmPerStitch * stitchStrands) / 100;
+                // Standard DMC skein is 8 meters of 6-strand floss = 48 meters single strand
+                const skeinsEstimated = Math.ceil(((singleStrandMeters * 1.15) / 48) * 10) / 10;
+
+                const tapestryNeedle =
+                  aidaSafe <= 11
+                    ? 'Size 22 Tapestry'
+                    : aidaSafe <= 14
+                    ? 'Size 24 Tapestry'
+                    : aidaSafe <= 18
+                    ? 'Size 26 Tapestry'
+                    : 'Size 28 Tapestry';
+
+                function handleSaveCrossStitchRecipe() {
+                  const prefill: any = {
+                    id: '',
+                    user_id: userId,
+                    title: `Cross-Stitch Fabric & Skein Plan (${stitchWidthSafe}x${stitchHeightSafe} on ${aidaSafe}ct)`,
+                    category: 'Cross-Stitch & Textiles',
+                    instructions_md: `Cross-Stitch Dimensions & Sizing:\n- Design Stitches: ${stitchWidthSafe} W x ${stitchHeightSafe} H (${totalStitches.toLocaleString()} stitches)\n- Aida Fabric Count: ${aidaSafe}ct (${stitchStrands} strands)\n- Stitched Area: ${designWidthCm.toFixed(1)} x ${designHeightCm.toFixed(1)} cm (${designWidthIn.toFixed(1)}" x ${designHeightIn.toFixed(1)}")\n- Cut Fabric Size (+${marginSafe}cm border): ${cutWidthCm.toFixed(1)} x ${cutHeightCm.toFixed(1)} cm (${cutWidthIn.toFixed(1)}" x ${cutHeightIn.toFixed(1)}")\n- Recommended Needle: ${tapestryNeedle}\n- Estimated Floss Needed: ~${skeinsEstimated} DMC 8m skeins (~${singleStrandMeters.toFixed(0)}m single strand with 15% buffer).`,
+                    rating: 5,
+                    output_yield_qty: 1,
+                    packaging_overhead: 10,
+                    target_retail_price: Math.round(totalStitches * 0.05 + 50),
+                  };
+                  setEditingRecipe(prefill);
+                  setRecipeModalOpen(true);
+                }
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left: Input Parameters */}
+                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                          <Grid className="w-4 h-4 text-indigo-500" />
+                          <span>Pattern Dimensions &amp; Fabric Count</span>
+                        </h3>
+                        <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-900/40">
+                          {aidaSafe} Count Aida
+                        </span>
+                      </div>
+
+                      {/* Stitch Dimensions */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Pattern Width (Stitches)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={stitchWidth}
+                            onChange={(e) => setStitchWidth(Math.max(1, parseInt(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Pattern Height (Stitches)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={stitchHeight}
+                            onChange={(e) => setStitchHeight(Math.max(1, parseInt(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Aida Count Presets */}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">
+                          Fabric / Aida Count (Stitches per Inch)
+                        </label>
+                        <div className="grid grid-cols-5 gap-2">
+                          {[11, 14, 16, 18, 22].map((ct) => (
+                            <button
+                              key={ct}
+                              type="button"
+                              onClick={() => setStitchAidaCount(ct)}
+                              className={cn(
+                                'py-2 rounded-xl text-xs font-bold transition border',
+                                stitchAidaCount === ct
+                                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-indigo-400'
+                              )}
+                            >
+                              {ct} ct
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Margin & Strands */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Framing Border Margin (cm on each side)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={stitchBorderMargin}
+                            onChange={(e) => setStitchBorderMargin(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Floss Strands per Stitch
+                          </label>
+                          <div className="grid grid-cols-4 gap-1.5">
+                            {[1, 2, 3, 4].map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => setStitchStrands(s)}
+                                className={cn(
+                                  'py-2 rounded-xl text-xs font-bold transition border',
+                                  stitchStrands === s
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                                )}
+                              >
+                                {s} {s === 2 ? '(Std)' : ''}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Calculations & Save */}
+                    <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/30 dark:from-indigo-950/20 dark:to-purple-950/10 border border-indigo-100 dark:border-indigo-900/40 rounded-3xl p-6 shadow-sm flex flex-col justify-between gap-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-indigo-100 dark:border-indigo-900/40">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            Required Fabric Cut
+                          </span>
+                          <span className="text-base font-extrabold text-indigo-600 dark:text-indigo-400">
+                            {cutWidthCm.toFixed(1)} × {cutHeightCm.toFixed(1)} cm
+                          </span>
+                        </div>
+
+                        {/* Stitched area vs Cut fabric */}
+                        <div className="space-y-2 text-xs">
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">Stitched Area:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {designWidthCm.toFixed(1)} × {designHeightCm.toFixed(1)} cm ({designWidthIn.toFixed(1)}" × {designHeightIn.toFixed(1)}")
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">Cut Fabric (+{marginSafe}cm margin):</span>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                              {cutWidthIn.toFixed(1)}" × {cutHeightIn.toFixed(1)}" in
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">Total Stitch Count:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {totalStitches.toLocaleString()} stitches
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">DMC 8m Skein Estimate:</span>
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                              ~{skeinsEstimated} skeins ({singleStrandMeters.toFixed(0)}m floss)
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200 flex items-center justify-between">
+                            <span>Recommended Needle:</span>
+                            <span className="font-bold">{tapestryNeedle}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveCrossStitchRecipe}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition transform active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save as New Formula</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 5. CANDLE & SOAP BATCH CALCULATOR */}
+              {calcActiveTool === 'CANDLE' && (() => {
+                const waterWeightSafe = Math.max(1, candleWaterWeight || 200);
+                const unitsSafe = Math.max(1, candleUnits || 1);
+                const foPctSafe = Math.max(1, candleFragrancePct || 8);
+
+                let waxDensity = 0.86;
+                let baseName = 'Soy Wax (464)';
+                if (candleWaxType === 'PARAFFIN') {
+                  waxDensity = 0.90;
+                  baseName = 'Paraffin / Blend';
+                } else if (candleWaxType === 'BEESWAX') {
+                  waxDensity = 0.88;
+                  baseName = 'Beeswax / Coconut';
+                } else if (candleWaxType === 'SOAP_BASE') {
+                  waxDensity = 1.05;
+                  baseName = 'Melt & Pour Soap';
+                }
+
+                // Candle physics: container fill weight = water weight * wax density
+                const singleFillWeight = waterWeightSafe * waxDensity;
+                const totalBatchFillWeight = singleFillWeight * unitsSafe;
+                // Wax weight = total / (1 + fragranceLoad)
+                const totalWaxGrams = totalBatchFillWeight / (1 + foPctSafe / 100);
+                const totalFragranceGrams = totalWaxGrams * (foPctSafe / 100);
+
+                const waxPerUnitGrams = totalWaxGrams / unitsSafe;
+                const fragrancePerUnitGrams = totalFragranceGrams / unitsSafe;
+
+                const waxCost = (totalWaxGrams / 1000) * (candleWaxPricePerKg || 45);
+                const fragranceCost = (totalFragranceGrams / 100) * (candleFragrancePricePer100g || 35);
+                const packagingCost = unitsSafe * (candlePackagingPerUnit || 5);
+                const totalBatchCost = waxCost + fragranceCost + packagingCost;
+                const unitCOGS = totalBatchCost / unitsSafe;
+                const suggestedRetail = unitCOGS / (1 - 0.65); // 65% craft margin
+
+                function handleSaveCandleRecipe() {
+                  const prefill: any = {
+                    id: '',
+                    user_id: userId,
+                    title: `Candle/Soap Batch (${unitsSafe}x ${waterWeightSafe}ml @ ${foPctSafe}% FO)`,
+                    category: 'Candles & Soap',
+                    instructions_md: `Batch Formulation (${baseName}):\n- Units: ${unitsSafe} containers (${waterWeightSafe}ml water capacity each)\n- Fragrance Load: ${foPctSafe}%\n- Base/Wax Weight: ${totalWaxGrams.toFixed(1)}g (${waxPerUnitGrams.toFixed(1)}g / unit)\n- Fragrance Oil: ${totalFragranceGrams.toFixed(1)}g (${fragrancePerUnitGrams.toFixed(1)}g / unit)\n- Total Batch Weight: ${totalBatchFillWeight.toFixed(1)}g\n\nPouring Instructions:\n1. Heat wax/base to 85°C (185°F).\n2. Remove from heat and stir in fragrance oil at 80°C (176°F) for 2 continuous minutes.\n3. Pour slowly at 57-60°C (135-140°F) into preheated vessels with centered wicks.\n4. Cure for 10-14 days before test burning.`,
+                    rating: 5,
+                    output_yield_qty: unitsSafe,
+                    packaging_overhead: candlePackagingPerUnit,
+                    target_retail_price: Math.round(suggestedRetail),
+                  };
+                  setEditingRecipe(prefill);
+                  setRecipeModalOpen(true);
+                }
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left: Input Parameters */}
+                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                          <Flame className="w-4 h-4 text-amber-500" />
+                          <span>Container Sizing &amp; Base Selection</span>
+                        </h3>
+                        <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900/40">
+                          {baseName}
+                        </span>
+                      </div>
+
+                      {/* Base Type Selector */}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">
+                          Wax or Soap Base Type
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {[
+                            { id: 'SOY', label: 'Soy Wax (0.86)' },
+                            { id: 'PARAFFIN', label: 'Paraffin (0.90)' },
+                            { id: 'BEESWAX', label: 'Beeswax (0.88)' },
+                            { id: 'SOAP_BASE', label: 'Melt Soap (1.05)' },
+                          ].map((b) => (
+                            <button
+                              key={b.id}
+                              type="button"
+                              onClick={() => setCandleWaxType(b.id as any)}
+                              className={cn(
+                                'py-2 px-2 text-center rounded-xl text-xs font-bold transition border',
+                                candleWaxType === b.id
+                                  ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-amber-400'
+                              )}
+                            >
+                              {b.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Container Volume & Units */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Vessel Water Capacity (ml/g)
+                          </label>
+                          <input
+                            type="number"
+                            min="10"
+                            value={candleWaterWeight}
+                            onChange={(e) => setCandleWaterWeight(Math.max(1, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Container Count (Units)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={candleUnits}
+                            onChange={(e) => setCandleUnits(Math.max(1, parseInt(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Fragrance Load ({foPctSafe}%)
+                          </label>
+                          <input
+                            type="range"
+                            min="3"
+                            max="12"
+                            step="0.5"
+                            value={candleFragrancePct}
+                            onChange={(e) => setCandleFragrancePct(parseFloat(e.target.value) || 8)}
+                            className="w-full accent-amber-500 mt-2"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Material Pricing */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Wax Price / kg ({preferredCurrency})
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={candleWaxPricePerKg}
+                            onChange={(e) => setCandleWaxPricePerKg(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Fragrance Oil / 100g ({preferredCurrency})
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={candleFragrancePricePer100g}
+                            onChange={(e) => setCandleFragrancePricePer100g(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 mb-1">
+                            Vessel &amp; Wick / unit ({preferredCurrency})
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={candlePackagingPerUnit}
+                            onChange={(e) => setCandlePackagingPerUnit(Math.max(0, parseFloat(e.target.value) || 0))}
+                            className="w-full px-3 py-2 rounded-xl text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Calculations & Save */}
+                    <div className="bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 border border-amber-100 dark:border-amber-900/40 rounded-3xl p-6 shadow-sm flex flex-col justify-between gap-5">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-amber-100 dark:border-amber-900/40">
+                          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            Total Batch Weight
+                          </span>
+                          <span className="text-base font-extrabold text-amber-600 dark:text-amber-400">
+                            {totalBatchFillWeight.toFixed(1)} g ({((totalBatchFillWeight) / 28.3495).toFixed(1)} oz)
+                          </span>
+                        </div>
+
+                        {/* Breakdown line items */}
+                        <div className="space-y-2 text-xs">
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">Base Wax Needed:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {totalWaxGrams.toFixed(1)}g ({waxPerUnitGrams.toFixed(1)}g / unit)
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">Fragrance Oil ({foPctSafe}%):</span>
+                            <span className="font-bold text-amber-600 dark:text-amber-400">
+                              {totalFragranceGrams.toFixed(1)}g ({fragrancePerUnitGrams.toFixed(1)}g / unit)
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">Total Batch Cost:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {formatCurrency(totalBatchCost, preferredCurrency)}
+                            </span>
+                          </div>
+
+                          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                            <span className="text-slate-600 dark:text-slate-300">Unit COGS:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {formatCurrency(unitCOGS, preferredCurrency)} / unit
+                            </span>
+                          </div>
+
+                          {/* Suggested Price */}
+                          <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-emerald-950 dark:text-emerald-200 font-bold">
+                            <span>Target Retail (65% margin):</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-black">
+                              {formatCurrency(suggestedRetail, preferredCurrency)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveCandleRecipe}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md shadow-amber-500/20 transition transform active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>Save as New Formula</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             /* ================= VIEW: INVENTORY ITEMS GRID ================= */
@@ -2603,25 +3121,41 @@ export default function InventoryClient({
                             </div>
                           </div>
 
-                          <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                            {item.name}
-                          </h3>
+                          <div className="flex gap-3 items-start mt-1">
+                            {item.image_url ? (
+                              <img
+                                src={item.image_url}
+                                alt={item.name}
+                                className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover shrink-0 border border-slate-200 dark:border-slate-800"
+                              />
+                            ) : item.item_type === 'FINISHED_GOOD' ? (
+                              <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                                <Sparkles className="w-6 h-6" />
+                              </div>
+                            ) : null}
 
-                          {item.description && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-1">
-                              {item.description}
-                            </p>
-                          )}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-base text-slate-900 dark:text-white truncate">
+                                {item.name}
+                              </h3>
 
-                          <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-2">
-                            {item.sku_or_location && (
-                              <span>📍 {item.sku_or_location}</span>
-                            )}
-                            {item.unit_price > 0 && (
-                              <span>
-                                {formatCurrency(item.unit_price, item.currency)} / {item.unit}
-                              </span>
-                            )}
+                              {item.description && (
+                                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
+                                  {item.description}
+                                </p>
+                              )}
+
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                {item.sku_or_location && (
+                                  <span>📍 {item.sku_or_location}</span>
+                                )}
+                                {item.unit_price > 0 && (
+                                  <span>
+                                    {formatCurrency(item.unit_price, item.currency)} / {item.unit}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
 
@@ -3298,6 +3832,32 @@ function RecipeModal({
   const [category, setCategory] = useState(recipe?.category || 'General');
   const [instructionsMd, setInstructionsMd] = useState(recipe?.instructions_md || '');
   const [rating, setRating] = useState<number>(recipe?.rating || 5);
+  const [imageUrl, setImageUrl] = useState<string>(recipe?.image_url || '');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>(recipe?.image_url || '');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (PNG, JPG, WebP, etc.)');
+      return;
+    }
+    setImageFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setImageUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
   const [ingredients, setIngredients] = useState<
     Array<{ inventory_item_id: string; quantity_required: number }>
   >(
@@ -3411,6 +3971,38 @@ function RecipeModal({
     setLoading(true);
 
     try {
+      let finalImageUrl = imageUrl;
+      if (imageFile) {
+        setUploadingImage(true);
+        try {
+          const compressedBlob = await compressWorkshopImage(imageFile, 512, 0.82);
+          const fileName = `${userId}/recipe_${Date.now()}.webp`;
+          const { error: uploadErr } = await supabase.storage
+            .from('community-media')
+            .upload(fileName, compressedBlob, {
+              contentType: 'image/webp',
+              upsert: true,
+            });
+          if (uploadErr) {
+            console.error('Failed to upload image:', uploadErr);
+            alert(`Image upload failed: ${uploadErr.message}`);
+            setLoading(false);
+            setUploadingImage(false);
+            return;
+          }
+          const { data: pubData } = supabase.storage
+            .from('community-media')
+            .getPublicUrl(fileName);
+          finalImageUrl = pubData.publicUrl;
+        } catch (err: any) {
+          console.error('Image compression failed:', err);
+          alert('Failed to compress image.');
+          setLoading(false);
+          setUploadingImage(false);
+          return;
+        }
+      }
+
       let savedId = recipe?.id;
 
       if (recipe?.id) {
@@ -3421,6 +4013,7 @@ function RecipeModal({
             category,
             instructions_md: instructionsMd.trim(),
             rating,
+            image_url: finalImageUrl || '',
             output_item_id: outputItemId || null,
             output_yield_qty: yieldQty,
             packaging_overhead: pkgOverhead,
@@ -3442,6 +4035,7 @@ function RecipeModal({
             category,
             instructions_md: instructionsMd.trim(),
             rating,
+            image_url: finalImageUrl || '',
             output_item_id: outputItemId || null,
             output_yield_qty: yieldQty,
             packaging_overhead: pkgOverhead,
@@ -3529,6 +4123,56 @@ function RecipeModal({
                 ))}
               </datalist>
             </div>
+          </div>
+
+          {/* Formula Photo */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Formula / Batch Photo (Optional)
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            {imagePreview ? (
+              <div className="relative inline-block group">
+                <img
+                  src={imagePreview}
+                  alt="Formula Preview"
+                  className="w-20 h-20 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm"
+                />
+                <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-1 rounded-lg bg-white/80 dark:bg-slate-900/80 text-slate-800 dark:text-white hover:bg-white"
+                    title="Change Photo"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="p-1 rounded-lg bg-red-600/80 text-white hover:bg-red-600"
+                    title="Remove Photo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-400 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-emerald-600 transition"
+              >
+                <Camera className="w-4 h-4 text-emerald-500" />
+                <span>Upload Recipe Thumbnail (WebP center-crop)</span>
+              </button>
+            )}
           </div>
 
           <div>
@@ -3858,6 +4502,32 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
   const [condition, setCondition] = useState<ItemCondition>(item?.condition || 'GOOD');
   const [searchKeyword, setSearchKeyword] = useState(item?.search_keyword || '');
   const [reorderUrl, setReorderUrl] = useState(item?.reorder_url || '');
+  const [imageUrl, setImageUrl] = useState<string>(item?.image_url || '');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>(item?.image_url || '');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (PNG, JPG, WebP, etc.)');
+      return;
+    }
+    setImageFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setImageUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -3867,6 +4537,38 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
     }
 
     setLoading(true);
+
+    let finalImageUrl = imageUrl;
+    if (imageFile) {
+      setUploadingImage(true);
+      try {
+        const compressedBlob = await compressWorkshopImage(imageFile, 512, 0.82);
+        const fileName = `${userId}/inventory_${Date.now()}.webp`;
+        const { error: uploadErr } = await supabase.storage
+          .from('community-media')
+          .upload(fileName, compressedBlob, {
+            contentType: 'image/webp',
+            upsert: true,
+          });
+        if (uploadErr) {
+          console.error('Failed to upload image:', uploadErr);
+          alert(`Image upload failed: ${uploadErr.message}`);
+          setLoading(false);
+          setUploadingImage(false);
+          return;
+        }
+        const { data: pubData } = supabase.storage
+          .from('community-media')
+          .getPublicUrl(fileName);
+        finalImageUrl = pubData.publicUrl;
+      } catch (err: any) {
+        console.error('Image compression failed:', err);
+        alert('Failed to compress image.');
+        setLoading(false);
+        setUploadingImage(false);
+        return;
+      }
+    }
 
     const payload = {
       user_id: userId,
@@ -3883,6 +4585,7 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
       condition,
       search_keyword: searchKeyword.trim(),
       reorder_url: reorderUrl.trim(),
+      image_url: finalImageUrl || '',
       updated_at: new Date().toISOString(),
     };
 
@@ -3967,6 +4670,56 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white"
               />
             </div>
+          </div>
+
+          {/* Item Photo */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Item Photo (Optional)
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            {imagePreview ? (
+              <div className="relative inline-block group">
+                <img
+                  src={imagePreview}
+                  alt="Item Preview"
+                  className="w-20 h-20 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm"
+                />
+                <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-1 rounded-lg bg-white/80 dark:bg-slate-900/80 text-slate-800 dark:text-white hover:bg-white"
+                    title="Change Photo"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="p-1 rounded-lg bg-red-600/80 text-white hover:bg-red-600"
+                    title="Remove Photo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-600 transition"
+              >
+                <Camera className="w-4 h-4 text-blue-500" />
+                <span>Upload Item Photo (WebP center-crop)</span>
+              </button>
+            )}
           </div>
 
           {/* Folder & Storage Location */}

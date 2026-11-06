@@ -105,3 +105,90 @@ export async function cropAndCompressAvatar(
     reader.readAsDataURL(file);
   });
 }
+/**
+ * Loads an inventory or recipe photo, center-crops to a 1:1 square, scales to maxSize (default 512),
+ * and compresses to an optimized WebP blob (<60KB) for fast, lightweight workshop thumbnail rendering.
+ */
+export async function compressWorkshopImage(
+  file: File,
+  maxSize = 512,
+  quality = 0.82
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      return reject(new Error('Selected file is not an image'));
+    }
+
+    const reader = new FileReader();
+
+    reader.onerror = () => {
+      reject(new Error('Failed to read image file'));
+    };
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onerror = () => {
+        reject(new Error('Failed to load image element'));
+      };
+
+      img.onload = () => {
+        try {
+          const width = img.naturalWidth || img.width;
+          const height = img.naturalHeight || img.height;
+
+          if (!width || !height) {
+            return reject(new Error('Invalid image dimensions'));
+          }
+
+          // Center-crop to square for consistent workshop card thumbnails
+          const minDim = Math.min(width, height);
+          const sx = (width - minDim) / 2;
+          const sy = (height - minDim) / 2;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = maxSize;
+          canvas.height = maxSize;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            return reject(new Error('Canvas 2D context is not available'));
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, maxSize, maxSize);
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                resolve(blob);
+              } else {
+                canvas.toBlob(
+                  (fallbackBlob) => {
+                    if (fallbackBlob) {
+                      resolve(fallbackBlob);
+                    } else {
+                      reject(new Error('Failed to encode workshop image to blob'));
+                    }
+                  },
+                  'image/jpeg',
+                  quality
+                );
+              }
+            },
+            'image/webp',
+            quality
+          );
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      img.src = reader.result as string;
+    };
+
+    reader.readAsDataURL(file);
+  });
+}

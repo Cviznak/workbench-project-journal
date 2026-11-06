@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { getPreferredCurrency } from '@/lib/currency';
+import { useTranslation } from '@/lib/i18n';
 import { Currency } from '@/lib/types';
 import {
   Calculator,
@@ -23,21 +24,71 @@ import {
   Layers,
   Flame,
   Award,
+  Grid,
 } from 'lucide-react';
+
+export type ToolType = 'RESIN' | 'PERFUME' | '3D_PRINT' | 'CROSS_STITCH' | 'CANDLE';
+
+export function slugToTool(slug?: string | null): ToolType {
+  if (!slug) return 'RESIN';
+  const norm = slug.toLowerCase().trim();
+  if (norm === 'perfume') return 'PERFUME';
+  if (norm === '3dprint' || norm === '3d_print') return '3D_PRINT';
+  if (norm === 'crossstitch' || norm === 'cross-stitch' || norm === 'stitch') return 'CROSS_STITCH';
+  if (norm === 'candle' || norm === 'soap') return 'CANDLE';
+  return 'RESIN';
+}
+
+export function toolToSlug(tool: ToolType): string {
+  switch (tool) {
+    case 'RESIN':
+      return 'resin';
+    case 'PERFUME':
+      return 'perfume';
+    case '3D_PRINT':
+      return '3dprint';
+    case 'CROSS_STITCH':
+      return 'crossstitch';
+    case 'CANDLE':
+      return 'candle';
+  }
+}
 
 interface PublicToolsClientProps {
   currentUser: any;
   currentProfile: any;
+  initialTool?: string;
 }
 
 export default function PublicToolsClient({
   currentUser,
   currentProfile,
+  initialTool,
 }: PublicToolsClientProps) {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useTranslation();
 
-  const [activeTool, setActiveTool] = useState<'RESIN' | 'PERFUME' | '3D_PRINT'>('RESIN');
+  const [activeTool, setActiveTool] = useState<ToolType>(() => {
+    if (initialTool) return slugToTool(initialTool);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const toolParam = params.get('tool');
+      if (toolParam) return slugToTool(toolParam);
+    }
+    return 'RESIN';
+  });
+
+  const handleSelectTool = (tool: ToolType) => {
+    setActiveTool(tool);
+    setSaveStatus(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tool', toolToSlug(tool));
+      window.history.replaceState(null, '', url.toString());
+    }
+  };
+
   const [currency, setCurrency] = useState<Currency>(() => getPreferredCurrency());
   const [saveStatus, setSaveStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -69,6 +120,22 @@ export default function PublicToolsClient({
   const [kwhRate, setKwhRate] = useState<number>(0.6);
   const [printFailureBuffer, setPrintFailureBuffer] = useState<number>(5);
   const [targetMarginPct, setTargetMarginPct] = useState<number>(65);
+
+  // 4. Cross-Stitch & Fabric State
+  const [stitchWidth, setStitchWidth] = useState<number>(140);
+  const [stitchHeight, setStitchHeight] = useState<number>(100);
+  const [stitchAidaCount, setStitchAidaCount] = useState<number>(14);
+  const [stitchBorderMarginCm, setStitchBorderMarginCm] = useState<number>(5);
+  const [stitchStrands, setStitchStrands] = useState<number>(2);
+
+  // 5. Candle & Soap Batch State
+  const [candleWaterWeight, setCandleWaterWeight] = useState<number>(200);
+  const [candleUnits, setCandleUnits] = useState<number>(1);
+  const [candleWaxType, setCandleWaxType] = useState<'SOY' | 'PARAFFIN' | 'BEESWAX' | 'SOAP_BASE'>('SOY');
+  const [candleFragrancePct, setCandleFragrancePct] = useState<number>(8);
+  const [candleWaxPricePerKg, setCandleWaxPricePerKg] = useState<number>(45);
+  const [candleFragrancePricePer100g, setCandleFragrancePricePer100g] = useState<number>(35);
+  const [candlePackagingPerUnit, setCandlePackagingPerUnit] = useState<number>(5);
 
   // Calculations: Epoxy
   let volCm3 = 0;
@@ -148,6 +215,68 @@ export default function PublicToolsClient({
   const suggestedPrice = marginDecimal < 1 ? totalMfgCost / (1 - marginDecimal) : totalMfgCost * 2;
   const grossProfit = suggestedPrice - totalMfgCost;
 
+  // Calculations: Cross-Stitch
+  const stitchW = Math.max(1, Number(stitchWidth) || 1);
+  const stitchH = Math.max(1, Number(stitchHeight) || 1);
+  const aidaCt = Math.max(1, Number(stitchAidaCount) || 14);
+  const marginCm = Math.max(0, Number(stitchBorderMarginCm) || 0);
+
+  const designWidthIn = stitchW / aidaCt;
+  const designHeightIn = stitchH / aidaCt;
+  const designWidthCm = designWidthIn * 2.54;
+  const designHeightCm = designHeightIn * 2.54;
+
+  const cutWidthCm = designWidthCm + 2 * marginCm;
+  const cutHeightCm = designHeightCm + 2 * marginCm;
+  const cutWidthIn = cutWidthCm / 2.54;
+  const cutHeightIn = cutHeightCm / 2.54;
+
+  const totalStitches = stitchW * stitchH;
+  const cmPerStitch = (14 / aidaCt) * 2.2;
+  const singleStrandMeters = (totalStitches * cmPerStitch * stitchStrands) / 100;
+  const dmcSkeinsEstimated = Math.ceil(((singleStrandMeters * 1.15) / 48) * 10) / 10;
+  const tapestryNeedle =
+    aidaCt <= 11
+      ? 'Size 22 Tapestry'
+      : aidaCt <= 14
+      ? 'Size 24 Tapestry'
+      : aidaCt <= 18
+      ? 'Size 26 Tapestry'
+      : 'Size 28 Tapestry';
+
+  // Calculations: Candle & Soap
+  const waterWeight = Math.max(1, Number(candleWaterWeight) || 200);
+  const units = Math.max(1, Number(candleUnits) || 1);
+  const foPct = Math.max(1, Number(candleFragrancePct) || 8);
+
+  let waxDensity = 0.86;
+  let baseName = 'Soy Wax (464)';
+  if (candleWaxType === 'PARAFFIN') {
+    waxDensity = 0.90;
+    baseName = 'Paraffin / Blend';
+  } else if (candleWaxType === 'BEESWAX') {
+    waxDensity = 0.88;
+    baseName = 'Beeswax / Coconut';
+  } else if (candleWaxType === 'SOAP_BASE') {
+    waxDensity = 1.05;
+    baseName = 'Melt & Pour Soap';
+  }
+
+  const singleFillWeight = waterWeight * waxDensity;
+  const totalBatchFillWeight = singleFillWeight * units;
+  const totalWaxGrams = totalBatchFillWeight / (1 + foPct / 100);
+  const totalFragranceGrams = totalWaxGrams * (foPct / 100);
+
+  const waxPerUnitGrams = totalWaxGrams / units;
+  const fragrancePerUnitGrams = totalFragranceGrams / units;
+
+  const waxCost = (totalWaxGrams / 1000) * (Number(candleWaxPricePerKg) || 45);
+  const fragranceCost = (totalFragranceGrams / 100) * (Number(candleFragrancePricePer100g) || 35);
+  const packagingCost = units * (Number(candlePackagingPerUnit) || 5);
+  const totalBatchCost = waxCost + fragranceCost + packagingCost;
+  const unitCOGS = totalBatchCost / units;
+  const suggestedRetail = unitCOGS / (1 - 0.65);
+
   // Save Formula Handler
   async function handleSaveFormula(toolName: string) {
     let title = '';
@@ -162,10 +291,18 @@ export default function PublicToolsClient({
       title = `Perfume Accord (${perfumeConcentration} ${perfumeBottleMl}ml)`;
       category = 'Perfume Lab';
       instructions = `Perfume Concentration Formula (${concLabel}):\n- Bottle Size: ${perfumeBottleMl}ml\n- Fragrance Oil Concentrate: ${fragranceVolMl.toFixed(1)}ml (${fragranceWeightG.toFixed(1)}g)\n- Perfumer's Alcohol (96%): ${alcoholVolMl.toFixed(1)}ml (${alcoholWeightG.toFixed(1)}g)\n\nMaceration Guide: Shake well and rest in dark amber glass at 18-21°C for 3 to 6 weeks. Chill filter before final bottling.`;
-    } else {
+    } else if (toolName === '3D_PRINT') {
       title = `3D Print: ${printMaterial} (${partWeightG}g, ${printHours}h${printMinutes}m)`;
       category = '3D Printing';
       instructions = `3D Printing Cost Sheet (${printMaterial}):\n- Sliced Weight: ${partWeightG}g (Spool: ${formatCurrency(spoolCost, currency)}/kg)\n- Print Duration: ${printHours}h ${printMinutes}m\n- Machine Power: ${printerWatts}W (${kwhConsumed.toFixed(2)} kWh)\n- Filament Cost: ${formatCurrency(filamentCost, currency)}\n- Electricity Cost: ${formatCurrency(powerCost, currency)}\n- Base Unit Cost: ${formatCurrency(totalMfgCost, currency)}\n- Target Retail Price (${targetMarginPct}% margin): ${formatCurrency(suggestedPrice, currency)}`;
+    } else if (toolName === 'CROSS_STITCH') {
+      title = `Cross-Stitch Fabric & Skein Plan (${stitchW}x${stitchH} on ${aidaCt}ct)`;
+      category = 'Cross-Stitch & Textiles';
+      instructions = `Cross-Stitch Dimensions & Sizing:\n- Design Stitches: ${stitchW} W x ${stitchH} H (${totalStitches.toLocaleString()} stitches)\n- Aida Fabric Count: ${aidaCt}ct (${stitchStrands} strands)\n- Stitched Area: ${designWidthCm.toFixed(1)} x ${designHeightCm.toFixed(1)} cm (${designWidthIn.toFixed(1)}" x ${designHeightIn.toFixed(1)}")\n- Cut Fabric Size (+${marginCm}cm border): ${cutWidthCm.toFixed(1)} x ${cutHeightCm.toFixed(1)} cm (${cutWidthIn.toFixed(1)}" x ${cutHeightIn.toFixed(1)}")\n- Recommended Needle: ${tapestryNeedle}\n- Estimated Floss Needed: ~${dmcSkeinsEstimated} DMC 8m skeins (~${singleStrandMeters.toFixed(0)}m single strand with 15% buffer).`;
+    } else if (toolName === 'CANDLE') {
+      title = `Candle/Soap Batch (${units}x ${waterWeight}ml @ ${foPct}% FO)`;
+      category = 'Candles & Soap';
+      instructions = `Batch Formulation (${baseName}):\n- Units: ${units} containers (${waterWeight}ml water capacity each)\n- Fragrance Load: ${foPct}%\n- Base/Wax Weight: ${totalWaxGrams.toFixed(1)}g (${waxPerUnitGrams.toFixed(1)}g / unit)\n- Fragrance Oil: ${totalFragranceGrams.toFixed(1)}g (${fragrancePerUnitGrams.toFixed(1)}g / unit)\n- Total Batch Weight: ${totalBatchFillWeight.toFixed(1)}g\n\nPouring Instructions:\n1. Heat wax/base to 85°C (185°F).\n2. Remove from heat and stir in fragrance oil at 80°C (176°F) for 2 continuous minutes.\n3. Pour slowly at 57-60°C (135-140°F) into preheated vessels with centered wicks.\n4. Cure for 10-14 days before test burning.`;
     }
 
     if (!currentUser) {
@@ -291,10 +428,10 @@ export default function PublicToolsClient({
             <span>Precision Workshop Formulation Suite</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-            Free Maker Calculators &amp; Lab Formulation Tools
+            {t('tools.title')}
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed">
-            Eliminate ruined molds, harsh perfume blends, and underpriced 3D prints. Calculate exact chemical ratios, exothermic thresholds, alcohol dilutions, and all-in batch unit economics in real time.
+            {t('tools.subtitle')}
           </p>
         </div>
 
@@ -302,48 +439,61 @@ export default function PublicToolsClient({
         {/* 4. TOOL SELECTOR TABS                                              */}
         {/* ================================================================== */}
         <div className="mt-8 flex items-center justify-center">
-          <div className="flex p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
+          <div className="flex flex-wrap items-center justify-center gap-1 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
             <button
-              onClick={() => {
-                setActiveTool('RESIN');
-                setSaveStatus(null);
-              }}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs font-bold transition ${
+              onClick={() => handleSelectTool('RESIN')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
                 activeTool === 'RESIN'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <FlaskConical className="w-4 h-4" />
-              <span>Epoxy Resin &amp; Mold</span>
+              <span>{t('tools.tab_resin')}</span>
             </button>
             <button
-              onClick={() => {
-                setActiveTool('PERFUME');
-                setSaveStatus(null);
-              }}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs font-bold transition ${
+              onClick={() => handleSelectTool('PERFUME')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
                 activeTool === 'PERFUME'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <Sparkles className="w-4 h-4" />
-              <span>Perfume Dilution</span>
+              <span>{t('tools.tab_perfume')}</span>
             </button>
             <button
-              onClick={() => {
-                setActiveTool('3D_PRINT');
-                setSaveStatus(null);
-              }}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs font-bold transition ${
+              onClick={() => handleSelectTool('3D_PRINT')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
                 activeTool === '3D_PRINT'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
               <Printer className="w-4 h-4" />
-              <span>3D Print Costing</span>
+              <span>{t('tools.tab_3dprint')}</span>
+            </button>
+            <button
+              onClick={() => handleSelectTool('CROSS_STITCH')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTool === 'CROSS_STITCH'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Grid className="w-4 h-4" />
+              <span>{t('tools.tab_crossstitch')}</span>
+            </button>
+            <button
+              onClick={() => handleSelectTool('CANDLE')}
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTool === 'CANDLE'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Flame className="w-4 h-4" />
+              <span>{t('tools.tab_candle')}</span>
             </button>
           </div>
         </div>
@@ -792,6 +942,352 @@ export default function PublicToolsClient({
               </div>
             </div>
           )}
+
+          {/* ============================================================== */}
+          {/* TOOL 4: CROSS-STITCH & FABRIC CALCULATOR                       */}
+          {/* ============================================================== */}
+          {activeTool === 'CROSS_STITCH' && (
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Grid className="w-5 h-5 text-indigo-400" />
+                    <span>Cross-Stitch &amp; Pixel Art Fabric Calculator</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Calculate exact finished design dimensions, framing cut sizes, and DMC embroidery skein requirements.
+                  </p>
+                </div>
+                <span className="hidden sm:inline-block px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  {aidaCt} Count Aida
+                </span>
+              </div>
+
+              {/* Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Design Width (Stitches)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={stitchWidth}
+                    onChange={(e) => setStitchWidth(Math.max(1, parseInt(e.target.value, 10) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Design Height (Stitches)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={stitchHeight}
+                    onChange={(e) => setStitchHeight(Math.max(1, parseInt(e.target.value, 10) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Aida Presets */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">
+                  Fabric / Aida Count (Stitches per Inch)
+                </label>
+                <div className="grid grid-cols-5 gap-2">
+                  {[11, 14, 16, 18, 22].map((ct) => (
+                    <button
+                      key={ct}
+                      type="button"
+                      onClick={() => setStitchAidaCount(ct)}
+                      className={`py-2 rounded-xl text-xs font-bold transition border ${
+                        stitchAidaCount === ct
+                          ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/20'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                      }`}
+                    >
+                      {ct} ct
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Margin & Strands */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Framing Margin (cm on each side)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={stitchBorderMarginCm}
+                    onChange={(e) => setStitchBorderMarginCm(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-blue-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Floss Strands per Stitch
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1, 2, 3, 4].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setStitchStrands(s)}
+                        className={`py-2 rounded-xl text-xs font-bold transition border ${
+                          stitchStrands === s
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-500/20'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {s} {s === 2 ? '(Std)' : ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Output Display */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Required Fabric Cut Size
+                  </span>
+                  <span className="text-xl font-black text-indigo-400">
+                    {cutWidthCm.toFixed(1)} × {cutHeightCm.toFixed(1)} cm ({cutWidthIn.toFixed(1)}" × {cutHeightIn.toFixed(1)}")
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">Stitched Area</span>
+                    <span className="block text-sm font-bold text-white mt-1">
+                      {designWidthCm.toFixed(1)} × {designHeightCm.toFixed(1)} cm
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">Total Stitches</span>
+                    <span className="block text-sm font-bold text-white mt-1">
+                      {totalStitches.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">DMC 8m Skeins</span>
+                    <span className="block text-sm font-bold text-emerald-400 mt-1">
+                      ~{dmcSkeinsEstimated} skeins
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-800/80">
+                    <span className="block text-[10px] text-indigo-300">Needle Rec.</span>
+                    <span className="block text-sm font-bold text-indigo-400 mt-1">
+                      {tapestryNeedle}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Recipe CTA */}
+              <div className="flex items-center justify-end pt-2">
+                <button
+                  onClick={() => handleSaveFormula('CROSS_STITCH')}
+                  disabled={saving}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================== */}
+          {/* TOOL 5: CANDLE & SOAP BATCH CALCULATOR                         */}
+          {/* ============================================================== */}
+          {activeTool === 'CANDLE' && (
+            <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Flame className="w-5 h-5 text-amber-400" />
+                    <span>Candle &amp; Soap Batch Formulation Calculator</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Calculate exact wax grams, fragrance load percentages, container displacement, and all-in batch costing.
+                  </p>
+                </div>
+                <span className="hidden sm:inline-block px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  {baseName}
+                </span>
+              </div>
+
+              {/* Base Selection */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-400 mb-1.5">
+                  Base Wax / Soap Type
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { id: 'SOY', label: 'Soy Wax (0.86)' },
+                    { id: 'PARAFFIN', label: 'Paraffin (0.90)' },
+                    { id: 'BEESWAX', label: 'Beeswax (0.88)' },
+                    { id: 'SOAP_BASE', label: 'Melt Soap (1.05)' },
+                  ].map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setCandleWaxType(b.id as any)}
+                      className={`py-2 px-2 text-center rounded-xl text-xs font-bold transition border ${
+                        candleWaxType === b.id
+                          ? 'bg-amber-600 text-white border-amber-500 shadow-md shadow-amber-500/20'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Vessel Capacity, Count & Fragrance Slider */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Vessel Water Capacity (ml/g)
+                  </label>
+                  <input
+                    type="number"
+                    min="10"
+                    value={candleWaterWeight}
+                    onChange={(e) => setCandleWaterWeight(Math.max(1, parseFloat(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-amber-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Container Count (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={candleUnits}
+                    onChange={(e) => setCandleUnits(Math.max(1, parseInt(e.target.value, 10) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-amber-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-1">
+                    <span>Fragrance Load</span>
+                    <span className="text-amber-400 font-bold">{foPct}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="3"
+                    max="12"
+                    step="0.5"
+                    value={candleFragrancePct}
+                    onChange={(e) => setCandleFragrancePct(parseFloat(e.target.value) || 8)}
+                    className="w-full accent-amber-500 mt-2"
+                  />
+                </div>
+              </div>
+
+              {/* Pricing inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-800">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Wax Cost / kg ({currency})
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={candleWaxPricePerKg}
+                    onChange={(e) => setCandleWaxPricePerKg(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-amber-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Fragrance Oil / 100g ({currency})
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={candleFragrancePricePer100g}
+                    onChange={(e) => setCandleFragrancePricePer100g(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-amber-500 font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                    Vessel &amp; Wick / unit ({currency})
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={candlePackagingPerUnit}
+                    onChange={(e) => setCandlePackagingPerUnit(Math.max(0, parseFloat(e.target.value) || 0))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs outline-none focus:border-amber-500 font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Output Display */}
+              <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Total Batch Weight
+                  </span>
+                  <span className="text-xl font-black text-amber-400">
+                    {totalBatchFillWeight.toFixed(1)} g ({((totalBatchFillWeight) / 28.3495).toFixed(1)} oz)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">Base Wax Needed</span>
+                    <span className="block text-sm font-bold text-white mt-1">
+                      {totalWaxGrams.toFixed(1)}g ({waxPerUnitGrams.toFixed(1)}g/ea)
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">Fragrance Oil ({foPct}%)</span>
+                    <span className="block text-sm font-bold text-amber-400 mt-1">
+                      {totalFragranceGrams.toFixed(1)}g ({fragrancePerUnitGrams.toFixed(1)}g/ea)
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="block text-[10px] text-slate-400">Unit COGS</span>
+                    <span className="block text-sm font-bold text-rose-400 mt-1">
+                      {formatCurrency(unitCOGS, currency)}
+                    </span>
+                  </div>
+                  <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-800/80">
+                    <span className="block text-[10px] text-amber-300">Target Retail (65%)</span>
+                    <span className="block text-sm font-bold text-amber-400 mt-1">
+                      {formatCurrency(suggestedRetail, currency)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Recipe CTA */}
+              <div className="flex items-center justify-end pt-2">
+                <button
+                  onClick={() => handleSaveFormula('CANDLE')}
+                  disabled={saving}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-amber-600 hover:bg-amber-700 transition flex items-center gap-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -807,7 +1303,7 @@ export default function PublicToolsClient({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-300 leading-relaxed">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-xs text-slate-300 leading-relaxed">
             <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
               <div className="font-bold text-white flex items-center gap-1.5">
                 <Flame className="w-4 h-4 text-amber-400" />
@@ -835,6 +1331,26 @@ export default function PublicToolsClient({
               </div>
               <p>
                 Most hobbyists price prints solely based on raw grams used. Factoring in purge towers, support failures (5%), heated bed electricity draw (150W), and target gross margins ensures your workshop operates sustainably.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Grid className="w-4 h-4 text-indigo-400" />
+                <span>Aida Count &amp; Framing Margin</span>
+              </div>
+              <p>
+                Aida cloth count determines stitches per inch: 14ct produces 5.5 stitches/cm, while 18ct produces 7.1 stitches/cm. Never cut cloth to exact design size: always add at least a 5cm (2-inch) perimeter border so framers have tension grip without clipping your stitches.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2 md:col-span-2 lg:col-span-2">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-amber-500" />
+                <span>Fragrance Load Physics &amp; Flashpoints</span>
+              </div>
+              <p>
+                Candle fragrance load is calculated against wax weight, not total container weight. Adding fragrance oil above 10-12% causes oil bleeding and poor wick capillary action. Always stir gently for 2 full minutes at 80°C (176°F) so the fragrance binds fully into the soy crystal lattice before pouring.
               </p>
             </div>
           </div>

@@ -103,6 +103,15 @@ export const DICTIONARY = {
     'inventory.restock_subtitle': 'Direct search generators for Amazon, AliExpress & Temu with target restocking quantities.',
     'inventory.currency': 'Currency',
 
+    // Tools & Calculators
+    'tools.title': 'Free Maker Calculators & Lab Tools',
+    'tools.subtitle': 'Precision workshop calculators with 1-click recipe export, unit conversions, and costing.',
+    'tools.tab_resin': 'Epoxy Resin Mold',
+    'tools.tab_perfume': 'Perfume Dilution',
+    'tools.tab_3dprint': '3D Print Costing',
+    'tools.tab_crossstitch': 'Cross-Stitch & Fabric',
+    'tools.tab_candle': 'Candle & Soap Batch',
+
     // Settings
     'settings.title': 'Account & Workshop Settings',
     'settings.subtitle': 'Manage your maker profile, preferences, language, currency, and data backups.',
@@ -209,6 +218,15 @@ export const DICTIONARY = {
     'inventory.restock_subtitle': 'Прямой поиск на Amazon, AliExpress и Temu с учетом требуемого количества.',
     'inventory.currency': 'Валюта',
 
+    // Tools & Calculators
+    'tools.title': 'Бесплатные калькуляторы и лаборатория мейкера',
+    'tools.subtitle': 'Точные расчеты для мастерской с экспортом формул в 1 клик, конвертацией единиц и себестоимостью.',
+    'tools.tab_resin': 'Эпоксидная смола',
+    'tools.tab_perfume': 'Парфюмерная лаборатория',
+    'tools.tab_3dprint': 'Себестоимость 3D печати',
+    'tools.tab_crossstitch': 'Вышивка и канва',
+    'tools.tab_candle': 'Свечи и мыло',
+
     // Settings
     'settings.title': 'Настройки аккаунта и мастерской',
     'settings.subtitle': 'Управление профилем, языком интерфейса, валютой и экспортом резервных копий.',
@@ -314,6 +332,15 @@ export const DICTIONARY = {
     'inventory.restock_title': 'דף הזמנת חידוש מלאי',
     'inventory.restock_subtitle': 'מחוללי חיפוש ישירים ל-Amazon, AliExpress ו-Temu עם כמויות יעד להזמנה.',
     'inventory.currency': 'מטבע',
+
+    // Tools & Calculators
+    'tools.title': 'מחשבוני סדנה ומעבדה למייקרים',
+    'tools.subtitle': 'מחשבוני סדנה מדויקים עם ייצוא מתכונים בלחיצה אחת, המרות יחידות וחישוב עלויות.',
+    'tools.tab_resin': 'יציקת שרף אפוקסי',
+    'tools.tab_perfume': 'מהילת בשמים',
+    'tools.tab_3dprint': 'עלות הדפסת תלת-ממד',
+    'tools.tab_crossstitch': 'רקמת צלב ובד',
+    'tools.tab_candle': 'נרות וסבונים',
 
     // Settings
     'settings.title': 'הגדרות חשבון וסדנה',
