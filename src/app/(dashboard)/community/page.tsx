@@ -1,10 +1,17 @@
-import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import CommunityFeedClient from '@/components/CommunityFeedClient';
 
 export const metadata = {
-  title: 'Community Feed | Workbench',
-  description: 'Share your maker creations, workshop formulas, and connect with fellow makers.',
+  title: 'Maker Community Social Feed | Workbench',
+  description:
+    'Explore live project updates, workshop formulas, and creations from makers and engineers.',
+  openGraph: {
+    title: 'Maker Community Social Feed | Workbench',
+    description:
+      'Explore live project updates, workshop formulas, and creations from makers and engineers.',
+    url: 'https://www.workbenchsoc.com/community',
+  },
 };
 
 export default async function CommunityPage() {
@@ -13,14 +20,12 @@ export default async function CommunityPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect('/login');
-
-  // Fetch initial posts, skills, and user's projects concurrently
+  // Fetch initial posts and skills (available to both authenticated and anon)
   const [
     { data: posts },
     { data: allSkills },
-    { data: userProjects },
-    { data: currentProfile },
+    userProjectsRes,
+    currentProfileRes,
   ] = await Promise.all([
     supabase
       .from('community_posts')
@@ -37,25 +42,62 @@ export default async function CommunityPage() {
       .from('skill_catalog')
       .select('*')
       .order('name'),
-    supabase
-      .from('projects')
-      .select('id, name, is_public, status')
-      .eq('pm_user_id', user.id)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single(),
+    user
+      ? supabase
+          .from('projects')
+          .select('id, name, is_public, status')
+          .eq('pm_user_id', user.id)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    user
+      ? supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+      : Promise.resolve({ data: null }),
   ]);
 
   return (
-    <CommunityFeedClient
-      initialPosts={posts || []}
-      allSkills={allSkills || []}
-      userProjects={userProjects || []}
-      currentUserId={user.id}
-      currentProfile={currentProfile}
-    />
+    <div className="space-y-6">
+      {!user && (
+        <header className="flex items-center justify-between py-3 border-b border-slate-200 dark:border-slate-800">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black shadow-md shadow-blue-500/30">
+              W
+            </span>
+            <span className="font-black text-slate-900 dark:text-white tracking-tight">Workbench</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/tools"
+              className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-600 transition"
+            >
+              Calculators
+            </Link>
+            <Link
+              href="/login"
+              className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-600 transition"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/signup"
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition"
+            >
+              Join Free
+            </Link>
+          </div>
+        </header>
+      )}
+
+      <CommunityFeedClient
+        initialPosts={posts || []}
+        allSkills={allSkills || []}
+        userProjects={(userProjectsRes?.data as any) || []}
+        currentUserId={user?.id || ''}
+        currentProfile={currentProfileRes?.data || null}
+      />
+    </div>
   );
 }

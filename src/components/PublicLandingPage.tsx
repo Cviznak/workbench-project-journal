@@ -64,11 +64,17 @@ export default function PublicLandingPage({
             <a href="#features" className="hover:text-white transition-colors">
               Features
             </a>
-            <a href="#calculators" className="hover:text-white transition-colors">
-              Lab Tools
-            </a>
+            <Link href="/tools" className="hover:text-white transition-colors flex items-center gap-1.5">
+              <span>Free Calculators</span>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                New
+              </span>
+            </Link>
+            <Link href="/community" className="hover:text-white transition-colors">
+              Community
+            </Link>
             <a href="#showcase" className="hover:text-white transition-colors">
-              Community Showcase
+              Showcase
             </a>
           </nav>
 
@@ -529,6 +535,12 @@ export default function PublicLandingPage({
           </div>
 
           <div className="flex items-center gap-6">
+            <Link href="/tools" className="hover:text-slate-300 transition">
+              Calculators
+            </Link>
+            <Link href="/community" className="hover:text-slate-300 transition">
+              Community
+            </Link>
             <a
               href={buyMeACoffeeUrl}
               target="_blank"

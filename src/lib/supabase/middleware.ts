@@ -56,10 +56,16 @@ export async function updateSession(request: NextRequest) {
   const isVerifyEmailPage = path.startsWith('/verify-email');
   const isPublicPage =
     path === '/' ||
+    path === '/tools' ||
+    path.startsWith('/tools/') ||
+    path === '/community' ||
+    path.startsWith('/community/') ||
     path.startsWith('/makers/') ||
     path.startsWith('/projects/') ||
     path.startsWith('/api/') ||
-    path.startsWith('/opengraph-image');
+    path.startsWith('/opengraph-image') ||
+    path === '/robots.txt' ||
+    path === '/sitemap.xml';
 
   if (user) {
     // If user has an active session but email is unconfirmed, route to /verify-email

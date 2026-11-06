@@ -266,6 +266,11 @@ export default function CommunityFeedClient({
 
   // Toggle Like on Post
   async function handleToggleLike(postId: string) {
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
+
     const postIndex = posts.findIndex((p) => p.id === postId);
     if (postIndex === -1) return;
 
@@ -376,7 +381,10 @@ export default function CommunityFeedClient({
 
   // Toggle Comment Like
   async function handleToggleCommentLike(postId: string, commentId: string) {
-    if (!currentUserId) return;
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
 
     // Optimistic toggle
     setPostCommentsMap((prev) => {
@@ -423,6 +431,10 @@ export default function CommunityFeedClient({
   // Submit Comment or Threaded Reply
   async function handleAddComment(postId: string, e: React.FormEvent) {
     e.preventDefault();
+    if (!currentUserId) {
+      router.push('/login');
+      return;
+    }
     const text = (commentInputs[postId] || '').trim();
     if (!text) return;
 
@@ -544,151 +556,179 @@ export default function CommunityFeedClient({
       </div>
 
       {/* ==================================================================== */}
-      {/* POST COMPOSER                                                        */}
+      {/* POST COMPOSER / GUEST BANNER                                         */}
       {/* ==================================================================== */}
-      <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <form onSubmit={handlePublishPost} className="space-y-4">
-          <div className="flex items-start gap-3">
-            <UserAvatar
-              src={currentProfile?.avatar_url}
-              name={currentProfile?.display_name || currentProfile?.username}
-              size="xl"
-              shape="circle"
-            />
-            <div className="flex-1">
-              <textarea
-                value={postContent}
-                onChange={(e) => setPostContent(e.target.value)}
-                placeholder="What did you craft, invent, or discover in your workshop today?"
-                rows={3}
-                maxLength={5000}
-                className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-              />
-              <div className="flex justify-end pr-2 pt-1">
-                <span className="text-[10px] text-slate-400">
-                  {postContent.length} / 5000
-                </span>
-              </div>
-            </div>
+      {!currentUserId ? (
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-amber-500/10 border border-blue-500/20 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center justify-center sm:justify-start gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              <span>Join the Workbench Community</span>
+            </h2>
+            <p className="text-xs text-slate-600 dark:text-slate-300 max-w-xl">
+              Connect with fellow makers, share your builds, ask questions, and showcase live project blueprints. Sign in or create a free account to participate!
+            </p>
           </div>
-
-          {/* Attached Image Preview */}
-          {imagePreviewUrl && (
-            <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 max-h-72 flex items-center justify-center group">
-              <img
-                src={imagePreviewUrl}
-                alt="Upload preview"
-                className="max-h-72 w-auto object-contain rounded-2xl"
-              />
-              <button
-                type="button"
-                onClick={handleRemoveImage}
-                className="absolute top-3 right-3 p-1.5 rounded-full bg-black/70 hover:bg-black text-white shadow-md transition"
-                title="Remove photo"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
-          {/* Composer Tool Belt: Skill, Project, Photo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-            {/* Tag Skill */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                Tag Associated Skill
-              </label>
-              <SkillSelector
-                mode="single"
-                skills={allSkills}
-                selectedId={selectedSkillId}
-                onChangeSingle={(id) => setSelectedSkillId(id || '')}
-                placeholder="Tag a skill (optional)..."
-              />
-            </div>
-
-            {/* Link Project */}
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                Link to Project (Optional)
-              </label>
-              <select
-                value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs outline-none"
-              >
-                <option value="">No linked project</option>
-                {userProjects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.is_public ? '🌍 (Public)' : '🔒 (Private)'}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Opt-in to make linked project public */}
-          {selectedProjectId && autoMakeProjectPublic && (
-            <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
-              <div className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>
-                  This project is currently private. Check this to publish its showcase so the community can view it!
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                checked={autoMakeProjectPublic}
-                onChange={(e) => setAutoMakeProjectPublic(e.target.checked)}
-                className="rounded text-emerald-600 focus:ring-0 ml-3"
-              />
-            </div>
-          )}
-
-          {composerError && (
-            <p className="text-xs font-semibold text-rose-500">{composerError}</p>
-          )}
-
-          {/* Composer Footer Actions */}
-          <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-            <div>
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={handleImageSelected}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-              >
-                <ImageIcon className="w-4 h-4 text-blue-500" />
-                <span>{imageFile ? 'Change Photo' : 'Attach Photo'}</span>
-              </button>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isPublishing || !postContent.trim()}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 shadow-sm transition"
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href="/login"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 shadow-sm transition"
             >
-              {isPublishing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Sharing...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  <span>Share Update</span>
-                </>
-              )}
-            </button>
+              Sign In
+            </Link>
+            <Link
+              href="/signup"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition"
+            >
+              Get Started Free
+            </Link>
           </div>
-        </form>
-      </div>
+        </div>
+      ) : (
+        <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <form onSubmit={handlePublishPost} className="space-y-4">
+            <div className="flex items-start gap-3">
+              <UserAvatar
+                src={currentProfile?.avatar_url}
+                name={currentProfile?.display_name || currentProfile?.username}
+                size="xl"
+                shape="circle"
+              />
+              <div className="flex-1">
+                <textarea
+                  value={postContent}
+                  onChange={(e) => setPostContent(e.target.value)}
+                  placeholder="What did you craft, invent, or discover in your workshop today?"
+                  rows={3}
+                  maxLength={5000}
+                  className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                />
+                <div className="flex justify-end pr-2 pt-1">
+                  <span className="text-[10px] text-slate-400">
+                    {postContent.length} / 5000
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Attached Image Preview */}
+            {imagePreviewUrl && (
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950 max-h-72 flex items-center justify-center group">
+                <img
+                  src={imagePreviewUrl}
+                  alt="Upload preview"
+                  className="max-h-72 w-auto object-contain rounded-2xl"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-black/70 hover:bg-black text-white shadow-md transition"
+                  title="Remove photo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Composer Tool Belt: Skill, Project, Photo */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+              {/* Tag Skill */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  Tag Associated Skill
+                </label>
+                <SkillSelector
+                  mode="single"
+                  skills={allSkills}
+                  selectedId={selectedSkillId}
+                  onChangeSingle={(id) => setSelectedSkillId(id || '')}
+                  placeholder="Tag a skill (optional)..."
+                />
+              </div>
+
+              {/* Link Project */}
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                  Link to Project (Optional)
+                </label>
+                <select
+                  value={selectedProjectId}
+                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white text-xs outline-none"
+                >
+                  <option value="">No linked project</option>
+                  {userProjects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.is_public ? '🌍 (Public)' : '🔒 (Private)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Opt-in to make linked project public */}
+            {selectedProjectId && autoMakeProjectPublic && (
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>
+                    This project is currently private. Check this to publish its showcase so the community can view it!
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={autoMakeProjectPublic}
+                  onChange={(e) => setAutoMakeProjectPublic(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-0 ml-3"
+                />
+              </div>
+            )}
+
+            {composerError && (
+              <p className="text-xs font-semibold text-rose-500">{composerError}</p>
+            )}
+
+            {/* Composer Footer Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleImageSelected}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                >
+                  <ImageIcon className="w-4 h-4 text-blue-500" />
+                  <span>{imageFile ? 'Change Photo' : 'Attach Photo'}</span>
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isPublishing || !postContent.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 shadow-sm transition"
+              >
+                {isPublishing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Sharing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Share Update</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* ==================================================================== */}
       {/* FEED FILTER BAR                                                      */}
@@ -1172,43 +1212,57 @@ export default function CommunityFeedClient({
                     )}
 
                     {/* New Comment Input Form */}
-                    <form
-                      onSubmit={(e) => handleAddComment(post.id, e)}
-                      className="flex items-center gap-2 pt-1"
-                    >
-                      <input
-                        type="text"
-                        value={commentInputs[post.id] || ''}
-                        onChange={(e) =>
-                          setCommentInputs((prev) => ({
-                            ...prev,
-                            [post.id]: e.target.value,
-                          }))
-                        }
-                        placeholder={
-                          replyingTo[post.id]
-                            ? `Replying to @${replyingTo[post.id]?.authorName}...`
-                            : 'Write a supportive reply or ask a maker question...'
-                        }
-                        className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-none focus:ring-1 focus:ring-blue-500"
-                        maxLength={2000}
-                      />
-                      <button
-                        type="submit"
-                        disabled={
-                          submittingComment[post.id] || !(commentInputs[post.id] || '').trim()
-                        }
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition shrink-0"
+                    {!currentUserId ? (
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs">
+                        <span className="text-slate-600 dark:text-slate-400 font-medium">
+                          Sign in to like, comment, or share your builds.
+                        </span>
+                        <Link
+                          href="/login"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition shrink-0"
+                        >
+                          Sign In
+                        </Link>
+                      </div>
+                    ) : (
+                      <form
+                        onSubmit={(e) => handleAddComment(post.id, e)}
+                        className="flex items-center gap-2 pt-1"
                       >
-                        {submittingComment[post.id] ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : replyingTo[post.id] ? (
-                          'Reply'
-                        ) : (
-                          'Comment'
-                        )}
-                      </button>
-                    </form>
+                        <input
+                          type="text"
+                          value={commentInputs[post.id] || ''}
+                          onChange={(e) =>
+                            setCommentInputs((prev) => ({
+                              ...prev,
+                              [post.id]: e.target.value,
+                            }))
+                          }
+                          placeholder={
+                            replyingTo[post.id]
+                              ? `Replying to @${replyingTo[post.id]?.authorName}...`
+                              : 'Write a supportive reply or ask a maker question...'
+                          }
+                          className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-none focus:ring-1 focus:ring-blue-500"
+                          maxLength={2000}
+                        />
+                        <button
+                          type="submit"
+                          disabled={
+                            submittingComment[post.id] || !(commentInputs[post.id] || '').trim()
+                          }
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition shrink-0"
+                        >
+                          {submittingComment[post.id] ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : replyingTo[post.id] ? (
+                            'Reply'
+                          ) : (
+                            'Comment'
+                          )}
+                        </button>
+                      </form>
+                    )}
                   </div>
                 )}
               </article>

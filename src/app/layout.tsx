@@ -50,6 +50,11 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'Workbench',
   },
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? {
+        google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+      }
+    : undefined,
 };
 
 export const viewport: Viewport = {
@@ -67,6 +72,26 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "Workbench",
+              applicationCategory: "DesignApplication",
+              operatingSystem: "Web, PWA",
+              offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "USD",
+              },
+              description:
+                "The RPG Operating System for Makers, Engineers & Creators. Track builds, manage maker inventory, level up craft skills with deterministic RPG progression, and calculate lab formulas with precision.",
+              url: "https://www.workbenchsoc.com",
+            }),
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `

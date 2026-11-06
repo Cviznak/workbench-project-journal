@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.2.1 Production  
+> **Version:** 2.3.0 Production  
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -16,6 +16,10 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - XP advances maker skills through deterministic mathematical leveling.
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
+- **Dynamic Search Engine Indexing, XML Sitemap & Robots.txt** *(v2.3)*: Dynamic Next.js metadata route (`src/app/robots.ts`) permitting indexing of public hubs (`/`, `/tools`, `/community`, `/makers/`, `/projects/`) while cleanly disallowing private application and admin routes. Dynamic sitemap generator (`src/app/sitemap.ts`) automatically maps static pages, non-suspended public maker profiles (`/makers/[username]`), and public showcase projects (`/projects/[id]`) with daily/weekly change frequencies.
+- **Public Maker Tools & SEO Calculator Funnel** *(v2.3)*: Standalone public lab suite at `/tools` hosting interactive calculators for Epoxy Resin & Mold Volume, Perfume Dilution & Maceration, and 3D Print Costing with real-time math, responsive unit conversions, formula breakdowns, and guest-to-member conversion CTAs ("Save as Formula" saving to `maker_recipes` for authenticated users and seamlessly redirecting unauthenticated makers into the onboarding funnel).
+- **Public Community Hub & Unauthenticated Guest Experience** *(v2.3)*: Full read-only guest browsing across `/community` and `/tools` enabled in Next.js middleware, complete with guest welcome headers, non-intrusive action prompts ("Sign in to like, comment, or share your builds"), and interactive conversion flows.
+- **JSON-LD Structured Data & Google Site Verification** *(v2.3)*: Rich `SoftwareApplication` JSON-LD schema injected into root layout `<head>` describing Workbench's operating system capabilities, application category, and licensing, coupled with `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` metadata support for instant Google Search Console indexing.
 - **Collaborative Task Workshop**: Tasks feature live-updating Markdown discussion threads, private multi-file attachments (up to 5MB, served via secure temporary signed URLs), and **Task Dependencies** (`prerequisite_task_id` with execution locks).
 - **Threaded Comment Discussions & Comment Likes** *(v2.2)*: Community posts and task discussions feature nested replies (`parent_comment_id`) with inline reply targeting, and heart/like toggle (`toggle_comment_like` RPC) with real-time notification dispatch (`COMMENT_LIKED`, `COMMENT_REPLIED`).
 - **Strict Project Tab Isolation** *(v2.2)*: Personal `/projects` board strictly isolates user-owned and joined projects, keeping public showcase projects confined to direct links and community feeds.
@@ -426,7 +430,7 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   │   ├── loading.tsx        # Instant navigation skeleton placeholder (v1.7.1)
 │   │   │   ├── layout.tsx         # Dashboard layout, SSR session & XP calculation
 │   │   │   ├── page.tsx           # Home Dashboard: XP progress, Heatmap, active tasks, activity
-│   │   │   ├── community/page.tsx # Maker Community Social Feed (v1.9)
+│   │   │   ├── community/page.tsx # Maker Community Social Feed (v1.9, unauthenticated guest view v2.3)
 │   │   │   ├── makers/
 │   │   │   │   └── [username]/page.tsx # Public Maker Profile & Project Showcase (v1.9)
 │   │   │   ├── skills/page.tsx    # Skills Hub: Catalog, requests, practice ledger
@@ -437,19 +441,23 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   │   ├── inventory/page.tsx # Maker Inventory & Smart Restock Cart (v1.4)
 │   │   │   ├── admin/page.tsx     # Security & Admin Hub (role-gated)
 │   │   │   └── settings/page.tsx  # Profile settings, password change, Data & Backup export (v1.3)
+│   │   ├── tools/
+│   │   │   └── page.tsx           # Public Maker Calculators & Lab Tools SEO funnel (v2.3)
 │   │   ├── api/                   # Server API route handlers (v2.0)
 │   │   │   └── notifications/
 │   │   │       ├── project-invite/route.ts # Resend email dispatch for project invitations (v2.1)
 │   │   │       └── skill-request/route.ts # Resend Node.js SDK email dispatch with published template & idempotency (v2.0.1)
 │   │   ├── opengraph-image.tsx    # Edge-rendered dynamic OpenGraph & Twitter/X 1200x630 social card (v2.1)
+│   │   ├── robots.ts              # Dynamic robots.txt metadata route for Googlebot crawling rules (v2.3)
+│   │   ├── sitemap.ts             # Dynamic XML sitemap generator with profiles and public projects (v2.3)
 │   │   ├── auth/callback/route.ts # Supabase Auth code exchange handler
 │   │   ├── globals.css            # Tailwind base, dark palette, overflow-x: clip
-│   │   └── layout.tsx             # Root layout, manifest metadata, ServiceWorkerRegister
+│   │   └── layout.tsx             # Root layout, manifest metadata, JSON-LD structured data, ServiceWorkerRegister (v2.3)
 │   ├── components/
 │   │   ├── ActivityHeatmap.tsx    # Responsive 52-week contribution heatmap & streak cards
 │   │   ├── AdminHubClient.tsx     # User directory, Skill Request approvals, Audit logs
 │   │   ├── AvatarUploader.tsx     # Client-side 1:1 square crop to WebP & avatar storage uploader (v1.9.1)
-│   │   ├── CommunityFeedClient.tsx # Social feed: posts, photos, likes, comments (v1.9)
+│   │   ├── CommunityFeedClient.tsx # Social feed: posts, photos, likes, comments (v1.9, guest prompt v2.3)
 │   │   ├── EditProjectModal.tsx   # Project settings, skills & Public Showcase toggle (v1.9)
 │   │   ├── EditTaskModal.tsx      # Workshop modal: Details, Prerequisite dependency, Comments, Files
 │   │   ├── FocusAudioBar.tsx      # Pomodoro timer + procedural ambient noise / lofi
@@ -460,6 +468,7 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │   │   ├── NotificationBell.tsx   # Project invitation handshake & skill requests inbox
 │   │   ├── PracticeModal.tsx      # Deliberate practice logging modal with SkillSelector (v1.9)
 │   │   ├── PublicLandingPage.tsx  # Unauthenticated public landing page with Bento grid & showcase preview (v2.1)
+│   │   ├── PublicToolsClient.tsx  # Interactive Resin, Perfume, and 3D Print public calculators (v2.3)
 │   │   ├── ServiceWorkerRegister.tsx # Client service worker registration for PWA (v1.3)
 │   │   ├── SettingsClient.tsx     # Account settings & Portable Archive JSON exporter (v1.3)
 │   │   ├── Sidebar.tsx            # Full-height pinned navigation sidebar
