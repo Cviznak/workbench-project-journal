@@ -22,12 +22,15 @@ export default async function AdminHubPage() {
     redirect('/');
   }
 
-  // Fetch profiles, audit logs, skill requests, and user feedback concurrently
+  // Fetch profiles, audit logs, skill requests, user feedback, skill catalog, posts, and showcase projects concurrently
   const [
     { data: profiles },
     { data: auditLogs },
     { data: skillRequests },
     { data: userFeedback },
+    { data: skillsData },
+    { data: postsData },
+    { data: showcaseData },
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -46,6 +49,19 @@ export default async function AdminHubPage() {
       .from('user_feedback')
       .select('*, user:profiles!user_feedback_user_id_fkey(*)')
       .order('created_at', { ascending: false }),
+    supabase
+      .rpc('get_skill_catalog_with_usage'),
+    supabase
+      .from('community_posts')
+      .select('*, author:profiles!community_posts_author_id_fkey(*), skill:skill_catalog(*)')
+      .order('created_at', { ascending: false })
+      .limit(25),
+    supabase
+      .from('projects')
+      .select('*, pm:profiles!projects_pm_user_id_fkey(*)')
+      .eq('is_public', true)
+      .order('updated_at', { ascending: false })
+      .limit(25),
   ]);
 
   return (
@@ -55,6 +71,9 @@ export default async function AdminHubPage() {
       auditLogs={auditLogs || []}
       initialSkillRequests={(skillRequests as any[]) || []}
       initialFeedback={(userFeedback as any[]) || []}
+      initialSkills={(skillsData as any[]) || []}
+      initialCommunityPosts={(postsData as any[]) || []}
+      initialShowcaseProjects={(showcaseData as any[]) || []}
     />
   );
 }

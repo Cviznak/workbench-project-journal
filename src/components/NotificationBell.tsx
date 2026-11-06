@@ -23,6 +23,8 @@ import {
   CheckCheck,
   ExternalLink,
   MessageSquarePlus,
+  Megaphone,
+  Reply,
 } from 'lucide-react';
 
 interface NotificationBellProps {
@@ -245,6 +247,10 @@ export default function NotificationBell({ profile }: NotificationBellProps) {
         return <CheckSquare className="w-3.5 h-3.5 text-indigo-500 shrink-0" />;
       case 'USER_FEEDBACK':
         return <MessageSquarePlus className="w-3.5 h-3.5 text-emerald-500 shrink-0" />;
+      case 'FEEDBACK_REPLIED':
+        return <Reply className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+      case 'SYSTEM_ANNOUNCEMENT':
+        return <Megaphone className="w-3.5 h-3.5 text-violet-500 shrink-0" />;
       default:
         return <Bell className="w-3.5 h-3.5 text-slate-400 shrink-0" />;
     }

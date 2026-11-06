@@ -1,6 +1,6 @@
 # Workbench: Project Architecture & System Specification
 
-> **Version:** 2.7.0 Production<br />
+> **Version:** 2.8.0 Production<br />
 > **Target Audience:** Engineering Assistants, AI Pair-Programmers, Technical Collaborators  
 > **Live Production URL:** [https://www.workbenchsoc.com](https://www.workbenchsoc.com) | [https://workbenchsoc.com](https://workbenchsoc.com)  
 > **Source Repository:** [GitHub - Cviznak/workbench-project-journal](https://github.com/Cviznak/workbench-project-journal) (Branch: `clean`)  
@@ -16,6 +16,10 @@ Unlike standard task boards, Workbench treats productivity through an RPG progre
 - XP advances maker skills through deterministic mathematical leveling.
 - Deliberate practice is backed by procedural Web Audio focus soundscapes and a built-in Pomodoro timer.
 - Brainstorming notes seamlessly graduate from raw ideas into structured projects.
+- **Global Skill Catalog Manager & Safe Skill Merge Engine** *(v2.8)*: Database migration `025_admin_catalog_and_governance.sql` implements administrative PostgreSQL `SECURITY DEFINER` RPCs (`admin_upsert_skill`, `admin_merge_skills`, `admin_delete_skill`, `get_skill_catalog_with_usage`). Administrators can create, edit (name, slug, category), delete unused skills, or safely merge duplicate skills without losing user progress. Merging automatically transfers and consolidates all `user_skills` XP (recalculating deterministic level `level = floor(0.1 * sqrt(new_total_xp))::int + 1` and keeping `GREATEST(last_practiced_at)`), re-points `practice_logs`, `project_tasks`, and `community_posts`, and migrates `project_skills` with `ON CONFLICT DO NOTHING`. Deleting unused skills safely aborts with an exception if any maker has unlocked XP or practice logs.
+- **Admin Feedback Replies & Status Governance** *(v2.8)*: Altered `public.user_feedback` with `admin_reply TEXT` and `replied_at TIMESTAMPTZ`. Administrative RPC `admin_reply_to_feedback` updates ticket status, saves the administrative response, dispatches an in-app notification (`FEEDBACK_REPLIED`) to the submitting maker, and logs to `activity_logs`.
+- **System-Wide Broadcast Announcements** *(v2.8)*: Administrative RPC `admin_broadcast_notification(p_title, p_body, p_link_url)` enables administrators to broadcast an in-app notification (`SYSTEM_ANNOUNCEMENT`) to all non-suspended makers across the platform with full activity audit logging.
+- **Showcase & Community Feed Moderation Suite** *(v2.8)*: Centralized moderation command center inside `AdminHubClient.tsx` featuring 1-click "Unpublish from Showcase" (`admin_unpublish_project` setting `is_public = false`) and 1-click "Delete Post" (`admin_delete_community_post`).
 - **Visual Workshop & WebP Image Thumbnails** *(v2.7)*: Database migration `024_inventory_and_recipe_images.sql` introduces optional `image_url` columns to both `public.inventory_items` and `public.maker_recipes` with regex check constraints enforcing `image_url = '' OR image_url ~ '^https://'`. Client-side WebP compression engine (`src/lib/imageUtils.ts` via `compressWorkshopImage`) center-crops and scales uploaded photos to crisp 512x512 WebP thumbnails (<60KB) before uploading to `'community-media'` storage bucket at `${userId}/inventory_${Date.now()}.webp` and `${userId}/recipe_${Date.now()}.webp`. Interactive image uploaders in `ItemModal` and `RecipeModal` feature instant preview, change photo, and one-click removal controls. Item and Recipe cards display crisp rounded thumbnails with graceful fallback icons (`Sparkles` for Finished Creations, `FlaskConical` for Formulas).
 - **Cross-Stitch & Pixel Art Fabric / Floss Skein Calculator** *(v2.7)*: Interactive craft calculator on `/tools?tool=crossstitch` and inside the Inventory Lab suite. Computes exact finished stitched dimensions in both metric (cm) and imperial (inches) across standard Aida fabric counts (11ct, 14ct, 16ct, 18ct, 22ct), framing border allowance (+5cm / 2in per side), total stitch count, tapestry needle size recommendations (Size 22-28), and DMC 8m floss skein usage with a 15% waste/tail buffer. Includes 1-click "Save as Formula / Blueprint" export into `maker_recipes`.
 - **Candle & Soap Batch Formulation & Costing Calculator** *(v2.7)*: High-precision batch formulation calculator on `/tools?tool=candle` and inside the Inventory Lab suite. Accurately factors wax specific gravity (Soy Wax 464 at 0.86, Paraffin blend at 0.90, Beeswax at 0.88, Melt & Pour Soap at 1.05) against container water capacity to compute total batch displacement, exact wax grams, fragrance oil grams according to fragrance load % (3-12%), all-in batch costing, unit COGS, and recommended retail pricing (65% margin). Generates professional pouring guides (85°C melt, 80°C FO addition, 57-60°C vessel pour, 10-14 day cure).
@@ -542,7 +546,9 @@ c:\Users\rakow\Documents\VibeLearning\Projects\
 │       ├── 020_security_advisors_and_xp_bounds.sql  # v2.2.1: Revoke anon RPCs, lock search_path, cap XP rewards & anti-spam cooldown
 │       ├── 021_feedback_and_onboarding.sql         # v2.4.0: User feedback table, admin notification trigger & strict admin RLS
 │       ├── 022_maker_directory_and_archive_v25.sql # v2.5.0: get_makers_leaderboard RPC & export_user_maker_archive v2.5.0 upgrade
-│       └── 023_currency_and_i18n_defaults.sql      # v2.6.0: USD default currency on inventory items & multi-currency constraint
+│       ├── 023_currency_and_i18n_defaults.sql      # v2.6.0: USD default currency on inventory items & multi-currency constraint
+│       ├── 024_inventory_and_recipe_images.sql     # v2.7.0: WebP image thumbnails for inventory items & recipes
+│       └── 025_admin_catalog_and_governance.sql    # v2.8.0: Global skill catalog manager, merge skills, feedback replies & moderation
 ├── package.json
 └── tailwind.config.ts
 ```

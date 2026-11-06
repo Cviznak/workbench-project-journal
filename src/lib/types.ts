@@ -489,7 +489,9 @@ export type NotificationType =
   | 'COMMENT_REPLIED'
   | 'TASK_ASSIGNED'
   | 'PROJECT_INVITE'
-  | 'USER_FEEDBACK';
+  | 'USER_FEEDBACK'
+  | 'FEEDBACK_REPLIED'
+  | 'SYSTEM_ANNOUNCEMENT';
 
 export interface AppNotification {
   id: string;
@@ -515,7 +517,19 @@ export interface UserFeedback {
   page_url?: string;
   status: FeedbackStatus;
   created_at: string;
+  admin_reply?: string;
+  replied_at?: string | null;
   user?: Profile | null;
+}
+
+export interface SkillCatalogWithUsage {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  created_at: string;
+  users_count: number;
+  practice_logs_count: number;
 }
 
 export interface MakerLeaderboardEntry {
