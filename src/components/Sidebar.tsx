@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Coffee,
   MessageSquarePlus,
+  Zap,
 } from 'lucide-react';
 import { Profile } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,7 @@ export default function Sidebar({ profile }: SidebarProps) {
     { label: t('nav.workspace'), href: '/workspace', icon: Lightbulb },
     { label: t('nav.projects'), href: '/projects', icon: FolderKanban },
     { label: t('nav.inventory'), href: '/inventory', icon: Package },
+    { label: t('nav.dopamine'), href: '/dopamine', icon: Zap },
     ...(isAdmin ? [{ label: t('nav.admin'), href: '/admin', icon: ShieldAlert }] : []),
     { label: t('nav.settings'), href: '/settings', icon: Settings },
   ];

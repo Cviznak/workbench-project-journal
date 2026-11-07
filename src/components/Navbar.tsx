@@ -152,6 +152,15 @@ export default function Navbar({ profile, totalXp }: NavbarProps) {
           {/* Project & Skill Notifications */}
           <NotificationBell profile={profile} />
 
+          {/* Dopamine Hub Quick Shortcut */}
+          <Link
+            href="/dopamine"
+            className="p-2 rounded-xl text-amber-500 hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition flex items-center justify-center min-w-[36px] min-h-[36px] touch-manipulation active:scale-95"
+            title="Dopamine Hub"
+          >
+            <Zap className="w-4 h-4 fill-current" />
+          </Link>
+
           {/* Theme Switcher */}
           <ThemeToggle />
 

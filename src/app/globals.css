@@ -57,3 +57,86 @@ body {
     touch-action: manipulation;
   }
 }
+
+/* ============================================================== */
+/* "Cute UI" Pastel Theme Mode (Cozy Workshop / Pastel Palette)   */
+/* ============================================================== */
+html.cute {
+  --background: #fff7fa;
+  --foreground: #4a2840;
+  --surface: #ffffff;
+  --border: #fed7e2;
+}
+
+html.cute body {
+  background: radial-gradient(circle at 10% 20%, #fff1f6 0%, #fdf4ff 40%, #f0fdf4 90%);
+  background-attachment: fixed;
+  color: #4a2840;
+}
+
+/* Cute / Pastel Card, Border & Accent Enhancements */
+html.cute .bg-white {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  border-color: #fce7f3 !important;
+  box-shadow: 0 4px 20px -2px rgba(244, 114, 182, 0.12), 0 2px 8px -1px rgba(244, 114, 182, 0.08) !important;
+}
+
+html.cute .bg-slate-50 {
+  background-color: #fff1f6 !important;
+}
+
+html.cute .bg-slate-100 {
+  background-color: #fdf2f8 !important;
+}
+
+html.cute .border-slate-200,
+html.cute .border-slate-100 {
+  border-color: #fce7f3 !important;
+}
+
+html.cute .text-slate-900 {
+  color: #4a1532 !important;
+}
+
+html.cute .text-slate-700,
+html.cute .text-slate-600 {
+  color: #703358 !important;
+}
+
+html.cute .text-slate-500,
+html.cute .text-slate-400 {
+  color: #9d527e !important;
+}
+
+html.cute .text-blue-600 {
+  color: #e11d48 !important;
+}
+
+html.cute .bg-blue-600 {
+  background-color: #f43f5e !important;
+}
+
+html.cute .bg-blue-600:hover,
+html.cute .hover\:bg-blue-700:hover {
+  background-color: #e11d48 !important;
+}
+
+html.cute .bg-blue-50 {
+  background-color: #ffe4e6 !important;
+}
+
+html.cute .border-blue-200 {
+  border-color: #fecdd3 !important;
+}
+
+html.cute .shadow-blue-500\/20 {
+  box-shadow: 0 8px 25px -4px rgba(244, 63, 94, 0.3) !important;
+}
+
+html.cute .rounded-2xl {
+  border-radius: 1.5rem !important;
+}
+
+html.cute .rounded-3xl {
+  border-radius: 2rem !important;
+}

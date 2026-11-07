@@ -31,6 +31,9 @@ import {
   Mail,
   Coffee,
   Globe,
+  Sun,
+  Moon,
+  Palette,
 } from 'lucide-react';
 import AvatarUploader from '@/components/AvatarUploader';
 
@@ -93,6 +96,38 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
       setLocalizationSuccess(true);
       setTimeout(() => setLocalizationSuccess(false), 2500);
       router.refresh();
+    } catch (_) {}
+  }
+
+  // Visual Theme state
+  const [currentTheme, setCurrentTheme] = useState<'dark' | 'light' | 'cute'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('workbench-theme') as any) || 'dark';
+    }
+    return (settings.theme as any) || 'dark';
+  });
+  const [themeSuccess, setThemeSuccess] = useState(false);
+
+  async function handleUpdateTheme(newTheme: 'dark' | 'light' | 'cute') {
+    setCurrentTheme(newTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('workbench-theme', newTheme);
+      if (newTheme === 'cute') {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('cute');
+      } else if (newTheme === 'light') {
+        document.documentElement.classList.remove('dark', 'cute');
+      } else {
+        document.documentElement.classList.remove('cute');
+        document.documentElement.classList.add('dark');
+      }
+    }
+    const nextSettings = { ...settings, theme: newTheme };
+    setSettings(nextSettings);
+    try {
+      await supabase.from('profiles').update({ settings_json: nextSettings }).eq('id', profile.id);
+      setThemeSuccess(true);
+      setTimeout(() => setThemeSuccess(false), 2500);
     } catch (_) {}
   }
 
@@ -916,6 +951,121 @@ export default function SettingsClient({ profile, email }: SettingsClientProps) 
               ))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Visual Theme & Appearance Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 lg:p-8 shadow-sm space-y-6">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-pink-50 dark:bg-pink-950 text-pink-600 dark:text-pink-400 flex items-center justify-center font-bold">
+              <Palette className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-slate-900 dark:text-white">
+                Visual Theme &amp; Atmosphere
+              </h2>
+              <p className="text-xs text-slate-400">
+                Choose your workshop aesthetic: Cyber Dark, Studio Light, or Cute Pastel.
+              </p>
+            </div>
+          </div>
+
+          {themeSuccess && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800 animate-in fade-in">
+              <Check className="w-3.5 h-3.5" />
+              <span>Applied!</span>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* 1. Cyber Dark */}
+          <button
+            type="button"
+            onClick={() => handleUpdateTheme('dark')}
+            className={cn(
+              'p-4 rounded-2xl border text-left transition flex flex-col justify-between space-y-3 min-h-[120px] touch-manipulation active:scale-[0.98]',
+              currentTheme === 'dark'
+                ? 'border-blue-500 bg-slate-950 text-white ring-2 ring-blue-500/20 shadow-md'
+                : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold">
+                <Moon className="w-4 h-4" />
+              </div>
+              {currentTheme === 'dark' && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                  Active
+                </span>
+              )}
+            </div>
+            <div>
+              <div className="font-bold text-sm text-slate-900 dark:text-white">Cyber Dark</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Default high-contrast cyberpunk workshop for night-owl makers.
+              </p>
+            </div>
+          </button>
+
+          {/* 2. Studio Light */}
+          <button
+            type="button"
+            onClick={() => handleUpdateTheme('light')}
+            className={cn(
+              'p-4 rounded-2xl border text-left transition flex flex-col justify-between space-y-3 min-h-[120px] touch-manipulation active:scale-[0.98]',
+              currentTheme === 'light'
+                ? 'border-blue-500 bg-blue-50/40 text-slate-900 ring-2 ring-blue-500/20 shadow-md'
+                : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+                <Sun className="w-4 h-4" />
+              </div>
+              {currentTheme === 'light' && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                  Active
+                </span>
+              )}
+            </div>
+            <div>
+              <div className="font-bold text-sm text-slate-900 dark:text-white">Studio Light</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Crisp daylit clean aesthetic for brightly lit crafting studios.
+              </p>
+            </div>
+          </button>
+
+          {/* 3. Cute Pastel */}
+          <button
+            type="button"
+            onClick={() => handleUpdateTheme('cute')}
+            className={cn(
+              'p-4 rounded-2xl border text-left transition flex flex-col justify-between space-y-3 min-h-[120px] touch-manipulation active:scale-[0.98]',
+              currentTheme === 'cute'
+                ? 'border-pink-500 bg-pink-50/50 text-slate-900 ring-2 ring-pink-500/20 shadow-md'
+                : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:border-slate-300'
+            )}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-8 h-8 rounded-xl bg-pink-500/10 text-pink-500 flex items-center justify-center font-bold">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              {currentTheme === 'cute' && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-500 text-white">
+                  Active 🌸
+                </span>
+              )}
+            </div>
+            <div>
+              <div className="font-bold text-sm text-slate-900 dark:text-white">Cute Pastel 🌸</div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Soft pastel rose &amp; mint palettes with rounded cozy bubble cards.
+              </p>
+            </div>
+          </button>
         </div>
       </div>
 

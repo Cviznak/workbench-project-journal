@@ -97,9 +97,14 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                if (localStorage.getItem('workbench-theme') === 'light') {
+                var theme = localStorage.getItem('workbench-theme');
+                if (theme === 'cute') {
                   document.documentElement.classList.remove('dark');
+                  document.documentElement.classList.add('cute');
+                } else if (theme === 'light') {
+                  document.documentElement.classList.remove('dark', 'cute');
                 } else {
+                  document.documentElement.classList.remove('cute');
                   document.documentElement.classList.add('dark');
                 }
                 var lang = localStorage.getItem('workbench_lang');
