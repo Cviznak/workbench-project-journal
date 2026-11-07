@@ -388,7 +388,7 @@ export default function ProjectsListClient({
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-8 animate-in fade-in duration-200 pb-28 lg:pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -409,7 +409,7 @@ export default function ProjectsListClient({
             setSelectedSkillIds([]);
             setModalOpen(true);
           }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition self-start sm:self-auto min-h-[44px] touch-manipulation active:scale-95"
         >
           <Plus className="w-4 h-4" />
           <span>＋ Create Project</span>
@@ -515,7 +515,7 @@ export default function ProjectsListClient({
               setSelectedSkillIds([]);
               setModalOpen(true);
             }}
-            className="inline-block mt-4 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20"
+            className="inline-block mt-4 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/20 min-h-[44px] touch-manipulation active:scale-95"
           >
             ＋ Create First Project
           </button>
@@ -525,10 +525,10 @@ export default function ProjectsListClient({
       {/* Create Project Modal with 1-Click Starter Blueprints */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl relative max-h-[92vh] overflow-y-auto">
+          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 shadow-2xl relative max-h-[92vh] overflow-y-auto overscroll-contain">
             <button
               onClick={() => setModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="absolute top-5 right-5 w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation active:scale-95"
             >
               <X className="w-5 h-5" />
             </button>
@@ -561,7 +561,7 @@ export default function ProjectsListClient({
                       key={bp.id}
                       type="button"
                       onClick={() => handleSelectBlueprint(bp)}
-                      className={`text-left p-3 rounded-2xl border transition relative flex items-start gap-3 ${
+                      className={`text-left p-3 rounded-2xl border transition relative flex items-start gap-3 touch-manipulation active:scale-[0.98] ${
                         isSelected
                           ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 shadow-sm ring-1 ring-blue-500/20'
                           : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700'
@@ -665,6 +665,7 @@ export default function ProjectsListClient({
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
                     value={budgetLimit}
                     onChange={(e) => setBudgetLimit(e.target.value)}
                     placeholder="0.00"
@@ -705,14 +706,14 @@ export default function ProjectsListClient({
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition min-h-[44px] touch-manipulation active:scale-95"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20"
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 min-h-[44px] touch-manipulation active:scale-95"
                 >
                   {loading ? (
                     <>

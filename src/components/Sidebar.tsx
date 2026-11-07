@@ -189,7 +189,7 @@ export default function Sidebar({ profile }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center justify-center py-1.5 px-2.5 rounded-xl transition min-w-[56px] relative',
+                'flex flex-col items-center justify-center py-1.5 px-2.5 rounded-xl transition min-w-[56px] min-h-[48px] touch-manipulation active:scale-95 relative',
                 isActive
                   ? 'text-blue-600 dark:text-blue-400 font-bold'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 font-medium'

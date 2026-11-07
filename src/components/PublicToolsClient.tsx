@@ -768,10 +768,10 @@ export default function PublicToolsClient({
         {/* 4. TOOL SELECTOR TABS                                              */}
         {/* ================================================================== */}
         <div className="mt-8 flex items-center justify-center">
-          <div className="flex flex-wrap items-center justify-center gap-1 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
+          <div className="flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-md">
             <button
               onClick={() => handleSelectTool('RESIN')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === 'RESIN'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -782,7 +782,7 @@ export default function PublicToolsClient({
             </button>
             <button
               onClick={() => handleSelectTool('PERFUME')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === 'PERFUME'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -793,7 +793,7 @@ export default function PublicToolsClient({
             </button>
             <button
               onClick={() => handleSelectTool('3D_PRINT')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === '3D_PRINT'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -804,7 +804,7 @@ export default function PublicToolsClient({
             </button>
             <button
               onClick={() => handleSelectTool('CROSS_STITCH')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === 'CROSS_STITCH'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -815,7 +815,7 @@ export default function PublicToolsClient({
             </button>
             <button
               onClick={() => handleSelectTool('CANDLE')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === 'CANDLE'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -826,7 +826,7 @@ export default function PublicToolsClient({
             </button>
             <button
               onClick={() => handleSelectTool('LASER_CUT')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === 'LASER_CUT'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -837,7 +837,7 @@ export default function PublicToolsClient({
             </button>
             <button
               onClick={() => handleSelectTool('ELECTRONICS')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === 'ELECTRONICS'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -848,7 +848,7 @@ export default function PublicToolsClient({
             </button>
             <button
               onClick={() => handleSelectTool('SILICONE')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === 'SILICONE'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -859,7 +859,7 @@ export default function PublicToolsClient({
             </button>
             <button
               onClick={() => handleSelectTool('WOODWORKING')}
-              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-2 px-3.5 sm:px-5 py-2.5 rounded-xl text-xs font-bold transition min-h-[44px] touch-manipulation active:scale-95 ${
                 activeTool === 'WOODWORKING'
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                   : 'text-slate-400 hover:text-white'
@@ -942,6 +942,7 @@ export default function PublicToolsClient({
                       <label className="block text-[11px] font-semibold text-slate-400 mb-1">Length (cm)</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         min="0.1"
                         step="0.5"
                         value={moldLength}
@@ -953,6 +954,7 @@ export default function PublicToolsClient({
                       <label className="block text-[11px] font-semibold text-slate-400 mb-1">Width (cm)</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         min="0.1"
                         step="0.5"
                         value={moldWidth}
@@ -964,6 +966,7 @@ export default function PublicToolsClient({
                       <label className="block text-[11px] font-semibold text-slate-400 mb-1">Depth / Height (cm)</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         min="0.1"
                         step="0.5"
                         value={moldHeight}
@@ -978,6 +981,7 @@ export default function PublicToolsClient({
                       <label className="block text-[11px] font-semibold text-slate-400 mb-1">Diameter (cm)</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         min="0.1"
                         step="0.5"
                         value={moldDiameter}
@@ -989,6 +993,7 @@ export default function PublicToolsClient({
                       <label className="block text-[11px] font-semibold text-slate-400 mb-1">Depth / Height (cm)</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         min="0.1"
                         step="0.5"
                         value={moldHeight}
@@ -1059,7 +1064,7 @@ export default function PublicToolsClient({
               </div>
 
               {/* Save Recipe CTA */}
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
                 <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
                   <Info className="w-3.5 h-3.5" />
                   <span>Stir slowly for 3 minutes scraping side walls to prevent tacky uncured resin.</span>
@@ -1067,7 +1072,7 @@ export default function PublicToolsClient({
                 <button
                   onClick={() => handleSaveFormula('RESIN')}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -1167,7 +1172,7 @@ export default function PublicToolsClient({
                 <button
                   onClick={() => handleSaveFormula('PERFUME')}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -1191,6 +1196,7 @@ export default function PublicToolsClient({
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">Part Sliced Weight (grams)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="1"
                     value={partWeightG}
                     onChange={(e) => setPartWeightG(Math.max(1, parseFloat(e.target.value) || 0))}
@@ -1201,6 +1207,7 @@ export default function PublicToolsClient({
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">Spool Cost (₪ or $ per kg)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="1"
                     value={spoolCost}
                     onChange={(e) => setSpoolCost(Math.max(1, parseFloat(e.target.value) || 0))}
@@ -1214,6 +1221,7 @@ export default function PublicToolsClient({
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">Print Hours</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     value={printHours}
                     onChange={(e) => setPrintHours(Math.max(0, parseInt(e.target.value, 10) || 0))}
@@ -1224,6 +1232,7 @@ export default function PublicToolsClient({
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">Print Minutes</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     max="59"
                     value={printMinutes}
@@ -1235,6 +1244,7 @@ export default function PublicToolsClient({
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">Machine Power (W)</label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="20"
                     value={printerWatts}
                     onChange={(e) => setPrinterWatts(Math.max(20, parseInt(e.target.value, 10) || 150))}
@@ -1256,7 +1266,7 @@ export default function PublicToolsClient({
                   step="5"
                   value={targetMarginPct}
                   onChange={(e) => setTargetMarginPct(parseInt(e.target.value, 10))}
-                  className="w-full h-2 rounded-lg bg-slate-800 accent-blue-600 cursor-pointer"
+                  className="w-full h-2 rounded-lg bg-slate-800 accent-blue-600 cursor-pointer touch-manipulation py-2"
                 />
               </div>
 
@@ -1307,7 +1317,7 @@ export default function PublicToolsClient({
                 <button
                   onClick={() => handleSaveFormula('3D_PRINT')}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -1344,6 +1354,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="1"
                     value={stitchWidth}
                     onChange={(e) => setStitchWidth(Math.max(1, parseInt(e.target.value, 10) || 0))}
@@ -1356,6 +1367,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="1"
                     value={stitchHeight}
                     onChange={(e) => setStitchHeight(Math.max(1, parseInt(e.target.value, 10) || 0))}
@@ -1395,6 +1407,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     step="0.5"
                     value={stitchBorderMarginCm}
@@ -1469,7 +1482,7 @@ export default function PublicToolsClient({
                 <button
                   onClick={() => handleSaveFormula('CROSS_STITCH')}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -1534,6 +1547,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="10"
                     value={candleWaterWeight}
                     onChange={(e) => setCandleWaterWeight(Math.max(1, parseFloat(e.target.value) || 0))}
@@ -1546,6 +1560,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="1"
                     value={candleUnits}
                     onChange={(e) => setCandleUnits(Math.max(1, parseInt(e.target.value, 10) || 0))}
@@ -1564,7 +1579,7 @@ export default function PublicToolsClient({
                     step="0.5"
                     value={candleFragrancePct}
                     onChange={(e) => setCandleFragrancePct(parseFloat(e.target.value) || 8)}
-                    className="w-full accent-amber-500 mt-2"
+                    className="w-full accent-amber-500 mt-2 touch-manipulation py-2 cursor-pointer"
                   />
                 </div>
               </div>
@@ -1577,6 +1592,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     value={candleWaxPricePerKg}
                     onChange={(e) => setCandleWaxPricePerKg(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -1589,6 +1605,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     value={candleFragrancePricePer100g}
                     onChange={(e) => setCandleFragrancePricePer100g(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -1601,6 +1618,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     value={candlePackagingPerUnit}
                     onChange={(e) => setCandlePackagingPerUnit(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -1653,7 +1671,7 @@ export default function PublicToolsClient({
                 <button
                   onClick={() => handleSaveFormula('CANDLE')}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-amber-600 hover:bg-amber-700 transition flex items-center gap-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-amber-600 hover:bg-amber-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -1691,6 +1709,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="10"
                     value={laserSheetWidthMm}
                     onChange={(e) => setLaserSheetWidthMm(Math.max(10, parseInt(e.target.value) || 0))}
@@ -1703,6 +1722,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="10"
                     value={laserSheetHeightMm}
                     onChange={(e) => setLaserSheetHeightMm(Math.max(10, parseInt(e.target.value) || 0))}
@@ -1715,6 +1735,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     step="0.5"
                     value={laserSheetCost}
@@ -1728,6 +1749,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     step="0.1"
                     value={laserKerfMm}
@@ -1743,6 +1765,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="5"
                     value={laserPartWidthMm}
                     onChange={(e) => setLaserPartWidthMm(Math.max(5, parseInt(e.target.value) || 0))}
@@ -1755,6 +1778,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="5"
                     value={laserPartHeightMm}
                     onChange={(e) => setLaserPartHeightMm(Math.max(5, parseInt(e.target.value) || 0))}
@@ -1769,6 +1793,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="1"
                     value={laserCutMinutes}
                     onChange={(e) => setLaserCutMinutes(Math.max(1, parseInt(e.target.value) || 0))}
@@ -1781,6 +1806,7 @@ export default function PublicToolsClient({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     value={laserHourlyRate}
                     onChange={(e) => setLaserHourlyRate(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -1869,7 +1895,7 @@ export default function PublicToolsClient({
                 <button
                   onClick={() => handleSaveFormula('LASER_CUT')}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-cyan-600 hover:bg-cyan-700 transition flex items-center gap-1.5 shadow-md shadow-cyan-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-cyan-600 hover:bg-cyan-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -1947,6 +1973,7 @@ export default function PublicToolsClient({
                       </div>
                       <input
                         type="number"
+                        inputMode="decimal"
                         step="0.1"
                         min="1"
                         value={elecSupplyV}
@@ -2020,6 +2047,7 @@ export default function PublicToolsClient({
                         </div>
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="1"
                           min="1"
                           max="1000"
@@ -2154,6 +2182,7 @@ export default function PublicToolsClient({
                         </div>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="10"
                           value={elecBatteryMah}
                           onChange={(e) => setElecBatteryMah(Math.max(10, parseInt(e.target.value) || 0))}
@@ -2184,6 +2213,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.1"
                           min="0.5"
                           value={elecBatteryV}
@@ -2212,6 +2242,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="1"
                           value={elecLoadCurrentMa}
                           onChange={(e) => setElecLoadCurrentMa(Math.max(1, parseInt(e.target.value) || 0))}
@@ -2225,6 +2256,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="10"
                           max="100"
                           value={elecEfficiencyPct}
@@ -2272,7 +2304,7 @@ export default function PublicToolsClient({
                 <button
                   onClick={() => handleSaveFormula('ELECTRONICS')}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -2340,6 +2372,7 @@ export default function PublicToolsClient({
                           </label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             min="10"
                             value={siliconeBoxLengthMm}
                             onChange={(e) => setSiliconeBoxLengthMm(Math.max(1, parseFloat(e.target.value) || 0))}
@@ -2352,6 +2385,7 @@ export default function PublicToolsClient({
                           </label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             min="10"
                             value={siliconeBoxWidthMm}
                             onChange={(e) => setSiliconeBoxWidthMm(Math.max(1, parseFloat(e.target.value) || 0))}
@@ -2364,6 +2398,7 @@ export default function PublicToolsClient({
                           </label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             min="10"
                             value={siliconeBoxHeightMm}
                             onChange={(e) => setSiliconeBoxHeightMm(Math.max(1, parseFloat(e.target.value) || 0))}
@@ -2379,6 +2414,7 @@ export default function PublicToolsClient({
                           </label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             min="10"
                             value={siliconeBoxDiameterMm}
                             onChange={(e) => setSiliconeBoxDiameterMm(Math.max(1, parseFloat(e.target.value) || 0))}
@@ -2391,6 +2427,7 @@ export default function PublicToolsClient({
                           </label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             min="10"
                             value={siliconeBoxHeightMm}
                             onChange={(e) => setSiliconeBoxHeightMm(Math.max(1, parseFloat(e.target.value) || 0))}
@@ -2445,6 +2482,7 @@ export default function PublicToolsClient({
                             </label>
                             <input
                               type="number"
+                              inputMode="decimal"
                               min="0"
                               step="0.1"
                               value={siliconeMasterWeightG}
@@ -2458,6 +2496,7 @@ export default function PublicToolsClient({
                             </label>
                             <input
                               type="number"
+                              inputMode="decimal"
                               step="0.01"
                               min="0.1"
                               value={siliconeMasterDensity}
@@ -2494,6 +2533,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0"
                           step="0.1"
                           value={siliconeMasterVolumeCm3}
@@ -2532,6 +2572,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.01"
                           min="0.8"
                           max="1.5"
@@ -2546,6 +2587,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0"
                           max="30"
                           value={siliconeMarginPct}
@@ -2559,6 +2601,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0"
                           step="1"
                           value={siliconeCostPerKg}
@@ -2641,7 +2684,7 @@ export default function PublicToolsClient({
                 <button
                   onClick={() => handleSaveFormula('SILICONE')}
                   disabled={saving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                  className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                 >
                   {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                   <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -2708,6 +2751,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="1"
                           step="any"
                           value={woodStockLength}
@@ -2722,6 +2766,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0.1"
                           step="any"
                           value={woodStockWidth}
@@ -2736,6 +2781,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0.1"
                           step="any"
                           value={woodStockThickness}
@@ -2750,6 +2796,7 @@ export default function PublicToolsClient({
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0"
                           step="any"
                           value={woodKerf}
@@ -2766,6 +2813,7 @@ export default function PublicToolsClient({
                           <span className="text-slate-500 font-bold">$</span>
                           <input
                             type="number"
+                            inputMode="decimal"
                             min="0"
                             step="any"
                             value={woodBoardPrice}
@@ -2822,6 +2870,7 @@ export default function PublicToolsClient({
                           <div className="flex items-center gap-1 shrink-0 w-28">
                             <input
                               type="number"
+                              inputMode="decimal"
                               min="1"
                               step="any"
                               value={piece.length}
@@ -2835,6 +2884,7 @@ export default function PublicToolsClient({
                             <span className="text-[11px] text-slate-400">x</span>
                             <input
                               type="number"
+                              inputMode="decimal"
                               min="1"
                               value={piece.quantity}
                               onChange={(e) => handleUpdateWoodCutPiece(piece.id, 'quantity', Math.max(1, parseInt(e.target.value, 10) || 1))}
@@ -2976,7 +3026,7 @@ export default function PublicToolsClient({
                     <button
                       onClick={() => handleSaveFormula('WOODWORKING')}
                       disabled={saving}
-                      className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50"
+                      className="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 disabled:opacity-50 touch-manipulation active:scale-95 shrink-0"
                     >
                       {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                       <span>{currentUser ? 'Save as Formula' : 'Save Recipe (Join Free)'}</span>
@@ -3098,7 +3148,7 @@ export default function PublicToolsClient({
       {/* ==================================================================== */}
       {/* 7. FOOTER                                                            */}
       {/* ==================================================================== */}
-      <footer className="border-t border-slate-900 py-10 px-4 sm:px-6 lg:px-8 bg-slate-950 text-xs text-slate-500 mt-auto">
+      <footer className="border-t border-slate-900 py-10 pb-28 sm:pb-12 px-4 sm:px-6 lg:px-8 bg-slate-950 text-xs text-slate-500 mt-auto safe-bottom">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-xs">

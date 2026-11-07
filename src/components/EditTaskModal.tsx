@@ -589,17 +589,17 @@ export default function EditTaskModal({
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation active:scale-95"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Workshop Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pt-2 pb-2">
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pt-2 pb-2">
             <button
               onClick={() => setActiveTab('details')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition min-h-[42px] touch-manipulation active:scale-95 ${
                 activeTab === 'details'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -613,7 +613,7 @@ export default function EditTaskModal({
               <>
                 <button
                   onClick={() => setActiveTab('discussion')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition min-h-[42px] touch-manipulation active:scale-95 ${
                     activeTab === 'discussion'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -625,7 +625,7 @@ export default function EditTaskModal({
 
                 <button
                   onClick={() => setActiveTab('attachments')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition min-h-[42px] touch-manipulation active:scale-95 ${
                     activeTab === 'attachments'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -637,7 +637,7 @@ export default function EditTaskModal({
 
                 <button
                   onClick={() => setActiveTab('materials')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition min-h-[42px] touch-manipulation active:scale-95 ${
                     activeTab === 'materials'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -976,7 +976,7 @@ export default function EditTaskModal({
                         }
                       }}
                       placeholder="Add subtask checklist item..."
-                      className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs"
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs min-h-[42px]"
                     />
                     <button
                       type="button"
@@ -989,7 +989,7 @@ export default function EditTaskModal({
                           setNewSubtaskTitle('');
                         }
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 hover:text-blue-600 text-xs font-semibold"
+                      className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 hover:text-blue-600 text-xs font-semibold min-h-[42px] touch-manipulation active:scale-95 shrink-0"
                     >
                       + Add
                     </button>
@@ -997,7 +997,7 @@ export default function EditTaskModal({
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
                   {isReadOnly ? (
                     <>
                       <span className="text-xs font-semibold text-slate-400">
@@ -1006,7 +1006,7 @@ export default function EditTaskModal({
                       <button
                         type="button"
                         onClick={onClose}
-                        className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition"
+                        className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition min-h-[44px] touch-manipulation active:scale-95"
                       >
                         Close
                       </button>
@@ -1016,7 +1016,7 @@ export default function EditTaskModal({
                       <button
                         type="button"
                         onClick={handleDeleteTask}
-                        className="px-3.5 py-2 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition"
+                        className="px-3.5 py-2.5 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center gap-1.5 transition min-h-[44px] touch-manipulation active:scale-95"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Delete Task</span>
@@ -1026,14 +1026,14 @@ export default function EditTaskModal({
                         <button
                           type="button"
                           onClick={onClose}
-                          className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 min-h-[44px] touch-manipulation active:scale-95"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={saving}
-                          className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 disabled:opacity-50 transition flex items-center gap-1.5"
+                          className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-500/20 disabled:opacity-50 transition flex items-center gap-1.5 min-h-[44px] touch-manipulation active:scale-95"
                         >
                           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                           <span>Save Changes</span>
@@ -1298,7 +1298,7 @@ export default function EditTaskModal({
                     <button
                       type="submit"
                       disabled={postingComment || !newComment.trim()}
-                      className="px-4 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition flex items-center gap-1.5 self-end py-2.5 shadow-sm shadow-blue-500/20"
+                      className="px-4 rounded-xl font-bold text-xs text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center gap-1.5 self-end py-2.5 shadow-sm shadow-blue-500/20 min-h-[44px] touch-manipulation active:scale-95 shrink-0"
                     >
                       {postingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                       <span>{replyingToComment ? 'Reply' : 'Post'}</span>
@@ -1490,6 +1490,7 @@ export default function EditTaskModal({
                           step="any"
                           min="0.01"
                           required
+                          inputMode="decimal"
                           value={quantityRequired}
                           onChange={(e) => setQuantityRequired(e.target.value)}
                           className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
@@ -1500,7 +1501,7 @@ export default function EditTaskModal({
                         <button
                           type="submit"
                           disabled={addingMaterial}
-                          className="w-full px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-1"
+                          className="w-full px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-1 min-h-[44px] touch-manipulation active:scale-95"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Attach</span>

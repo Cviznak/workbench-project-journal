@@ -1004,7 +1004,7 @@ export default function InventoryClient({
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-20">
+    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-28 sm:pb-20">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-medium animate-in fade-in slide-in-from-bottom-3 duration-200 border border-slate-700/50">
@@ -1334,7 +1334,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('ALL')}
                 className={cn(
-                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition',
+                  'min-h-[42px] px-3.5 py-2 rounded-2xl text-xs font-bold transition touch-manipulation active:scale-95',
                   activeTab === 'ALL'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1345,7 +1345,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('MATERIAL')}
                 className={cn(
-                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition',
+                  'min-h-[42px] px-3.5 py-2 rounded-2xl text-xs font-bold transition touch-manipulation active:scale-95',
                   activeTab === 'MATERIAL'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1356,7 +1356,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('EQUIPMENT')}
                 className={cn(
-                  'px-3.5 py-2 rounded-2xl text-xs font-bold transition',
+                  'min-h-[42px] px-3.5 py-2 rounded-2xl text-xs font-bold transition touch-manipulation active:scale-95',
                   activeTab === 'EQUIPMENT'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1367,7 +1367,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('FINISHED_GOOD')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition',
+                  'min-h-[42px] flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition touch-manipulation active:scale-95',
                   activeTab === 'FINISHED_GOOD'
                     ? 'bg-amber-600 text-white shadow-md shadow-amber-500/20'
                     : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50'
@@ -1382,7 +1382,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('RECIPES')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition',
+                  'min-h-[42px] flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition touch-manipulation active:scale-95',
                   activeTab === 'RECIPES'
                     ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
                     : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
@@ -1397,7 +1397,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('CART')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition',
+                  'min-h-[42px] flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition touch-manipulation active:scale-95',
                   activeTab === 'CART'
                     ? 'bg-purple-600 text-white shadow-md shadow-purple-500/20'
                     : 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50'
@@ -1412,7 +1412,7 @@ export default function InventoryClient({
               <button
                 onClick={() => setActiveTab('CALCULATORS')}
                 className={cn(
-                  'flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition',
+                  'min-h-[42px] flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-bold transition touch-manipulation active:scale-95',
                   activeTab === 'CALCULATORS'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
                     : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50'
@@ -2063,7 +2063,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('RESIN')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === 'RESIN'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -2074,7 +2074,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('PERFUME')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === 'PERFUME'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -2085,7 +2085,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('3D_PRINT')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === '3D_PRINT'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -2096,7 +2096,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('CROSS_STITCH')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === 'CROSS_STITCH'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -2107,7 +2107,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('CANDLE')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === 'CANDLE'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -2118,7 +2118,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('LASER_CUT')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === 'LASER_CUT'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -2129,7 +2129,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('ELECTRONICS')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === 'ELECTRONICS'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -2140,7 +2140,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('SILICONE')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === 'SILICONE'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -2151,7 +2151,7 @@ export default function InventoryClient({
                   <button
                     onClick={() => setCalcActiveTool('WOODWORKING')}
                     className={cn(
-                      'px-3.5 py-1.5 rounded-xl transition',
+                      'min-h-[40px] px-3.5 py-2 rounded-xl transition touch-manipulation active:scale-95',
                       calcActiveTool === 'WOODWORKING'
                         ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
@@ -5108,19 +5108,22 @@ export default function InventoryClient({
                             )}
                           </div>
 
-                          <div className="flex items-center justify-between gap-3">
-                            {/* Stepper Controls */}
-                            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-2xl p-1">
+                          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 pt-1">
+                            {/* Touch-Friendly Stepper Controls */}
+                            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 rounded-2xl p-1 shadow-inner">
                               <button
+                                type="button"
                                 onClick={() => adjustStock(item, -1)}
-                                className="w-8 h-8 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 shadow-sm transition active:scale-95"
+                                className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 shadow-sm transition active:scale-95 touch-manipulation"
                                 title="Decrease Stock"
+                                aria-label="Decrease quantity"
                               >
-                                <Minus className="w-3.5 h-3.5" />
+                                <Minus className="w-4 h-4" />
                               </button>
                               <div className="flex items-center px-2">
                                 <input
                                   type="number"
+                                  inputMode="decimal"
                                   step="any"
                                   min="0"
                                   value={item.quantity}
@@ -5134,32 +5137,35 @@ export default function InventoryClient({
                                 </span>
                               </div>
                               <button
+                                type="button"
                                 onClick={() => adjustStock(item, 1)}
-                                className="w-8 h-8 rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 shadow-sm transition active:scale-95"
+                                className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-white dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 shadow-sm transition active:scale-95 touch-manipulation"
                                 title="Increase Stock"
+                                aria-label="Increase quantity"
                               >
-                                <Plus className="w-3.5 h-3.5" />
+                                <Plus className="w-4 h-4" />
                               </button>
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {/* Amazon Affiliate Quick Search */}
                               <a
                                 href={`https://www.amazon.com/s?k=${encodeURIComponent(item.search_keyword || item.name)}&tag=pixelcraft05a-20`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2.5 py-2 rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-300 dark:border-amber-700/60 hover:bg-amber-500/25 transition shadow-sm"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-300 dark:border-amber-700/60 hover:bg-amber-500/25 transition shadow-sm touch-manipulation"
                                 title="Search & Restock on Amazon"
                               >
                                 <span>Amazon</span>
-                                <ExternalLink className="w-3 h-3" />
+                                <ExternalLink className="w-3.5 h-3.5" />
                               </a>
 
                               {/* Cart Toggle Button */}
                               <button
+                                type="button"
                                 onClick={() => toggleCart(item)}
                                 className={cn(
-                                  'flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition shadow-sm',
+                                  'flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-2xl text-xs font-bold transition shadow-sm touch-manipulation active:scale-95',
                                   item.in_restock_cart
                                     ? 'bg-purple-600 text-white hover:bg-purple-500 shadow-purple-500/20'
                                     : isLowStock
@@ -5845,9 +5851,9 @@ export default function InventoryClient({
               <button
                 type="button"
                 onClick={() => setHistoryModalItem(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -5934,7 +5940,7 @@ export default function InventoryClient({
               <button
                 type="button"
                 onClick={() => setHistoryModalItem(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
               >
                 Close Ledger
               </button>
@@ -6141,15 +6147,19 @@ function BulkAddModal({ isOpen, onClose, folders, userId, defaultCurrency = 'USD
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-5 sm:p-6 shadow-2xl max-h-[90vh] overscroll-contain flex flex-col">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
             <FileSpreadsheet className="w-5 h-5 text-blue-600" />
             <span>Quick Bulk Add Items</span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-600">
-            <X className="w-4 h-4" />
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -6294,11 +6304,11 @@ function BulkAddModal({ isOpen, onClose, folders, userId, defaultCurrency = 'USD
         </div>
 
         {/* Footer Actions */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="min-h-[44px] px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
           >
             Cancel
           </button>
@@ -6306,7 +6316,7 @@ function BulkAddModal({ isOpen, onClose, folders, userId, defaultCurrency = 'USD
             type="button"
             disabled={itemsToImport.length === 0 || importing}
             onClick={handleImport}
-            className="px-5 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+            className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs shadow-md transition disabled:opacity-50 touch-manipulation"
           >
             {importing ? 'Importing...' : `Import All ${itemsToImport.length} Items`}
           </button>
@@ -6594,14 +6604,18 @@ function RecipeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl p-5 sm:p-6 shadow-2xl max-h-[92vh] overflow-y-auto overscroll-contain">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
             <FlaskConical className="w-5 h-5 text-emerald-500" />
             <span>{recipe ? 'Edit Formula / Recipe' : 'New Workshop Formula'}</span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-600">
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -6859,9 +6873,10 @@ function RecipeModal({
                         ))}
                       </select>
 
-                      <div className="flex items-center gap-1 w-28">
+                      <div className="flex items-center gap-1 w-28 shrink-0">
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="any"
                           min="0.01"
                           required
@@ -6869,7 +6884,7 @@ function RecipeModal({
                           onChange={(e) =>
                             updateIngredient(idx, 'quantity_required', parseFloat(e.target.value) || 0)
                           }
-                          className="w-16 px-2 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-center text-slate-900 dark:text-white"
+                          className="w-16 px-2 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-center text-slate-900 dark:text-white"
                         />
                         <span className="text-[11px] text-slate-400 font-medium">
                           {selectedItem?.unit || ''}
@@ -6879,7 +6894,8 @@ function RecipeModal({
                       <button
                         type="button"
                         onClick={() => removeIngredientRow(idx)}
-                        className="p-1.5 text-slate-400 hover:text-red-500"
+                        className="w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition touch-manipulation shrink-0"
+                        title="Remove ingredient"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -6988,18 +7004,18 @@ function RecipeModal({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="min-h-[44px] px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+              className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs shadow-md transition disabled:opacity-50 touch-manipulation"
             >
               {loading ? 'Saving...' : recipe ? 'Update Formula' : 'Save Formula'}
             </button>
@@ -7169,8 +7185,8 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-xl p-5 sm:p-6 shadow-2xl overflow-y-auto max-h-[90vh] overscroll-contain">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-lg">
             <Package className="w-5 h-5 text-blue-600" />
@@ -7178,7 +7194,8 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            type="button"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
           >
             <X className="w-5 h-5" />
           </button>
@@ -7302,19 +7319,20 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
           </div>
 
           {/* Quantity, Unit & Alert Threshold */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Current Quantity
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="any"
                 min="0"
                 required
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white text-center"
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white text-center"
               />
             </div>
 
@@ -7327,7 +7345,7 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
                 list="unit-options"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white text-center"
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white text-center"
               />
               <datalist id="unit-options">
                 {COMMON_UNITS.map((u) => (
@@ -7342,18 +7360,19 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="any"
                 min="0"
                 value={lowStockThreshold}
                 onChange={(e) => setLowStockThreshold(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-amber-600 dark:text-amber-400 text-center"
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-amber-600 dark:text-amber-400 text-center"
               />
             </div>
           </div>
 
           {/* Unit Price & Currency */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 {itemType === 'FINISHED_GOOD'
                   ? 'Unit Production Cost / COGS'
@@ -7363,11 +7382,12 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
               </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step="any"
                 min="0"
                 value={unitPrice}
                 onChange={(e) => setUnitPrice(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white"
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white"
               />
             </div>
 
@@ -7378,7 +7398,7 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as Currency)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
               >
                 <option value="USD">$ USD</option>
                 <option value="EUR">€ EUR</option>
@@ -7477,14 +7497,14 @@ function ItemModal({ isOpen, onClose, item, folders, userId, defaultCurrency = '
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="min-h-[44px] px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+              className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs shadow-md transition disabled:opacity-50 touch-manipulation"
             >
               {loading ? 'Saving...' : item ? 'Update Item' : 'Add to Inventory'}
             </button>
@@ -7565,7 +7585,8 @@ function FolderModal({ isOpen, onClose, folder, userId, onSaved }: FolderModalPr
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            type="button"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
           >
             <X className="w-5 h-5" />
           </button>
@@ -7597,29 +7618,29 @@ function FolderModal({ isOpen, onClose, folder, userId, onSaved }: FolderModalPr
                   type="button"
                   onClick={() => setColor(c)}
                   className={cn(
-                    'w-7 h-7 rounded-full transition transform active:scale-90 flex items-center justify-center',
+                    'w-9 h-9 min-w-[36px] min-h-[36px] rounded-full transition transform active:scale-90 flex items-center justify-center touch-manipulation',
                     color === c ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : ''
                   )}
                   style={{ backgroundColor: c }}
                 >
-                  {color === c && <Check className="w-3.5 h-3.5 text-white" />}
+                  {color === c && <Check className="w-4 h-4 text-white" />}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              className="min-h-[44px] px-5 py-2.5 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-5 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md transition disabled:opacity-50"
+              className="min-h-[44px] px-6 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs shadow-md transition disabled:opacity-50 touch-manipulation"
             >
               {loading ? 'Saving...' : folder ? 'Update' : 'Create Folder'}
             </button>
@@ -7815,8 +7836,12 @@ function CsvImportModal({
             <Upload className="w-5 h-5 text-blue-600" />
             <span>Universal Inventory CSV Importer</span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-600">
-            <X className="w-4 h-4" />
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -7983,11 +8008,11 @@ function CsvImportModal({
           <span className="text-xs text-slate-400 font-medium">
             {parsedRows.length > 0 ? `${parsedRows.length} items queued` : 'Paste CSV or pick a file'}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="min-h-[44px] px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
             >
               Cancel
             </button>
@@ -7995,7 +8020,7 @@ function CsvImportModal({
               type="button"
               disabled={isImporting || parsedRows.length === 0}
               onClick={handleImportSubmit}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md disabled:opacity-50 transition"
+              className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs shadow-md disabled:opacity-50 transition touch-manipulation"
             >
               {isImporting ? (
                 <>
@@ -8122,8 +8147,12 @@ function EquipmentLogModal({
             <Wrench className="w-5 h-5 text-amber-500" />
             <span>Equipment Maintenance Logbook: {item.name}</span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-slate-600">
-            <X className="w-4 h-4" />
+          <button
+            onClick={onClose}
+            type="button"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -8228,7 +8257,7 @@ function EquipmentLogModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
+                className="min-h-[44px] flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-bold text-xs shadow-sm transition disabled:opacity-50 touch-manipulation"
               >
                 {isSubmitting ? (
                   <>
@@ -8301,7 +8330,7 @@ function EquipmentLogModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="min-h-[44px] px-5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation"
           >
             Close Logbook
           </button>

@@ -141,7 +141,7 @@ export default async function DashboardPage() {
   const streakDays = calculateStreak((userLogs || []).map((l: any) => l.created_at));
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200 min-w-0 max-w-full overflow-x-hidden">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-200 min-w-0 max-w-full overflow-x-hidden pb-28 lg:pb-12">
       {/* Header Welcome */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -163,13 +163,13 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-2.5 flex-wrap">
           <Link
             href="/workspace"
-            className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-sm"
+            className="px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition shadow-sm min-h-[44px] inline-flex items-center touch-manipulation active:scale-95"
           >
             💡 Ideas &amp; Notes
           </Link>
           <Link
             href="/projects"
-            className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm shadow-blue-500/20"
+            className="px-3.5 sm:px-4 py-2.5 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm shadow-blue-500/20 min-h-[44px] inline-flex items-center touch-manipulation active:scale-95"
           >
             ＋ View Projects
           </Link>

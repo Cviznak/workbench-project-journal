@@ -659,7 +659,7 @@ export default function CommunityFeedClient({
   });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-20">
+    <div className="max-w-4xl mx-auto space-y-6 pb-28 lg:pb-12">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
@@ -691,7 +691,7 @@ export default function CommunityFeedClient({
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Link
             href="/makers"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm transition"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-850 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm transition touch-manipulation"
           >
             <Trophy className="w-3.5 h-3.5 text-amber-500" />
             <span>Discover Makers</span>
@@ -700,7 +700,7 @@ export default function CommunityFeedClient({
           {currentProfile?.username && (
             <Link
               href={`/makers/${currentProfile.username}`}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition touch-manipulation"
             >
               <span>My Public Profile</span>
               <ExternalLink className="w-3.5 h-3.5 opacity-60" />
@@ -711,11 +711,12 @@ export default function CommunityFeedClient({
 
       {/* Top Marketplace & Community Tabs */}
       {!singlePostMode && (
-        <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80">
           <button
+            type="button"
             onClick={() => setCommunityView('FEED')}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition",
+              "flex-1 min-h-[44px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition touch-manipulation active:scale-95",
               communityView === 'FEED'
                 ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -726,9 +727,10 @@ export default function CommunityFeedClient({
           </button>
 
           <button
+            type="button"
             onClick={() => setCommunityView('FORMULAS')}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition",
+              "flex-1 min-h-[44px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition touch-manipulation active:scale-95",
               communityView === 'FORMULAS'
                 ? "bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -742,9 +744,10 @@ export default function CommunityFeedClient({
           </button>
 
           <button
+            type="button"
             onClick={() => setCommunityView('SHOWCASES')}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition",
+              "flex-1 min-h-[44px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition touch-manipulation active:scale-95",
               communityView === 'SHOWCASES'
                 ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -1164,14 +1167,15 @@ export default function CommunityFeedClient({
                   </div>
                 )}
 
-                {/* Post Action Bar (Likes, Comments) */}
-                <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-4">
+                {/* Post Action Bar (Likes, Comments, Share) */}
+                <div className="px-4 sm:px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 sm:gap-4">
                     {/* Like Button */}
                     <button
+                      type="button"
                       onClick={() => handleToggleLike(post.id)}
                       className={cn(
-                        'flex items-center gap-1.5 font-bold transition px-2.5 py-1.5 rounded-xl',
+                        'min-h-[44px] flex items-center gap-2 font-bold transition px-3 sm:px-3.5 py-2 rounded-xl touch-manipulation active:scale-95',
                         isLiked
                           ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10'
                           : 'text-slate-500 dark:text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -1185,23 +1189,25 @@ export default function CommunityFeedClient({
 
                     {/* Comment Button */}
                     <button
+                      type="button"
                       onClick={() => handleToggleComments(post.id)}
                       className={cn(
-                        'flex items-center gap-1.5 font-semibold transition px-2.5 py-1.5 rounded-xl',
+                        'min-h-[44px] flex items-center gap-2 font-semibold transition px-3 sm:px-3.5 py-2 rounded-xl touch-manipulation active:scale-95',
                         commentsOpen
                           ? 'text-blue-600 dark:text-blue-400 bg-blue-500/10'
                           : 'text-slate-500 dark:text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800'
                       )}
                     >
                       <MessageSquare className="w-4 h-4" />
-                      <span>{post.comments_count || 0} Comments</span>
+                      <span>{post.comments_count || 0} <span className="hidden sm:inline">Comments</span></span>
                     </button>
                   </div>
 
                   {/* Share Post Permalink Button */}
                   <button
+                    type="button"
                     onClick={() => handleSharePost(post.id)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    className="min-h-[44px] flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition touch-manipulation active:scale-95"
                     title="Share post permalink"
                   >
                     <Share2 className="w-4 h-4" />
@@ -1663,10 +1669,11 @@ export default function CommunityFeedClient({
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => handleCloneRecipe(recipe.id)}
                       disabled={cloningRecipeId === recipe.id || clonedRecipeIds.has(recipe.id)}
                       className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-sm",
+                        "min-h-[44px] flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm touch-manipulation active:scale-95",
                         clonedRecipeIds.has(recipe.id)
                           ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 cursor-default"
                           : "bg-purple-600 hover:bg-purple-700 text-white shadow-purple-500/20 disabled:opacity-50"

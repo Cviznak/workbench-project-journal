@@ -142,6 +142,9 @@ export default function KanbanBoardClient({
   const [logWorkNote, setLogWorkNote] = useState('');
   const [loggingWork, setLoggingWork] = useState(false);
 
+  // Mobile / Tablet touch column filter view ('ALL' or specific column)
+  const [mobileColumnFilter, setMobileColumnFilter] = useState<'ALL' | TaskStatus>('ALL');
+
   // Project completion state
   const [completingProj, setCompletingProj] = useState(false);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
@@ -677,7 +680,7 @@ export default function KanbanBoardClient({
   }, [filteredTasks, tasks]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200 min-w-0 max-w-full overflow-x-hidden">
+    <div className="space-y-6 animate-in fade-in duration-200 min-w-0 max-w-full overflow-x-hidden pb-28 lg:pb-12">
       {/* Public Showcase Banner (Read-Only Mode) */}
       {isPublicShowcase && (
         <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-purple-600/10 border border-blue-500/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
@@ -1555,7 +1558,7 @@ export default function KanbanBoardClient({
                               </div>
 
                               {!isPublicShowcase && !isDone && (
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -1567,7 +1570,7 @@ export default function KanbanBoardClient({
                                       }
                                     }}
                                     className={cn(
-                                      "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition",
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition touch-manipulation min-h-[40px]",
                                       activeTimerTaskId === task.id
                                         ? "bg-blue-600 text-white animate-pulse"
                                         : "bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
@@ -1576,12 +1579,12 @@ export default function KanbanBoardClient({
                                   >
                                     {activeTimerTaskId === task.id ? (
                                       <>
-                                        <Timer className="w-3 h-3 animate-spin" />
+                                        <Timer className="w-3.5 h-3.5 animate-spin" />
                                         <span>{formatTimerTime(timerSeconds)}</span>
                                       </>
                                     ) : (
                                       <>
-                                        <Play className="w-2.5 h-2.5 fill-current" />
+                                        <Play className="w-3 h-3 fill-current" />
                                         <span>Timer</span>
                                       </>
                                     )}
@@ -1592,52 +1595,52 @@ export default function KanbanBoardClient({
                                       e.stopPropagation();
                                       handleOpenManualLog(task);
                                     }}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                    className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl flex items-center justify-center text-slate-400 hover:text-indigo-600 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition touch-manipulation"
                                     title="Log work session manually (+XP)"
                                   >
-                                    <History className="w-3 h-3" />
+                                    <History className="w-3.5 h-3.5" />
                                   </button>
 
                                   <button
                                     disabled={!isPrereqDone}
-                                  onClick={() => {
-                                    if (!isPrereqDone) return;
-                                    const nextStatus =
-                                      task.status === 'TODO'
-                                        ? 'IN_PROGRESS'
-                                        : task.status === 'IN_PROGRESS'
-                                        ? 'REVIEW'
-                                        : 'DONE';
-                                    handleMoveTask(task.id, nextStatus);
-                                  }}
-                                  className={cn(
-                                    'px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1',
-                                    !isPrereqDone
-                                      ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
-                                      : task.status === 'REVIEW'
-                                      ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
-                                      : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
-                                  )}
-                                >
-                                  {!isPrereqDone ? (
-                                    <>
-                                      <Lock className="w-3 h-3" />
-                                      <span>Locked</span>
-                                    </>
-                                  ) : task.status === 'REVIEW' ? (
-                                    <>
-                                      <Check className="w-3 h-3" />
-                                      <span>Claim XP</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <span>Advance</span>
-                                      <ArrowRight className="w-3 h-3" />
-                                    </>
-                                  )}
-                                </button>
-                              </div>
-                            )}
+                                    onClick={() => {
+                                      if (!isPrereqDone) return;
+                                      const nextStatus =
+                                        task.status === 'TODO'
+                                          ? 'IN_PROGRESS'
+                                          : task.status === 'IN_PROGRESS'
+                                          ? 'REVIEW'
+                                          : 'DONE';
+                                      handleMoveTask(task.id, nextStatus);
+                                    }}
+                                    className={cn(
+                                      'min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 touch-manipulation active:scale-95',
+                                      !isPrereqDone
+                                        ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                        : task.status === 'REVIEW'
+                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-500/20'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-500/20'
+                                    )}
+                                  >
+                                    {!isPrereqDone ? (
+                                      <>
+                                        <Lock className="w-3.5 h-3.5" />
+                                        <span>Locked</span>
+                                      </>
+                                    ) : task.status === 'REVIEW' ? (
+                                      <>
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>Claim XP</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span>Advance</span>
+                                        <ArrowRight className="w-3.5 h-3.5" />
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              )}
                           </div>
                           </div>
                         );
@@ -1657,9 +1660,46 @@ export default function KanbanBoardClient({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 min-w-0">
-        {COLUMNS.map((col) => {
-          const colTasks = filteredTasks.filter((t) => t.status === col.id);
+        <div className="space-y-4">
+          {/* Mobile / Tablet Column Quick Switcher */}
+          <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            <button
+              type="button"
+              onClick={() => setMobileColumnFilter('ALL')}
+              className={cn(
+                "min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition touch-manipulation",
+                mobileColumnFilter === 'ALL'
+                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm"
+                  : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800"
+              )}
+            >
+              All Columns ({filteredTasks.length})
+            </button>
+            {COLUMNS.map((col) => {
+              const count = filteredTasks.filter((t) => t.status === col.id).length;
+              const isSelected = mobileColumnFilter === col.id;
+              return (
+                <button
+                  key={col.id}
+                  type="button"
+                  onClick={() => setMobileColumnFilter(col.id)}
+                  className={cn(
+                    "min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition touch-manipulation flex items-center gap-1.5",
+                    isSelected
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800"
+                  )}
+                >
+                  <div className={`w-2 h-2 rounded-full ${col.color}`} />
+                  <span>{col.label} ({count})</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 min-w-0">
+          {COLUMNS.filter((col) => mobileColumnFilter === 'ALL' || mobileColumnFilter === col.id).map((col) => {
+            const colTasks = filteredTasks.filter((t) => t.status === col.id);
           const isDropTarget = dragOverCol === col.id;
 
           return (
@@ -1899,74 +1939,56 @@ export default function KanbanBoardClient({
                         </button>
                       )}
 
-                      {/* Card Footer: Assignee & Column Mover buttons */}
-                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {task.assignee ? (
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <UserAvatar
-                                src={task.assignee.avatar_url}
-                                name={task.assignee.display_name || task.assignee.username}
-                                size="xs"
-                                shape="circle"
-                              />
-                              <span className="text-slate-700 dark:text-slate-300 font-semibold truncate max-w-[100px]">
-                                @{task.assignee.username}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="italic text-slate-400">Unassigned</span>
-                          )}
+                      {/* Card Footer: Assignee, Work Timer & Touch-Friendly Status Mover */}
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+                        {/* Row 1: Assignee & Work Session Timer Controls */}
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {task.assignee ? (
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <UserAvatar
+                                  src={task.assignee.avatar_url}
+                                  name={task.assignee.display_name || task.assignee.username}
+                                  size="xs"
+                                  shape="circle"
+                                />
+                                <span className="text-slate-700 dark:text-slate-300 font-semibold truncate max-w-[80px] sm:max-w-[110px]">
+                                  @{task.assignee.username}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="italic text-slate-400">Unassigned</span>
+                            )}
 
-                          {/* Comments & Attachments count badges */}
-                          {((task.comments?.[0]?.count ?? 0) > 0 ||
-                            (task.attachments?.[0]?.count ?? 0) > 0 ||
-                            (task.task_materials?.length ?? 0) > 0) && (
-                            <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
-                              {(task.comments?.[0]?.count ?? 0) > 0 && (
-                                <span
-                                  className="inline-flex items-center gap-0.5 hover:text-blue-500 transition"
-                                  title={`${task.comments[0].count} comments`}
-                                >
-                                  <MessageSquare className="w-3 h-3" />
-                                  <span>{task.comments[0].count}</span>
-                                </span>
-                              )}
-                              {(task.attachments?.[0]?.count ?? 0) > 0 && (
-                                <span
-                                  className="inline-flex items-center gap-0.5 hover:text-blue-500 transition"
-                                  title={`${task.attachments[0].count} attachments`}
-                                >
-                                  <Paperclip className="w-3 h-3" />
-                                  <span>{task.attachments[0].count}</span>
-                                </span>
-                              )}
-                              {task.task_materials && task.task_materials.length > 0 && (() => {
-                                const cost = task.task_materials.reduce(
-                                  (acc: number, m: any) =>
-                                    acc +
-                                    (Number(m.quantity_required) || 0) *
-                                      (Number(m.inventory_item?.unit_price) || 0),
-                                  0
-                                );
-                                const curr = task.task_materials[0]?.inventory_item?.currency || 'ILS';
-                                return (
+                            {/* Comments & Attachments count badges */}
+                            {((task.comments?.[0]?.count ?? 0) > 0 ||
+                              (task.attachments?.[0]?.count ?? 0) > 0) && (
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 shrink-0">
+                                {(task.comments?.[0]?.count ?? 0) > 0 && (
                                   <span
-                                    className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-900/40"
-                                    title={`${task.task_materials.length} Materials linked (Est. BOM: ${formatCurrency(cost, curr)})`}
+                                    className="inline-flex items-center gap-0.5 hover:text-blue-500 transition"
+                                    title={`${task.comments[0].count} comments`}
                                   >
-                                    <Boxes className="w-3 h-3" />
-                                    <span>{formatCurrency(cost, curr)}</span>
+                                    <MessageSquare className="w-3 h-3" />
+                                    <span>{task.comments[0].count}</span>
                                   </span>
-                                );
-                              })()}
-                            </div>
-                          )}
-                        </div>
+                                )}
+                                {(task.attachments?.[0]?.count ?? 0) > 0 && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 hover:text-blue-500 transition"
+                                    title={`${task.attachments[0].count} attachments`}
+                                  >
+                                    <Paperclip className="w-3 h-3" />
+                                    <span>{task.attachments[0].count}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
 
-                        <div className="flex items-center gap-1 shrink-0">
+                          {/* Work Session Stopwatch / Timer Controls */}
                           {!isPublicShowcase && col.id !== 'DONE' && (
-                            <>
+                            <div className="flex items-center gap-1 shrink-0">
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -1978,21 +2000,21 @@ export default function KanbanBoardClient({
                                   }
                                 }}
                                 className={cn(
-                                  "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-bold transition",
+                                  "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition touch-manipulation min-h-[36px]",
                                   activeTimerTaskId === task.id
-                                    ? "bg-blue-600 text-white animate-pulse"
+                                    ? "bg-blue-600 text-white animate-pulse shadow-sm shadow-blue-500/30"
                                     : "bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300"
                                 )}
                                 title={activeTimerTaskId === task.id ? "Stopwatch running! Click to log work" : "Start task stopwatch"}
                               >
                                 {activeTimerTaskId === task.id ? (
                                   <>
-                                    <Timer className="w-3 h-3 animate-spin" />
+                                    <Timer className="w-3.5 h-3.5 animate-spin" />
                                     <span>{formatTimerTime(timerSeconds)}</span>
                                   </>
                                 ) : (
                                   <>
-                                    <Play className="w-2.5 h-2.5 fill-current" />
+                                    <Play className="w-3 h-3 fill-current" />
                                     <span>Timer</span>
                                   </>
                                 )}
@@ -2003,84 +2025,142 @@ export default function KanbanBoardClient({
                                   e.stopPropagation();
                                   handleOpenManualLog(task);
                                 }}
-                                className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-xl flex items-center justify-center text-slate-400 hover:text-indigo-600 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition touch-manipulation"
                                 title="Log work session manually (+XP)"
                               >
-                                <History className="w-3 h-3" />
+                                <History className="w-3.5 h-3.5" />
                               </button>
-                            </>
+                            </div>
                           )}
-
-                          {col.id !== 'TODO' && (
-                            <button
-                              onClick={() => {
-                                const prevStatus =
-                                  col.id === 'DONE'
-                                    ? 'REVIEW'
-                                    : col.id === 'REVIEW'
-                                    ? 'IN_PROGRESS'
-                                    : 'TODO';
-                                handleMoveTask(task.id, prevStatus);
-                              }}
-                              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
-                              title="Move back"
-                            >
-                              <ArrowLeft className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-
-                          {col.id !== 'DONE' && (() => {
-                            const prereq = task.prerequisite_task_id
-                              ? tasks.find((t) => t.id === task.prerequisite_task_id)
-                              : null;
-                            const isBlockedFromDone =
-                              col.id === 'REVIEW' && prereq && prereq.status !== 'DONE';
-
-                            return (
-                              <button
-                                disabled={isBlockedFromDone}
-                                onClick={() => {
-                                  if (isBlockedFromDone) return;
-                                  const nextStatus =
-                                    col.id === 'TODO'
-                                      ? 'IN_PROGRESS'
-                                      : col.id === 'IN_PROGRESS'
-                                      ? 'REVIEW'
-                                      : 'DONE';
-                                  handleMoveTask(task.id, nextStatus);
-                                }}
-                                className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
-                                  isBlockedFromDone
-                                    ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400'
-                                    : col.id === 'REVIEW'
-                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                                }`}
-                                title={
-                                  isBlockedFromDone
-                                    ? `Locked: Must complete "${prereq?.title}" first`
-                                    : col.id === 'REVIEW'
-                                    ? 'Claim XP & Complete'
-                                    : 'Move forward'
-                                }
-                              >
-                                {isBlockedFromDone ? (
-                                  <>
-                                    <Lock className="w-3.5 h-3.5 text-amber-500" />
-                                    <span>Locked</span>
-                                  </>
-                                ) : col.id === 'REVIEW' ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span>Claim</span>
-                                  </>
-                                ) : (
-                                  <ArrowRight className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                            );
-                          })()}
                         </div>
+
+                        {/* BOM Material Cost Badge if any */}
+                        {task.task_materials && task.task_materials.length > 0 && (() => {
+                          const cost = task.task_materials.reduce(
+                            (acc: number, m: any) =>
+                              acc +
+                              (Number(m.quantity_required) || 0) *
+                                (Number(m.inventory_item?.unit_price) || 0),
+                            0
+                          );
+                          const curr = task.task_materials[0]?.inventory_item?.currency || 'ILS';
+                          return (
+                            <div>
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-900/40"
+                                title={`${task.task_materials.length} Materials linked (Est. BOM: ${formatCurrency(cost, curr)})`}
+                              >
+                                <Boxes className="w-3 h-3" />
+                                <span>BOM: {formatCurrency(cost, curr)}</span>
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Row 2: Touch-Friendly 1-Tap Status Advance Action Bar */}
+                        {!isPublicShowcase && (
+                          <div className="flex items-center gap-1.5 pt-1">
+                            {col.id !== 'TODO' && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const prevStatus =
+                                    col.id === 'DONE'
+                                      ? 'REVIEW'
+                                      : col.id === 'REVIEW'
+                                      ? 'IN_PROGRESS'
+                                      : 'TODO';
+                                  handleMoveTask(task.id, prevStatus);
+                                }}
+                                className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition touch-manipulation active:scale-95 shrink-0"
+                                title="Move back to previous status"
+                                aria-label="Move task back"
+                              >
+                                <ArrowLeft className="w-4 h-4" />
+                              </button>
+                            )}
+
+                            {col.id !== 'DONE' ? (() => {
+                              const prereq = task.prerequisite_task_id
+                                ? tasks.find((t) => t.id === task.prerequisite_task_id)
+                                : null;
+                              const isBlockedFromDone =
+                                col.id === 'REVIEW' && prereq && prereq.status !== 'DONE';
+
+                              const advanceLabel =
+                                col.id === 'TODO'
+                                  ? 'Start Task'
+                                  : col.id === 'IN_PROGRESS'
+                                  ? 'To Review'
+                                  : 'Claim XP';
+
+                              const nextStatus: TaskStatus =
+                                col.id === 'TODO'
+                                  ? 'IN_PROGRESS'
+                                  : col.id === 'IN_PROGRESS'
+                                  ? 'REVIEW'
+                                  : 'DONE';
+
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={isBlockedFromDone}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (isBlockedFromDone) return;
+                                    handleMoveTask(task.id, nextStatus);
+                                  }}
+                                  className={cn(
+                                    "flex-1 min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition touch-manipulation shadow-sm",
+                                    isBlockedFromDone
+                                      ? "opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700"
+                                      : col.id === 'REVIEW'
+                                      ? "bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white shadow-emerald-500/20"
+                                      : col.id === 'IN_PROGRESS'
+                                      ? "bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white shadow-indigo-500/20"
+                                      : "bg-blue-600 hover:bg-blue-500 active:scale-95 text-white shadow-blue-500/20"
+                                  )}
+                                  title={
+                                    isBlockedFromDone
+                                      ? `Locked: Must complete "${prereq?.title}" first`
+                                      : advanceLabel
+                                  }
+                                >
+                                  {isBlockedFromDone ? (
+                                    <>
+                                      <Lock className="w-3.5 h-3.5 text-amber-500" />
+                                      <span className="truncate">Blocked by Prereq</span>
+                                    </>
+                                  ) : col.id === 'REVIEW' ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Claim +{task.xp_reward} XP</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>{advanceLabel}</span>
+                                      <ArrowRight className="w-3.5 h-3.5" />
+                                    </>
+                                  )}
+                                </button>
+                              );
+                            })() : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMoveTask(task.id, 'IN_PROGRESS');
+                                }}
+                                className="flex-1 min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1.5 transition touch-manipulation"
+                                title="Reopen completed task"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Reopen Task</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -2101,6 +2181,7 @@ export default function KanbanBoardClient({
             </div>
           );
         })}
+        </div>
       </div>
       )}
 
